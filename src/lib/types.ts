@@ -31,5 +31,5 @@ export type Loan = {
   amount: number;
   startDate: string;
   status: 'Active' | 'Overdue' | 'Paid Off';
-  payments: Payment[];
+  payments: Omit<Payment, 'id' | 'loanId'>[];
 };
