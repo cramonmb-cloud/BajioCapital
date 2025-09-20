@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, TrendingUp, Receipt } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -103,19 +103,23 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     const firstPaymentDueDate = new Date(loanStartDate);
     firstPaymentDueDate.setUTCDate(loanStartDate.getUTCDate() + 7);
 
-    // Calculate the start and end of the specific payment week
     const weekStartDate = new Date(firstPaymentDueDate);
-    weekStartDate.setUTCDate(firstPaymentDueDate.getUTCDate() + (weekNumber - 1) * 7 - 6); // Week starts on Sunday
-    
-    const weekEndDate = new Date(weekStartDate);
-    weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 6); // Week ends on Saturday
+    // Week starts on Sunday for calculation purposes
+    weekStartDate.setUTCDate(firstPaymentDueDate.getUTCDate() + (weekNumber - 1) * 7 - 6); 
 
     const paymentsForWeek = loan.payments.filter(p => {
         const paymentDate = new Date(p.date);
-        return paymentDate >= weekStartDate && paymentDate <= weekEndDate;
+        // A payment belongs to the week if it's on or after the start date of the week's first payment period
+        // and before the next week's start.
+        const nextWeekStartDate = new Date(weekStartDate);
+        nextWeekStartDate.setUTCDate(weekStartDate.getUTCDate() + 7);
+        return paymentDate >= weekStartDate && paymentDate < nextWeekStartDate;
     });
 
-    const totalPaidForWeek = paymentsForWeek.reduce((sum, p) => sum + p.amount, 0);
+    const totalPaidForWeek = loan.payments
+        .filter(p => new Date(p.date).toISOString().split('T')[0] === weekStartDate.toISOString().split('T')[0])
+        .reduce((sum, p) => sum + p.amount, 0);
+
 
     const isFuture = new Date() < weekStartDate;
     
@@ -140,26 +144,6 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
       setPaymentDialogOpen(true);
   }
 
-  // Report calculations for the selected week
-  let totalCollectedThisWeek = 0;
-  let totalPaymentsThisWeek = 0;
-  if(selectedWeek) {
-    const selectedSaturday = new Date(selectedWeek);
-    const weekStart = new Date(selectedSaturday);
-    weekStart.setUTCDate(selectedSaturday.getUTCDate() - 6);
-
-    loans.forEach(loan => {
-        loan.payments.forEach(payment => {
-            const paymentDate = new Date(payment.date);
-            if (paymentDate >= weekStart && paymentDate <= selectedSaturday) {
-                totalCollectedThisWeek += payment.amount;
-                totalPaymentsThisWeek += 1;
-            }
-        })
-    })
-  }
-
-
   return (
     <>
     <div className="space-y-4">
@@ -173,37 +157,6 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
         <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans}/>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Cobranza de la Semana
-            </CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(totalCollectedThisWeek)}</div>
-             <p className="text-xs text-muted-foreground">
-              Total cobrado en la semana seleccionada
-            </p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Abonos Registrados
-            </CardTitle>
-            <Receipt className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">+{totalPaymentsThisWeek}</div>
-            <p className="text-xs text-muted-foreground">
-              Pagos registrados en la semana seleccionada
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
       <div className="grid gap-4 md:grid-cols-[180px_1fr]">
         {/* Weeks List */}
         <Card>
@@ -288,9 +241,8 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                           </TableCell>
                           {Array.from({ length: 14 }, (_, i) => {
                             const weekStatus = getWeekPaymentStatus(loan, i + 1);
-                            // Allow registering payment if the week is not fully paid and not in the future (unless it's the very first pending week)
-                            const isPastOrPresent = new Date() >= weekStatus.date;
-                            const canRegisterPayment = loan.status !== 'Paid Off' && isPastOrPresent && weekStatus.status !== 'paid';
+                            const canRegisterPayment = (loan.status !== 'Paid Off') && (currentPaymentWeekNumber === i + 1 || weekStatus.status === 'partial' || weekStatus.status === 'missed');
+
 
                             let statusInfo;
                             switch(weekStatus.status) {
