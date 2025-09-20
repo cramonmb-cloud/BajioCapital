@@ -38,6 +38,19 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
       const correctedDate = new Date(date.getTime() + userTimezoneOffset);
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
   };
+
+  const translateStatus = (status: Loan['status']) => {
+    switch (status) {
+      case 'Active':
+        return 'Activo';
+      case 'Overdue':
+        return 'Vencido';
+      case 'Paid Off':
+        return 'Pagado';
+      default:
+        return status;
+    }
+  };
   
   return (
     <div className="space-y-6">
@@ -76,7 +89,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                       <TableCell>{getPlanName(loan.loanPlanId)}</TableCell>
                       <TableCell>{formatDate(loan.startDate)}</TableCell>
                       <TableCell>
-                        <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
+                        <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{translateStatus(loan.status)}</Badge>
                       </TableCell>
                     </TableRow>
                   ))) : (

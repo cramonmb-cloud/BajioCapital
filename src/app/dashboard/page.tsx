@@ -18,6 +18,7 @@ import { Users, Landmark, Banknote, ArrowRight, Database, TrendingUp, Receipt } 
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { seedDatabaseAction } from './seed-actions';
+import type { Loan } from '@/lib/types';
 
 
 export default async function DashboardPage() {
@@ -46,6 +47,19 @@ export default async function DashboardPage() {
       style: 'currency',
       currency: 'MXN',
     }).format(amount);
+  };
+
+  const translateStatus = (status: Loan['status']) => {
+    switch (status) {
+      case 'Active':
+        return 'Activo';
+      case 'Overdue':
+        return 'Vencido';
+      case 'Paid Off':
+        return 'Pagado';
+      default:
+        return status;
+    }
   };
   
   // Weekly report logic
@@ -181,7 +195,7 @@ export default async function DashboardPage() {
                     <TableCell>{formatCurrency(loan.amount)}</TableCell>
                     <TableCell>{getPlanName(loan.loanPlanId)}</TableCell>
                     <TableCell>
-                      <Badge variant="destructive">{loan.status}</Badge>
+                      <Badge variant="destructive">{translateStatus(loan.status)}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                        <Button asChild variant="ghost" size="icon">

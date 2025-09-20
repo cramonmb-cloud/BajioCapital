@@ -78,6 +78,19 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
   };
 
+  const translateStatus = (status: Loan['status']) => {
+    switch (status) {
+      case 'Active':
+        return 'Activo';
+      case 'Overdue':
+        return 'Vencido';
+      case 'Paid Off':
+        return 'Pagado';
+      default:
+        return status;
+    }
+  };
+
   // Get unique weeks (represented by Saturday's date string) from all loans
   const loanWeeks = Array.from(
     new Set(loans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
@@ -214,9 +227,9 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                           </TableCell>
                           <TableCell className="p-2">{formatCurrency(weeklyPayment)}</TableCell>
                           <TableCell className="p-2">
-                            <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
+                            <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{translateStatus(loan.status)}</Badge>
                           </TableCell>
-                          {Array.from({ length: 14 }, (_, i) => {
+                          {Array.from({ length: 14 }).map((_, i) => {
                             const weekNumber = i + 1;
                             
                             if (!loanPlan || weekNumber > loanPlan.termInWeeks) {
