@@ -96,6 +96,17 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     }
   };
 
+  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' => {
+    switch (status) {
+        case 'Overdue':
+            return 'destructive';
+        case 'Paid Off':
+            return 'success';
+        default:
+            return 'default';
+    }
+  };
+
   // Get unique weeks (represented by Saturday's date string) from all loans
   const loanWeeks = Array.from(
     new Set(loans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
@@ -114,21 +125,17 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
     if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0 };
     
+    // If loan is paid off, all weeks within term are considered paid.
+    if (loan.status === 'Paid Off' && weekNumber <= loanPlan.termInWeeks) {
+        return { status: 'paid' as const, date: new Date(), amountPaid: 0 };
+    }
+
     // The loan's official start date is a Saturday.
     const loanStartDate = new Date(loan.startDate);
-    // The payment period for "Week 1" starts on the Sunday after the loan's start date.
-    const firstWeekStartDate = new Date(loanStartDate);
-    firstWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 1);
-    firstWeekStartDate.setUTCHours(0, 0, 0, 0);
-
-    const weekStartDate = new Date(firstWeekStartDate);
-    weekStartDate.setUTCDate(firstWeekStartDate.getUTCDate() + (weekNumber - 1) * 7);
-
-    // If loan is paid off, all weeks within term are considered paid.
-    if (loan.status === 'Paid Off') {
-        return { status: 'paid' as const, date: weekStartDate, amountPaid: 0 };
-    }
     
+    const weekStartDate = new Date(loanStartDate);
+    weekStartDate.setUTCDate(loanStartDate.getUTCDate() + ((weekNumber - 1) * 7));
+
     const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
     const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
@@ -231,7 +238,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                           </TableCell>
                           <TableCell className="p-2">{formatCurrency(weeklyPayment)}</TableCell>
                           <TableCell className="p-2">
-                            <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{translateStatus(loan.status)}</Badge>
+                            <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
                           </TableCell>
                            {Array.from({ length: 14 }).map((_, i) => {
                                 const weekNumber = i + 1;

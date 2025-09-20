@@ -52,6 +52,17 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     }
   };
   
+  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' => {
+    switch (status) {
+        case 'Overdue':
+            return 'destructive';
+        case 'Paid Off':
+            return 'success';
+        default:
+            return 'default';
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center space-x-4">
@@ -89,7 +100,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                       <TableCell>{getPlanName(loan.loanPlanId)}</TableCell>
                       <TableCell>{formatDate(loan.startDate)}</TableCell>
                       <TableCell>
-                        <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{translateStatus(loan.status)}</Badge>
+                        <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
                       </TableCell>
                     </TableRow>
                   ))) : (
