@@ -16,10 +16,13 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { clients, loans } from '@/lib/data';
+import { getClients, getLoans } from '@/lib/firestore-data';
 import Link from 'next/link';
 
-export default function ClientsPage() {
+export default async function ClientsPage() {
+  const clients = await getClients();
+  const loans = await getLoans();
+
   const getClientLoanCount = (clientId: string) => {
     return loans.filter(loan => loan.clientId === clientId).length;
   };
