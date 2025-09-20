@@ -114,7 +114,7 @@ export default function LoansPage() {
 
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Préstamos</h1>
@@ -125,14 +125,14 @@ export default function LoansPage() {
         <CreateLoanDialog />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[180px_1fr]">
+      <div className="grid gap-4 md:grid-cols-[180px_1fr]">
         {/* Weeks List */}
-        <Card className="md:h-fit">
-            <CardHeader>
+        <Card>
+            <CardHeader className="p-4">
                 <CardTitle className="text-lg">Semanas</CardTitle>
             </CardHeader>
-            <CardContent>
-                <div className="space-y-2">
+            <CardContent className="p-2 pt-0">
+                <div className="space-y-1">
                     {loanWeeks.map((week) => (
                         <Button 
                             key={week}
@@ -143,51 +143,51 @@ export default function LoansPage() {
                             {formatDate(week)}
                         </Button>
                     ))}
-                    {loanWeeks.length === 0 && <p className="text-sm text-muted-foreground text-center">No hay préstamos registrados.</p>}
+                    {loanWeeks.length === 0 && <p className="text-sm text-muted-foreground text-center p-4">No hay préstamos.</p>}
                 </div>
             </CardContent>
         </Card>
 
         {/* Loans Table */}
         <Card>
-          <CardHeader>
+          <CardHeader className="p-4">
             <CardTitle>Préstamos de la Semana</CardTitle>
             <CardDescription>
               {`Mostrando ${filteredLoans.length} préstamos para la semana del ${selectedWeek ? formatDate(selectedWeek) : 'N/A'}.`}
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             <TooltipProvider>
               <ScrollArea className="w-full whitespace-nowrap">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky left-0 bg-card z-10 w-[200px]">Cliente</TableHead>
-                      <TableHead>Abono Semanal</TableHead>
-                      <TableHead>Estado</TableHead>
+                      <TableHead className="sticky left-0 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
+                      <TableHead className="p-2">Abono Semanal</TableHead>
+                      <TableHead className="p-2">Estado</TableHead>
                       {Array.from({ length: 14 }, (_, i) => (
-                        <TableHead key={i} className="text-center">{`S${i + 1}`}</TableHead>
+                        <TableHead key={i} className="text-center p-2">{`S${i + 1}`}</TableHead>
                       ))}
-                      <TableHead className="text-right sticky right-0 bg-card z-10">Acciones</TableHead>
+                      <TableHead className="text-right sticky right-0 bg-card z-10 p-2">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredLoans.length > 0 ? (
                       filteredLoans.map((loan) => (
                         <TableRow key={loan.id}>
-                          <TableCell className="font-medium sticky left-0 bg-card z-10 w-[200px]">
+                          <TableCell className="font-medium sticky left-0 bg-card z-10 w-[200px] p-2">
                             <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
                               {getClientName(loan.clientId)}
                             </Link>
                           </TableCell>
-                          <TableCell>{formatCurrency(getWeeklyPayment(loan.loanPlanId))}</TableCell>
-                          <TableCell>
+                          <TableCell className="p-2">{formatCurrency(getWeeklyPayment(loan.loanPlanId))}</TableCell>
+                          <TableCell className="p-2">
                             <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
                           </TableCell>
                           {Array.from({ length: 14 }, (_, i) => {
                             const weekStatus = getWeekPaymentStatus(loan, i + 1);
                             return (
-                                <TableCell key={i} className="text-center">
+                                <TableCell key={i} className="text-center p-2">
                                      <Tooltip>
                                         <TooltipTrigger>
                                             {weekStatus.status === 'paid' && <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />}
@@ -205,7 +205,7 @@ export default function LoansPage() {
                                 </TableCell>
                             );
                           })}
-                          <TableCell className="text-right sticky right-0 bg-card z-10">
+                          <TableCell className="text-right sticky right-0 bg-card z-10 p-2">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button aria-haspopup="true" size="icon" variant="ghost">
@@ -226,7 +226,7 @@ export default function LoansPage() {
                       ))
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={18} className="text-center h-24">
+                            <TableCell colSpan={18} className="text-center h-24 p-2">
                                No hay préstamos para la semana seleccionada.
                             </TableCell>
                         </TableRow>
