@@ -8,6 +8,7 @@ import {
   Landmark,
   FileText,
   Wallet,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -32,6 +33,10 @@ const links = [
     href: '/dashboard/plans',
     label: 'Planes',
   },
+  {
+    href: '/dashboard/settings',
+    label: 'Ajustes',
+  }
 ];
 
 export function MainNav() {
