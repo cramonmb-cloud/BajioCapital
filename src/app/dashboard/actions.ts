@@ -53,7 +53,7 @@ export async function createLoanAction(input: CreateLoanInput) {
 }
 
 
-export async function registerPaymentAction(loanId: string, paymentStartDate: Date, amountPaid: number, weekNumber: number) {
+export async function registerPaymentAction(loanId: string, paymentStartDate: Date, amountPaid: number, startingWeekNumber: number) {
     try {
         await runTransaction(db, async (transaction) => {
             const loanRef = doc(db, 'loans', loanId);
@@ -71,29 +71,68 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             if (!loanPlan) {
                 throw new Error('Plan de préstamo no encontrado');
             }
+            
+            const weeklyPayment = loanPlan.weeklyPayment;
+            let remainingAmountToDistribute = amountPaid;
+            
+            let currentWeekStartDate = new Date(paymentStartDate);
+            let currentWeekNumber = startingWeekNumber;
+            const weeksPaidInTx: number[] = [];
 
+            const allPayments = [...loan.payments];
+
+            // First, determine which weeks will be affected
+            while (remainingAmountToDistribute > 0 && currentWeekNumber <= loanPlan.termInWeeks) {
+                 const weekStartISO = currentWeekStartDate.toISOString().split('T')[0];
+                 const existingPaymentIndex = allPayments.findIndex(p => p.date.split('T')[0] === weekStartISO);
+                 let existingPartialAmount = 0;
+                 if (existingPaymentIndex !== -1) {
+                    existingPartialAmount = allPayments[existingPaymentIndex].amount;
+                 }
+                
+                const amountNeeded = weeklyPayment - existingPartialAmount;
+                const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
+
+                if (amountToApply > 0) {
+                   if (!weeksPaidInTx.includes(currentWeekNumber)) {
+                       weeksPaidInTx.push(currentWeekNumber);
+                   }
+                }
+               
+                remainingAmountToDistribute -= amountToApply;
+                
+                if (remainingAmountToDistribute > 0) {
+                    currentWeekStartDate.setUTCDate(currentWeekStartDate.getUTCDate() + 7);
+                    currentWeekNumber++;
+                }
+            }
+            
             // --- Wallet and Transaction Logic ---
             const walletTransactionRef = doc(collection(db, 'walletTransactions'));
+            let weeksDescription = '';
+            if (weeksPaidInTx.length > 1) {
+                weeksDescription = `Semanas ${weeksPaidInTx.join(', ')}`;
+            } else {
+                weeksDescription = `Semana ${startingWeekNumber}`;
+            }
+
             transaction.set(walletTransactionRef, {
                 type: 'credit',
                 amount: amountPaid,
                 date: new Date(),
-                description: `Abono de ${client?.name || 'N/A'} para préstamo (Semana ${weekNumber}).`,
+                description: `Abono de ${client?.name || 'N/A'} para préstamo (${weeksDescription}).`,
                 loanId: loanId,
                 clientId: loan.clientId,
             });
             transaction.set(walletRef, { balance: increment(amountPaid) }, { merge: true });
             // --- End Wallet Logic ---
 
+            // Now, apply the payments
+            remainingAmountToDistribute = amountPaid;
+            currentWeekStartDate = new Date(paymentStartDate);
+            currentWeekNumber = startingWeekNumber;
 
-            const weeklyPayment = loanPlan.weeklyPayment;
-            let remainingAmountToDistribute = amountPaid;
-            
-            let currentWeekStartDate = new Date(paymentStartDate);
-
-            const allPayments = [...loan.payments];
-
-            while (remainingAmountToDistribute > 0) {
+            while (remainingAmountToDistribute > 0 && currentWeekNumber <= loanPlan.termInWeeks) {
                 const weekStartISO = currentWeekStartDate.toISOString().split('T')[0];
 
                 const existingPaymentIndex = allPayments.findIndex(p => p.date.split('T')[0] === weekStartISO);
@@ -122,6 +161,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 
                 if (remainingAmountToDistribute > 0) {
                     currentWeekStartDate.setUTCDate(currentWeekStartDate.getUTCDate() + 7);
+                    currentWeekNumber++;
                 }
             }
 
