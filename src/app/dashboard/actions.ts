@@ -72,6 +72,11 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 throw new Error('Plan de préstamo no encontrado');
             }
             
+            const getWeeklyPaymentAmount = (loan: Loan) => {
+              if (!loanPlan) return 0;
+              return (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+            };
+
             // The loan's official start date is a Saturday.
             const loanStartDate = new Date(loan.startDate);
             // The payment period for "Week 1" starts on the Sunday after the loan's start date.
@@ -79,7 +84,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             firstWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 1);
             firstWeekStartDate.setUTCHours(0, 0, 0, 0);
             
-            const weeklyPayment = loanPlan.weeklyPayment;
+            const weeklyPayment = getWeeklyPaymentAmount(loan);
             let remainingAmountToDistribute = amountPaid;
             
             let tempCurrentWeekNumber = startingWeekNumber;

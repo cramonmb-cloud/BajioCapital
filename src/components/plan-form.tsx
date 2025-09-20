@@ -37,7 +37,7 @@ import { deleteLoanPlanAction, saveLoanPlanAction } from '@/app/dashboard/plans/
 const formSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido.'),
   description: z.string().min(1, 'La descripción es requerida.'),
-  weeklyPayment: z.coerce.number().min(0, 'El abono semanal no puede ser negativo.'),
+  weeklyPaymentRate: z.coerce.number().min(0, 'El abono semanal no puede ser negativo.'),
   termInWeeks: z.coerce.number().int().min(1, 'El plazo debe ser de al menos 1 semana.'),
 });
 
@@ -59,13 +59,13 @@ export function PlanForm({ plan }: PlanFormProps) {
       ? {
           name: plan.name,
           description: plan.description,
-          weeklyPayment: plan.weeklyPayment,
+          weeklyPaymentRate: plan.weeklyPaymentRate,
           termInWeeks: plan.termInWeeks,
         }
       : {
           name: '',
           description: '',
-          weeklyPayment: 0,
+          weeklyPaymentRate: 0,
           termInWeeks: 1,
         },
   });
@@ -160,15 +160,15 @@ export function PlanForm({ plan }: PlanFormProps) {
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
-                name="weeklyPayment"
+                name="weeklyPaymentRate"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Abono Semanal ($)</FormLabel>
+                    <FormLabel>Abono Semanal (por cada $1,000)</FormLabel>
                     <FormControl>
                         <Input type="number" placeholder="110" {...field} />
                     </FormControl>
                     <FormDescription>
-                        Monto del pago a realizar cada semana.
+                        Tasa de pago semanal por cada $1,000 prestados.
                     </FormDescription>
                     <FormMessage />
                     </FormItem>

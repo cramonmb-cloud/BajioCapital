@@ -61,7 +61,12 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
   const router = useRouter();
 
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
-  const getWeeklyPayment = (loanPlanId: string) => loanPlans.find(p => p.id === loanPlanId)?.weeklyPayment || 0;
+  
+  const getWeeklyPaymentAmount = (loan: Loan) => {
+    const plan = loanPlans.find(p => p.id === loan.loanPlanId);
+    if (!plan) return 0;
+    return (loan.amount / 1000) * plan.weeklyPaymentRate;
+  };
   
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -109,6 +114,8 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
     if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0 };
 
+    const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
+
     // The loan's official start date is a Saturday.
     const loanStartDate = new Date(loan.startDate);
     
@@ -137,7 +144,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     }
 
     if (totalPaidForWeek > 0) {
-        if(totalPaidForWeek >= loanPlan.weeklyPayment) {
+        if(totalPaidForWeek >= weeklyPaymentAmount) {
             return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek };
         } else {
             return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek };
@@ -215,7 +222,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                   <TableBody>
                     {filteredLoans.length > 0 ? (
                       filteredLoans.map((loan) => {
-                        const weeklyPayment = getWeeklyPayment(loan.loanPlanId);
+                        const weeklyPayment = getWeeklyPaymentAmount(loan);
                         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
                         
                         return (
@@ -233,7 +240,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                             const weekNumber = i + 1;
                             
                             if (!loanPlan || weekNumber > loanPlan.termInWeeks) {
-                                return <TableCell key={i} className="p-2" />;
+                                return <TableCell key={i} className="text-center p-2" />;
                             }
                             
                             const weekStatus = getWeekPaymentStatus(loan, weekNumber);

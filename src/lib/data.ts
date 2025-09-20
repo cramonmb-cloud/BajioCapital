@@ -39,21 +39,21 @@ export const loanPlans: LoanPlan[] = [
     name: 'Plan Semanal Básico',
     description: 'Abonos fijos semanales durante 12 semanas.',
     termInWeeks: 12,
-    weeklyPayment: 110,
+    weeklyPaymentRate: 110,
   },
   {
     id: 'plan-2',
     name: 'Plan Rápido',
     description: 'Paga tu préstamo en menos tiempo con abonos semanales.',
     termInWeeks: 8,
-    weeklyPayment: 150,
+    weeklyPaymentRate: 150,
   },
   {
     id: 'plan-3',
     name: 'Plan Extendido',
     description: 'Abonos semanales más pequeños por un período más largo.',
     termInWeeks: 24,
-    weeklyPayment: 75,
+    weeklyPaymentRate: 75,
   },
 ];
 

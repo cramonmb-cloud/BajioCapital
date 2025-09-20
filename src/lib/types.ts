@@ -14,7 +14,7 @@ export type LoanPlan = {
   name: string;
   description: string;
   termInWeeks: number;
-  weeklyPayment: number;
+  weeklyPaymentRate: number; // Renamed from weeklyPayment
 };
 
 export type Payment = {

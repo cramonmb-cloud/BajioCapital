@@ -47,8 +47,8 @@ export default async function LoanPlansPage() {
             <CardContent>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Abono Semanal:</span>
-                  <span>{formatCurrency(plan.weeklyPayment)}</span>
+                  <span className="text-muted-foreground">Abono Semanal (por cada $1,000):</span>
+                  <span>{formatCurrency(plan.weeklyPaymentRate)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Plazo:</span>

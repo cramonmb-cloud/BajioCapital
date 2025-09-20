@@ -62,11 +62,24 @@ export function RegisterPaymentDialog({
   const client = clients.find(c => c.id === loan.clientId);
   const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
 
+  const getWeeklyPaymentAmount = (loan: Loan) => {
+    const plan = loanPlans.find(p => p.id === loan.loanPlanId);
+    if (!plan) return 0;
+    return (loan.amount / 1000) * plan.weeklyPaymentRate;
+  };
+
+  const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
+
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      amountPaid: loanPlan?.weeklyPayment || 0,
+      amountPaid: weeklyPaymentAmount || 0,
     },
+  });
+
+  // Effect to update default value when dialog opens or loan changes
+  useState(() => {
+    form.reset({ amountPaid: weeklyPaymentAmount || 0 });
   });
 
   const onSubmit = async (values: PaymentFormValues) => {
@@ -94,7 +107,6 @@ export function RegisterPaymentDialog({
       });
     } finally {
       setIsSubmitting(false);
-      form.reset({ amountPaid: loanPlan?.weeklyPayment || 0 });
     }
   };
   
@@ -106,7 +118,7 @@ export function RegisterPaymentDialog({
     <Dialog open={isOpen} onOpenChange={(open) => {
         onOpenChange(open);
         if (!open) {
-            form.reset({ amountPaid: loanPlan?.weeklyPayment || 0 });
+            form.reset({ amountPaid: weeklyPaymentAmount || 0 });
         }
     }}>
       <DialogContent className="sm:max-w-[425px]">
@@ -116,7 +128,7 @@ export function RegisterPaymentDialog({
               <DialogTitle>Registrar Pago - Semana {weekNumber}</DialogTitle>
               <DialogDescription>
                 Registra el abono para <span className="font-semibold">{client?.name}</span> comenzando en la semana del <span className="font-semibold">{formatDate(weekDate)}</span>. 
-                El abono semanal esperado es de {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(loanPlan?.weeklyPayment || 0)}.
+                El abono semanal esperado es de {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(weeklyPaymentAmount || 0)}.
               </DialogDescription>
             </DialogHeader>
 
