@@ -100,12 +100,12 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     const loanStartDate = new Date(loan.startDate);
     
     // The first payment is due on the *next* Saturday.
-    const firstPaymentDueDate = new Date(loanStartDate);
-    firstPaymentDueDate.setUTCDate(loanStartDate.getUTCDate() + 7);
+    // So the period for week 1 starts on Sunday after loan start and ends on the next Saturday
+    const firstWeekStartDate = new Date(loanStartDate);
+    firstWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 1);
 
-    const weekStartDate = new Date(firstPaymentDueDate);
-    // Week starts on Sunday for calculation purposes
-    weekStartDate.setUTCDate(firstPaymentDueDate.getUTCDate() + (weekNumber - 1) * 7 - 6); 
+    const weekStartDate = new Date(firstWeekStartDate);
+    weekStartDate.setUTCDate(firstWeekStartDate.getUTCDate() + (weekNumber - 1) * 7);
 
     const weekEndDate = new Date(weekStartDate);
     weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 7);
@@ -266,7 +266,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                             );
                           })}
                            {/* Render empty cells if term is less than 14 */}
-                          {Array.from({ length: 14 - termInWeeks }, (_, i) => (
+                          {Array.from({ length: Math.max(0, 14 - termInWeeks) }, (_, i) => (
                               <TableCell key={`empty-${i}`} className="p-2" />
                           ))}
                           <TableCell className="text-right sticky right-0 bg-card z-10 p-2">
