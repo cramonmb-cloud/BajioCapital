@@ -116,10 +116,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
 
     const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
-    // The loan's official start date is a Saturday.
     const loanStartDate = new Date(loan.startDate);
-    
-    // The payment period for "Week 1" starts on the Sunday after the loan's start date.
     const firstWeekStartDate = new Date(loanStartDate);
     firstWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 1);
     firstWeekStartDate.setUTCHours(0, 0, 0, 0);
@@ -236,58 +233,58 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                           <TableCell className="p-2">
                             <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{translateStatus(loan.status)}</Badge>
                           </TableCell>
-                          {Array.from({ length: 14 }).map((_, i) => {
-                            const weekNumber = i + 1;
-                            
-                            if (!loanPlan || weekNumber > loanPlan.termInWeeks) {
-                                return <TableCell key={i} className="text-center p-2" />;
-                            }
-                            
-                            const weekStatus = getWeekPaymentStatus(loan, weekNumber);
-                            const canRegisterPayment = (loan.status !== 'Paid Off') && (weekStatus.status !== 'pending');
+                           {Array.from({ length: 14 }).map((_, i) => {
+                                const weekNumber = i + 1;
+                                
+                                if (!loanPlan || weekNumber > loanPlan.termInWeeks) {
+                                    return <TableCell key={i} className="text-center p-2" />;
+                                }
+                                
+                                const weekStatus = getWeekPaymentStatus(loan, weekNumber);
+                                const canRegisterPayment = (loan.status !== 'Paid Off') && (weekStatus.status !== 'pending');
 
-                            let statusInfo;
-                            switch(weekStatus.status) {
-                                case 'paid':
-                                    statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: 'Pagado', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
-                                    break;
-                                case 'partial':
-                                    statusInfo = { icon: <AlertCircle className="h-4 w-4 text-yellow-500 mx-auto" />, text: 'Pago Parcial', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
-                                    break;
-                                case 'missed':
-                                    statusInfo = { icon: <XCircle className="h-4 w-4 text-red-500 mx-auto" />, text: 'Atrasado' };
-                                    break;
-                                default:
-                                    statusInfo = { icon: <Circle className="h-4 w-4 text-muted-foreground mx-auto" />, text: 'Pendiente' };
-                            }
-                            
-                            return (
-                                <TableCell key={i} className="text-center p-2">
-                                     <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <button 
-                                                className="w-full disabled:cursor-not-allowed"
-                                                disabled={!canRegisterPayment}
-                                                onClick={(e) => {
-                                                  if(canRegisterPayment) {
-                                                    e.stopPropagation();
-                                                    handleRegisterPaymentClick(loan, weekNumber, weekStatus.date);
-                                                  }
-                                                }}
-                                            >
-                                                {statusInfo.icon}
-                                            </button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>Semana {weekNumber} (Inicia: {formatDate(weekStatus.date.toISOString())})</p>
-                                            <p>Estado: {statusInfo.text}</p>
-                                            {statusInfo.paid && <p>{statusInfo.paid}</p>}
-                                            {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : weekStatus.status !== 'paid' && <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TableCell>
-                            );
-                          })}
+                                let statusInfo;
+                                switch(weekStatus.status) {
+                                    case 'paid':
+                                        statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: 'Pagado', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
+                                        break;
+                                    case 'partial':
+                                        statusInfo = { icon: <AlertCircle className="h-4 w-4 text-yellow-500 mx-auto" />, text: 'Pago Parcial', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
+                                        break;
+                                    case 'missed':
+                                        statusInfo = { icon: <XCircle className="h-4 w-4 text-red-500 mx-auto" />, text: 'Atrasado' };
+                                        break;
+                                    default:
+                                        statusInfo = { icon: <Circle className="h-4 w-4 text-muted-foreground mx-auto" />, text: 'Pendiente' };
+                                }
+                                
+                                return (
+                                    <TableCell key={i} className="text-center p-2">
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <button 
+                                                    className="w-full disabled:cursor-not-allowed"
+                                                    disabled={!canRegisterPayment}
+                                                    onClick={(e) => {
+                                                    if(canRegisterPayment) {
+                                                        e.stopPropagation();
+                                                        handleRegisterPaymentClick(loan, weekNumber, weekStatus.date);
+                                                    }
+                                                    }}
+                                                >
+                                                    {statusInfo.icon}
+                                                </button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                                <p>Semana {weekNumber} (Inicia: {formatDate(weekStatus.date.toISOString())})</p>
+                                                <p>Estado: {statusInfo.text}</p>
+                                                {statusInfo.paid && <p>{statusInfo.paid}</p>}
+                                                {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : weekStatus.status !== 'paid' && <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
+                                            </TooltipContent>
+                                        </Tooltip>
+                                    </TableCell>
+                                );
+                            })}
                           <TableCell className="text-right sticky right-0 bg-card z-10 p-2">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
