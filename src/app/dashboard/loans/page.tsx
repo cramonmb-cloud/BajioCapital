@@ -29,7 +29,6 @@ import { CreateLoanDialog } from '@/components/create-loan-dialog';
 
 export default function LoansPage() {
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
-  const getPlanName = (planId: string) => loanPlans.find(p => p.id === planId)?.name || 'N/A';
   
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -63,7 +62,6 @@ export default function LoansPage() {
               <TableRow>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Monto</TableHead>
-                <TableHead className="hidden md:table-cell">Plan</TableHead>
                 <TableHead className="hidden md:table-cell">Fecha del Préstamo</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>
@@ -80,7 +78,6 @@ export default function LoansPage() {
                     </Link>
                   </TableCell>
                   <TableCell>{formatCurrency(loan.amount)}</TableCell>
-                  <TableCell className="hidden md:table-cell">{getPlanName(loan.loanPlanId)}</TableCell>
                   <TableCell className="hidden md:table-cell">{new Date(loan.startDate).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })}</TableCell>
                   <TableCell>
                     <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
