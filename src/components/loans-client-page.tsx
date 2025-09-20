@@ -218,8 +218,10 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                           <TableCell className="p-2">
                             <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
                           </TableCell>
-                          {Array.from({ length: termInWeeks }, (_, i) => {
-                             if (i >= 14) return null; // Only show up to 14 weeks in the UI for consistency
+                          {Array.from({ length: 14 }, (_, i) => {
+                            if (i >= termInWeeks) {
+                                return <TableCell key={i} className="p-2" />;
+                            }
                             const weekStatus = getWeekPaymentStatus(loan, i + 1);
                             const canRegisterPayment = (loan.status !== 'Paid Off') && (weekStatus.status !== 'pending');
 
@@ -266,10 +268,6 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                 </TableCell>
                             );
                           })}
-                           {/* Render empty cells if term is less than 14 */}
-                          {Array.from({ length: Math.max(0, 14 - termInWeeks) }, (_, i) => (
-                              <TableCell key={`empty-${i}`} className="p-2" />
-                          ))}
                           <TableCell className="text-right sticky right-0 bg-card z-10 p-2">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
