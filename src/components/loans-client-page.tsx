@@ -205,7 +205,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                         const weeklyPayment = getWeeklyPayment(loan.loanPlanId);
                         
                         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-                        const termInWeeks = loanPlan?.termInWeeks || 14;
+                        const termInWeeks = loanPlan?.termInWeeks || 0;
                         
                         return (
                         <TableRow key={loan.id}>
@@ -222,9 +222,9 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                             if (i >= termInWeeks) {
                                 return <TableCell key={i} className="p-2" />;
                             }
+                            
                             const weekStatus = getWeekPaymentStatus(loan, i + 1);
                             const canRegisterPayment = (loan.status !== 'Paid Off') && (weekStatus.status !== 'pending');
-
 
                             let statusInfo;
                             switch(weekStatus.status) {
