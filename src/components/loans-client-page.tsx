@@ -113,9 +113,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
   const getWeekPaymentStatus = (loan: Loan, weekNumber: number) => {
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
     if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0 };
-
-    const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
-
+    
     // The loan's official start date is a Saturday.
     const loanStartDate = new Date(loan.startDate);
     // The payment period for "Week 1" starts on the Sunday after the loan's start date.
@@ -125,6 +123,13 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
 
     const weekStartDate = new Date(firstWeekStartDate);
     weekStartDate.setUTCDate(firstWeekStartDate.getUTCDate() + (weekNumber - 1) * 7);
+
+    // If loan is paid off, all weeks within term are considered paid.
+    if (loan.status === 'Paid Off') {
+        return { status: 'paid' as const, date: weekStartDate, amountPaid: 0 };
+    }
+    
+    const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
     const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
     const totalPaidForWeek = paymentForWeek?.amount || 0;
@@ -273,8 +278,8 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                             <TooltipContent>
                                                 <p>Semana {weekNumber} (Inicia: {formatDate(weekStatus.date.toISOString())})</p>
                                                 <p>Estado: {statusInfo.text}</p>
-                                                {statusInfo.paid && <p>{statusInfo.paid}</p>}
-                                                {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : weekStatus.status !== 'paid' && <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
+                                                {statusInfo.paid && weekStatus.amountPaid > 0 && <p>{statusInfo.paid}</p>}
+                                                {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : loan.status === 'Paid Off' ? <p className="text-xs text-muted-foreground">Préstamo liquidado</p> : <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
                                             </TooltipContent>
                                         </Tooltip>
                                     </TableCell>
