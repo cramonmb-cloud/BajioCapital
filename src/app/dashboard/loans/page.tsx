@@ -81,7 +81,7 @@ export default function LoansPage() {
                   </TableCell>
                   <TableCell>{formatCurrency(loan.amount)}</TableCell>
                   <TableCell className="hidden md:table-cell">{getPlanName(loan.loanPlanId)}</TableCell>
-                  <TableCell className="hidden md:table-cell">{new Date(loan.startDate).toLocaleDateString()}</TableCell>
+                  <TableCell className="hidden md:table-cell">{new Date(loan.startDate).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })}</TableCell>
                   <TableCell>
                     <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
                   </TableCell>

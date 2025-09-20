@@ -63,7 +63,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                     <TableRow key={loan.id}>
                       <TableCell>{formatCurrency(loan.amount)}</TableCell>
                       <TableCell>{getPlanName(loan.loanPlanId)}</TableCell>
-                      <TableCell>{new Date(loan.startDate).toLocaleDateString()}</TableCell>
+                      <TableCell>{new Date(loan.startDate).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })}</TableCell>
                       <TableCell>
                         <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
                       </TableCell>
