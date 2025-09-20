@@ -204,7 +204,6 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                       filteredLoans.map((loan) => {
                         const weeklyPayment = getWeeklyPayment(loan.loanPlanId);
                         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-                        const termInWeeks = loanPlan?.termInWeeks || 0;
                         
                         return (
                         <TableRow key={loan.id}>
@@ -219,7 +218,8 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                           </TableCell>
                           {Array.from({ length: 14 }, (_, i) => {
                             const weekNumber = i + 1;
-                            if (weekNumber > termInWeeks) {
+                            
+                            if (!loanPlan || weekNumber > loanPlan.termInWeeks) {
                                 return <TableCell key={i} className="p-2" />;
                             }
                             
