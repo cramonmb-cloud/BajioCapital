@@ -72,23 +72,31 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 throw new Error('Plan de préstamo no encontrado');
             }
             
+            // The loan's official start date is a Saturday.
+            const loanStartDate = new Date(loan.startDate);
+            // The payment period for "Week 1" starts on the Sunday after the loan's start date.
+            const firstWeekStartDate = new Date(loanStartDate);
+            firstWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 1);
+            firstWeekStartDate.setUTCHours(0, 0, 0, 0);
+            
             const weeklyPayment = loanPlan.weeklyPayment;
             let remainingAmountToDistribute = amountPaid;
             
-            let tempCurrentWeekStartDate = new Date(paymentStartDate);
             let tempCurrentWeekNumber = startingWeekNumber;
             const weeksPaidInTx: number[] = [];
             const allPayments = [...loan.payments];
 
-            // First, determine which weeks will be affected
+            // --- Main Payment Distribution Logic ---
             while (remainingAmountToDistribute > 0 && tempCurrentWeekNumber <= loanPlan.termInWeeks) {
-                const weekStart = new Date(tempCurrentWeekStartDate);
-                const weekEnd = new Date(weekStart);
-                weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+                const weekStartDate = new Date(firstWeekStartDate);
+                weekStartDate.setUTCDate(firstWeekStartDate.getUTCDate() + (tempCurrentWeekNumber - 1) * 7);
+
+                const weekEndDate = new Date(weekStartDate);
+                weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 7);
 
                 const existingPaymentIndex = allPayments.findIndex(p => {
                     const paymentDate = new Date(p.date);
-                    return paymentDate >= weekStart && paymentDate < weekEnd;
+                    return paymentDate >= weekStartDate && paymentDate < weekEndDate;
                 });
                 
                 let existingPartialAmount = 0;
@@ -107,9 +115,9 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                     if (existingPaymentIndex !== -1) {
                         allPayments[existingPaymentIndex].amount += amountToApply;
                     } else {
-                        // Create a new payment record for this week, using the week's start date
+                        // Create a new payment record for this week, using the payment's actual date for record keeping
                         allPayments.push({
-                            date: tempCurrentWeekStartDate.toISOString(),
+                            date: new Date().toISOString(),
                             amount: amountToApply,
                         });
                     }
@@ -118,7 +126,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 remainingAmountToDistribute -= amountToApply;
                 
                 if (remainingAmountToDistribute > 0) {
-                    tempCurrentWeekStartDate.setUTCDate(tempCurrentWeekStartDate.getUTCDate() + 7);
                     tempCurrentWeekNumber++;
                 }
             }

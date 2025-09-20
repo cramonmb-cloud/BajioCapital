@@ -99,10 +99,10 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     // The loan's official start date is a Saturday.
     const loanStartDate = new Date(loan.startDate);
     
-    // The first payment is due on the *next* Saturday.
-    // So the period for week 1 starts on Sunday after loan start and ends on the next Saturday
+    // The payment period for "Week 1" starts on the Sunday after the loan's start date.
     const firstWeekStartDate = new Date(loanStartDate);
     firstWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 1);
+    firstWeekStartDate.setUTCHours(0, 0, 0, 0);
 
     const weekStartDate = new Date(firstWeekStartDate);
     weekStartDate.setUTCDate(firstWeekStartDate.getUTCDate() + (weekNumber - 1) * 7);
@@ -219,6 +219,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                             <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
                           </TableCell>
                           {Array.from({ length: termInWeeks }, (_, i) => {
+                             if (i >= 14) return null; // Only show up to 14 weeks in the UI for consistency
                             const weekStatus = getWeekPaymentStatus(loan, i + 1);
                             const canRegisterPayment = (loan.status !== 'Paid Off') && (weekStatus.status !== 'pending');
 
@@ -256,7 +257,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                             </button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            <p>Semana {i + 1} ({formatDate(weekStatus.date.toISOString())})</p>
+                                            <p>Semana {i + 1} (Inicia: {formatDate(weekStatus.date.toISOString())})</p>
                                             <p>Estado: {statusInfo.text}</p>
                                             {statusInfo.paid && <p>{statusInfo.paid}</p>}
                                             {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : weekStatus.status !== 'paid' && <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
