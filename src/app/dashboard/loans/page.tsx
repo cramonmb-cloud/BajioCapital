@@ -142,7 +142,7 @@ export default function LoansPage() {
                             onClick={() => setSelectedWeek(week)}
                         >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            Semana del {formatDate(week)}
+                            {formatDate(week)}
                         </Button>
                     ))}
                     {loanWeeks.length === 0 && <p className="text-sm text-muted-foreground text-center">No hay préstamos registrados.</p>}
