@@ -78,9 +78,8 @@ export function RegisterPaymentDialog({
           title: 'Pago Registrado',
           description: `El pago para la semana ${weekNumber} ha sido registrado.`,
         });
-        form.reset();
         onOpenChange(false);
-        router.refresh(); // This will re-fetch server data and update the UI
+        router.refresh();
       } else {
         throw new Error(result.message || 'Error desconocido');
       }
@@ -92,6 +91,7 @@ export function RegisterPaymentDialog({
       });
     } finally {
       setIsSubmitting(false);
+      form.reset({ amountPaid: loanPlan?.weeklyPayment || 0 });
     }
   };
   
@@ -100,7 +100,12 @@ export function RegisterPaymentDialog({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+        onOpenChange(open);
+        if (!open) {
+            form.reset({ amountPaid: loanPlan?.weeklyPayment || 0 });
+        }
+    }}>
       <DialogContent className="sm:max-w-[425px]">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
