@@ -23,7 +23,7 @@ import type { LoanPlan } from '@/lib/types';
 const formSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido.'),
   description: z.string().min(1, 'La descripción es requerida.'),
-  interestRate: z.coerce.number().min(0, 'La tasa de interés no puede ser negativa.'),
+  weeklyPayment: z.coerce.number().min(0, 'El abono semanal no puede ser negativo.'),
   termInWeeks: z.coerce.number().int().min(1, 'El plazo debe ser de al menos 1 semana.'),
 });
 
@@ -43,13 +43,13 @@ export function PlanForm({ plan }: PlanFormProps) {
       ? {
           name: plan.name,
           description: plan.description,
-          interestRate: plan.interestRate * 100, // Display as percentage
+          weeklyPayment: plan.weeklyPayment,
           termInWeeks: plan.termInWeeks,
         }
       : {
           name: '',
           description: '',
-          interestRate: 0,
+          weeklyPayment: 0,
           termInWeeks: 1,
         },
   });
@@ -57,10 +57,7 @@ export function PlanForm({ plan }: PlanFormProps) {
   function onSubmit(values: PlanFormValues) {
     // Here you would typically handle the form submission,
     // e.g., by calling an API to save the plan.
-    console.log({
-      ...values,
-      interestRate: values.interestRate / 100, // Store as decimal
-    });
+    console.log(values);
     
     toast({
       title: plan ? 'Plan actualizado' : 'Plan creado',
@@ -97,7 +94,7 @@ export function PlanForm({ plan }: PlanFormProps) {
                   <FormLabel>Descripción</FormLabel>
                   <FormControl>
                     <Textarea
-                      placeholder="Ej: 110 semanales por cada 1000 prestados por 12 semanas"
+                      placeholder="Ej: Abonos fijos semanales durante 12 semanas"
                       {...field}
                     />
                   </FormControl>
@@ -108,15 +105,15 @@ export function PlanForm({ plan }: PlanFormProps) {
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                 control={form.control}
-                name="interestRate"
+                name="weeklyPayment"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Tasa de Interés (%)</FormLabel>
+                    <FormLabel>Abono Semanal ($)</FormLabel>
                     <FormControl>
-                        <Input type="number" placeholder="10" {...field} />
+                        <Input type="number" placeholder="110" {...field} />
                     </FormControl>
                     <FormDescription>
-                        Ingresa el porcentaje sin el símbolo %.
+                        Monto del pago a realizar cada semana.
                     </FormDescription>
                     <FormMessage />
                     </FormItem>

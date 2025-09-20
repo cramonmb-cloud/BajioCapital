@@ -12,6 +12,13 @@ import { loanPlans } from '@/lib/data';
 import Link from 'next/link';
 
 export default function LoanPlansPage() {
+    const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+    }).format(amount);
+  };
+  
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -39,8 +46,8 @@ export default function LoanPlansPage() {
             <CardContent>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Tasa de Interés:</span>
-                  <span>{(plan.interestRate * 100).toFixed(0)}%</span>
+                  <span className="text-muted-foreground">Abono Semanal:</span>
+                  <span>{formatCurrency(plan.weeklyPayment)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Plazo:</span>

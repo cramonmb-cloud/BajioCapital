@@ -13,8 +13,8 @@ export type LoanPlan = {
   id: string;
   name: string;
   description: string;
-  interestRate: number;
   termInWeeks: number;
+  weeklyPayment: number;
 };
 
 export type Payment = {
