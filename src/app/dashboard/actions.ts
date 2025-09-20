@@ -1,10 +1,10 @@
 'use server';
 
-import type { Client, Loan } from '@/lib/types';
+import type { Client, Loan, LoanPlan } from '@/lib/types';
 import { collection, doc, addDoc, serverTimestamp, updateDoc, runTransaction, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { revalidatePath } from 'next/cache';
-import { getLoanPlan, getClient } from '@/lib/firestore-data';
+import { getLoanPlan, getClient, getLoan } from '@/lib/firestore-data';
 
 export type CreateLoanInput = {
     loanPlanId: string;
@@ -145,9 +145,10 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             // --- End Wallet Logic ---
 
             const totalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
+            const totalLoanAmount = weeklyPayment * loanPlan.termInWeeks;
 
             let newStatus = loan.status;
-            if (totalPaid >= loan.amount) {
+            if (totalPaid >= totalLoanAmount) {
                 newStatus = 'Paid Off';
             }
 
@@ -165,5 +166,76 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
     } catch (error: any) {
         console.error('Error registering payment:', error);
         return { success: false, message: `Error al registrar el pago: ${error.message}` };
+    }
+}
+
+export async function payOffLoanAction(loanId: string) {
+    try {
+        const result = await runTransaction(db, async (transaction) => {
+            const loanRef = doc(db, "loans", loanId);
+            const loanDoc = await transaction.get(loanRef);
+            
+            if (!loanDoc.exists()) {
+                throw new Error("Préstamo no encontrado.");
+            }
+
+            const loan = loanDoc.data() as Loan;
+            const client = await getClient(loan.clientId);
+            const loanPlan = await getLoanPlan(loan.loanPlanId);
+            
+            if (!loanPlan) {
+                throw new Error("Plan de préstamo no encontrado.");
+            }
+
+            const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+            const totalLoanAmount = weeklyPayment * loanPlan.termInWeeks;
+            const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
+            const settlementAmount = totalLoanAmount - totalPaid;
+
+            if (settlementAmount <= 0) {
+                // If already paid off, just update status and return
+                transaction.update(loanRef, { status: "Paid Off" });
+                return { success: true, message: "Este préstamo ya estaba liquidado." };
+            }
+
+            // Record the final payment
+            const newPayments = [...loan.payments, {
+                date: new Date().toISOString(),
+                amount: settlementAmount,
+                weekNumber: -1, // Indicates a settlement payment
+            }];
+            
+            // Add to wallet
+            const walletRef = doc(db, 'wallet', 'main');
+            const walletTransactionRef = doc(collection(db, 'walletTransactions'));
+            transaction.set(walletTransactionRef, {
+                type: 'credit',
+                amount: settlementAmount,
+                date: new Date(),
+                description: `Liquidación de préstamo de ${client?.name || 'N/A'}.`,
+                loanId: loanId,
+                clientId: loan.clientId,
+            });
+            transaction.update(walletRef, { balance: increment(settlementAmount) });
+
+            // Update loan status to 'Paid Off'
+            transaction.update(loanRef, {
+                payments: newPayments,
+                status: 'Paid Off',
+            });
+            
+            return { success: true, message: "Préstamo liquidado con éxito." };
+        });
+
+        revalidatePath('/dashboard/loans');
+        revalidatePath('/dashboard/wallet');
+        revalidatePath('/dashboard');
+        revalidatePath('/dashboard/clients');
+
+        return result;
+
+    } catch (error: any) {
+        console.error('Error paying off loan:', error);
+        return { success: false, message: `Error al liquidar el préstamo: ${error.message}` };
     }
 }

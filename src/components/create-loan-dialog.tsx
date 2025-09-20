@@ -32,9 +32,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Client, Loan, LoanPlan } from '@/lib/types';
-import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
+import { PlusCircle, Loader2, AlertTriangle, BadgeDollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { createLoanAction } from '@/app/dashboard/actions';
+import { createLoanAction, payOffLoanAction } from '@/app/dashboard/actions';
 import { useRouter } from 'next/navigation';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent } from './ui/card';
@@ -66,9 +66,8 @@ interface CreateLoanDialogProps {
 
 interface ActiveLoanDetails {
     loan: Loan;
-    totalPaid: number;
-    remainingBalance: number;
-    currentWeek: number;
+    settlementAmount: number;
+    weeksRemaining: number;
 }
 
 export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialogProps) {
@@ -78,6 +77,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [activeLoanDetails, setActiveLoanDetails] = useState<ActiveLoanDetails | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPayingOff, setIsPayingOff] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -125,20 +125,23 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
     );
     
     if (activeLoan) {
-      const totalPaid = activeLoan.payments.reduce((acc, p) => acc + p.amount, 0);
-      const remainingBalance = activeLoan.amount - totalPaid;
-      
-      const loanStartDate = new Date(activeLoan.startDate);
-      const today = new Date();
-      const diffTime = Math.abs(today.getTime() - loanStartDate.getTime());
-      const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
+        const loanPlan = loanPlans.find(p => p.id === activeLoan.loanPlanId);
+        if (loanPlan) {
+            const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
+            const totalLoanAmount = weeklyPayment * loanPlan.termInWeeks;
+            const totalPaid = activeLoan.payments.reduce((acc, p) => acc + p.amount, 0);
+            const settlementAmount = totalLoanAmount - totalPaid;
 
-      setActiveLoanDetails({
-          loan: activeLoan,
-          totalPaid,
-          remainingBalance,
-          currentWeek: diffWeeks
-      });
+            // Simplified weeks remaining calculation
+            const weeksPaid = totalPaid / weeklyPayment;
+            const weeksRemaining = Math.max(0, loanPlan.termInWeeks - weeksPaid);
+
+            setActiveLoanDetails({
+                loan: activeLoan,
+                settlementAmount: settlementAmount > 0 ? settlementAmount : 0,
+                weeksRemaining: Math.ceil(weeksRemaining),
+            });
+        }
     } else {
         setActiveLoanDetails(null);
     }
@@ -156,6 +159,32 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
             return;
         }
         setStep(2);
+    }
+  };
+
+  const handlePayOffLoan = async () => {
+    if (!activeLoanDetails) return;
+    setIsPayingOff(true);
+    try {
+        const result = await payOffLoanAction(activeLoanDetails.loan.id);
+        if (result.success) {
+            toast({
+                title: 'Préstamo Liquidado',
+                description: 'El préstamo ha sido liquidado. Ahora puede crear uno nuevo.'
+            });
+            setActiveLoanDetails(null); // Clear the warning
+            router.refresh(); // Refresh data to reflect the change
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error al Liquidar',
+            description: error.message || 'No se pudo liquidar el préstamo.'
+        });
+    } finally {
+        setIsPayingOff(false);
     }
   };
   
@@ -309,18 +338,28 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
                             <Card className="mt-4 bg-destructive/10 border-destructive/50">
                                 <CardContent className="p-4">
                                     <div className="flex items-start gap-4">
-                                        <AlertTriangle className="h-6 w-6 text-destructive" />
-                                        <div>
+                                        <AlertTriangle className="h-6 w-6 text-destructive flex-shrink-0" />
+                                        <div className="flex-grow">
                                             <h3 className="font-semibold text-destructive">Cliente con Préstamo Activo</h3>
                                             <p className="text-sm text-destructive/90">
                                                 Este cliente no puede solicitar un nuevo préstamo hasta que el actual sea liquidado.
                                             </p>
                                             <div className="mt-2 text-sm space-y-1">
                                                 <p><strong>Monto Original:</strong> {formatCurrency(activeLoanDetails.loan.amount)}</p>
-                                                <p><strong>Saldo Restante:</strong> <span className="font-bold">{formatCurrency(activeLoanDetails.remainingBalance)}</span></p>
-                                                <p><strong>Plazo:</strong> Semana {activeLoanDetails.currentWeek} de {loanPlans.find(p => p.id === activeLoanDetails.loan.loanPlanId)?.termInWeeks}
-                                                </p>
+                                                <p><strong>Saldo para Liquidar:</strong> <span className="font-bold">{formatCurrency(activeLoanDetails.settlementAmount)}</span></p>
+                                                <p><strong>Semanas Restantes:</strong> {activeLoanDetails.weeksRemaining}</p>
                                             </div>
+                                             <Button 
+                                                type="button" 
+                                                variant="destructive" 
+                                                size="sm" 
+                                                className="mt-3"
+                                                onClick={handlePayOffLoan}
+                                                disabled={isPayingOff}
+                                            >
+                                                {isPayingOff ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeDollarSign className="mr-2 h-4 w-4" />}
+                                                Liquidar Préstamo
+                                            </Button>
                                         </div>
                                     </div>
                                 </CardContent>

@@ -21,30 +21,52 @@ export async function getClient(id: string): Promise<Client | null> {
   }
 }
 
+// Fetch a single loan by ID
+export async function getLoan(id: string): Promise<Loan | null> {
+  const loanRef = doc(db, 'loans', id);
+  const loanSnap = await getDoc(loanRef);
+  if (loanSnap.exists()) {
+    const data = loanSnap.data();
+    const startDate = data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate;
+    return { id: loanSnap.id, ...data, startDate } as Loan;
+  } else {
+    return null;
+  }
+}
+
+
 // Fetch all loans
 export async function getLoans(): Promise<Loan[]> {
   const loansCol = collection(db, 'loans');
-  const [loanSnapshot, loanPlans] = await Promise.all([
-    getDocs(loansCol),
-    getLoanPlans()
-  ]);
+  const loanSnapshot = await getDocs(loansCol);
+  const loanPlans = await getLoanPlans(); // Fetch plans once
 
   const loanList = loanSnapshot.docs.map(doc => {
       const data = doc.data();
+      // Firestore Timestamps to ISO strings
       const startDate = data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate;
-      const payments = Array.isArray(data.payments) ? data.payments : [];
+      const payments = (data.payments || []).map((p: any) => ({
+          ...p,
+          date: p.date instanceof Timestamp ? p.date.toDate().toISOString() : p.date,
+      }));
       
       let status = data.status;
       const loanPlan = loanPlans.find(p => p.id === data.loanPlanId);
 
       if (status === 'Active' && loanPlan) {
           const loanStartDate = new Date(startDate);
-          const endDate = new Date(loanStartDate);
-          endDate.setDate(loanStartDate.getDate() + loanPlan.termInWeeks * 7);
-
+          
+          // Calculate total owed based on plan
+          const weeklyPayment = (data.amount / 1000) * loanPlan.weeklyPaymentRate;
+          const totalOwed = weeklyPayment * loanPlan.termInWeeks;
           const totalPaid = payments.reduce((acc: number, p: { amount: number }) => acc + p.amount, 0);
+          
+          // Calculate when the loan should have ended
+          const endDate = new Date(loanStartDate);
+          endDate.setUTCDate(loanStartDate.getUTCDate() + loanPlan.termInWeeks * 7);
 
-          if (new Date() > endDate && totalPaid < data.amount) {
+          // If today is past the end date and it's not fully paid, it's overdue
+          if (new Date() > endDate && totalPaid < totalOwed) {
               status = 'Overdue';
           }
       }
