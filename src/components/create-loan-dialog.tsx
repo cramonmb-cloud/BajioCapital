@@ -32,11 +32,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Client, Loan, LoanPlan } from '@/lib/types';
-import { PlusCircle, Loader2 } from 'lucide-react';
+import { PlusCircle, Loader2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createLoanAction } from '@/app/dashboard/actions';
 import { useRouter } from 'next/navigation';
 import { Textarea } from './ui/textarea';
+import { Card, CardContent } from './ui/card';
 
 const stepOneSchema = z.object({
   loanPlanId: z.string().min(1, 'Debes seleccionar un tipo de préstamo.'),
@@ -63,12 +64,19 @@ interface CreateLoanDialogProps {
     loans: Loan[];
 }
 
+interface ActiveLoanDetails {
+    loan: Loan;
+    totalPaid: number;
+    remainingBalance: number;
+    currentWeek: number;
+}
+
 export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialogProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [matchingClients, setMatchingClients] = useState<Client[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [clientHasActiveLoan, setClientHasActiveLoan] = useState<boolean | null>(null);
+  const [activeLoanDetails, setActiveLoanDetails] = useState<ActiveLoanDetails | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -92,7 +100,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
     const name = e.target.value;
     form.setValue('clientName', name);
     setSelectedClient(null);
-    setClientHasActiveLoan(null);
+    setActiveLoanDetails(null);
 
     if (name.length >= 2) {
       const matches = clients.filter((client) =>
@@ -111,16 +119,35 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
     form.setValue('guarantee', client.guarantee);
     setSelectedClient(client);
     setMatchingClients([]);
-    const activeLoan = loans.some(
+    
+    const activeLoan = loans.find(
       (loan) => loan.clientId === client.id && (loan.status === 'Active' || loan.status === 'Overdue')
     );
-    setClientHasActiveLoan(activeLoan);
+    
+    if (activeLoan) {
+      const totalPaid = activeLoan.payments.reduce((acc, p) => acc + p.amount, 0);
+      const remainingBalance = activeLoan.amount - totalPaid;
+      
+      const loanStartDate = new Date(activeLoan.startDate);
+      const today = new Date();
+      const diffTime = Math.abs(today.getTime() - loanStartDate.getTime());
+      const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
+
+      setActiveLoanDetails({
+          loan: activeLoan,
+          totalPaid,
+          remainingBalance,
+          currentWeek: diffWeeks
+      });
+    } else {
+        setActiveLoanDetails(null);
+    }
   };
   
   const handleNextStep = async () => {
     const isValid = await form.trigger(['loanPlanId', 'amount', 'clientName']);
     if (isValid) {
-        if(clientHasActiveLoan) {
+        if(activeLoanDetails) {
             toast({
                 variant: 'destructive',
                 title: 'Cliente con préstamo activo',
@@ -137,11 +164,11 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
     try {
         const clientData: Omit<Client, 'id' | 'avatarUrl'> & { id?: string } = selectedClient ? 
             { name: values.clientName,
-              email: selectedClient.email, // This should exist if selectedClient is not null
+              email: selectedClient.email, 
               address: values.address,
               phone: values.phone,
               guarantee: values.guarantee,
-              endorsement: values.endorsement, // TODO: This needs better handling
+              endorsement: values.endorsement,
              } : 
             {
                 name: values.clientName,
@@ -173,7 +200,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
         setStep(1);
         setMatchingClients([]);
         setSelectedClient(null);
-        setClientHasActiveLoan(null);
+        setActiveLoanDetails(null);
         setOpen(false);
       } else {
         throw new Error(result.message || 'Error desconocido');
@@ -188,6 +215,13 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
     } finally {
       setIsSubmitting(false);
     }
+  };
+  
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+    }).format(amount);
   };
 
   return (
@@ -269,12 +303,28 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
                             </ul>
                         </div>
                        )}
-                       {clientHasActiveLoan === true && (
-                           <FormDescription className="text-destructive">
-                               ¡Este cliente ya tiene un préstamo activo o vencido!
-                           </FormDescription>
-                       )}
-                       {clientHasActiveLoan === false && selectedClient && (
+                        {activeLoanDetails && (
+                            <Card className="mt-4 bg-destructive/10 border-destructive/50">
+                                <CardContent className="p-4">
+                                    <div className="flex items-start gap-4">
+                                        <AlertTriangle className="h-6 w-6 text-destructive" />
+                                        <div>
+                                            <h3 className="font-semibold text-destructive">Cliente con Préstamo Activo</h3>
+                                            <p className="text-sm text-destructive/90">
+                                                Este cliente no puede solicitar un nuevo préstamo hasta que el actual sea liquidado.
+                                            </p>
+                                            <div className="mt-2 text-sm space-y-1">
+                                                <p><strong>Monto Original:</strong> {formatCurrency(activeLoanDetails.loan.amount)}</p>
+                                                <p><strong>Saldo Restante:</strong> <span className="font-bold">{formatCurrency(activeLoanDetails.remainingBalance)}</span></p>
+                                                <p><strong>Plazo:</strong> Semana {activeLoanDetails.currentWeek} de {loanPlans.find(p => p.id === activeLoanDetails.loan.loanPlanId)?.termInWeeks}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
+                       {!activeLoanDetails && selectedClient && (
                            <FormDescription className="text-primary">
                                Cliente seleccionado. Puede continuar.
                            </FormDescription>
@@ -381,7 +431,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
 
             <DialogFooter>
                 {step === 1 && (
-                     <Button type="button" onClick={handleNextStep}>Siguiente</Button>
+                     <Button type="button" onClick={handleNextStep} disabled={!!activeLoanDetails}>Siguiente</Button>
                 )}
                 {step === 2 && (
                     <>
@@ -399,3 +449,5 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
     </Dialog>
   );
 }
+
+    
