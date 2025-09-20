@@ -71,12 +71,12 @@ export function RegisterPaymentDialog({
     if (!loanPlan) return;
     setIsSubmitting(true);
     try {
-      const result = await registerPaymentAction(loan.id, weekDate, values.amountPaid, loanPlan.weeklyPayment);
+      const result = await registerPaymentAction(loan.id, weekDate, values.amountPaid);
 
       if (result.success) {
         toast({
           title: 'Pago Registrado',
-          description: `El pago para la semana ${weekNumber} ha sido registrado.`,
+          description: result.message || `El pago para la semana ${weekNumber} ha sido registrado.`,
         });
         onOpenChange(false);
         onPaymentRegistered();
@@ -112,8 +112,8 @@ export function RegisterPaymentDialog({
             <DialogHeader>
               <DialogTitle>Registrar Pago - Semana {weekNumber}</DialogTitle>
               <DialogDescription>
-                Registra el abono para <span className="font-semibold">{client?.name}</span> para la semana del <span className="font-semibold">{formatDate(weekDate)}</span>. 
-                El abono esperado es de {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(loanPlan?.weeklyPayment || 0)}.
+                Registra el abono para <span className="font-semibold">{client?.name}</span> comenzando en la semana del <span className="font-semibold">{formatDate(weekDate)}</span>. 
+                El abono semanal esperado es de {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(loanPlan?.weeklyPayment || 0)}.
               </DialogDescription>
             </DialogHeader>
 

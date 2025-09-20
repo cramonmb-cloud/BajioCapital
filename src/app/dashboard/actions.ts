@@ -1,9 +1,10 @@
 'use server';
 
-import type { Client, Loan, Payment } from '@/lib/types';
+import type { Client, Loan, LoanPlan, Payment } from '@/lib/types';
 import { collection, doc, addDoc, serverTimestamp, setDoc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { revalidatePath } from 'next/cache';
+import { getLoanPlan } from '@/lib/firestore-data';
 
 export type CreateLoanInput = {
     loanPlanId: string;
@@ -52,24 +53,48 @@ export async function createLoanAction(input: CreateLoanInput) {
 }
 
 
-export async function registerPaymentAction(loanId: string, paymentDate: Date, amountPaid: number, weeklyPayment: number) {
+export async function registerPaymentAction(loanId: string, paymentStartDate: Date, amountPaid: number) {
     try {
         const loanRef = doc(db, 'loans', loanId);
         const loanSnap = await getDoc(loanRef);
 
         if(!loanSnap.exists()) {
-            throw new Error('Loan not found');
+            throw new Error('Préstamo no encontrado');
         }
 
         const loan = loanSnap.data() as Loan;
+        const loanPlan = await getLoanPlan(loan.loanPlanId);
 
-        const newPayment = {
-            date: paymentDate.toISOString(),
-            amount: amountPaid,
-        };
-
-        const updatedPayments = [...loan.payments, newPayment];
+        if (!loanPlan) {
+            throw new Error('Plan de préstamo no encontrado');
+        }
         
+        const weeklyPayment = loanPlan.weeklyPayment;
+        let remainingAmountToDistribute = amountPaid;
+        let currentWeekStartDate = new Date(paymentStartDate);
+        
+        const newPayments = [];
+
+        // Distribute full weekly payments
+        while (remainingAmountToDistribute >= weeklyPayment) {
+            newPayments.push({
+                date: currentWeekStartDate.toISOString(),
+                amount: weeklyPayment,
+            });
+            remainingAmountToDistribute -= weeklyPayment;
+            // Move to the next week
+            currentWeekStartDate.setUTCDate(currentWeekStartDate.getUTCDate() + 7);
+        }
+
+        // Distribute any remaining amount as a partial payment
+        if (remainingAmountToDistribute > 0) {
+            newPayments.push({
+                date: currentWeekStartDate.toISOString(),
+                amount: remainingAmountToDistribute,
+            });
+        }
+        
+        const updatedPayments = [...loan.payments, ...newPayments];
         const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
         
         let newStatus = loan.status;
@@ -77,13 +102,14 @@ export async function registerPaymentAction(loanId: string, paymentDate: Date, a
             newStatus = 'Paid Off';
         }
 
+        // Using updateDoc with arrayUnion to add all new payments at once
         await updateDoc(loanRef, {
-            payments: arrayUnion(newPayment),
+            payments: arrayUnion(...newPayments),
             status: newStatus
         });
 
         revalidatePath('/dashboard/loans');
-        return { success: true, message: 'Pago registrado con éxito.' };
+        return { success: true, message: 'Pago registrado con éxito. Los abonos han sido distribuidos.' };
 
     } catch (error: any) {
         console.error('Error registering payment:', error);
