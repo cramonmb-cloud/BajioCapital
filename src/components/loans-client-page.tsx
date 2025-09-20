@@ -91,12 +91,17 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     if (!loanPlan) return { status: 'pending', date: '' };
 
     const loanStartDate = new Date(loan.startDate);
-    const weekStartDate = new Date(loanStartDate);
-    weekStartDate.setDate(loanStartDate.getDate() + (weekNumber - 1) * 7);
+    // The first payment is on the Saturday of the FOLLOWING week.
+    const firstPaymentWeekStartDate = new Date(loanStartDate);
+    firstPaymentWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 7);
+    
+    // Calculate the start date for the given week number
+    const weekStartDate = new Date(firstPaymentWeekStartDate);
+    weekStartDate.setUTCDate(firstPaymentWeekStartDate.getUTCDate() + (weekNumber - 1) * 7);
     
     // Payments can be made any day of the week, check for a payment within the week
     const weekEndDate = new Date(weekStartDate);
-    weekEndDate.setDate(weekStartDate.getDate() + 6);
+    weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 6);
 
     const paymentForWeek = loan.payments.find(p => {
         const paymentDate = new Date(p.date);
@@ -132,11 +137,11 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
 
       <div className="grid gap-4 md:grid-cols-[180px_1fr]">
         {/* Weeks List */}
-        <Card>
-            <CardHeader className="p-4">
+        <Card className="p-2">
+            <CardHeader className="p-2">
                 <CardTitle className="text-lg">Semanas</CardTitle>
             </CardHeader>
-            <CardContent className="p-2 pt-0">
+            <CardContent className="p-0">
                 <div className="space-y-1">
                     {loanWeeks.map((week) => (
                         <Button 
@@ -155,7 +160,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
 
         {/* Loans Table */}
         <Card>
-          <CardHeader className="p-4">
+          <CardHeader className="p-2">
             <CardTitle>Préstamos de la Semana</CardTitle>
             <CardDescription>
               {`Mostrando ${filteredLoans.length} préstamos para la semana del ${selectedWeek ? formatDate(selectedWeek) : 'N/A'}.`}
