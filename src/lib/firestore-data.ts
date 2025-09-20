@@ -24,17 +24,37 @@ export async function getClient(id: string): Promise<Client | null> {
 // Fetch all loans
 export async function getLoans(): Promise<Loan[]> {
   const loansCol = collection(db, 'loans');
-  const loanSnapshot = await getDocs(loansCol);
+  const [loanSnapshot, loanPlans] = await Promise.all([
+    getDocs(loansCol),
+    getLoanPlans()
+  ]);
+
   const loanList = loanSnapshot.docs.map(doc => {
       const data = doc.data();
-      // Ensure startDate is a string and payments is an array
       const startDate = data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate;
       const payments = Array.isArray(data.payments) ? data.payments : [];
+      
+      let status = data.status;
+      const loanPlan = loanPlans.find(p => p.id === data.loanPlanId);
+
+      if (status === 'Active' && loanPlan) {
+          const loanStartDate = new Date(startDate);
+          const endDate = new Date(loanStartDate);
+          endDate.setDate(loanStartDate.getDate() + loanPlan.termInWeeks * 7);
+
+          const totalPaid = payments.reduce((acc: number, p: { amount: number }) => acc + p.amount, 0);
+
+          if (new Date() > endDate && totalPaid < data.amount) {
+              status = 'Overdue';
+          }
+      }
+
       return {
           id: doc.id,
           ...data,
           startDate,
           payments,
+          status,
       } as Loan;
   });
   return loanList;
