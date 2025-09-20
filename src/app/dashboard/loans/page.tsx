@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MoreHorizontal, Calendar as CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, Calendar as CalendarIcon, CheckCircle2, XCircle, Circle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -26,10 +26,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { clients, loans } from '@/lib/data';
+import { clients, loans, loanPlans } from '@/lib/data';
 import Link from 'next/link';
 import { CreateLoanDialog } from '@/components/create-loan-dialog';
-import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+
 
 // Helper to get the Saturday of the week for a given date
 // A week runs from Sunday to Saturday. Any day in that range belongs to that Saturday's week.
@@ -78,6 +80,38 @@ export default function LoansPage() {
     ? loans.filter(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek)
     : [];
 
+  const getWeekPaymentStatus = (loan: typeof loans[0], weekNumber: number) => {
+    const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+    if (!loanPlan) return { status: 'pending', date: '' };
+
+    const loanStartDate = new Date(loan.startDate);
+    const weekStartDate = new Date(loanStartDate);
+    weekStartDate.setDate(loanStartDate.getDate() + (weekNumber - 1) * 7);
+    
+    // Payments can be made any day of the week, check for a payment within the week
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setDate(weekStartDate.getDate() + 6);
+
+    const paymentForWeek = loan.payments.find(p => {
+        const paymentDate = new Date(p.date);
+        return paymentDate >= weekStartDate && paymentDate <= weekEndDate;
+    });
+
+    const isPaid = !!paymentForWeek;
+    const isFuture = new Date() < weekStartDate;
+    
+    if (isFuture) {
+      return { status: 'pending', date: weekStartDate };
+    }
+
+    if (isPaid) {
+        return { status: 'paid', date: weekStartDate };
+    } else {
+        return { status: 'missed', date: weekStartDate };
+    }
+  };
+
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -124,60 +158,84 @@ export default function LoansPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Monto</TableHead>
-                  <TableHead className="hidden md:table-cell">Fecha del Préstamo</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>
-                    <span className="sr-only">Acciones</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredLoans.length > 0 ? (
-                  filteredLoans.map((loan) => (
-                    <TableRow key={loan.id}>
-                      <TableCell className="font-medium">
-                        <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
-                          {getClientName(loan.clientId)}
-                        </Link>
-                      </TableCell>
-                      <TableCell>{formatCurrency(loan.amount)}</TableCell>
-                      <TableCell className="hidden md:table-cell">{formatDate(loan.startDate)}</TableCell>
-                      <TableCell>
-                        <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button aria-haspopup="true" size="icon" variant="ghost">
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                             <DropdownMenuItem asChild>
-                                <Link href={`/dashboard/clients/${loan.clientId}`}>Ver Detalles del Cliente</Link>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem>Registrar Pago</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
+            <TooltipProvider>
+              <ScrollArea className="w-full whitespace-nowrap">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">
-                           No hay préstamos para la semana seleccionada.
-                        </TableCell>
+                      <TableHead className="sticky left-0 bg-card z-10 w-[200px]">Cliente</TableHead>
+                      <TableHead>Monto</TableHead>
+                      <TableHead>Estado</TableHead>
+                      {Array.from({ length: 14 }, (_, i) => (
+                        <TableHead key={i} className="text-center">{`S${i + 1}`}</TableHead>
+                      ))}
+                      <TableHead className="text-right sticky right-0 bg-card z-10">Acciones</TableHead>
                     </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredLoans.length > 0 ? (
+                      filteredLoans.map((loan) => (
+                        <TableRow key={loan.id}>
+                          <TableCell className="font-medium sticky left-0 bg-card z-10 w-[200px]">
+                            <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
+                              {getClientName(loan.clientId)}
+                            </Link>
+                          </TableCell>
+                          <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                          <TableCell>
+                            <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
+                          </TableCell>
+                          {Array.from({ length: 14 }, (_, i) => {
+                            const weekStatus = getWeekPaymentStatus(loan, i + 1);
+                            return (
+                                <TableCell key={i} className="text-center">
+                                     <Tooltip>
+                                        <TooltipTrigger>
+                                            {weekStatus.status === 'paid' && <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />}
+                                            {weekStatus.status === 'missed' && <XCircle className="h-4 w-4 text-red-500 mx-auto" />}
+                                            {weekStatus.status === 'pending' && <Circle className="h-4 w-4 text-muted-foreground mx-auto" />}
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                            <p>Semana {i + 1} ({formatDate(weekStatus.date.toISOString())})</p>
+                                            <p>Estado: {
+                                                weekStatus.status === 'paid' ? 'Pagado' : 
+                                                weekStatus.status === 'missed' ? 'Atrasado' : 'Pendiente'
+                                            }</p>
+                                        </TooltipContent>
+                                    </Tooltip>
+                                </TableCell>
+                            );
+                          })}
+                          <TableCell className="text-right sticky right-0 bg-card z-10">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                  <span className="sr-only">Toggle menu</span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                                 <DropdownMenuItem asChild>
+                                    <Link href={`/dashboard/clients/${loan.clientId}`}>Ver Detalles del Cliente</Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem>Registrar Pago</DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                        <TableRow>
+                            <TableCell colSpan={18} className="text-center h-24">
+                               No hay préstamos para la semana seleccionada.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </TooltipProvider>
           </CardContent>
         </Card>
       </div>
