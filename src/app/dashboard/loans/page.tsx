@@ -1,4 +1,7 @@
-import { MoreHorizontal } from 'lucide-react';
+'use client';
+
+import { useState } from 'react';
+import { MoreHorizontal, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -23,11 +26,25 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
-import { clients, loans, loanPlans } from '@/lib/data';
+import { clients, loans } from '@/lib/data';
 import Link from 'next/link';
 import { CreateLoanDialog } from '@/components/create-loan-dialog';
+import { cn } from '@/lib/utils';
+
+// Helper to get the Saturday of the week for a given date
+const getSaturdayOfWeek = (date: Date): Date => {
+    const newDate = new Date(date);
+    const day = newDate.getDay(); // Sunday = 0, Saturday = 6
+    const diff = 6 - day;
+    newDate.setDate(newDate.getDate() + diff);
+    newDate.setHours(0, 0, 0, 0); // Normalize time
+    return newDate;
+};
+
 
 export default function LoansPage() {
+  const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
+
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
   
   const formatCurrency = (amount: number) => {
@@ -36,6 +53,24 @@ export default function LoansPage() {
       currency: 'MXN',
     }).format(amount);
   };
+  
+  const formatDate = (dateString: string) => {
+      return new Date(dateString).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  };
+
+  // Get unique weeks (represented by Saturday's date string) from all loans
+  const loanWeeks = Array.from(
+    new Set(loans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
+  ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()); // Sort descending
+
+  // Set the most recent week as the default selected week if none is selected
+  if (!selectedWeek && loanWeeks.length > 0) {
+      setSelectedWeek(loanWeeks[0]);
+  }
+  
+  const filteredLoans = selectedWeek 
+    ? loans.filter(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -43,66 +78,103 @@ export default function LoansPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Préstamos</h1>
           <p className="text-muted-foreground">
-            Visualiza y administra todos los préstamos.
+            Visualiza y administra todos los préstamos por semana.
           </p>
         </div>
         <CreateLoanDialog />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Todos los Préstamos</CardTitle>
-          <CardDescription>
-            Un total de {loans.length} préstamos registrados.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cliente</TableHead>
-                <TableHead>Monto</TableHead>
-                <TableHead className="hidden md:table-cell">Fecha del Préstamo</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead>
-                  <span className="sr-only">Acciones</span>
-                </TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {loans.map((loan) => (
-                <TableRow key={loan.id}>
-                  <TableCell className="font-medium">
-                    <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
-                      {getClientName(loan.clientId)}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{formatCurrency(loan.amount)}</TableCell>
-                  <TableCell className="hidden md:table-cell">{new Date(loan.startDate).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })}</TableCell>
-                  <TableCell>
-                    <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
-                          <MoreHorizontal className="h-4 w-4" />
-                          <span className="sr-only">Toggle menu</span>
+      <div className="grid gap-6 md:grid-cols-[240px_1fr]">
+        {/* Weeks List */}
+        <Card className="md:h-fit">
+            <CardHeader>
+                <CardTitle className="text-xl">Semanas</CardTitle>
+                 <CardDescription>Selecciona una semana para ver los préstamos.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="space-y-2">
+                    {loanWeeks.map((week) => (
+                        <Button 
+                            key={week}
+                            variant={selectedWeek === week ? 'secondary' : 'ghost'}
+                            className="w-full justify-start"
+                            onClick={() => setSelectedWeek(week)}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            Semana del {formatDate(week)}
                         </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
-                        <DropdownMenuItem>Ver Detalles</DropdownMenuItem>
-                        <DropdownMenuItem>Registrar Pago</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
+                    ))}
+                    {loanWeeks.length === 0 && <p className="text-sm text-muted-foreground text-center">No hay préstamos registrados.</p>}
+                </div>
+            </CardContent>
+        </Card>
+
+        {/* Loans Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Préstamos de la Semana</CardTitle>
+            <CardDescription>
+              {`Mostrando ${filteredLoans.length} préstamos para la semana del ${selectedWeek ? formatDate(selectedWeek) : 'N/A'}.`}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Monto</TableHead>
+                  <TableHead className="hidden md:table-cell">Fecha del Préstamo</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>
+                    <span className="sr-only">Acciones</span>
+                  </TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              </TableHeader>
+              <TableBody>
+                {filteredLoans.length > 0 ? (
+                  filteredLoans.map((loan) => (
+                    <TableRow key={loan.id}>
+                      <TableCell className="font-medium">
+                        <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
+                          {getClientName(loan.clientId)}
+                        </Link>
+                      </TableCell>
+                      <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                      <TableCell className="hidden md:table-cell">{formatDate(loan.startDate)}</TableCell>
+                      <TableCell>
+                        <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button aria-haspopup="true" size="icon" variant="ghost">
+                              <MoreHorizontal className="h-4 w-4" />
+                              <span className="sr-only">Toggle menu</span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                             <DropdownMenuItem asChild>
+                                <Link href={`/dashboard/clients/${loan.clientId}`}>Ver Detalles del Cliente</Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>Registrar Pago</DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24">
+                           No hay préstamos para la semana seleccionada.
+                        </TableCell>
+                    </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
