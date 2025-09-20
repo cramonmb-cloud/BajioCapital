@@ -58,9 +58,9 @@ export const loanPlans: LoanPlan[] = [
 ];
 
 const payments: Payment[] = [
-  { id: 'p1', loanId: 'loan-1', date: '2024-05-10', amount: 110 },
-  { id: 'p2', loanId: 'loan-1', date: '2024-05-17', amount: 110 },
-  { id: 'p3', loanId: 'loan-2', date: '2024-05-15', amount: 500 },
+  { id: 'p1', loanId: 'loan-1', date: '2025-05-10', amount: 110 },
+  { id: 'p2', loanId: 'loan-1', date: '2025-05-17', amount: 110 },
+  { id: 'p3', loanId: 'loan-2', date: '2025-05-15', amount: 500 },
 ];
 
 export const loans: Loan[] = [
@@ -69,7 +69,7 @@ export const loans: Loan[] = [
     clientId: '1',
     loanPlanId: 'plan-1',
     amount: 1000,
-    startDate: '2024-05-03',
+    startDate: '2025-05-03',
     status: 'Active',
     payments: payments.filter(p => p.loanId === 'loan-1'),
   },
@@ -78,7 +78,7 @@ export const loans: Loan[] = [
     clientId: '2',
     loanPlanId: 'plan-3',
     amount: 2000,
-    startDate: '2024-05-01',
+    startDate: '2025-05-01',
     status: 'Overdue',
     payments: payments.filter(p => p.loanId === 'loan-2'),
   },
@@ -87,7 +87,7 @@ export const loans: Loan[] = [
     clientId: '3',
     loanPlanId: 'plan-2',
     amount: 500,
-    startDate: '2024-02-01',
+    startDate: '2025-02-01',
     status: 'Paid Off',
     payments: [],
   },
@@ -96,7 +96,7 @@ export const loans: Loan[] = [
     clientId: '1',
     loanPlanId: 'plan-2',
     amount: 3000,
-    startDate: '2024-06-01',
+    startDate: '2025-06-01',
     status: 'Active',
     payments: [],
   },
