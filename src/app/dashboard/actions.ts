@@ -82,9 +82,16 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
 
             // First, determine which weeks will be affected
             while (remainingAmountToDistribute > 0 && tempCurrentWeekNumber <= loanPlan.termInWeeks) {
-                 const weekStartISO = tempCurrentWeekStartDate.toISOString().split('T')[0];
-                 const existingPaymentIndex = allPayments.findIndex(p => p.date.split('T')[0] === weekStartISO);
-                 let existingPartialAmount = 0;
+                const weekStart = new Date(tempCurrentWeekStartDate);
+                const weekEnd = new Date(weekStart);
+                weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+
+                const existingPaymentIndex = allPayments.findIndex(p => {
+                    const paymentDate = new Date(p.date);
+                    return paymentDate >= weekStart && paymentDate < weekEnd;
+                });
+                
+                let existingPartialAmount = 0;
                  if (existingPaymentIndex !== -1) {
                     existingPartialAmount = allPayments[existingPaymentIndex].amount;
                  }
@@ -100,6 +107,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                     if (existingPaymentIndex !== -1) {
                         allPayments[existingPaymentIndex].amount += amountToApply;
                     } else {
+                        // Create a new payment record for this week, using the week's start date
                         allPayments.push({
                             date: tempCurrentWeekStartDate.toISOString(),
                             amount: amountToApply,
