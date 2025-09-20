@@ -244,43 +244,45 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
 
             {step === 1 && (
               <div className="space-y-4 py-4">
-                <FormField
-                  control={form.control}
-                  name="loanPlanId"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Tipo de Préstamo</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                    control={form.control}
+                    name="loanPlanId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Tipo de Préstamo</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona un plan" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {loanPlans.map((plan) => (
+                                <SelectItem key={plan.id} value={plan.id}>
+                                {plan.name}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField
+                    control={form.control}
+                    name="amount"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Monto del Préstamo ($)</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Selecciona un plan de préstamo" />
-                          </SelectTrigger>
+                            <Input type="number" placeholder="Ej: 1000" {...field} />
                         </FormControl>
-                        <SelectContent>
-                          {loanPlans.map((plan) => (
-                            <SelectItem key={plan.id} value={plan.id}>
-                              {plan.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="amount"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Monto del Préstamo ($)</FormLabel>
-                      <FormControl>
-                        <Input type="number" placeholder="Ej: 1000" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                </div>
                 <FormField
                   control={form.control}
                   name="clientName"
@@ -449,5 +451,3 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
     </Dialog>
   );
 }
-
-    
