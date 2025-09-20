@@ -32,12 +32,14 @@ import { CreateLoanDialog } from '@/components/create-loan-dialog';
 import { cn } from '@/lib/utils';
 
 // Helper to get the Saturday of the week for a given date
+// A week runs from Sunday to Saturday. Any day in that range belongs to that Saturday's week.
 const getSaturdayOfWeek = (d: Date) => {
   const date = new Date(d);
-  const day = date.getUTCDay(); // Use getUTCDay() to be timezone-safe
-  const diff = 6 - day; // Saturday is 6
-  date.setUTCDate(date.getUTCDate() + diff);
   date.setUTCHours(0, 0, 0, 0); // Normalize time
+  const day = date.getUTCDay(); // Sunday = 0, Saturday = 6
+  // If it's Sunday, we want the previous saturday. Otherwise, find the upcoming one.
+  const diff = day === 0 ? -1 : 6 - day;
+  date.setUTCDate(date.getUTCDate() + diff);
   return date;
 };
 

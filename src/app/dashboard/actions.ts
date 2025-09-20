@@ -13,10 +13,15 @@ export async function createLoanAction(input: CreateLoanInput) {
     // e.g., by calling an API to save the loan and client.
     
     const today = new Date();
-    const dayOfWeek = today.getDay(); // Sunday = 0, Saturday = 6
-    const daysUntilSaturday = 6 - dayOfWeek;
+    // Sunday - Saturday : 0 - 6
+    const dayOfWeek = today.getDay(); 
+    // If today is Sunday (0), we want the Saturday of the *previous* week.
+    // So we subtract 1 day.
+    // For any other day (Mon-Sat), we calculate days until the upcoming Saturday.
+    const daysToAdd = dayOfWeek === 0 ? -1 : 6 - dayOfWeek;
+    
     const saturday = new Date(today);
-    saturday.setDate(today.getDate() + daysUntilSaturday);
+    saturday.setDate(today.getDate() + daysToAdd);
 
     const newLoan = {
         ...input,
