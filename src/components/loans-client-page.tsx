@@ -234,7 +234,6 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                                   e.stopPropagation();
                                                   handleRegisterPaymentClick(loan, i + 1, weekStatus.date);
                                                 }}
-                                                disabled={weekStatus.status === 'pending'}
                                             >
                                                 {statusInfo.icon}
                                             </button>
