@@ -33,3 +33,18 @@ export type Loan = {
   status: 'Active' | 'Overdue' | 'Paid Off';
   payments: Omit<Payment, 'id' | 'loanId'>[];
 };
+
+export type Wallet = {
+    id: string;
+    balance: number;
+}
+
+export type WalletTransaction = {
+    id: string;
+    type: 'credit' | 'debit';
+    amount: number;
+    date: string;
+    description: string;
+    loanId?: string;
+    clientId?: string;
+};

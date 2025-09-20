@@ -7,6 +7,7 @@ import {
   Users,
   Landmark,
   FileText,
+  Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -22,6 +23,10 @@ const links = [
   {
     href: '/dashboard/loans',
     label: 'Préstamos',
+  },
+  {
+    href: '/dashboard/wallet',
+    label: 'Cartera',
   },
   {
     href: '/dashboard/plans',

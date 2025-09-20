@@ -1,10 +1,10 @@
 'use server';
 
-import type { Client, Loan, LoanPlan, Payment } from '@/lib/types';
-import { collection, doc, addDoc, serverTimestamp, setDoc, updateDoc, arrayUnion, getDoc, arrayRemove, runTransaction } from 'firebase/firestore';
+import type { Client, Loan } from '@/lib/types';
+import { collection, doc, addDoc, serverTimestamp, updateDoc, runTransaction, increment } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { revalidatePath } from 'next/cache';
-import { getLoanPlan } from '@/lib/firestore-data';
+import { getLoanPlan, getClient } from '@/lib/firestore-data';
 
 export type CreateLoanInput = {
     loanPlanId: string;
@@ -64,28 +64,40 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             }
 
             const loan = loanSnap.data() as Loan;
+            const client = await getClient(loan.clientId);
             const loanPlan = await getLoanPlan(loan.loanPlanId);
+            const walletRef = doc(db, 'wallet', 'main');
 
             if (!loanPlan) {
                 throw new Error('Plan de préstamo no encontrado');
             }
 
+            // --- Wallet and Transaction Logic ---
+            const walletTransactionRef = doc(collection(db, 'walletTransactions'));
+            transaction.set(walletTransactionRef, {
+                type: 'credit',
+                amount: amountPaid,
+                date: new Date(),
+                description: `Abono de ${client?.name || 'N/A'} para préstamo.`,
+                loanId: loanId,
+                clientId: loan.clientId,
+            });
+            transaction.set(walletRef, { balance: increment(amountPaid) }, { merge: true });
+            // --- End Wallet Logic ---
+
+
             const weeklyPayment = loanPlan.weeklyPayment;
             let remainingAmountToDistribute = amountPaid;
             
-            // Start from the provided week's start date
             let currentWeekStartDate = new Date(paymentStartDate);
 
             const allPayments = [...loan.payments];
 
-            // This loop will handle both new payments and adding to existing partial payments
             while (remainingAmountToDistribute > 0) {
-                const weekStartISO = currentWeekStartDate.toISOString();
+                const weekStartISO = currentWeekStartDate.toISOString().split('T')[0];
 
-                // Find if there's already a partial payment for this week
-                const existingPaymentIndex = allPayments.findIndex(p => p.date === weekStartISO);
+                const existingPaymentIndex = allPayments.findIndex(p => p.date.split('T')[0] === weekStartISO);
 
-                let amountForThisWeek = 0;
                 let existingPartialAmount = 0;
 
                 if (existingPaymentIndex !== -1) {
@@ -100,7 +112,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                         allPayments[existingPaymentIndex].amount += amountToApply;
                     } else {
                         allPayments.push({
-                            date: weekStartISO,
+                            date: currentWeekStartDate.toISOString(),
                             amount: amountToApply,
                         });
                     }
@@ -108,7 +120,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                
                 remainingAmountToDistribute -= amountToApply;
                 
-                // Move to the next week only if we have more money to distribute
                 if (remainingAmountToDistribute > 0) {
                     currentWeekStartDate.setUTCDate(currentWeekStartDate.getUTCDate() + 7);
                 }
@@ -128,7 +139,9 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
         });
 
         revalidatePath('/dashboard/loans');
-        return { success: true, message: 'Pago registrado con éxito. Los abonos han sido distribuidos.' };
+        revalidatePath('/dashboard/wallet');
+        revalidatePath('/dashboard');
+        return { success: true, message: 'Pago registrado con éxito y añadido a la cartera.' };
 
     } catch (error: any) {
         console.error('Error registering payment:', error);

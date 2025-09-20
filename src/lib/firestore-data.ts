@@ -1,6 +1,6 @@
-import { collection, getDocs, doc, getDoc, addDoc, updateDoc, writeBatch, query, where, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, addDoc, updateDoc, writeBatch, query, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Client, Loan, LoanPlan, Payment } from './types';
+import type { Client, Loan, LoanPlan, Payment, Wallet, WalletTransaction } from './types';
 
 // Fetch all clients
 export async function getClients(): Promise<Client[]> {
@@ -79,6 +79,36 @@ export async function getLoanPlan(id: string): Promise<LoanPlan | null> {
     return null;
   }
 }
+
+// Fetch wallet
+export async function getWallet(): Promise<Wallet> {
+    const walletRef = doc(db, 'wallet', 'main');
+    const walletSnap = await getDoc(walletRef);
+    if(walletSnap.exists()) {
+        return { id: walletSnap.id, ...walletSnap.data() } as Wallet;
+    }
+    // If wallet doesn't exist, create it
+    await writeBatch(db).set(walletRef, { balance: 0 }).commit();
+    return { id: 'main', balance: 0 };
+}
+
+// Fetch all wallet transactions
+export async function getWalletTransactions(): Promise<WalletTransaction[]> {
+    const transactionsCol = collection(db, 'walletTransactions');
+    const q = query(transactionsCol, orderBy('date', 'desc'));
+    const transactionSnapshot = await getDocs(q);
+    const transactionList = transactionSnapshot.docs.map(doc => {
+        const data = doc.data();
+        const date = data.date instanceof Timestamp ? data.date.toDate().toISOString() : data.date;
+        return {
+            id: doc.id,
+            ...data,
+            date,
+        } as WalletTransaction;
+    });
+    return transactionList;
+}
+
 
 export async function seedDatabase(clients: Client[], loanPlans: LoanPlan[], loans: Loan[]) {
   const batch = writeBatch(db);
