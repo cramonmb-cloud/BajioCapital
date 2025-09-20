@@ -125,12 +125,11 @@ export default function LoansPage() {
         <CreateLoanDialog />
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[240px_1fr]">
+      <div className="grid gap-6 md:grid-cols-[180px_1fr]">
         {/* Weeks List */}
         <Card className="md:h-fit">
             <CardHeader>
-                <CardTitle className="text-xl">Semanas</CardTitle>
-                 <CardDescription>Selecciona una semana para ver los préstamos.</CardDescription>
+                <CardTitle className="text-lg">Semanas</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="space-y-2">
@@ -141,7 +140,6 @@ export default function LoansPage() {
                             className="w-full justify-start"
                             onClick={() => setSelectedWeek(week)}
                         >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
                             {formatDate(week)}
                         </Button>
                     ))}
