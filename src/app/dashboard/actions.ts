@@ -1,14 +1,21 @@
 'use server';
 
-import { getClientOutreachSuggestion } from '@/ai/flows/client-outreach-suggestions';
-import type { ClientOutreachInput } from '@/ai/flows/client-outreach-suggestions';
+import type { Client } from '@/lib/types';
 
-export async function getOutreachSuggestionAction(input: ClientOutreachInput) {
-  try {
-    const result = await getClientOutreachSuggestion(input);
-    return result.outreachSuggestion;
-  } catch (error) {
-    console.error(error);
-    return 'Hubo un error al generar la sugerencia. Por favor, inténtelo de nuevo.';
-  }
+export type CreateLoanInput = {
+    loanPlanId: string;
+    amount: number;
+    client: Omit<Client, 'id' | 'avatarUrl'> & { id?: string };
+};
+
+export async function createLoanAction(input: CreateLoanInput) {
+    // This is where you would typically handle the form submission,
+    // e.g., by calling an API to save the loan and client.
+    // For now, we'll just log the data.
+    console.log('Creating loan with input:', input);
+    
+    // In a real app, you would get the new loan and client data back from the API
+    // and then potentially revalidate the data on the client.
+    
+    return { success: true, message: 'Préstamo creado con éxito.' };
 }

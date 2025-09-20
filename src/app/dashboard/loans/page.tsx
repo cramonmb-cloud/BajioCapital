@@ -1,4 +1,4 @@
-import { PlusCircle, MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -25,6 +25,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { clients, loans, loanPlans } from '@/lib/data';
 import Link from 'next/link';
+import { CreateLoanDialog } from '@/components/create-loan-dialog';
 
 export default function LoansPage() {
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
@@ -46,10 +47,7 @@ export default function LoansPage() {
             Visualiza y administra todos los préstamos.
           </p>
         </div>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Crear Préstamo
-        </Button>
+        <CreateLoanDialog />
       </div>
 
       <Card>
