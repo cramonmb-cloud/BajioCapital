@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, TrendingUp, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -32,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Client, Loan, LoanPlan, Payment } from '@/lib/types';
 import { RegisterPaymentDialog } from './register-payment-dialog';
+import { useRouter } from 'next/navigation';
 
 
 // Helper to get the Saturday of the week for a given date
@@ -57,6 +58,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
   const [selectedWeekForPayment, setSelectedWeekForPayment] = useState<{ weekNumber: number; weekDate: Date} | null>(null);
+  const router = useRouter();
 
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
   const getWeeklyPayment = (loanPlanId: string) => loanPlans.find(p => p.id === loanPlanId)?.weeklyPayment || 0;
@@ -94,17 +96,19 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
     if (!loanPlan) return { status: 'pending' as const, date: new Date(), payment: null };
 
+    // The loan's official start date is a Saturday.
     const loanStartDate = new Date(loan.startDate);
     
-    // First payment week starts on the Sunday *after* the loan's start Saturday.
-    const firstPaymentWeekStartDate = new Date(loanStartDate);
-    firstPaymentWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 1); 
+    // The first payment is due on the *next* Saturday.
+    const firstPaymentDueDate = new Date(loanStartDate);
+    firstPaymentDueDate.setUTCDate(loanStartDate.getUTCDate() + 7);
 
-    const weekStartDate = new Date(firstPaymentWeekStartDate);
-    weekStartDate.setUTCDate(firstPaymentWeekStartDate.getUTCDate() + (weekNumber - 1) * 7);
+    // Calculate the start and end of the specific payment week
+    const weekStartDate = new Date(firstPaymentDueDate);
+    weekStartDate.setUTCDate(firstPaymentDueDate.getUTCDate() + (weekNumber - 1) * 7 - 6); // Week starts on Sunday
     
     const weekEndDate = new Date(weekStartDate);
-    weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 6);
+    weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 6); // Week ends on Saturday
 
     const paymentForWeek = loan.payments.find(p => {
         const paymentDate = new Date(p.date);
@@ -134,6 +138,25 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
       setPaymentDialogOpen(true);
   }
 
+  // Report calculations for the selected week
+  let totalCollectedThisWeek = 0;
+  let totalPaymentsThisWeek = 0;
+  if(selectedWeek) {
+    const selectedSaturday = new Date(selectedWeek);
+    const weekStart = new Date(selectedSaturday);
+    weekStart.setUTCDate(selectedSaturday.getUTCDate() - 6);
+
+    loans.forEach(loan => {
+        loan.payments.forEach(payment => {
+            const paymentDate = new Date(payment.date);
+            if (paymentDate >= weekStart && paymentDate <= selectedSaturday) {
+                totalCollectedThisWeek += payment.amount;
+                totalPaymentsThisWeek += 1;
+            }
+        })
+    })
+  }
+
 
   return (
     <>
@@ -148,9 +171,40 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
         <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans}/>
       </div>
       
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Cobranza de la Semana
+            </CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalCollectedThisWeek)}</div>
+             <p className="text-xs text-muted-foreground">
+              Total cobrado en la semana seleccionada
+            </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Abonos Registrados
+            </CardTitle>
+            <Receipt className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">+{totalPaymentsThisWeek}</div>
+            <p className="text-xs text-muted-foreground">
+              Pagos registrados en la semana seleccionada
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-4 md:grid-cols-[180px_1fr]">
         {/* Weeks List */}
-        <Card className="p-2">
+        <Card>
             <CardHeader className="p-2 pt-4">
                 <CardTitle className="text-base">Semanas</CardTitle>
             </CardHeader>
@@ -198,20 +252,25 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                     {filteredLoans.length > 0 ? (
                       filteredLoans.map((loan) => {
                         const weeklyPayment = getWeeklyPayment(loan.loanPlanId);
+                        
+                        // Determine the current week number to pay
                         let currentPaymentWeekNumber = -1;
-
-                        for (let i = 1; i <= 14; i++) {
-                            const status = getWeekPaymentStatus(loan, i);
-                            if (status.status === 'missed') {
-                                currentPaymentWeekNumber = i;
-                                break;
+                        if (loan.status !== 'Paid Off') {
+                            const statuses = Array.from({length: 14}, (_, i) => getWeekPaymentStatus(loan, i + 1));
+                            const firstUnpaidIndex = statuses.findIndex(s => s.status === 'missed' || s.status === 'partial');
+                            if (firstUnpaidIndex !== -1) {
+                                currentPaymentWeekNumber = firstUnpaidIndex + 1;
+                            } else {
+                                const firstPendingIndex = statuses.findIndex(s => s.status === 'pending');
+                                if (firstPendingIndex !== -1) {
+                                    const firstPendingStatus = statuses[firstPendingIndex];
+                                    // Check if the pending week has started
+                                    if(new Date() >= firstPendingStatus.date) {
+                                        currentPaymentWeekNumber = firstPendingIndex + 1;
+                                    }
+                                }
                             }
                         }
-                        if (currentPaymentWeekNumber === -1) { // All paid or pending
-                            const firstPending = Array.from({length: 14}, (_, i) => getWeekPaymentStatus(loan, i+1)).findIndex(s => s.status === 'pending');
-                            if(firstPending !== -1) currentPaymentWeekNumber = firstPending + 1;
-                        }
-
 
                         return (
                         <TableRow key={loan.id}>
@@ -226,7 +285,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                           </TableCell>
                           {Array.from({ length: 14 }, (_, i) => {
                             const weekStatus = getWeekPaymentStatus(loan, i + 1);
-                            const canRegisterPayment = (i + 1) === currentPaymentWeekNumber && loan.status !== 'Paid Off';
+                            const canRegisterPayment = (i + 1) === currentPaymentWeekNumber;
 
                             let statusInfo;
                             switch(weekStatus.status) {
@@ -322,6 +381,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
             loanPlans={loanPlans}
             weekNumber={selectedWeekForPayment.weekNumber}
             weekDate={selectedWeekForPayment.weekDate}
+            onPaymentRegistered={() => router.refresh()}
         />
     }
     </>
