@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { getClients, getLoans, getLoanPlans } from '@/lib/firestore-data';
-import { Users, Landmark, Banknote, ArrowRight, Database } from 'lucide-react';
+import { Users, Landmark, Banknote, ArrowRight, Database, TrendingUp, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { seedDatabaseAction } from './seed-actions';
@@ -48,6 +48,33 @@ export default async function DashboardPage() {
     }).format(amount);
   };
   
+  // Weekly report logic
+  const getSaturdayOfWeek = (d: Date) => {
+    const date = new Date(d);
+    date.setUTCHours(0, 0, 0, 0);
+    const day = date.getUTCDay();
+    const diff = day === 0 ? -1 : 6 - day;
+    date.setUTCDate(date.getUTCDate() + diff);
+    return date;
+  };
+  
+  const currentSaturday = getSaturdayOfWeek(new Date());
+  const weekStart = new Date(currentSaturday);
+  weekStart.setUTCDate(currentSaturday.getUTCDate() - 6);
+
+  let totalCollectedThisWeek = 0;
+  let totalPaymentsThisWeek = 0;
+
+  loans.forEach(loan => {
+    loan.payments.forEach(payment => {
+      const paymentDate = new Date(payment.date);
+      if (paymentDate >= weekStart && paymentDate <= currentSaturday) {
+        totalCollectedThisWeek += payment.amount;
+        totalPaymentsThisWeek += 1;
+      }
+    });
+  });
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -60,7 +87,35 @@ export default async function DashboardPage() {
         </form>
       </div>
       
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Cobranza de la Semana
+            </CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totalCollectedThisWeek)}</div>
+            <p className="text-xs text-muted-foreground">
+              Total recaudado en la semana actual
+            </p>
+          </CardContent>
+        </Card>
+         <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              Abonos de la Semana
+            </CardTitle>
+            <Receipt className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">+{totalPaymentsThisWeek}</div>
+            <p className="text-xs text-muted-foreground">
+              Pagos registrados en la semana
+            </p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">

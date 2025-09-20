@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, Banknote, Landmark } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -128,27 +128,6 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     }
   };
   
-  const weeklyReport = {
-      totalCollected: 0,
-      totalPayments: 0,
-  }
-
-  if(selectedWeek) {
-      const selectedSaturday = getSaturdayOfWeek(new Date(selectedWeek));
-      const weekStart = new Date(selectedSaturday);
-      weekStart.setUTCDate(selectedSaturday.getUTCDate() - 6);
-
-      filteredLoans.forEach(loan => {
-          loan.payments.forEach(payment => {
-              const paymentDate = new Date(payment.date);
-              if (paymentDate >= weekStart && paymentDate <= selectedSaturday) {
-                  weeklyReport.totalCollected += payment.amount;
-                  weeklyReport.totalPayments += 1;
-              }
-          })
-      })
-  }
-
   const handleRegisterPaymentClick = (loan: Loan, weekNumber: number, weekDate: Date) => {
       setSelectedLoanForPayment(loan);
       setSelectedWeekForPayment({ weekNumber, weekDate });
@@ -169,50 +148,19 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
         <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans}/>
       </div>
       
-       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                        Cobranza de la Semana
-                    </CardTitle>
-                    <Banknote className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(weeklyReport.totalCollected)}</div>
-                    <p className="text-xs text-muted-foreground">
-                        Total recaudado para la semana seleccionada
-                    </p>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                        Abonos Registrados
-                    </CardTitle>
-                    <Landmark className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{weeklyReport.totalPayments}</div>
-                     <p className="text-xs text-muted-foreground">
-                        Número de pagos en la semana
-                    </p>
-                </CardContent>
-            </Card>
-       </div>
-
       <div className="grid gap-4 md:grid-cols-[180px_1fr]">
         {/* Weeks List */}
         <Card className="p-2">
-            <CardHeader className="p-2">
-                <CardTitle className="text-lg">Semanas</CardTitle>
+            <CardHeader className="p-2 pt-4">
+                <CardTitle className="text-base">Semanas</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-                <div className="space-y-1">
+                <div className="space-y-1 px-2 pb-2">
                     {loanWeeks.map((week) => (
                         <Button 
                             key={week}
                             variant={selectedWeek === week ? 'secondary' : 'ghost'}
-                            className="w-full justify-start"
+                            className="w-full justify-start h-8 px-2 text-xs"
                             onClick={() => setSelectedWeek(week)}
                         >
                             {formatDate(week)}
@@ -225,7 +173,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
 
         {/* Loans Table */}
         <Card>
-          <CardHeader className="p-2">
+          <CardHeader className="p-2 pt-4">
             <CardTitle>Préstamos de la Semana</CardTitle>
             <CardDescription>
               {`Mostrando ${filteredLoans.length} préstamos para la semana del ${selectedWeek ? formatDate(selectedWeek) : 'N/A'}.`}
