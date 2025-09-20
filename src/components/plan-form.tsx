@@ -32,7 +32,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Trash, Loader2 } from 'lucide-react';
 import { useState } from 'react';
-import { deleteLoanPlanAction } from '@/app/dashboard/plans/actions';
+import { deleteLoanPlanAction, saveLoanPlanAction } from '@/app/dashboard/plans/actions';
 
 const formSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido.'),
@@ -50,6 +50,7 @@ interface PlanFormProps {
 export function PlanForm({ plan }: PlanFormProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
   const form = useForm<PlanFormValues>({
@@ -69,19 +70,30 @@ export function PlanForm({ plan }: PlanFormProps) {
         },
   });
 
-  function onSubmit(values: PlanFormValues) {
-    // Here you would typically handle the form submission,
-    // e.g., by calling an API to save the plan.
-    console.log(values);
-    
-    toast({
-      title: plan ? 'Plan actualizado' : 'Plan creado',
-      description: `El plan "${values.name}" ha sido ${plan ? 'actualizado' : 'creado'} correctamente.`,
-    });
-    
-    // In a real app, you would wait for the API response before navigating.
-    router.push('/dashboard/plans');
-    router.refresh(); // To reflect changes if any
+  async function onSubmit(values: PlanFormValues) {
+    setIsSaving(true);
+    try {
+        const result = await saveLoanPlanAction(values, plan?.id);
+
+        if (result.success) {
+            toast({
+                title: plan ? 'Plan actualizado' : 'Plan creado',
+                description: result.message,
+            });
+            router.push('/dashboard/plans');
+            router.refresh();
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error: any) {
+        toast({
+            title: 'Error al guardar',
+            description: error.message || 'No se pudo guardar el plan.',
+            variant: 'destructive',
+        });
+    } finally {
+        setIsSaving(false);
+    }
   }
 
   async function handleDelete() {
@@ -208,7 +220,10 @@ export function PlanForm({ plan }: PlanFormProps) {
                 </AlertDialog>
               )}
             </div>
-            <Button type="submit">{plan ? 'Guardar Cambios' : 'Crear Plan'}</Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {plan ? 'Guardar Cambios' : 'Crear Plan'}
+            </Button>
           </CardFooter>
         </Card>
       </form>
