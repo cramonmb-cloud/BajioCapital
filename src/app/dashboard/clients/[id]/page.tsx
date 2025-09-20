@@ -53,7 +53,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                   <TableRow>
                     <TableHead>Monto</TableHead>
                     <TableHead>Plan</TableHead>
-                    <TableHead>Fecha de Inicio</TableHead>
+                    <TableHead>Fecha del Préstamo</TableHead>
                     <TableHead>Estado</TableHead>
                   </TableRow>
                 </TableHeader>

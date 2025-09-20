@@ -64,7 +64,7 @@ export default function LoansPage() {
                 <TableHead>Cliente</TableHead>
                 <TableHead>Monto</TableHead>
                 <TableHead className="hidden md:table-cell">Plan</TableHead>
-                <TableHead className="hidden md:table-cell">Fecha de Inicio</TableHead>
+                <TableHead className="hidden md:table-cell">Fecha del Préstamo</TableHead>
                 <TableHead>Estado</TableHead>
                 <TableHead>
                   <span className="sr-only">Acciones</span>
