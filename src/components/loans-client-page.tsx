@@ -230,7 +230,10 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                         <TooltipTrigger asChild>
                                             <button 
                                                 className="w-full"
-                                                onClick={() => handleRegisterPaymentClick(loan, i + 1, weekStatus.date)}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleRegisterPaymentClick(loan, i + 1, weekStatus.date);
+                                                }}
                                                 disabled={weekStatus.status === 'pending'}
                                             >
                                                 {statusInfo.icon}
