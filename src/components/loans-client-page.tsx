@@ -92,12 +92,14 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
 
   const getWeekPaymentStatus = (loan: Loan, weekNumber: number) => {
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-    if (!loanPlan) return { status: 'pending', date: new Date(), payment: null };
+    if (!loanPlan) return { status: 'pending' as const, date: new Date(), payment: null };
 
     const loanStartDate = new Date(loan.startDate);
-    const firstPaymentWeekStartDate = new Date(loanStartDate);
-    firstPaymentWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 7);
     
+    // First payment week starts on the Sunday *after* the loan's start Saturday.
+    const firstPaymentWeekStartDate = new Date(loanStartDate);
+    firstPaymentWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 1); 
+
     const weekStartDate = new Date(firstPaymentWeekStartDate);
     weekStartDate.setUTCDate(firstPaymentWeekStartDate.getUTCDate() + (weekNumber - 1) * 7);
     
@@ -196,6 +198,21 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                     {filteredLoans.length > 0 ? (
                       filteredLoans.map((loan) => {
                         const weeklyPayment = getWeeklyPayment(loan.loanPlanId);
+                        let currentPaymentWeekNumber = -1;
+
+                        for (let i = 1; i <= 14; i++) {
+                            const status = getWeekPaymentStatus(loan, i);
+                            if (status.status === 'missed') {
+                                currentPaymentWeekNumber = i;
+                                break;
+                            }
+                        }
+                        if (currentPaymentWeekNumber === -1) { // All paid or pending
+                            const firstPending = Array.from({length: 14}, (_, i) => getWeekPaymentStatus(loan, i+1)).findIndex(s => s.status === 'pending');
+                            if(firstPending !== -1) currentPaymentWeekNumber = firstPending + 1;
+                        }
+
+
                         return (
                         <TableRow key={loan.id}>
                           <TableCell className="font-medium sticky left-0 bg-card z-10 w-[200px] p-2">
@@ -209,6 +226,8 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                           </TableCell>
                           {Array.from({ length: 14 }, (_, i) => {
                             const weekStatus = getWeekPaymentStatus(loan, i + 1);
+                            const canRegisterPayment = (i + 1) === currentPaymentWeekNumber;
+
                             let statusInfo;
                             switch(weekStatus.status) {
                                 case 'paid':
@@ -229,10 +248,13 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                      <Tooltip>
                                         <TooltipTrigger asChild>
                                             <button 
-                                                className="w-full"
+                                                className="w-full disabled:cursor-not-allowed"
+                                                disabled={!canRegisterPayment}
                                                 onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleRegisterPaymentClick(loan, i + 1, weekStatus.date);
+                                                  if(canRegisterPayment) {
+                                                    e.stopPropagation();
+                                                    handleRegisterPaymentClick(loan, i + 1, weekStatus.date);
+                                                  }
                                                 }}
                                             >
                                                 {statusInfo.icon}
@@ -242,6 +264,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                             <p>Semana {i + 1} ({formatDate(weekStatus.date.toISOString())})</p>
                                             <p>Estado: {statusInfo.text}</p>
                                             {statusInfo.paid && <p>{statusInfo.paid}</p>}
+                                            {!canRegisterPayment && weekStatus.status !== 'paid' && weekStatus.status !== 'partial' && <p className="text-xs text-muted-foreground">No se puede registrar pago aún.</p>}
                                         </TooltipContent>
                                     </Tooltip>
                                 </TableCell>
@@ -260,7 +283,16 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                  <DropdownMenuItem asChild>
                                     <Link href={`/dashboard/clients/${loan.clientId}`}>Ver Detalles del Cliente</Link>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleRegisterPaymentClick(loan, 1, getWeekPaymentStatus(loan, 1).date)}>Registrar Pago</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => {
+                                    if(currentPaymentWeekNumber !== -1) {
+                                        const weekStatus = getWeekPaymentStatus(loan, currentPaymentWeekNumber);
+                                        handleRegisterPaymentClick(loan, currentPaymentWeekNumber, weekStatus.date);
+                                    }
+                                }}
+                                disabled={currentPaymentWeekNumber === -1}
+                                >
+                                    Registrar Pago
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
