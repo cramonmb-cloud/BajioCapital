@@ -77,13 +77,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
               return (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
             };
 
-            // The loan's official start date is a Saturday.
-            const loanStartDate = new Date(loan.startDate);
-            // The payment period for "Week 1" starts on the Sunday after the loan's start date.
-            const firstWeekStartDate = new Date(loanStartDate);
-            firstWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 1);
-            firstWeekStartDate.setUTCHours(0, 0, 0, 0);
-            
             const weeklyPayment = getWeeklyPaymentAmount(loan);
             let remainingAmountToDistribute = amountPaid;
             
@@ -93,20 +86,13 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
 
             // --- Main Payment Distribution Logic ---
             while (remainingAmountToDistribute > 0 && tempCurrentWeekNumber <= loanPlan.termInWeeks) {
-                const weekStartDate = new Date(firstWeekStartDate);
-                weekStartDate.setUTCDate(firstWeekStartDate.getUTCDate() + (tempCurrentWeekNumber - 1) * 7);
-
-                const weekEndDate = new Date(weekStartDate);
-                weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 7);
-
-                const existingPaymentIndex = allPayments.findIndex(p => {
-                    const paymentDate = new Date(p.date);
-                    return paymentDate >= weekStartDate && paymentDate < weekEndDate;
-                });
+                // Find existing payment for the target week.
+                // A payment's week number is encoded in its description if it's a multi-week payment, or we can calculate it.
+                const paymentForWeekIndex = allPayments.findIndex(p => p.weekNumber === tempCurrentWeekNumber);
                 
                 let existingPartialAmount = 0;
-                 if (existingPaymentIndex !== -1) {
-                    existingPartialAmount = allPayments[existingPaymentIndex].amount;
+                 if (paymentForWeekIndex !== -1) {
+                    existingPartialAmount = allPayments[paymentForWeekIndex].amount;
                  }
                 
                 const amountNeeded = weeklyPayment - existingPartialAmount;
@@ -117,13 +103,14 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                        weeksPaidInTx.push(tempCurrentWeekNumber);
                    }
                    
-                    if (existingPaymentIndex !== -1) {
-                        allPayments[existingPaymentIndex].amount += amountToApply;
+                    if (paymentForWeekIndex !== -1) {
+                        allPayments[paymentForWeekIndex].amount += amountToApply;
                     } else {
-                        // Create a new payment record for this week, using the payment's actual date for record keeping
+                        // Create a new payment record for this week.
                         allPayments.push({
                             date: new Date().toISOString(),
                             amount: amountToApply,
+                            weekNumber: tempCurrentWeekNumber
                         });
                     }
                 }

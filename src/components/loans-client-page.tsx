@@ -116,7 +116,9 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
 
     const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
+    // The loan's official start date is a Saturday.
     const loanStartDate = new Date(loan.startDate);
+    // The payment period for "Week 1" starts on the Sunday after the loan's start date.
     const firstWeekStartDate = new Date(loanStartDate);
     firstWeekStartDate.setUTCDate(loanStartDate.getUTCDate() + 1);
     firstWeekStartDate.setUTCHours(0, 0, 0, 0);
@@ -124,15 +126,8 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     const weekStartDate = new Date(firstWeekStartDate);
     weekStartDate.setUTCDate(firstWeekStartDate.getUTCDate() + (weekNumber - 1) * 7);
 
-    const weekEndDate = new Date(weekStartDate);
-    weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 7);
-
-    const totalPaidForWeek = loan.payments
-        .filter(p => {
-            const paymentDate = new Date(p.date);
-            return paymentDate >= weekStartDate && paymentDate < weekEndDate;
-        })
-        .reduce((sum, p) => sum + p.amount, 0);
+    const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
+    const totalPaidForWeek = paymentForWeek?.amount || 0;
 
     const isFuture = new Date() < weekStartDate;
     

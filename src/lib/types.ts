@@ -18,10 +18,9 @@ export type LoanPlan = {
 };
 
 export type Payment = {
-  id: string;
-  loanId: string;
   date: string;
   amount: number;
+  weekNumber: number;
 };
 
 export type Loan = {
@@ -31,7 +30,7 @@ export type Loan = {
   amount: number;
   startDate: string;
   status: 'Active' | 'Overdue' | 'Paid Off';
-  payments: Omit<Payment, 'id' | 'loanId'>[];
+  payments: Payment[];
 };
 
 export type Wallet = {
