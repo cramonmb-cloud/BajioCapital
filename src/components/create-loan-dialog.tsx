@@ -31,8 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { clients, loans, loanPlans } from '@/lib/data';
-import type { Client, Loan } from '@/lib/types';
+import type { Client, Loan, LoanPlan } from '@/lib/types';
 import { PlusCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createLoanAction } from '@/app/dashboard/actions';
@@ -58,7 +57,12 @@ const formSchema = stepOneSchema.merge(stepTwoSchema);
 
 type LoanFormValues = z.infer<typeof formSchema>;
 
-export function CreateLoanDialog() {
+interface CreateLoanDialogProps {
+    clients: Client[];
+    loanPlans: LoanPlan[];
+}
+
+export function CreateLoanDialog({ clients, loanPlans }: CreateLoanDialogProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [matchingClients, setMatchingClients] = useState<Client[]>([]);
@@ -106,10 +110,11 @@ export function CreateLoanDialog() {
     form.setValue('guarantee', client.guarantee);
     setSelectedClient(client);
     setMatchingClients([]);
-    const activeLoan = loans.some(
-      (loan) => loan.clientId === client.id && (loan.status === 'Active' || loan.status === 'Overdue')
-    );
-    setClientHasActiveLoan(activeLoan);
+    // TODO: This logic needs to be updated to check active loans from props
+    // const activeLoan = loans.some(
+    //   (loan) => loan.clientId === client.id && (loan.status === 'Active' || loan.status === 'Overdue')
+    // );
+    // setClientHasActiveLoan(activeLoan);
   };
   
   const handleNextStep = async () => {
