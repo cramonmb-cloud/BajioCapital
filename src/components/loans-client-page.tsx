@@ -94,7 +94,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
 
   const getWeekPaymentStatus = (loan: Loan, weekNumber: number) => {
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-    if (!loanPlan) return { status: 'pending' as const, date: new Date(), payment: null };
+    if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0 };
 
     // The loan's official start date is a Saturday.
     const loanStartDate = new Date(loan.startDate);
@@ -110,25 +110,27 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
     const weekEndDate = new Date(weekStartDate);
     weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 6); // Week ends on Saturday
 
-    const paymentForWeek = loan.payments.find(p => {
+    const paymentsForWeek = loan.payments.filter(p => {
         const paymentDate = new Date(p.date);
         return paymentDate >= weekStartDate && paymentDate <= weekEndDate;
     });
 
+    const totalPaidForWeek = paymentsForWeek.reduce((sum, p) => sum + p.amount, 0);
+
     const isFuture = new Date() < weekStartDate;
     
     if (isFuture) {
-      return { status: 'pending' as const, date: weekStartDate, payment: null };
+      return { status: 'pending' as const, date: weekStartDate, amountPaid: 0 };
     }
 
-    if (paymentForWeek) {
-        if(paymentForWeek.amount >= loanPlan.weeklyPayment) {
-            return { status: 'paid' as const, date: weekStartDate, payment: paymentForWeek };
+    if (totalPaidForWeek > 0) {
+        if(totalPaidForWeek >= loanPlan.weeklyPayment) {
+            return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek };
         } else {
-            return { status: 'partial' as const, date: weekStartDate, payment: paymentForWeek };
+            return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek };
         }
     } else {
-        return { status: 'missed' as const, date: weekStartDate, payment: null };
+        return { status: 'missed' as const, date: weekStartDate, amountPaid: 0 };
     }
   };
   
@@ -258,6 +260,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                         if (loan.status !== 'Paid Off') {
                             const statuses = Array.from({length: 14}, (_, i) => getWeekPaymentStatus(loan, i + 1));
                             const firstUnpaidIndex = statuses.findIndex(s => s.status === 'missed' || s.status === 'partial');
+                            
                             if (firstUnpaidIndex !== -1) {
                                 currentPaymentWeekNumber = firstUnpaidIndex + 1;
                             } else {
@@ -285,15 +288,17 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                           </TableCell>
                           {Array.from({ length: 14 }, (_, i) => {
                             const weekStatus = getWeekPaymentStatus(loan, i + 1);
-                            const canRegisterPayment = (i + 1) === currentPaymentWeekNumber;
+                            // Allow registering payment if the week is not fully paid and not in the future (unless it's the very first pending week)
+                            const isPastOrPresent = new Date() >= weekStatus.date;
+                            const canRegisterPayment = loan.status !== 'Paid Off' && isPastOrPresent && weekStatus.status !== 'paid';
 
                             let statusInfo;
                             switch(weekStatus.status) {
                                 case 'paid':
-                                    statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: 'Pagado', paid: `Abono: ${formatCurrency(weekStatus.payment!.amount)}` };
+                                    statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: 'Pagado', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
                                     break;
                                 case 'partial':
-                                    statusInfo = { icon: <AlertCircle className="h-4 w-4 text-yellow-500 mx-auto" />, text: 'Pago Parcial', paid: `Abono: ${formatCurrency(weekStatus.payment!.amount)}` };
+                                    statusInfo = { icon: <AlertCircle className="h-4 w-4 text-yellow-500 mx-auto" />, text: 'Pago Parcial', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
                                     break;
                                 case 'missed':
                                     statusInfo = { icon: <XCircle className="h-4 w-4 text-red-500 mx-auto" />, text: 'Atrasado' };
@@ -323,7 +328,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                             <p>Semana {i + 1} ({formatDate(weekStatus.date.toISOString())})</p>
                                             <p>Estado: {statusInfo.text}</p>
                                             {statusInfo.paid && <p>{statusInfo.paid}</p>}
-                                            {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar pago</p> : weekStatus.status !== 'paid' && weekStatus.status !== 'partial' && <p className="text-xs text-muted-foreground">No se puede registrar pago aún.</p>}
+                                            {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : weekStatus.status !== 'paid' && <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
                                         </TooltipContent>
                                     </Tooltip>
                                 </TableCell>

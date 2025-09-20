@@ -1,7 +1,7 @@
 'use server';
 
 import type { Client, Loan, LoanPlan, Payment } from '@/lib/types';
-import { collection, doc, addDoc, serverTimestamp, setDoc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
+import { collection, doc, addDoc, serverTimestamp, setDoc, updateDoc, arrayUnion, getDoc, arrayRemove, runTransaction } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { revalidatePath } from 'next/cache';
 import { getLoanPlan } from '@/lib/firestore-data';
@@ -55,57 +55,76 @@ export async function createLoanAction(input: CreateLoanInput) {
 
 export async function registerPaymentAction(loanId: string, paymentStartDate: Date, amountPaid: number) {
     try {
-        const loanRef = doc(db, 'loans', loanId);
-        const loanSnap = await getDoc(loanRef);
+        await runTransaction(db, async (transaction) => {
+            const loanRef = doc(db, 'loans', loanId);
+            const loanSnap = await transaction.get(loanRef);
 
-        if(!loanSnap.exists()) {
-            throw new Error('Préstamo no encontrado');
-        }
+            if (!loanSnap.exists()) {
+                throw new Error('Préstamo no encontrado');
+            }
 
-        const loan = loanSnap.data() as Loan;
-        const loanPlan = await getLoanPlan(loan.loanPlanId);
+            const loan = loanSnap.data() as Loan;
+            const loanPlan = await getLoanPlan(loan.loanPlanId);
 
-        if (!loanPlan) {
-            throw new Error('Plan de préstamo no encontrado');
-        }
-        
-        const weeklyPayment = loanPlan.weeklyPayment;
-        let remainingAmountToDistribute = amountPaid;
-        let currentWeekStartDate = new Date(paymentStartDate);
-        
-        const newPayments = [];
+            if (!loanPlan) {
+                throw new Error('Plan de préstamo no encontrado');
+            }
 
-        // Distribute full weekly payments
-        while (remainingAmountToDistribute >= weeklyPayment) {
-            newPayments.push({
-                date: currentWeekStartDate.toISOString(),
-                amount: weeklyPayment,
+            const weeklyPayment = loanPlan.weeklyPayment;
+            let remainingAmountToDistribute = amountPaid;
+            
+            // Start from the provided week's start date
+            let currentWeekStartDate = new Date(paymentStartDate);
+
+            const allPayments = [...loan.payments];
+
+            // This loop will handle both new payments and adding to existing partial payments
+            while (remainingAmountToDistribute > 0) {
+                const weekStartISO = currentWeekStartDate.toISOString();
+
+                // Find if there's already a partial payment for this week
+                const existingPaymentIndex = allPayments.findIndex(p => p.date === weekStartISO);
+
+                let amountForThisWeek = 0;
+                let existingPartialAmount = 0;
+
+                if (existingPaymentIndex !== -1) {
+                    existingPartialAmount = allPayments[existingPaymentIndex].amount;
+                }
+                
+                const amountNeeded = weeklyPayment - existingPartialAmount;
+                const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
+
+                if (amountToApply > 0) {
+                     if (existingPaymentIndex !== -1) {
+                        allPayments[existingPaymentIndex].amount += amountToApply;
+                    } else {
+                        allPayments.push({
+                            date: weekStartISO,
+                            amount: amountToApply,
+                        });
+                    }
+                }
+               
+                remainingAmountToDistribute -= amountToApply;
+                
+                // Move to the next week only if we have more money to distribute
+                if (remainingAmountToDistribute > 0) {
+                    currentWeekStartDate.setUTCDate(currentWeekStartDate.getUTCDate() + 7);
+                }
+            }
+
+            const totalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
+
+            let newStatus = loan.status;
+            if (totalPaid >= loan.amount) {
+                newStatus = 'Paid Off';
+            }
+
+            transaction.update(loanRef, {
+                payments: allPayments,
+                status: newStatus
             });
-            remainingAmountToDistribute -= weeklyPayment;
-            // Move to the next week
-            currentWeekStartDate.setUTCDate(currentWeekStartDate.getUTCDate() + 7);
-        }
-
-        // Distribute any remaining amount as a partial payment
-        if (remainingAmountToDistribute > 0) {
-            newPayments.push({
-                date: currentWeekStartDate.toISOString(),
-                amount: remainingAmountToDistribute,
-            });
-        }
-        
-        const updatedPayments = [...loan.payments, ...newPayments];
-        const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
-        
-        let newStatus = loan.status;
-        if (totalPaid >= loan.amount) {
-            newStatus = 'Paid Off';
-        }
-
-        // Using updateDoc with arrayUnion to add all new payments at once
-        await updateDoc(loanRef, {
-            payments: arrayUnion(...newPayments),
-            status: newStatus
         });
 
         revalidatePath('/dashboard/loans');
