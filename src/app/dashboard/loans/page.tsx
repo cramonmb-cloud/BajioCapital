@@ -50,6 +50,7 @@ export default function LoansPage() {
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
 
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
+  const getWeeklyPayment = (loanPlanId: string) => loanPlans.find(p => p.id === loanPlanId)?.weeklyPayment || 0;
   
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
@@ -164,7 +165,7 @@ export default function LoansPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky left-0 bg-card z-10 w-[200px]">Cliente</TableHead>
-                      <TableHead>Monto</TableHead>
+                      <TableHead>Abono Semanal</TableHead>
                       <TableHead>Estado</TableHead>
                       {Array.from({ length: 14 }, (_, i) => (
                         <TableHead key={i} className="text-center">{`S${i + 1}`}</TableHead>
@@ -181,7 +182,7 @@ export default function LoansPage() {
                               {getClientName(loan.clientId)}
                             </Link>
                           </TableCell>
-                          <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                          <TableCell>{formatCurrency(getWeeklyPayment(loan.loanPlanId))}</TableCell>
                           <TableCell>
                             <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
                           </TableCell>
