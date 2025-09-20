@@ -1,0 +1,113 @@
+import { PlusCircle, MoreHorizontal } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { Badge } from '@/components/ui/badge';
+import { clients, loans, loanPlans } from '@/lib/data';
+import Link from 'next/link';
+
+export default function LoansPage() {
+  const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
+  const getPlanName = (planId: string) => loanPlans.find(p => p.id === planId)?.name || 'N/A';
+  
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+    }).format(amount);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Préstamos</h1>
+          <p className="text-muted-foreground">
+            Visualiza y administra todos los préstamos.
+          </p>
+        </div>
+        <Button>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          Crear Préstamo
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Todos los Préstamos</CardTitle>
+          <CardDescription>
+            Un total de {loans.length} préstamos registrados.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead>Monto</TableHead>
+                <TableHead className="hidden md:table-cell">Plan</TableHead>
+                <TableHead className="hidden md:table-cell">Fecha de Inicio</TableHead>
+                <TableHead>Estado</TableHead>
+                <TableHead>
+                  <span className="sr-only">Acciones</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loans.map((loan) => (
+                <TableRow key={loan.id}>
+                  <TableCell className="font-medium">
+                    <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
+                      {getClientName(loan.clientId)}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                  <TableCell className="hidden md:table-cell">{getPlanName(loan.loanPlanId)}</TableCell>
+                  <TableCell className="hidden md:table-cell">{new Date(loan.startDate).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Toggle menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Acciones</DropdownMenuLabel>
+                        <DropdownMenuItem>Ver Detalles</DropdownMenuItem>
+                        <DropdownMenuItem>Registrar Pago</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
