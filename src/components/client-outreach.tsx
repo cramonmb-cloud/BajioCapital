@@ -1,71 +1,60 @@
-'use client';
-
-import { useState, useTransition } from 'react';
-import type { Client, Loan } from '@/lib/types';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { getOutreachSuggestionAction } from '@/app/dashboard/actions';
-import { Loader2, Wand2 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { Terminal } from 'lucide-react';
-
-interface ClientOutreachProps {
-  client: Client;
-  loans: Loan[];
-}
-
-export function ClientOutreach({ client, loans }: ClientOutreachProps) {
-  const [isPending, startTransition] = useTransition();
-  const [suggestion, setSuggestion] = useState<string | null>(null);
-
-  const handleGenerateSuggestion = () => {
-    startTransition(async () => {
-      const mostRecentLoan = loans.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime())[0];
-      
-      if (!mostRecentLoan) {
-        setSuggestion("Este cliente no tiene préstamos para generar una sugerencia.");
-        return;
-      }
-      
-      const input = {
-        clientId: client.id,
-        clientName: client.name,
-        loanAmount: mostRecentLoan.amount,
-        loanStatus: mostRecentLoan.status,
-        paymentHistory: `El cliente tiene ${mostRecentLoan.payments.length} pagos registrados. El préstamo inició el ${new Date(mostRecentLoan.startDate).toLocaleDateString()}.`,
-        missedPayments: mostRecentLoan.status === 'Overdue' ? 1 : 0, // Simplified logic
-      };
-
-      const result = await getOutreachSuggestionAction(input);
-      setSuggestion(result);
-    });
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Sugerencia de Contacto (IA)</CardTitle>
-        <CardDescription>
-          Genera una sugerencia personalizada sobre cuándo y cómo contactar al cliente.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <Button onClick={handleGenerateSuggestion} disabled={isPending}>
-          {isPending ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Wand2 className="mr-2 h-4 w-4" />
-          )}
-          Generar Sugerencia
-        </Button>
-        {suggestion && (
-          <Alert>
-            <Terminal className="h-4 w-4" />
-            <AlertTitle>Sugerencia de la IA</AlertTitle>
-            <AlertDescription>{suggestion}</AlertDescription>
-          </Alert>
-        )}
-      </CardContent>
-    </Card>
-  );
+{
+  "name": "nextn",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack -p 9002",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^4.1.3",
+    "@radix-ui/react-accordion": "^1.2.3",
+    "@radix-ui/react-alert-dialog": "^1.1.6",
+    "@radix-ui/react-avatar": "^1.1.3",
+    "@radix-ui/react-checkbox": "^1.1.4",
+    "@radix-ui/react-collapsible": "^1.1.11",
+    "@radix-ui/react-dialog": "^1.1.6",
+    "@radix-ui/react-dropdown-menu": "^2.1.6",
+    "@radix-ui/react-label": "^2.1.2",
+    "@radix-ui/react-menubar": "^1.1.6",
+    "@radix-ui/react-popover": "^1.1.6",
+    "@radix-ui/react-progress": "^1.1.2",
+    "@radix-ui/react-radio-group": "^1.2.3",
+    "@radix-ui/react-scroll-area": "^1.2.3",
+    "@radix-ui/react-select": "^2.1.6",
+    "@radix-ui/react-separator": "^1.1.2",
+    "@radix-ui/react-slider": "^1.2.3",
+    "@radix-ui/react-slot": "^1.2.3",
+    "@radix-ui/react-switch": "^1.1.3",
+    "@radix-ui/react-tabs": "^1.1.3",
+    "@radix-ui/react-toast": "^1.2.6",
+    "@radix-ui/react-tooltip": "^1.1.8",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "embla-carousel-react": "^8.6.0",
+    "firebase": "^11.9.1",
+    "lucide-react": "^0.475.0",
+    "next": "15.3.3",
+    "patch-package": "^8.0.0",
+    "react": "^18.3.1",
+    "react-day-picker": "^8.10.1",
+    "react-dom": "^18.3.1",
+    "react-hook-form": "^7.54.2",
+    "recharts": "^2.15.1",
+    "tailwind-merge": "^3.0.1",
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
 }

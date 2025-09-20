@@ -1,10 +1,9 @@
 import { notFound } from 'next/navigation';
-import { clients, loans, payments, loanPlans } from '@/lib/data';
+import { clients, loans, loanPlans } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ClientOutreach } from '@/components/client-outreach';
 import { Mail, Phone, Home, Shield, UserCheck } from 'lucide-react';
 import type { Loan } from '@/lib/types';
 
@@ -79,8 +78,6 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
             </CardContent>
           </Card>
           
-          <ClientOutreach client={client} loans={clientLoans} />
-
         </div>
 
         <div className="space-y-6">
