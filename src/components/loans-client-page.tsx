@@ -203,7 +203,6 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                     {filteredLoans.length > 0 ? (
                       filteredLoans.map((loan) => {
                         const weeklyPayment = getWeeklyPayment(loan.loanPlanId);
-                        
                         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
                         const termInWeeks = loanPlan?.termInWeeks || 0;
                         
