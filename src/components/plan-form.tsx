@@ -19,6 +19,18 @@ import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import type { LoanPlan } from '@/lib/types';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { Trash } from 'lucide-react';
 
 const formSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido.'),
@@ -64,6 +76,23 @@ export function PlanForm({ plan }: PlanFormProps) {
       description: `El plan "${values.name}" ha sido ${plan ? 'actualizado' : 'creado'} correctamente.`,
     });
     
+    // In a real app, you would wait for the API response before navigating.
+    router.push('/dashboard/plans');
+  }
+
+  function handleDelete() {
+    if (!plan) return;
+
+    // Here you would typically handle the deletion,
+    // e.g., by calling an API to delete the plan.
+    console.log(`Deleting plan: ${plan.id}`);
+
+    toast({
+      title: 'Plan eliminado',
+      description: `El plan "${plan.name}" ha sido eliminado correctamente.`,
+      variant: 'destructive',
+    });
+
     // In a real app, you would wait for the API response before navigating.
     router.push('/dashboard/plans');
   }
@@ -137,7 +166,32 @@ export function PlanForm({ plan }: PlanFormProps) {
                 />
             </div>
           </CardContent>
-          <CardFooter className="flex justify-end">
+          <CardFooter className="flex justify-between">
+            <div>
+              {plan && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="destructive" type="button">
+                      <Trash className="mr-2 h-4 w-4" />
+                      Eliminar Plan
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Esta acción no se puede deshacer. Esto eliminará permanentemente el plan de préstamo
+                        y todos los datos asociados.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete}>Continuar</AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
             <Button type="submit">{plan ? 'Guardar Cambios' : 'Crear Plan'}</Button>
           </CardFooter>
         </Card>
