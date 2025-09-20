@@ -26,6 +26,7 @@ import type { Client, Loan, LoanPlan } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { registerPaymentAction } from '@/app/dashboard/actions';
+import { useRouter } from 'next/navigation';
 
 const formSchema = z.object({
   amountPaid: z.coerce.number().min(0, 'El monto debe ser un número positivo.'),
@@ -56,6 +57,7 @@ export function RegisterPaymentDialog({
 }: RegisterPaymentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+  const router = useRouter();
 
   const client = clients.find(c => c.id === loan.clientId);
   const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
@@ -71,7 +73,7 @@ export function RegisterPaymentDialog({
     if (!loanPlan) return;
     setIsSubmitting(true);
     try {
-      const result = await registerPaymentAction(loan.id, weekDate, values.amountPaid);
+      const result = await registerPaymentAction(loan.id, weekDate, values.amountPaid, weekNumber);
 
       if (result.success) {
         toast({
@@ -80,6 +82,7 @@ export function RegisterPaymentDialog({
         });
         onOpenChange(false);
         onPaymentRegistered();
+        router.refresh();
       } else {
         throw new Error(result.message || 'Error desconocido');
       }

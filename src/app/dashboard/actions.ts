@@ -53,7 +53,7 @@ export async function createLoanAction(input: CreateLoanInput) {
 }
 
 
-export async function registerPaymentAction(loanId: string, paymentStartDate: Date, amountPaid: number) {
+export async function registerPaymentAction(loanId: string, paymentStartDate: Date, amountPaid: number, weekNumber: number) {
     try {
         await runTransaction(db, async (transaction) => {
             const loanRef = doc(db, 'loans', loanId);
@@ -78,7 +78,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 type: 'credit',
                 amount: amountPaid,
                 date: new Date(),
-                description: `Abono de ${client?.name || 'N/A'} para préstamo.`,
+                description: `Abono de ${client?.name || 'N/A'} para préstamo (Semana ${weekNumber}).`,
                 loanId: loanId,
                 clientId: loan.clientId,
             });
