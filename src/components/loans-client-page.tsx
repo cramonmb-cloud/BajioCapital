@@ -219,11 +219,12 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                             <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
                           </TableCell>
                           {Array.from({ length: 14 }, (_, i) => {
-                            if (i >= termInWeeks) {
+                            const weekNumber = i + 1;
+                            if (weekNumber > termInWeeks) {
                                 return <TableCell key={i} className="p-2" />;
                             }
                             
-                            const weekStatus = getWeekPaymentStatus(loan, i + 1);
+                            const weekStatus = getWeekPaymentStatus(loan, weekNumber);
                             const canRegisterPayment = (loan.status !== 'Paid Off') && (weekStatus.status !== 'pending');
 
                             let statusInfo;
@@ -251,7 +252,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                                 onClick={(e) => {
                                                   if(canRegisterPayment) {
                                                     e.stopPropagation();
-                                                    handleRegisterPaymentClick(loan, i + 1, weekStatus.date);
+                                                    handleRegisterPaymentClick(loan, weekNumber, weekStatus.date);
                                                   }
                                                 }}
                                             >
@@ -259,7 +260,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                             </button>
                                         </TooltipTrigger>
                                         <TooltipContent>
-                                            <p>Semana {i + 1} (Inicia: {formatDate(weekStatus.date.toISOString())})</p>
+                                            <p>Semana {weekNumber} (Inicia: {formatDate(weekStatus.date.toISOString())})</p>
                                             <p>Estado: {statusInfo.text}</p>
                                             {statusInfo.paid && <p>{statusInfo.paid}</p>}
                                             {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : weekStatus.status !== 'paid' && <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
