@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { loanPlans } from '@/lib/data';
+import Link from 'next/link';
 
 export default function LoanPlansPage() {
   return (
@@ -20,9 +21,11 @@ export default function LoanPlansPage() {
             Define y administra los diferentes tipos de préstamos que ofreces.
           </p>
         </div>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Definir Nuevo Plan
+        <Button asChild>
+          <Link href="/dashboard/plans/new">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Definir Nuevo Plan
+          </Link>
         </Button>
       </div>
 
@@ -46,8 +49,8 @@ export default function LoanPlansPage() {
               </div>
             </CardContent>
             <CardFooter>
-              <Button variant="outline" className="w-full">
-                Editar Plan
+              <Button variant="outline" className="w-full" asChild>
+                <Link href={`/dashboard/plans/${plan.id}/edit`}>Editar Plan</Link>
               </Button>
             </CardFooter>
           </Card>
