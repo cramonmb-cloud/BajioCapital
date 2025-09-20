@@ -1,9 +1,9 @@
 import { notFound } from 'next/navigation';
 import { PlanForm } from '@/components/plan-form';
-import { loanPlans } from '@/lib/data';
+import { getLoanPlan } from '@/lib/firestore-data';
 
-export default function EditPlanPage({ params }: { params: { id: string } }) {
-  const plan = loanPlans.find((p) => p.id === params.id);
+export default async function EditPlanPage({ params }: { params: { id: string } }) {
+  const plan = await getLoanPlan(params.id);
 
   if (!plan) {
     notFound();

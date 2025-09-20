@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, getDoc, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, addDoc, updateDoc, writeBatch, query, where, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Client, Loan, LoanPlan, Payment } from './types';
 
@@ -27,21 +27,37 @@ export async function getLoans(): Promise<Loan[]> {
   const loanSnapshot = await getDocs(loansCol);
   const loanList = loanSnapshot.docs.map(doc => {
       const data = doc.data();
+      // Ensure startDate is a string and payments is an array
+      const startDate = data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate;
+      const payments = Array.isArray(data.payments) ? data.payments : [];
       return {
           id: doc.id,
           ...data,
-          // Firestore timestamps need to be converted to strings
-          startDate: data.startDate.toDate().toISOString(), 
-          payments: data.payments || [],
+          startDate,
+          payments,
       } as Loan;
   });
   return loanList;
 }
 
+
 // Fetch loans for a specific client
 export async function getLoansByClientId(clientId: string): Promise<Loan[]> {
-    const allLoans = await getLoans();
-    return allLoans.filter(loan => loan.clientId === clientId);
+    const loansCol = collection(db, 'loans');
+    const q = query(loansCol, where("clientId", "==", clientId));
+    const loanSnapshot = await getDocs(q);
+    const loanList = loanSnapshot.docs.map(doc => {
+      const data = doc.data();
+       const startDate = data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate;
+       const payments = Array.isArray(data.payments) ? data.payments : [];
+      return {
+          id: doc.id,
+          ...data,
+          startDate,
+          payments,
+      } as Loan;
+  });
+  return loanList;
 }
 
 
@@ -64,22 +80,35 @@ export async function getLoanPlan(id: string): Promise<LoanPlan | null> {
   }
 }
 
-// NOTE: The following functions are placeholders for creating/updating data.
-// You'll need to adapt them to your specific logic, especially for handling subcollections like payments.
+export async function seedDatabase(clients: Client[], loanPlans: LoanPlan[], loans: Loan[]) {
+  const batch = writeBatch(db);
 
-export async function createClient(clientData: Omit<Client, 'id' | 'avatarUrl'>) {
-    const clientsCol = collection(db, 'clients');
-    const docRef = await addDoc(clientsCol, {
-        ...clientData,
-        avatarUrl: `https://picsum.photos/seed/${Math.random()}/40/40`
-    });
-    return docRef.id;
-}
+  // Seed clients
+  const clientsCol = collection(db, 'clients');
+  clients.forEach((client) => {
+    const { id, ...clientData } = client;
+    const docRef = doc(clientsCol, id);
+    batch.set(docRef, clientData);
+  });
 
-export async function createLoan(loanData: Omit<Loan, 'id' | 'payments'>) {
-    const loansCol = collection(db, 'loans');
-    await addDoc(loansCol, {
-        ...loanData,
-        payments: [] // Initialize with empty payments
+  // Seed loan plans
+  const plansCol = collection(db, 'loanPlans');
+  loanPlans.forEach((plan) => {
+    const { id, ...planData } = plan;
+    const docRef = doc(plansCol, id);
+    batch.set(docRef, planData);
+  });
+
+  // Seed loans
+  const loansCol = collection(db, 'loans');
+  loans.forEach((loan) => {
+    const { id, startDate, ...loanData } = loan;
+    const docRef = doc(loansCol, id);
+     batch.set(docRef, {
+      ...loanData,
+      startDate: new Date(startDate) // Store as Firestore Timestamp
     });
+  });
+
+  await batch.commit();
 }

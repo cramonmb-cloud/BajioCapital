@@ -60,9 +60,10 @@ type LoanFormValues = z.infer<typeof formSchema>;
 interface CreateLoanDialogProps {
     clients: Client[];
     loanPlans: LoanPlan[];
+    loans: Loan[];
 }
 
-export function CreateLoanDialog({ clients, loanPlans }: CreateLoanDialogProps) {
+export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialogProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [matchingClients, setMatchingClients] = useState<Client[]>([]);
@@ -110,11 +111,10 @@ export function CreateLoanDialog({ clients, loanPlans }: CreateLoanDialogProps) 
     form.setValue('guarantee', client.guarantee);
     setSelectedClient(client);
     setMatchingClients([]);
-    // TODO: This logic needs to be updated to check active loans from props
-    // const activeLoan = loans.some(
-    //   (loan) => loan.clientId === client.id && (loan.status === 'Active' || loan.status === 'Overdue')
-    // );
-    // setClientHasActiveLoan(activeLoan);
+    const activeLoan = loans.some(
+      (loan) => loan.clientId === client.id && (loan.status === 'Active' || loan.status === 'Overdue')
+    );
+    setClientHasActiveLoan(activeLoan);
   };
   
   const handleNextStep = async () => {
@@ -136,7 +136,13 @@ export function CreateLoanDialog({ clients, loanPlans }: CreateLoanDialogProps) 
     setIsSubmitting(true);
     try {
         const clientData: Omit<Client, 'id' | 'avatarUrl'> & { id?: string } = selectedClient ? 
-            { ...selectedClient } : 
+            { name: values.clientName,
+              email: selectedClient.email, // This should exist if selectedClient is not null
+              address: values.address,
+              phone: values.phone,
+              guarantee: values.guarantee,
+              endorsement: values.endorsement, // TODO: This needs better handling
+             } : 
             {
                 name: values.clientName,
                 email: `${values.clientName.split(' ').join('.').toLowerCase()}@example.com`,
@@ -150,33 +156,34 @@ export function CreateLoanDialog({ clients, loanPlans }: CreateLoanDialogProps) 
             clientData.id = selectedClient.id;
         }
        
-      await createLoanAction({
+      const result = await createLoanAction({
         loanPlanId: values.loanPlanId,
         amount: values.amount,
         client: clientData,
       });
 
-      toast({
-        title: 'Préstamo Creado',
-        description: `El préstamo para ${values.clientName} ha sido creado exitosamente.`,
-      });
+      if (result.success) {
+        toast({
+            title: 'Préstamo Creado',
+            description: `El préstamo para ${values.clientName} ha sido creado exitosamente.`,
+        });
 
-      // Reset form and state
-      form.reset();
-      setStep(1);
-      setMatchingClients([]);
-      setSelectedClient(null);
-      setClientHasActiveLoan(null);
-      setOpen(false);
-      
-      // In a real app, you would revalidate data. For now, we refresh.
-      router.refresh();
+        // Reset form and state
+        form.reset();
+        setStep(1);
+        setMatchingClients([]);
+        setSelectedClient(null);
+        setClientHasActiveLoan(null);
+        setOpen(false);
+      } else {
+        throw new Error(result.message || 'Error desconocido');
+      }
 
-    } catch (error) {
+    } catch (error: any) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Hubo un error al crear el préstamo. Por favor, inténtelo de nuevo.',
+        description: error.message || 'Hubo un error al crear el préstamo. Por favor, inténtelo de nuevo.',
       });
     } finally {
       setIsSubmitting(false);
@@ -267,7 +274,7 @@ export function CreateLoanDialog({ clients, loanPlans }: CreateLoanDialogProps) 
                                ¡Este cliente ya tiene un préstamo activo o vencido!
                            </FormDescription>
                        )}
-                       {clientHasActiveLoan === false && (
+                       {clientHasActiveLoan === false && selectedClient && (
                            <FormDescription className="text-primary">
                                Cliente seleccionado. Puede continuar.
                            </FormDescription>

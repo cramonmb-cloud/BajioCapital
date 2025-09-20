@@ -127,7 +127,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
             Visualiza y administra todos los préstamos por semana.
           </p>
         </div>
-        <CreateLoanDialog clients={clients} loanPlans={loanPlans} />
+        <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans}/>
       </div>
 
       <div className="grid gap-4 md:grid-cols-[180px_1fr]">
@@ -232,7 +232,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                     ) : (
                         <TableRow>
                             <TableCell colSpan={18} className="text-center h-24 p-2">
-                               No hay préstamos para la semana seleccionada.
+                               No hay préstamos para la semana seleccionada. O presiona "Cargar Datos de Ejemplo".
                             </TableCell>
                         </TableRow>
                     )}

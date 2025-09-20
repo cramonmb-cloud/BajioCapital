@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation';
-import { clients, loans, loanPlans } from '@/lib/data';
+import { getClient, getLoansByClientId, getLoanPlans } from '@/lib/firestore-data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,14 +8,17 @@ import { Mail, Phone, Home, Shield, UserCheck } from 'lucide-react';
 import type { Loan } from '@/lib/types';
 
 
-export default function ClientDetailPage({ params }: { params: { id: string } }) {
-  const client = clients.find((c) => c.id === params.id);
+export default async function ClientDetailPage({ params }: { params: { id: string } }) {
+  const client = await getClient(params.id);
   
   if (!client) {
     notFound();
   }
 
-  const clientLoans: Loan[] = loans.filter((loan) => loan.clientId === client.id);
+  const [clientLoans, loanPlans] = await Promise.all([
+      getLoansByClientId(client.id),
+      getLoanPlans()
+  ]);
 
   const getPlanName = (planId: string) => {
     return loanPlans.find(p => p.id === planId)?.name || 'N/A';

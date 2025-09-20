@@ -1,6 +1,9 @@
 'use server';
 
 import type { Client } from '@/lib/types';
+import { collection, doc, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { revalidatePath } from 'next/cache';
 
 export type CreateLoanInput = {
     loanPlanId: string;
@@ -9,29 +12,41 @@ export type CreateLoanInput = {
 };
 
 export async function createLoanAction(input: CreateLoanInput) {
-    // This is where you would typically handle the form submission,
-    // e.g., by calling an API to save the loan and client.
-    
     const today = new Date();
-    // Sunday - Saturday : 0 - 6
-    const dayOfWeek = today.getDay(); 
+    const dayOfWeek = today.getDay(); // Sunday = 0, Saturday = 6
     // If today is Sunday (0), we want the Saturday of the *previous* week.
-    // So we subtract 1 day.
     // For any other day (Mon-Sat), we calculate days until the upcoming Saturday.
     const daysToAdd = dayOfWeek === 0 ? -1 : 6 - dayOfWeek;
     
     const saturday = new Date(today);
-    saturday.setDate(today.getDate() + daysToAdd);
+    saturday.setUTCDate(today.getUTCDate() + daysToAdd);
+    saturday.setUTCHours(0, 0, 0, 0);
+
+    let clientId = input.client.id;
+
+    if (!clientId) {
+        // Create a new client
+        const newClientData = {
+            ...input.client,
+            avatarUrl: `https://picsum.photos/seed/${Math.random()}/40/40`
+        };
+        const docRef = await addDoc(collection(db, 'clients'), newClientData);
+        clientId = docRef.id;
+    }
 
     const newLoan = {
-        ...input,
-        startDate: saturday.toISOString().split('T')[0], // Format as YYYY-MM-DD
+        clientId: clientId,
+        loanPlanId: input.loanPlanId,
+        amount: input.amount,
+        startDate: saturday, // Use the Date object directly, Firestore will convert it
+        status: 'Active' as const,
+        payments: [],
     };
-
-    console.log('Creating loan with input:', newLoan);
     
-    // In a real app, you would get the new loan and client data back from the API
-    // and then potentially revalidate the data on the client.
+    await addDoc(collection(db, 'loans'), newLoan);
+
+    revalidatePath('/dashboard/loans');
+    revalidatePath('/dashboard/clients');
     
     return { success: true, message: 'Préstamo creado con éxito.' };
 }

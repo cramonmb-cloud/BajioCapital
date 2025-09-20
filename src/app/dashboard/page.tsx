@@ -13,13 +13,20 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { clients, loans, loanPlans } from '@/lib/data';
-import type { Loan } from '@/lib/types';
-import { Users, Landmark, Banknote, ArrowRight } from 'lucide-react';
+import { getClients, getLoans, getLoanPlans } from '@/lib/firestore-data';
+import { Users, Landmark, Banknote, ArrowRight, Database } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { seedDatabaseAction } from './seed-actions';
 
-export default function DashboardPage() {
+
+export default async function DashboardPage() {
+  const [clients, loans, loanPlans] = await Promise.all([
+    getClients(),
+    getLoans(),
+    getLoanPlans()
+  ]);
+
   const totalClients = clients.length;
   const activeLoans = loans.filter((loan) => loan.status === 'Active' || loan.status === 'Overdue').length;
   const totalLoaned = loans.reduce((acc, loan) => acc + loan.amount, 0);
@@ -43,7 +50,15 @@ export default function DashboardPage() {
   
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+        <form action={seedDatabaseAction}>
+            <Button variant="outline" type="submit">
+                <Database className="mr-2 h-4 w-4" />
+                Cargar Datos de Ejemplo
+            </Button>
+        </form>
+      </div>
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>

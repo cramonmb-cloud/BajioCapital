@@ -8,10 +8,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { loanPlans } from '@/lib/data';
+import { getLoanPlans } from '@/lib/firestore-data';
 import Link from 'next/link';
 
-export default function LoanPlansPage() {
+export default async function LoanPlansPage() {
+    const loanPlans = await getLoanPlans();
     const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
