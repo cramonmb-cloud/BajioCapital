@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, Banknote, Landmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -127,6 +127,27 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
         return { status: 'missed' as const, date: weekStartDate, payment: null };
     }
   };
+  
+  const weeklyReport = {
+      totalCollected: 0,
+      totalPayments: 0,
+  }
+
+  if(selectedWeek) {
+      const selectedSaturday = getSaturdayOfWeek(new Date(selectedWeek));
+      const weekStart = new Date(selectedSaturday);
+      weekStart.setUTCDate(selectedSaturday.getUTCDate() - 6);
+
+      filteredLoans.forEach(loan => {
+          loan.payments.forEach(payment => {
+              const paymentDate = new Date(payment.date);
+              if (paymentDate >= weekStart && paymentDate <= selectedSaturday) {
+                  weeklyReport.totalCollected += payment.amount;
+                  weeklyReport.totalPayments += 1;
+              }
+          })
+      })
+  }
 
   const handleRegisterPaymentClick = (loan: Loan, weekNumber: number, weekDate: Date) => {
       setSelectedLoanForPayment(loan);
@@ -147,6 +168,37 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
         </div>
         <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans}/>
       </div>
+      
+       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                        Cobranza de la Semana
+                    </CardTitle>
+                    <Banknote className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{formatCurrency(weeklyReport.totalCollected)}</div>
+                    <p className="text-xs text-muted-foreground">
+                        Total recaudado para la semana seleccionada
+                    </p>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                        Abonos Registrados
+                    </CardTitle>
+                    <Landmark className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                    <div className="text-2xl font-bold">{weeklyReport.totalPayments}</div>
+                     <p className="text-xs text-muted-foreground">
+                        Número de pagos en la semana
+                    </p>
+                </CardContent>
+            </Card>
+       </div>
 
       <div className="grid gap-4 md:grid-cols-[180px_1fr]">
         {/* Weeks List */}
@@ -226,7 +278,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                           </TableCell>
                           {Array.from({ length: 14 }, (_, i) => {
                             const weekStatus = getWeekPaymentStatus(loan, i + 1);
-                            const canRegisterPayment = (i + 1) === currentPaymentWeekNumber;
+                            const canRegisterPayment = (i + 1) === currentPaymentWeekNumber && loan.status !== 'Paid Off';
 
                             let statusInfo;
                             switch(weekStatus.status) {
@@ -264,7 +316,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                             <p>Semana {i + 1} ({formatDate(weekStatus.date.toISOString())})</p>
                                             <p>Estado: {statusInfo.text}</p>
                                             {statusInfo.paid && <p>{statusInfo.paid}</p>}
-                                            {!canRegisterPayment && weekStatus.status !== 'paid' && weekStatus.status !== 'partial' && <p className="text-xs text-muted-foreground">No se puede registrar pago aún.</p>}
+                                            {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar pago</p> : weekStatus.status !== 'paid' && weekStatus.status !== 'partial' && <p className="text-xs text-muted-foreground">No se puede registrar pago aún.</p>}
                                         </TooltipContent>
                                     </Tooltip>
                                 </TableCell>
@@ -289,7 +341,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
                                         handleRegisterPaymentClick(loan, currentPaymentWeekNumber, weekStatus.date);
                                     }
                                 }}
-                                disabled={currentPaymentWeekNumber === -1}
+                                disabled={currentPaymentWeekNumber === -1 || loan.status === 'Paid Off'}
                                 >
                                     Registrar Pago
                                 </DropdownMenuItem>

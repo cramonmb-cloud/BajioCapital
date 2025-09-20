@@ -1,7 +1,7 @@
 'use server';
 
-import type { Client, Payment } from '@/lib/types';
-import { collection, doc, addDoc, serverTimestamp, setDoc, updateDoc, arrayUnion } from 'firebase/firestore';
+import type { Client, Loan, Payment } from '@/lib/types';
+import { collection, doc, addDoc, serverTimestamp, setDoc, updateDoc, arrayUnion, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { revalidatePath } from 'next/cache';
 
@@ -55,18 +55,32 @@ export async function createLoanAction(input: CreateLoanInput) {
 export async function registerPaymentAction(loanId: string, paymentDate: Date, amountPaid: number, weeklyPayment: number) {
     try {
         const loanRef = doc(db, 'loans', loanId);
+        const loanSnap = await getDoc(loanRef);
 
-        const newPayment: Omit<Payment, 'id' | 'loanId'> = {
+        if(!loanSnap.exists()) {
+            throw new Error('Loan not found');
+        }
+
+        const loan = loanSnap.data() as Loan;
+
+        const newPayment = {
             date: paymentDate.toISOString(),
             amount: amountPaid,
         };
 
-        await updateDoc(loanRef, {
-            payments: arrayUnion(newPayment)
-        });
+        const updatedPayments = [...loan.payments, newPayment];
+        
+        const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
+        
+        let newStatus = loan.status;
+        if (totalPaid >= loan.amount) {
+            newStatus = 'Paid Off';
+        }
 
-        // Optionally, you could update the loan status here based on payment completion.
-        // For now, we'll just revalidate.
+        await updateDoc(loanRef, {
+            payments: arrayUnion(newPayment),
+            status: newStatus
+        });
 
         revalidatePath('/dashboard/loans');
         return { success: true, message: 'Pago registrado con éxito.' };
