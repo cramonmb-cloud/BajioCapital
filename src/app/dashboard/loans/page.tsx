@@ -32,13 +32,13 @@ import { CreateLoanDialog } from '@/components/create-loan-dialog';
 import { cn } from '@/lib/utils';
 
 // Helper to get the Saturday of the week for a given date
-const getSaturdayOfWeek = (date: Date): Date => {
-    const newDate = new Date(date);
-    const day = newDate.getDay(); // Sunday = 0, Saturday = 6
-    const diff = 6 - day;
-    newDate.setDate(newDate.getDate() + diff);
-    newDate.setHours(0, 0, 0, 0); // Normalize time
-    return newDate;
+const getSaturdayOfWeek = (d: Date) => {
+  const date = new Date(d);
+  const day = date.getUTCDay(); // Use getUTCDay() to be timezone-safe
+  const diff = 6 - day; // Saturday is 6
+  date.setUTCDate(date.getUTCDate() + diff);
+  date.setUTCHours(0, 0, 0, 0); // Normalize time
+  return date;
 };
 
 
@@ -55,7 +55,11 @@ export default function LoansPage() {
   };
   
   const formatDate = (dateString: string) => {
-      return new Date(dateString).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
+      const date = new Date(dateString);
+      // Adjust for timezone offset to show the correct local date
+      const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+      const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+      return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
   };
 
   // Get unique weeks (represented by Saturday's date string) from all loans

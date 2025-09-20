@@ -27,6 +27,14 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
       currency: 'MXN',
     }).format(amount);
   };
+
+  const formatDate = (dateString: string) => {
+      const date = new Date(dateString);
+      // Adjust for timezone offset to show the correct local date
+      const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+      const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+      return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  };
   
   return (
     <div className="space-y-6">
@@ -63,7 +71,7 @@ export default function ClientDetailPage({ params }: { params: { id: string } })
                     <TableRow key={loan.id}>
                       <TableCell>{formatCurrency(loan.amount)}</TableCell>
                       <TableCell>{getPlanName(loan.loanPlanId)}</TableCell>
-                      <TableCell>{new Date(loan.startDate).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })}</TableCell>
+                      <TableCell>{formatDate(loan.startDate)}</TableCell>
                       <TableCell>
                         <Badge variant={loan.status === 'Paid Off' ? 'secondary' : loan.status === 'Overdue' ? 'destructive' : 'default'}>{loan.status}</Badge>
                       </TableCell>
