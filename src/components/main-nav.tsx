@@ -20,15 +20,17 @@ export function MainNav() {
   const { appUser } = useAuth();
 
   const allowedLinks = allLinks.filter(link => {
-    // If user is admin, show all links
+    // If user is admin, show all links, always.
     if (appUser?.role === 'admin') {
       return true;
     }
-    // If user is not admin, check their permissions object
+    
+    // For non-admin users, check their permissions object.
     if (appUser?.permissions) {
       return appUser.permissions[link.id];
     }
-    // If no permissions object, only show dashboard if it's the only link they should see
+    
+    // Default case for non-admin users without a permissions object (show nothing or just dashboard)
     if (link.id === 'dashboard') {
         return true;
     }
