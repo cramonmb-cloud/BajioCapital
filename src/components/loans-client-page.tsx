@@ -34,6 +34,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import type { Client, Loan, LoanPlan, Payment, Group, Supervisor } from '@/lib/types';
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/lib/utils';
 
 
 // Helper to get the Saturday of the week for a given date
@@ -351,8 +352,12 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                         <TableRow>
                             <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-2 font-semibold">Total a Cobrar</TableCell>
                             {weeklyTotals.map((total, i) => (
-                                <TableCell key={i} className="text-center p-2 font-semibold">
-                                    {total > 0 ? formatCurrency(total) : ''}
+                                <TableCell key={i} className="p-2 h-24 text-center align-bottom font-semibold" >
+                                    {total > 0 ? (
+                                      <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
+                                        {formatCurrency(total)}
+                                      </div>
+                                    ) : ''}
                                 </TableCell>
                             ))}
                             <TableCell className="sticky right-0 bg-card z-10 p-2"></TableCell>
