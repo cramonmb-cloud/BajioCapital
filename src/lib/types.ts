@@ -60,8 +60,18 @@ export type Group = {
     supervisorId: string;
 };
 
+export type UserPermissions = {
+    dashboard: boolean;
+    clients: boolean;
+    loans: boolean;
+    wallet: boolean;
+    plans: boolean;
+    settings: boolean;
+};
+
 export type AppUser = {
     id: string;
     username: string;
     role: 'admin' | 'supervisor';
+    permissions: UserPermissions;
 };

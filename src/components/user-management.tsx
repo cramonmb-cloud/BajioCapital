@@ -13,9 +13,11 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -43,15 +45,34 @@ import { useAuth } from '@/hooks/use-auth';
 import type { AppUser } from '@/lib/types';
 import { deleteUserAction, saveUserAction } from '@/app/dashboard/settings/actions';
 
+const permissionsSchema = z.object({
+  dashboard: z.boolean().default(false),
+  clients: z.boolean().default(false),
+  loans: z.boolean().default(false),
+  wallet: z.boolean().default(false),
+  plans: z.boolean().default(false),
+  settings: z.boolean().default(false),
+});
+
 const formSchema = z.object({
   username: z.string().min(3, 'El nombre de usuario debe tener al menos 3 caracteres.'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.'),
   role: z.enum(['admin', 'supervisor'], { required_error: 'Debes seleccionar un rol.' }),
+  permissions: permissionsSchema,
 });
 
 type UserFormValues = z.infer<typeof formSchema>;
 
 const DUMMY_DOMAIN = 'credicontrol.app';
+
+const permissionLabels: { id: keyof AppUser['permissions']; label: string }[] = [
+    { id: 'dashboard', label: 'Dashboard' },
+    { id: 'clients', label: 'Clientes' },
+    { id: 'loans', label: 'Préstamos' },
+    { id: 'wallet', label: 'Cartera' },
+    { id: 'plans', label: 'Planes' },
+    { id: 'settings', label: 'Ajustes' },
+];
 
 interface UserManagementProps {
     users: AppUser[];
@@ -69,6 +90,14 @@ export function UserManagement({ users }: UserManagementProps) {
       username: '',
       password: '',
       role: 'supervisor',
+      permissions: {
+        dashboard: true,
+        clients: false,
+        loans: false,
+        wallet: false,
+        plans: false,
+        settings: false,
+      },
     },
   });
 
@@ -76,7 +105,7 @@ export function UserManagement({ users }: UserManagementProps) {
     setIsSaving(true);
     const email = `${values.username.toLowerCase()}@${DUMMY_DOMAIN}`;
     try {
-        const userCredential = await signUp(email, values.password, values.role, values.username);
+        const userCredential = await signUp(email, values.password, values.role, values.username, values.permissions);
         
         toast({
             title: 'Usuario Creado',
@@ -89,9 +118,8 @@ export function UserManagement({ users }: UserManagementProps) {
         let errorMessage = error.message;
         if (error.code === 'auth/email-already-in-use') {
              try {
-                // The user exists in Auth but not in Firestore. Let's sync them.
                 const tempUid = `sync-needed-${values.username}`;
-                await saveUserAction(tempUid, { username: values.username, role: values.role });
+                await saveUserAction(tempUid, { username: values.username, role: values.role, permissions: values.permissions });
                 
                 toast({
                     title: 'Usuario Sincronizado',
@@ -122,7 +150,6 @@ export function UserManagement({ users }: UserManagementProps) {
 
   const handleDeleteUser = async (userId: string) => {
      try {
-        // Note: This only deletes from Firestore for now. Deleting from Auth is a protected operation.
         const result = await deleteUserAction(userId);
         if (result.success) {
             toast({ title: 'Éxito', description: 'Usuario eliminado de la lista.' });
@@ -147,13 +174,13 @@ export function UserManagement({ users }: UserManagementProps) {
           Gestión de Usuarios
         </CardTitle>
         <CardDescription>
-          Añade nuevos usuarios y asígnales roles.
+          Añade nuevos usuarios, asígnales roles y permisos.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <FormField
                 control={form.control}
                 name="username"
@@ -202,7 +229,46 @@ export function UserManagement({ users }: UserManagementProps) {
                 )}
               />
             </div>
-            <div className="flex justify-end">
+
+            <FormField
+              control={form.control}
+              name="permissions"
+              render={() => (
+                <FormItem>
+                  <div className="mb-4">
+                    <FormLabel className="text-base">Permisos de Navegación</FormLabel>
+                    <FormDescription>
+                      Selecciona las secciones a las que el usuario tendrá acceso.
+                    </FormDescription>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                    {permissionLabels.map((item) => (
+                      <FormField
+                        key={item.id}
+                        control={form.control}
+                        name={`permissions.${item.id}`}
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={field.onChange}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                              <FormLabel>{item.label}</FormLabel>
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex justify-end pt-4">
                 <Button type="submit" disabled={isSaving}>
                     {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                     {isSaving ? 'Guardando...' : 'Añadir Usuario'}
@@ -218,6 +284,7 @@ export function UserManagement({ users }: UserManagementProps) {
                         <TableRow>
                             <TableHead>Nombre de Usuario</TableHead>
                             <TableHead>Rol</TableHead>
+                            <TableHead>Permisos</TableHead>
                             <TableHead className="text-right">Acción</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -226,6 +293,12 @@ export function UserManagement({ users }: UserManagementProps) {
                             <TableRow key={user.id}>
                                 <TableCell>{user.username}</TableCell>
                                 <TableCell>{translateRole(user.role)}</TableCell>
+                                <TableCell className="text-xs text-muted-foreground">
+                                   {user.permissions ? Object.entries(user.permissions)
+                                        .filter(([, value]) => value)
+                                        .map(([key]) => permissionLabels.find(p => p.id === key)?.label || key)
+                                        .join(', ') : 'Ninguno'}
+                                </TableCell>
                                 <TableCell className="text-right">
                                     <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
                                         <Trash className="h-4 w-4 text-destructive"/>
@@ -235,7 +308,7 @@ export function UserManagement({ users }: UserManagementProps) {
                         ))}
                          {users.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={3} className="text-center">No hay usuarios registrados.</TableCell>
+                                <TableCell colSpan={4} className="text-center">No hay usuarios registrados.</TableCell>
                             </TableRow>
                         )}
                     </TableBody>
