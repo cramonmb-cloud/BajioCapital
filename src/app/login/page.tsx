@@ -60,7 +60,9 @@ export default function LoginPage() {
     } catch (error: any) {
         let errorMessage = error.message;
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-            errorMessage = 'Usuario o contraseña incorrectos. El registro de nuevos usuarios solo puede ser realizado por un administrador.';
+            errorMessage = 'Usuario o contraseña incorrectos.';
+        } else if (error.code === 'auth/too-many-requests') {
+            errorMessage = 'Demasiados intentos fallidos. Inténtalo de nuevo más tarde.';
         }
        toast({
           variant: 'destructive',
@@ -81,7 +83,7 @@ export default function LoginPage() {
             </div>
           <CardTitle>Iniciar Sesión</CardTitle>
           <CardDescription>
-            Introduce tus credenciales para acceder al sistema.
+            Introduce tus credenciales para acceder al sistema. El registro de nuevos usuarios se realiza desde Ajustes.
           </CardDescription>
         </CardHeader>
         <CardContent>

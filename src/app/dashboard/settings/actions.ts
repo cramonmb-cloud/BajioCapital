@@ -1,9 +1,9 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
-import type { Group, Supervisor } from '@/lib/types';
+import type { Group, Supervisor, AppUser } from '@/lib/types';
 
 async function deleteCollection(collectionPath: string) {
     const collectionRef = collection(db, collectionPath);
@@ -27,6 +27,7 @@ export async function deleteAllDataAction() {
         await deleteCollection('walletTransactions');
         await deleteCollection('groups');
         await deleteCollection('supervisors');
+        await deleteCollection('users');
         
         // Reset wallet
         const walletRef = doc(db, 'wallet', 'main');
@@ -42,6 +43,29 @@ export async function deleteAllDataAction() {
         return { success: false, message: `Error al eliminar los datos: ${error.message}` };
     }
 }
+
+// User Actions
+export async function saveUserAction(uid: string, userData: Omit<AppUser, 'id'>) {
+    try {
+        await setDoc(doc(db, 'users', uid), userData);
+        revalidatePath('/dashboard/settings');
+        return { success: true, message: 'Usuario guardado en Firestore.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar usuario en Firestore: ${error.message}` };
+    }
+}
+
+export async function deleteUserAction(uid: string) {
+    try {
+        await deleteDoc(doc(db, 'users', uid));
+        revalidatePath('/dashboard/settings');
+        return { success: true, message: 'Usuario eliminado de Firestore.' };
+    } catch (error: any) {
+        // Note: This does not delete the user from Firebase Auth
+        return { success: false, message: `Error al eliminar usuario: ${error.message}` };
+    }
+}
+
 
 // Supervisor Actions
 export async function saveSupervisorAction(name: string) {

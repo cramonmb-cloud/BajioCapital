@@ -2,12 +2,13 @@ import { SettingsClientPage } from "@/components/settings-client-page";
 import { GroupsManagement } from "@/components/groups-management";
 import { UserManagement } from "@/components/user-management";
 import { Separator } from "@/components/ui/separator";
-import { getGroups, getSupervisors } from "@/lib/firestore-data";
+import { getGroups, getSupervisors, getUsers } from "@/lib/firestore-data";
 
 export default async function SettingsPage() {
-    const [groups, supervisors] = await Promise.all([
+    const [groups, supervisors, users] = await Promise.all([
         getGroups(),
-        getSupervisors()
+        getSupervisors(),
+        getUsers(),
     ]);
     
     return (
@@ -19,7 +20,7 @@ export default async function SettingsPage() {
                 </p>
             </div>
 
-            <UserManagement />
+            <UserManagement users={users} />
 
             <Separator />
 

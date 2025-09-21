@@ -59,3 +59,9 @@ export type Group = {
     name: string;
     supervisorId: string;
 };
+
+export type AppUser = {
+    id: string;
+    username: string;
+    role: 'admin' | 'supervisor';
+};

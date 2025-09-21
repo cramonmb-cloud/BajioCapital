@@ -28,10 +28,20 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { PlusCircle, Loader2, Users, Trash } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import type { AppUser } from '@/lib/types';
+import { deleteUserAction } from '@/app/dashboard/settings/actions';
 
 const formSchema = z.object({
   username: z.string().min(3, 'El nombre de usuario debe tener al menos 3 caracteres.'),
@@ -43,7 +53,11 @@ type UserFormValues = z.infer<typeof formSchema>;
 
 const DUMMY_DOMAIN = 'credicontrol.app';
 
-export function UserManagement() {
+interface UserManagementProps {
+    users: AppUser[];
+}
+
+export function UserManagement({ users }: UserManagementProps) {
   const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -54,6 +68,7 @@ export function UserManagement() {
     defaultValues: {
       username: '',
       password: '',
+      role: 'supervisor',
     },
   });
 
@@ -61,14 +76,16 @@ export function UserManagement() {
     setIsSaving(true);
     const email = `${values.username.toLowerCase()}@${DUMMY_DOMAIN}`;
     try {
-        await signUp(email, values.password);
+        // The signUp function in useAuth now handles creating the user in Auth and Firestore
+        await signUp(email, values.password, values.role, values.username);
+        
         toast({
             title: 'Usuario Creado',
             description: `El usuario "${values.username}" ha sido registrado.`,
         });
-        // Here you would also save the role to Firestore
+        
         form.reset();
-        router.refresh(); // To show the new user in a list if we had one
+        router.refresh(); 
     } catch (error: any) {
         let errorMessage = error.message;
         if (error.code === 'auth/email-already-in-use') {
@@ -84,6 +101,25 @@ export function UserManagement() {
     }
   };
 
+  const handleDeleteUser = async (userId: string) => {
+     try {
+        // Note: This only deletes from Firestore for now. Deleting from Auth is a protected operation.
+        const result = await deleteUserAction(userId);
+        if (result.success) {
+            toast({ title: 'Éxito', description: 'Usuario eliminado de la lista.' });
+            router.refresh();
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error', description: error.message });
+    }
+  };
+
+  const translateRole = (role: 'admin' | 'supervisor') => {
+    return role === 'admin' ? 'Administrador' : 'Supervisor';
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -92,12 +128,12 @@ export function UserManagement() {
           Gestión de Usuarios
         </CardTitle>
         <CardDescription>
-          Añade nuevos usuarios y asígnales roles. La lógica de permisos aún no está implementada.
+          Añade nuevos usuarios y asígnales roles. Los permisos por rol aún no están implementados.
         </CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <FormField
                 control={form.control}
@@ -155,6 +191,37 @@ export function UserManagement() {
             </div>
           </form>
         </Form>
+        
+        <div className="mt-6 border-t pt-4">
+             <h4 className="text-sm font-medium mb-2">Usuarios Existentes</h4>
+              <Table>
+                    <TableHeader>
+                        <TableRow>
+                            <TableHead>Nombre de Usuario</TableHead>
+                            <TableHead>Rol</TableHead>
+                            <TableHead className="text-right">Acción</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {users.map(user => (
+                            <TableRow key={user.id}>
+                                <TableCell>{user.username}</TableCell>
+                                <TableCell>{translateRole(user.role)}</TableCell>
+                                <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
+                                        <Trash className="h-4 w-4 text-destructive"/>
+                                    </Button>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                         {users.length === 0 && (
+                            <TableRow>
+                                <TableCell colSpan={3} className="text-center">No hay usuarios registrados.</TableCell>
+                            </TableRow>
+                        )}
+                    </TableBody>
+                </Table>
+        </div>
       </CardContent>
     </Card>
   );

@@ -10,11 +10,12 @@ import {
   type User 
 } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { saveUserAction } from '@/app/dashboard/settings/actions';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  signUp: (email: string, password: string) => Promise<any>;
+  signUp: (email: string, password: string, role: 'admin' | 'supervisor', username: string) => Promise<any>;
   signIn: (email: string, password: string) => Promise<any>;
   signOut: () => Promise<void>;
 }
@@ -35,11 +36,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signUp = (email: string, password: string) => {
-    return createUserWithEmailAndPassword(auth, email, password);
+  const signUp = async (email: string, password: string, role: 'admin' | 'supervisor', username: string) => {
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const { uid } = userCredential.user;
+    
+    // After creating the user in Auth, save their details to Firestore
+    await saveUserAction(uid, { username, role });
+
+    return userCredential;
   };
 
   const signIn = (email: string, password: string) => {
+    // We don't want new users to be created on sign-in attempts
+    // This function will only sign in existing users.
     return signInWithEmailAndPassword(auth, email, password);
   };
 
