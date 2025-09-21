@@ -31,11 +31,6 @@ export function MainNav() {
     }
 
     // Caso 2: El usuario no es administrador. Verificar sus permisos.
-    // El Dashboard siempre es visible por defecto si tienen permisos.
-    if (link.id === 'dashboard') {
-        return true;
-    }
-    
     // Verificar si el usuario tiene el objeto de permisos y si el permiso específico está en true.
     return appUser.permissions && appUser.permissions[link.id];
   });
