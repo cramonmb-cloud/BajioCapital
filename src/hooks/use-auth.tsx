@@ -9,7 +9,7 @@ import {
   signOut as firebaseSignOut,
   type User 
 } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { saveUserAction } from '@/app/dashboard/settings/actions';
 import type { AppUser } from '@/lib/types';
@@ -35,16 +35,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user) {
-        // User is signed in, now get their profile from Firestore
         const userDocRef = doc(db, 'users', user.uid);
         const userDocSnap = await getDoc(userDocRef);
         if (userDocSnap.exists()) {
           setAppUser({ id: userDocSnap.id, ...userDocSnap.data() } as AppUser);
         } else {
-          // This case can happen if a user exists in Auth but not in Firestore.
-          // You might want to handle this, e.g., by creating a default profile.
-          console.warn("User exists in Auth but not in Firestore.");
-          setAppUser(null);
+          // User exists in Auth but not Firestore. Create a profile for them.
+          // This is a failsafe for the first user or desynchronized users.
+          console.warn("User exists in Auth but not in Firestore. Creating a default admin profile.");
+          const username = user.email?.split('@')[0] || 'admin';
+          const defaultAdminPermissions: AppUser['permissions'] = {
+            dashboard: true,
+            clients: true,
+            loans: true,
+            wallet: true,
+            plans: true,
+            settings: true,
+          };
+          const newAppUser: Omit<AppUser, 'id'> = {
+            username: username.charAt(0).toUpperCase() + username.slice(1),
+            role: 'admin',
+            permissions: defaultAdminPermissions,
+          };
+          
+          await setDoc(userDocRef, newAppUser);
+          setAppUser({ id: user.uid, ...newAppUser });
         }
       } else {
         setAppUser(null);
