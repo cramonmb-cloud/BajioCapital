@@ -61,7 +61,11 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
-  const [selectedWeekForPayment, setSelectedWeekForPayment] = useState<{ weekNumber: number; weekDate: Date} | null>(null);
+  const [paymentDialogData, setPaymentDialogData] = useState<{
+    weekNumber: number;
+    weekDate: Date;
+    initialAmount: number;
+  } | null>(null);
   const router = useRouter();
 
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
@@ -187,11 +191,25 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     }
   };
   
-  const handleRegisterPaymentClick = (loan: Loan, weekNumber: number, weekDate: Date) => {
-      setSelectedLoanForPayment(loan);
-      setSelectedWeekForPayment({ weekNumber, weekDate });
-      setPaymentDialogOpen(true);
-  }
+ const handleRegisterPaymentClick = (loan: Loan, weekNumber: number, weekStatus: ReturnType<typeof getWeekPaymentStatus>) => {
+    const weeklyPayment = getWeeklyPaymentAmount(loan);
+    let initialAmount = weeklyPayment;
+
+    if (weekStatus.status === 'partial') {
+        initialAmount = weeklyPayment - weekStatus.amountPaid;
+    } else if (weekStatus.status === 'missed') {
+        initialAmount = weeklyPayment;
+    }
+
+    setSelectedLoanForPayment(loan);
+    setPaymentDialogData({ 
+      weekNumber, 
+      weekDate: weekStatus.date,
+      initialAmount: initialAmount > 0 ? initialAmount : 0
+    });
+    setPaymentDialogOpen(true);
+};
+
 
   const weeklyTotals = Array.from({ length: 14 }).map((_, i) => {
     const weekNumber = i + 1;
@@ -357,7 +375,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                                     onClick={(e) => {
                                                     if(canRegisterPayment) {
                                                         e.stopPropagation();
-                                                        handleRegisterPaymentClick(loan, weekNumber, weekStatus.date);
+                                                        handleRegisterPaymentClick(loan, weekNumber, weekStatus);
                                                     }
                                                     }}
                                                 >
@@ -451,15 +469,16 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
         </Card>
       </div>
     </div>
-    {selectedLoanForPayment && selectedWeekForPayment &&
+    {selectedLoanForPayment && paymentDialogData &&
         <RegisterPaymentDialog 
             isOpen={paymentDialogOpen}
             onOpenChange={setPaymentDialogOpen}
             loan={selectedLoanForPayment}
             clients={clients}
             loanPlans={loanPlans}
-            weekNumber={selectedWeekForPayment.weekNumber}
-            weekDate={selectedWeekForPayment.weekDate}
+            weekNumber={paymentDialogData.weekNumber}
+            weekDate={paymentDialogData.weekDate}
+            initialAmount={paymentDialogData.initialAmount}
             onPaymentRegistered={() => router.refresh()}
         />
     }

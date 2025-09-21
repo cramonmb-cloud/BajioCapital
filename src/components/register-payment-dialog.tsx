@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -42,6 +42,7 @@ interface RegisterPaymentDialogProps {
   loanPlans: LoanPlan[];
   weekNumber: number;
   weekDate: Date;
+  initialAmount: number;
   onPaymentRegistered: () => void;
 }
 
@@ -53,6 +54,7 @@ export function RegisterPaymentDialog({
   loanPlans,
   weekNumber,
   weekDate,
+  initialAmount,
   onPaymentRegistered,
 }: RegisterPaymentDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -73,14 +75,17 @@ export function RegisterPaymentDialog({
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      amountPaid: weeklyPaymentAmount || 0,
+      amountPaid: initialAmount,
     },
   });
 
-  // Effect to update default value when dialog opens or loan changes
-  useState(() => {
-    form.reset({ amountPaid: weeklyPaymentAmount || 0 });
-  });
+  // Effect to update default value when dialog opens with new data
+  useEffect(() => {
+    if (isOpen) {
+      form.reset({ amountPaid: initialAmount });
+    }
+  }, [isOpen, initialAmount, form]);
+
 
   const onSubmit = async (values: PaymentFormValues) => {
     if (!loanPlan) return;
@@ -118,7 +123,7 @@ export function RegisterPaymentDialog({
     <Dialog open={isOpen} onOpenChange={(open) => {
         onOpenChange(open);
         if (!open) {
-            form.reset({ amountPaid: weeklyPaymentAmount || 0 });
+            form.reset({ amountPaid: initialAmount });
         }
     }}>
       <DialogContent className="sm:max-w-[425px]">
