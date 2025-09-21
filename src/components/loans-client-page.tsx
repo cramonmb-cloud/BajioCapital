@@ -396,9 +396,9 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                   {filteredLoans.length > 0 && (
                     <TableFooter>
                         <TableRow>
-                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-2 font-semibold">Total a Cobrar</TableCell>
+                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 py-1 px-2 font-semibold">Total a Cobrar</TableCell>
                             {weeklyTotals.map((total, i) => (
-                                <TableCell key={i} className="p-2 h-24 text-center align-bottom font-semibold" >
+                                <TableCell key={i} className="p-1 h-20 text-center align-bottom font-semibold" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
                                         {formatCurrency(total)}
@@ -406,12 +406,12 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                     ) : ''}
                                 </TableCell>
                             ))}
-                            <TableCell className="sticky right-0 bg-card z-10 p-2"></TableCell>
+                            <TableCell className="sticky right-0 bg-card z-10 p-1"></TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-2 font-semibold">Falla</TableCell>
+                          <TableCell colSpan={5} className="sticky left-0 bg-card z-10 py-1 px-2 font-semibold">Falla</TableCell>
                             {weeklyFailures.map((total, i) => (
-                                <TableCell key={i} className="p-2 h-24 text-center align-bottom font-semibold text-destructive" >
+                                <TableCell key={i} className="p-1 h-20 text-center align-bottom font-semibold text-destructive" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
                                         {formatCurrency(total)}
@@ -419,12 +419,12 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                     ) : ''}
                                 </TableCell>
                             ))}
-                           <TableCell className="sticky right-0 bg-card z-10 p-2"></TableCell>
+                           <TableCell className="sticky right-0 bg-card z-10 p-1"></TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-2 font-semibold">Cobrado</TableCell>
+                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 py-1 px-2 font-semibold">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => (
-                                <TableCell key={i} className="p-2 h-24 text-center align-bottom font-semibold text-green-600" >
+                                <TableCell key={i} className="p-1 h-20 text-center align-bottom font-semibold text-green-600" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
                                         {formatCurrency(total)}
@@ -432,7 +432,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                     ) : ''}
                                 </TableCell>
                             ))}
-                           <TableCell className="sticky right-0 bg-card z-10 p-2"></TableCell>
+                           <TableCell className="sticky right-0 bg-card z-10 p-1"></TableCell>
                         </TableRow>
                     </TableFooter>
                   )}
