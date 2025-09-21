@@ -292,7 +292,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                       <TableHead className="p-2">Abono</TableHead>
                       <TableHead className="p-2">Estado</TableHead>
                       {Array.from({ length: 14 }, (_, i) => (
-                        <TableHead key={i} className="text-center p-2">{`S${i + 1}`}</TableHead>
+                        <TableHead key={i} className="text-center p-2 border-r">{`S${i + 1}`}</TableHead>
                       ))}
                       <TableHead className="text-right sticky right-0 bg-card z-10 p-2">Acciones</TableHead>
                     </TableRow>
@@ -320,7 +320,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                 const weekNumber = i + 1;
                                 
                                 if (!loanPlan || weekNumber > loanPlan.termInWeeks) {
-                                    return <TableCell key={i} className="text-center p-2" />;
+                                    return <TableCell key={i} className="text-center p-2 border-r" />;
                                 }
                                 
                                 const weekStatus = getWeekPaymentStatus(loan, weekNumber);
@@ -348,7 +348,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                 }
                                 
                                 return (
-                                    <TableCell key={i} className="text-center p-2">
+                                    <TableCell key={i} className="text-center p-2 border-r">
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button 
@@ -406,7 +406,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                         <TableRow>
                             <TableCell colSpan={5} className="sticky left-0 bg-card z-10 py-1 font-semibold">Total a Cobrar</TableCell>
                             {weeklyTotals.map((total, i) => (
-                                <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold" >
+                                <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold border-r" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
                                         {formatCurrencySimple(total)}
@@ -419,7 +419,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                         <TableRow>
                           <TableCell colSpan={5} className="sticky left-0 bg-card z-10 py-1 font-semibold">Falla</TableCell>
                             {weeklyFailures.map((total, i) => (
-                                <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold text-destructive" >
+                                <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold text-destructive border-r" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
                                         {formatCurrencySimple(total)}
@@ -432,7 +432,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                         <TableRow>
                             <TableCell colSpan={5} className="sticky left-0 bg-card z-10 py-1 font-semibold">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => (
-                                <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold text-blue-600" >
+                                <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold text-blue-600 border-r" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
                                         {formatCurrencySimple(total)}
