@@ -135,6 +135,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
     form.setValue('postalCode', client.postalCode);
     form.setValue('city', client.city);
     form.setValue('guarantee', client.guarantee);
+    // Aval data is not stored in the client object, so it's not pre-filled.
     setSelectedClient(client);
     setMatchingClients([]);
     
@@ -184,6 +185,12 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
             form.setValue('postalCode', '');
             form.setValue('city', '');
             form.setValue('guarantee', '');
+            form.setValue('endorsement', '');
+            form.setValue('endorsementStreet', '');
+            form.setValue('endorsementNeighborhood', '');
+            form.setValue('endorsementPostalCode', '');
+            form.setValue('endorsementCity', '');
+            form.setValue('endorsementPhone', '');
         }
         setStep(2);
     }
@@ -218,29 +225,30 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
   const onSubmit = async (values: LoanFormValues) => {
     setIsSubmitting(true);
     try {
-      const endorsementAddress = `${values.endorsementStreet}, ${values.endorsementNeighborhood}, ${values.endorsementPostalCode}, ${values.endorsementCity}. Tel: ${values.endorsementPhone}`;
+      const endorsementAddress = `${values.endorsementStreet.toUpperCase()}, ${values.endorsementNeighborhood.toUpperCase()}, ${values.endorsementPostalCode.toUpperCase()}, ${values.endorsementCity.toUpperCase()}. Tel: ${values.endorsementPhone.toUpperCase()}`;
 
         const clientData: Omit<Client, 'id' | 'avatarUrl'> & { id?: string } = selectedClient ? 
             { ...selectedClient,
-              name: values.clientName,
-              street: values.street,
-              neighborhood: values.neighborhood,
-              postalCode: values.postalCode,
-              city: values.city,
-              phone: values.phone,
-              guarantee: values.guarantee,
-              endorsement: values.endorsement, // Maybe update this too?
+              name: values.clientName.toUpperCase(),
+              street: values.street.toUpperCase(),
+              neighborhood: values.neighborhood.toUpperCase(),
+              postalCode: values.postalCode.toUpperCase(),
+              city: values.city.toUpperCase(),
+              phone: values.phone.toUpperCase(),
+              guarantee: values.guarantee.toUpperCase(),
+              // Update endorsement details if client is re-selected for a new loan
+              endorsement: `${values.endorsement.toUpperCase()} (${endorsementAddress})`,
              } : 
             {
-                name: values.clientName,
+                name: values.clientName.toUpperCase(),
                 email: `${values.clientName.split(' ').join('.').toLowerCase()}@example.com`,
-                street: values.street,
-                neighborhood: values.neighborhood,
-                postalCode: values.postalCode,
-                city: values.city,
-                phone: values.phone,
-                guarantee: values.guarantee,
-                endorsement: `${values.endorsement} (${endorsementAddress})`,
+                street: values.street.toUpperCase(),
+                neighborhood: values.neighborhood.toUpperCase(),
+                postalCode: values.postalCode.toUpperCase(),
+                city: values.city.toUpperCase(),
+                phone: values.phone.toUpperCase(),
+                guarantee: values.guarantee.toUpperCase(),
+                endorsement: `${values.endorsement.toUpperCase()} (${endorsementAddress})`,
             };
 
         if(selectedClient?.id) {
@@ -290,7 +298,16 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+        setOpen(isOpen);
+        if (!isOpen) {
+          form.reset();
+          setStep(1);
+          setMatchingClients([]);
+          setSelectedClient(null);
+          setActiveLoanDetails(null);
+        }
+    }}>
       <DialogTrigger asChild>
         <Button>
           <PlusCircle className="mr-2 h-4 w-4" />
@@ -447,7 +464,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Teléfono</FormLabel>
                         <FormControl>
-                            <Input placeholder="Ej: 555-0101" {...field} disabled={!!selectedClient} className="uppercase" />
+                            <Input placeholder="Ej: 555-0101" {...field} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -460,7 +477,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Calle y Número</FormLabel>
                         <FormControl>
-                            <Input placeholder="Ej: Av. Siempreviva 742" {...field} disabled={!!selectedClient} className="uppercase" />
+                            <Input placeholder="Ej: Av. Siempreviva 742" {...field} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -474,7 +491,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>Colonia</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Springfield" {...field} disabled={!!selectedClient} className="uppercase" />
+                                <Input placeholder="Ej: Springfield" {...field} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -487,7 +504,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>C.P.</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: 12345" {...field} disabled={!!selectedClient} className="uppercase" />
+                                <Input placeholder="Ej: 12345" {...field} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -500,7 +517,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>Ciudad</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Springfield" {...field} disabled={!!selectedClient} className="uppercase" />
+                                <Input placeholder="Ej: Springfield" {...field} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -514,7 +531,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Garantías</FormLabel>
                         <FormControl>
-                            <Textarea placeholder="Describe las garantías del cliente (nómina, propiedad, etc.)" {...field} disabled={!!selectedClient} className="uppercase" />
+                            <Textarea placeholder="Describe las garantías del cliente (nómina, propiedad, etc.)" {...field} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
