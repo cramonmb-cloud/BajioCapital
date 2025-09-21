@@ -92,7 +92,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
       clientName: '',
       address: '',
       phone: '',
-      guarantee: 'N/A',
+      guarantee: '',
       endorsement: '',
       endorsementAddress: '',
       endorsementPhone: '',
@@ -160,6 +160,12 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                 description: 'Este cliente ya tiene un préstamo activo o vencido y no puede solicitar uno nuevo.',
             });
             return;
+        }
+        if (!selectedClient) {
+            // If it's a new client, ensure the fields are empty
+            form.setValue('address', '');
+            form.setValue('phone', '');
+            form.setValue('guarantee', '');
         }
         setStep(2);
     }
