@@ -195,6 +195,32 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
       return total;
     }, 0);
   });
+  
+  const weeklyFailures = Array.from({ length: 14 }).map((_, i) => {
+    const weekNumber = i + 1;
+    return filteredLoans.reduce((total, loan) => {
+      const weekStatus = getWeekPaymentStatus(loan, weekNumber);
+      const weeklyPayment = getWeeklyPaymentAmount(loan);
+      if (weekStatus.status === 'missed') {
+        return total + weeklyPayment;
+      }
+      if (weekStatus.status === 'partial') {
+        return total + (weeklyPayment - weekStatus.amountPaid);
+      }
+      return total;
+    }, 0);
+  });
+
+  const weeklyCollected = Array.from({ length: 14 }).map((_, i) => {
+    const weekNumber = i + 1;
+    return filteredLoans.reduce((total, loan) => {
+      const weekStatus = getWeekPaymentStatus(loan, weekNumber);
+      if (weekStatus.amountPaid > 0 && !weekStatus.isAssumedPaid) {
+        return total + weekStatus.amountPaid;
+      }
+      return total;
+    }, 0);
+  });
 
   return (
     <>
@@ -375,6 +401,32 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                 </TableCell>
                             ))}
                             <TableCell className="sticky right-0 bg-card z-10 p-2"></TableCell>
+                        </TableRow>
+                        <TableRow>
+                          <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-2 font-semibold">Falla</TableCell>
+                            {weeklyFailures.map((total, i) => (
+                                <TableCell key={i} className="p-2 h-24 text-center align-bottom font-semibold text-destructive" >
+                                    {total > 0 ? (
+                                      <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
+                                        {formatCurrency(total)}
+                                      </div>
+                                    ) : ''}
+                                </TableCell>
+                            ))}
+                           <TableCell className="sticky right-0 bg-card z-10 p-2"></TableCell>
+                        </TableRow>
+                        <TableRow>
+                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-2 font-semibold">Cobrado</TableCell>
+                            {weeklyCollected.map((total, i) => (
+                                <TableCell key={i} className="p-2 h-24 text-center align-bottom font-semibold text-green-600" >
+                                    {total > 0 ? (
+                                      <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
+                                        {formatCurrency(total)}
+                                      </div>
+                                    ) : ''}
+                                </TableCell>
+                            ))}
+                           <TableCell className="sticky right-0 bg-card z-10 p-2"></TableCell>
                         </TableRow>
                     </TableFooter>
                   )}
