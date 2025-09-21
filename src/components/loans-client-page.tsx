@@ -299,12 +299,12 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                   </TableHeader>
                   <TableBody>
                     {filteredLoans.length > 0 ? (
-                      filteredLoans.map((loan) => {
+                      filteredLoans.map((loan, index) => {
                         const weeklyPayment = getWeeklyPaymentAmount(loan);
                         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
                         
                         return (
-                        <TableRow key={loan.id}>
+                        <TableRow key={loan.id} className={cn(index % 2 !== 0 && 'bg-muted/20')}>
                           <TableCell className="font-medium sticky left-0 bg-card z-10 w-[200px] p-2">
                             <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
                               {getClientName(loan.clientId)}
