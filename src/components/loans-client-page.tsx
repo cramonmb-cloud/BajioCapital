@@ -292,7 +292,13 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                         statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: weekStatus.isAssumedPaid ? 'Semana Actual (Asumido Pagado)' : 'Pagado', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
                                         break;
                                     case 'partial':
-                                        statusInfo = { icon: <AlertCircle className="h-4 w-4 text-yellow-500 mx-auto" />, text: 'Pago Parcial', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
+                                        const fallo = weeklyPayment - weekStatus.amountPaid;
+                                        statusInfo = { 
+                                            icon: <AlertCircle className="h-4 w-4 text-yellow-500 mx-auto" />, 
+                                            text: 'Pago Parcial', 
+                                            paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}`,
+                                            pending: `Fallo: ${formatCurrency(fallo)}`
+                                        };
                                         break;
                                     case 'missed':
                                         statusInfo = { icon: <XCircle className="h-4 w-4 text-red-500 mx-auto" />, text: 'Atrasado' };
@@ -322,6 +328,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                                 <p>Semana {weekNumber} (Inicia: {formatDate(weekStatus.date.toISOString())})</p>
                                                 <p>Estado: {statusInfo.text}</p>
                                                 {statusInfo.paid && weekStatus.amountPaid > 0 && <p>{statusInfo.paid}</p>}
+                                                {statusInfo.pending && <p className="text-destructive">{statusInfo.pending}</p>}
                                                 {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : loan.status === 'Paid Off' ? <p className="text-xs text-muted-foreground">Préstamo liquidado</p> : <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
                                             </TooltipContent>
                                         </Tooltip>
@@ -393,5 +400,3 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     </>
   );
 }
-
-    
