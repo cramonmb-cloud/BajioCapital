@@ -96,7 +96,7 @@ export default function LoginPage() {
                   <FormItem>
                     <FormLabel>Usuario</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ej: Cristobal" {...field} />
+                      <Input placeholder="Ej: Cristobal" {...field} className="uppercase" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -135,7 +135,7 @@ export function PlanForm({ plan }: PlanFormProps) {
                 <FormItem>
                   <FormLabel>Nombre del Plan</FormLabel>
                   <FormControl>
-                    <Input placeholder="Ej: Plan Semanal Básico" {...field} />
+                    <Input placeholder="Ej: Plan Semanal Básico" {...field} className="uppercase" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -151,6 +151,7 @@ export function PlanForm({ plan }: PlanFormProps) {
                     <Textarea
                       placeholder="Ej: Abonos fijos semanales durante 12 semanas"
                       {...field}
+                      className="uppercase"
                     />
                   </FormControl>
                   <FormMessage />

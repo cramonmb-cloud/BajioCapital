@@ -254,7 +254,7 @@ export function UserManagement({ users }: UserManagementProps) {
                   <FormItem>
                     <FormLabel>Nombre de Usuario</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ej: supervisor1" {...field} />
+                      <Input placeholder="Ej: supervisor1" {...field} className="uppercase" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

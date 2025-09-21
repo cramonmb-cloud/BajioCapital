@@ -379,7 +379,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                     <FormItem>
                       <FormLabel>Nombre del Cliente</FormLabel>
                       <FormControl>
-                        <Input placeholder="Busca o registra un cliente" {...field} onChange={handleClientNameChange}/>
+                        <Input placeholder="Busca o registra un cliente" {...field} onChange={handleClientNameChange} className="uppercase" />
                       </FormControl>
                        {matchingClients.length > 0 && (
                         <div className="relative">
@@ -447,7 +447,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Teléfono</FormLabel>
                         <FormControl>
-                            <Input placeholder="Ej: 555-0101" {...field} disabled={!!selectedClient} />
+                            <Input placeholder="Ej: 555-0101" {...field} disabled={!!selectedClient} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -460,7 +460,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Calle y Número</FormLabel>
                         <FormControl>
-                            <Input placeholder="Ej: Av. Siempreviva 742" {...field} disabled={!!selectedClient} />
+                            <Input placeholder="Ej: Av. Siempreviva 742" {...field} disabled={!!selectedClient} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -474,7 +474,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>Colonia</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Springfield" {...field} disabled={!!selectedClient} />
+                                <Input placeholder="Ej: Springfield" {...field} disabled={!!selectedClient} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -487,7 +487,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>C.P.</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: 12345" {...field} disabled={!!selectedClient} />
+                                <Input placeholder="Ej: 12345" {...field} disabled={!!selectedClient} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -500,7 +500,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>Ciudad</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Springfield" {...field} disabled={!!selectedClient} />
+                                <Input placeholder="Ej: Springfield" {...field} disabled={!!selectedClient} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -514,7 +514,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Garantías</FormLabel>
                         <FormControl>
-                            <Textarea placeholder="Describe las garantías del cliente (nómina, propiedad, etc.)" {...field} disabled={!!selectedClient} />
+                            <Textarea placeholder="Describe las garantías del cliente (nómina, propiedad, etc.)" {...field} disabled={!!selectedClient} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -531,7 +531,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Nombre del Aval</FormLabel>
                         <FormControl>
-                            <Input placeholder="Nombre completo del aval" {...field} />
+                            <Input placeholder="Nombre completo del aval" {...field} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -544,7 +544,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Teléfono del Aval</FormLabel>
                         <FormControl>
-                            <Input placeholder="Teléfono de contacto del aval" {...field} />
+                            <Input placeholder="Teléfono de contacto del aval" {...field} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -557,7 +557,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Calle y Número del Aval</FormLabel>
                         <FormControl>
-                             <Input placeholder="Domicilio del aval" {...field} />
+                             <Input placeholder="Domicilio del aval" {...field} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -571,7 +571,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>Colonia</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Centro" {...field} />
+                                <Input placeholder="Ej: Centro" {...field} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -584,7 +584,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>C.P.</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: 54321" {...field} />
+                                <Input placeholder="Ej: 54321" {...field} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -597,7 +597,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>Ciudad</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Shelbyville" {...field} />
+                                <Input placeholder="Ej: Shelbyville" {...field} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>

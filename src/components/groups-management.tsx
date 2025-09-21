@@ -153,7 +153,7 @@ export function GroupsManagement({ initialSupervisors, initialGroups }: GroupsMa
                   <FormItem className="flex-grow">
                     <FormLabel>Nombre del Supervisor</FormLabel>
                     <FormControl>
-                      <Input placeholder="Ej: Juan Pérez" {...field} />
+                      <Input placeholder="Ej: Juan Pérez" {...field} className="uppercase" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -189,7 +189,7 @@ export function GroupsManagement({ initialSupervisors, initialGroups }: GroupsMa
                     <FormItem className="flex-grow">
                         <FormLabel>Nombre del Grupo</FormLabel>
                         <FormControl>
-                        <Input placeholder="Ej: Grupo Centro" {...field} />
+                        <Input placeholder="Ej: Grupo Centro" {...field} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
