@@ -26,6 +26,13 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { CreateLoanDialog } from '@/components/create-loan-dialog';
@@ -59,6 +66,7 @@ interface LoansClientPageProps {
 
 export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors }: LoansClientPageProps) {
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
+  const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
   const [paymentDialogData, setPaymentDialogData] = useState<{
@@ -140,9 +148,11 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
       setSelectedWeek(loanWeeks[0]);
   }
   
-  const filteredLoans = selectedWeek 
-    ? loans.filter(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek)
-    : [];
+  const filteredLoans = loans.filter(loan => {
+    const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
+    const isCorrectGroup = selectedGroup === 'all' ? true : loan.groupId === selectedGroup;
+    return isCorrectWeek && isCorrectGroup;
+  });
 
   const getWeekPaymentStatus = (loan: Loan, weekNumber: number) => {
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
@@ -264,7 +274,20 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
             Visualiza y administra todos los préstamos por semana.
           </p>
         </div>
-        <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans} groups={groups} />
+        <div className="flex items-center gap-2">
+            <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+                <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filtrar por grupo" />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">Todos los Grupos</SelectItem>
+                    {groups.map(group => (
+                        <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans} groups={groups} />
+        </div>
       </div>
       
       <div className="grid gap-4 md:grid-cols-[140px_1fr]">
