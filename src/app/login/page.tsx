@@ -39,7 +39,7 @@ const DUMMY_DOMAIN = 'credicontrol.app';
 export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
-  const { signUp, signIn } = useAuth();
+  const { signIn } = useAuth();
   const router = useRouter();
 
   const form = useForm<LoginFormValues>({
@@ -55,33 +55,18 @@ export default function LoginPage() {
     const email = `${values.username.toLowerCase()}@${DUMMY_DOMAIN}`;
 
     try {
-      // Try to sign in first
       await signIn(email, values.password);
       router.push('/dashboard');
-    } catch (signInError: any) {
-      // If sign-in fails (e.g., user not found), try to sign up
-      if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential') {
-        try {
-          await signUp(email, values.password);
-          toast({
-            title: '¡Bienvenido!',
-            description: 'Tu cuenta ha sido creada y has iniciado sesión.',
-          });
-          router.push('/dashboard');
-        } catch (signUpError: any) {
-          toast({
-            variant: 'destructive',
-            title: 'Error de Registro',
-            description: signUpError.message,
-          });
+    } catch (error: any) {
+        let errorMessage = error.message;
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+            errorMessage = 'Usuario o contraseña incorrectos. El registro de nuevos usuarios solo puede ser realizado por un administrador.';
         }
-      } else {
-         toast({
-            variant: 'destructive',
-            title: 'Error de Inicio de Sesión',
-            description: signInError.message,
-        });
-      }
+       toast({
+          variant: 'destructive',
+          title: 'Error de Inicio de Sesión',
+          description: errorMessage,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -96,7 +81,7 @@ export default function LoginPage() {
             </div>
           <CardTitle>Iniciar Sesión</CardTitle>
           <CardDescription>
-            Introduce tus credenciales para acceder al sistema. Si es tu primer acceso, se creará una cuenta para ti.
+            Introduce tus credenciales para acceder al sistema.
           </CardDescription>
         </CardHeader>
         <CardContent>
