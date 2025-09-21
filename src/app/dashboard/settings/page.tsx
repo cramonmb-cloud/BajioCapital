@@ -1,6 +1,5 @@
 import { SettingsClientPage } from "@/components/settings-client-page";
 import { GroupsManagement } from "@/components/groups-management";
-import { UserManagement } from "@/components/user-management";
 import { Separator } from "@/components/ui/separator";
 import { getGroups, getSupervisors } from "@/lib/firestore-data";
 
@@ -18,10 +17,6 @@ export default async function SettingsPage() {
                     Administra las configuraciones de tu aplicación.
                 </p>
             </div>
-
-            <UserManagement />
-
-            <Separator />
 
             <GroupsManagement initialGroups={groups} initialSupervisors={supervisors} />
 
