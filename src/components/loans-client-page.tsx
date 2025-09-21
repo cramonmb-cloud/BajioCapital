@@ -85,6 +85,14 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
       currency: 'MXN',
     }).format(amount);
   };
+   const formatCurrencySimple = (amount: number) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'currency',
+      currency: 'MXN',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
   
   const formatDate = (dateString: string) => {
       const date = new Date(dateString);
@@ -401,7 +409,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                 <TableCell key={i} className="p-1 h-20 text-center align-bottom font-semibold" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
-                                        {formatCurrency(total)}
+                                        {formatCurrencySimple(total)}
                                       </div>
                                     ) : ''}
                                 </TableCell>
@@ -414,7 +422,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                 <TableCell key={i} className="p-1 h-20 text-center align-bottom font-semibold text-destructive" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
-                                        {formatCurrency(total)}
+                                        {formatCurrencySimple(total)}
                                       </div>
                                     ) : ''}
                                 </TableCell>
@@ -427,7 +435,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                 <TableCell key={i} className="p-1 h-20 text-center align-bottom font-semibold text-green-600" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
-                                        {formatCurrency(total)}
+                                        {formatCurrencySimple(total)}
                                       </div>
                                     ) : ''}
                                 </TableCell>
