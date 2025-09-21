@@ -13,14 +13,14 @@ import Loading from './loading';
 import type { UserPermissions } from '@/lib/types';
 
 
-const allLinks: { href: string; id: keyof UserPermissions }[] = [
+const allLinks = [
   { href: '/dashboard', label: 'Dashboard', id: 'dashboard' },
   { href: '/dashboard/clients', label: 'Clientes', id: 'clients' },
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans' },
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet' },
   { href: '/dashboard/plans', label: 'Planes', id: 'plans' },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings' },
-];
+] as const;
 
 
 export default function DashboardLayout({
@@ -34,28 +34,38 @@ export default function DashboardLayout({
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
-      return;
+      router.replace('/login');
     }
-    
-    if (!loading && appUser && pathname === '/dashboard') {
-        // If user is not an admin and does not have dashboard access
-        if (appUser.role !== 'admin' && !appUser.permissions?.dashboard) {
-            // Find the first page the user *does* have access to
-            const firstAllowedPage = allLinks.find(link => link.id !== 'dashboard' && appUser.permissions?.[link.id]);
-            if (firstAllowedPage) {
-                router.replace(firstAllowedPage.href);
-            }
-            // If they have no permissions at all, they'll just see a blank page under /dashboard, which is acceptable.
-        }
-    }
-
-  }, [user, appUser, loading, router, pathname]);
-
+  }, [user, loading, router]);
+  
+  // Si todavía está cargando, mostramos un loader general para evitar cualquier renderizado prematuro.
   if (loading || !user) {
     return <div className="flex h-screen w-full items-center justify-center"><Loading /></div>;
   }
+  
+  // Una vez que sabemos que el usuario existe, pero antes de tener su perfil (`appUser`),
+  // podemos mostrar el layout básico pero sin el contenido principal (hijos).
+  if (!appUser) {
+    return <div className="flex h-screen w-full items-center justify-center"><Loading /></div>;
+  }
+  
+  const isDashboardPage = pathname === '/dashboard';
+  const hasDashboardAccess = appUser.role === 'admin' || (appUser.permissions && appUser.permissions.dashboard);
 
+  // Si el usuario está en el dashboard pero no tiene acceso, lo redirigimos.
+  if (isDashboardPage && !hasDashboardAccess) {
+    // Busca la primera página a la que sí tiene acceso.
+    const firstAllowedPage = allLinks.find(
+      link => link.id !== 'dashboard' && appUser.permissions?.[link.id]
+    );
+
+    if (firstAllowedPage) {
+      router.replace(firstAllowedPage.href);
+    }
+    // Mientras se redirige, mostramos el loader para evitar el parpadeo.
+    return <div className="flex h-screen w-full items-center justify-center"><Loading /></div>;
+  }
+  
   return (
     <div className="flex min-h-screen w-full flex-col">
       <header className="sticky top-0 flex h-16 items-center gap-4 border-b bg-background px-4 md:px-6">
