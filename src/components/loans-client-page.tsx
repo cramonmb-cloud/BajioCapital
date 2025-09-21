@@ -144,6 +144,9 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     
     const weekStartDate = new Date(loanStartDate);
     weekStartDate.setUTCDate(loanStartDate.getUTCDate() + ((weekNumber - 1) * 7));
+    
+    const weekEndDate = new Date(weekStartDate);
+    weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 7);
 
     const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
@@ -186,7 +189,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
         <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans} groups={groups} />
       </div>
       
-      <div className="grid gap-4 md:grid-cols-[180px_1fr]">
+      <div className="grid gap-4 md:grid-cols-[140px_1fr]">
         {/* Weeks List */}
         <Card>
             <CardHeader className="p-2 pt-4">
