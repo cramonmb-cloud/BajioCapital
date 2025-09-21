@@ -19,20 +19,25 @@ export function MainNav() {
   const pathname = usePathname();
   const { appUser } = useAuth();
 
+  // Si no tenemos la información del usuario, no mostramos nada para evitar errores.
+  if (!appUser) {
+    return null;
+  }
+
   const allowedLinks = allLinks.filter(link => {
-    // If user is admin, show all links, always. This is the main check.
-    if (appUser?.role === 'admin') {
+    // Caso 1: El usuario es administrador. Mostrar todos los enlaces.
+    if (appUser.role === 'admin') {
       return true;
     }
-    
-    // For non-admin users, check their permissions object.
-    if (appUser?.permissions) {
-      return !!appUser.permissions[link.id];
+
+    // Caso 2: El usuario no es administrador. Verificar sus permisos.
+    // El Dashboard siempre es visible por defecto si tienen permisos.
+    if (link.id === 'dashboard') {
+        return true;
     }
     
-    // Fallback for any other case (e.g., user not fully loaded, no permissions set)
-    // Only dashboard is shown by default.
-    return link.id === 'dashboard';
+    // Verificar si el usuario tiene el objeto de permisos y si el permiso específico está en true.
+    return appUser.permissions && appUser.permissions[link.id];
   });
 
   return (
