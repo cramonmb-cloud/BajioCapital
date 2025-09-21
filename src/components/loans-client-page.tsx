@@ -215,7 +215,13 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     const weekNumber = i + 1;
     return filteredLoans.reduce((total, loan) => {
       const weekStatus = getWeekPaymentStatus(loan, weekNumber);
-      if (weekStatus.amountPaid > 0 && !weekStatus.isAssumedPaid) {
+      const weeklyPayment = getWeeklyPaymentAmount(loan);
+      
+      if (weekStatus.status === 'paid') {
+        // If it's assumed paid, we add the full weekly amount. If it's explicitly paid, we use the recorded amount if it's higher (e.g. overpayment).
+        return total + (weekStatus.isAssumedPaid ? weeklyPayment : Math.max(weeklyPayment, weekStatus.amountPaid));
+      }
+      if (weekStatus.status === 'partial') {
         return total + weekStatus.amountPaid;
       }
       return total;
