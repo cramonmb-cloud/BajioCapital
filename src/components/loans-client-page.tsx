@@ -416,7 +416,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                             ))}
                             <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
-                        <TableRow>
+                        <TableRow className="border-t">
                           <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Falla</TableCell>
                             {weeklyFailures.map((total, i) => (
                                 <TableCell key={i} className="h-auto p-1 text-center align-bottom font-semibold text-destructive border-r" >
@@ -429,7 +429,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                             ))}
                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
-                        <TableRow>
+                        <TableRow className="border-t">
                             <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => (
                                 <TableCell key={i} className="h-auto p-1 text-center align-bottom font-semibold text-blue-600 border-r" >
