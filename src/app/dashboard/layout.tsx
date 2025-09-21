@@ -33,37 +33,38 @@ export default function DashboardLayout({
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (loading) return;
+
+    if (!user) {
       router.replace('/login');
+      return;
     }
-  }, [user, loading, router]);
+    
+    if (appUser) {
+        const isDashboardPage = pathname === '/dashboard';
+        const hasDashboardAccess = appUser.role === 'admin' || (appUser.permissions && appUser.permissions.dashboard);
+
+        if (isDashboardPage && !hasDashboardAccess) {
+            const firstAllowedPage = allLinks.find(
+                link => link.id !== 'dashboard' && appUser.permissions?.[link.id]
+            );
+
+            if (firstAllowedPage) {
+                router.replace(firstAllowedPage.href);
+            }
+        }
+    }
+  }, [user, appUser, loading, router, pathname]);
   
-  // Si todavía está cargando, mostramos un loader general para evitar cualquier renderizado prematuro.
-  if (loading || !user) {
+  if (loading || !user || !appUser) {
     return <div className="flex h-screen w-full items-center justify-center"><Loading /></div>;
   }
   
-  // Una vez que sabemos que el usuario existe, pero antes de tener su perfil (`appUser`),
-  // podemos mostrar el layout básico pero sin el contenido principal (hijos).
-  if (!appUser) {
-    return <div className="flex h-screen w-full items-center justify-center"><Loading /></div>;
-  }
-  
+  // While redirecting, show a loader to avoid flashing the unauthorized content
   const isDashboardPage = pathname === '/dashboard';
   const hasDashboardAccess = appUser.role === 'admin' || (appUser.permissions && appUser.permissions.dashboard);
-
-  // Si el usuario está en el dashboard pero no tiene acceso, lo redirigimos.
   if (isDashboardPage && !hasDashboardAccess) {
-    // Busca la primera página a la que sí tiene acceso.
-    const firstAllowedPage = allLinks.find(
-      link => link.id !== 'dashboard' && appUser.permissions?.[link.id]
-    );
-
-    if (firstAllowedPage) {
-      router.replace(firstAllowedPage.href);
-    }
-    // Mientras se redirige, mostramos el loader para evitar el parpadeo.
-    return <div className="flex h-screen w-full items-center justify-center"><Loading /></div>;
+      return <div className="flex h-screen w-full items-center justify-center"><Loading /></div>;
   }
   
   return (
