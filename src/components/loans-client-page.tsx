@@ -432,7 +432,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                         <TableRow>
                             <TableCell colSpan={5} className="sticky left-0 bg-card z-10 py-1 font-semibold">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => (
-                                <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold text-green-600" >
+                                <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold text-blue-600" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
                                         {formatCurrencySimple(total)}
