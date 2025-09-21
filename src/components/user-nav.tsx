@@ -25,6 +25,12 @@ export function UserNav() {
       console.error('Error signing out:', error);
     }
   };
+  
+  const getUsernameFromEmail = (email: string | null | undefined) => {
+    if (!email) return 'No Conectado';
+    const username = email.split('@')[0];
+    return username.charAt(0).toUpperCase() + username.slice(1);
+  }
 
   return (
     <DropdownMenu>
@@ -43,7 +49,7 @@ export function UserNav() {
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">Usuario</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {user ? user.email : 'No estás conectado'}
+              {getUsernameFromEmail(user?.email)}
             </p>
           </div>
         </DropdownMenuLabel>

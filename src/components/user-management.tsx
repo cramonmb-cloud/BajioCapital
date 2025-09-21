@@ -41,7 +41,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 
 const userSchema = z.object({
-  email: z.string().email('Email inválido.'),
+  username: z.string().min(3, 'El nombre de usuario debe tener al menos 3 caracteres.'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.'),
   role: z.string().min(1, 'Debes seleccionar un rol.'),
 });
@@ -50,7 +50,7 @@ type UserFormValues = z.infer<typeof userSchema>;
 
 // Dummy data for now
 const initialUsers = [
-    { id: '1', email: 'cristobal@example.com', role: 'Administrador' },
+    { id: '1', username: 'Cristobal', role: 'Administrador' },
 ];
 
 export function UserManagement() {
@@ -59,7 +59,7 @@ export function UserManagement() {
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
-    defaultValues: { email: '', password: '', role: '' },
+    defaultValues: { username: '', password: '', role: '' },
   });
 
   const onUserSubmit = async (values: UserFormValues) => {
@@ -90,12 +90,12 @@ export function UserManagement() {
             <div className="flex flex-col md:flex-row md:items-end md:gap-2 space-y-4 md:space-y-0">
                 <FormField
                     control={form.control}
-                    name="email"
+                    name="username"
                     render={({ field }) => (
                     <FormItem className="flex-grow">
-                        <FormLabel>Email del Usuario</FormLabel>
+                        <FormLabel>Nombre de Usuario</FormLabel>
                         <FormControl>
-                            <Input type="email" placeholder="usuario@example.com" {...field} />
+                            <Input placeholder="Ej: supervisor1" {...field} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -148,7 +148,7 @@ export function UserManagement() {
               <Table>
                   <TableHeader>
                       <TableRow>
-                          <TableHead>Email</TableHead>
+                          <TableHead>Usuario</TableHead>
                           <TableHead>Rol</TableHead>
                           <TableHead className="text-right">Acción</TableHead>
                       </TableRow>
@@ -156,7 +156,7 @@ export function UserManagement() {
                   <TableBody>
                       {initialUsers.map(user => (
                           <TableRow key={user.id}>
-                              <TableCell>{user.email}</TableCell>
+                              <TableCell>{user.username}</TableCell>
                               <TableCell>{user.role}</TableCell>
                               <TableCell className="text-right">
                                   <Button variant="ghost" size="icon" disabled>

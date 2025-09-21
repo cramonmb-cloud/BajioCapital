@@ -28,11 +28,13 @@ import { useRouter } from 'next/navigation';
 import { Logo } from '@/components/logo';
 
 const formSchema = z.object({
-  email: z.string().email('Por favor, introduce un email válido.'),
+  username: z.string().min(3, 'El usuario debe tener al menos 3 caracteres.'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.'),
 });
 
 type LoginFormValues = z.infer<typeof formSchema>;
+
+const DUMMY_DOMAIN = 'credicontrol.app';
 
 export default function LoginPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -43,22 +45,24 @@ export default function LoginPage() {
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      email: '',
+      username: '',
       password: '',
     },
   });
 
   const onSubmit = async (values: LoginFormValues) => {
     setIsSubmitting(true);
+    const email = `${values.username.toLowerCase()}@${DUMMY_DOMAIN}`;
+
     try {
       // Try to sign in first
-      await signIn(values.email, values.password);
+      await signIn(email, values.password);
       router.push('/dashboard');
     } catch (signInError: any) {
       // If sign-in fails (e.g., user not found), try to sign up
       if (signInError.code === 'auth/user-not-found' || signInError.code === 'auth/invalid-credential') {
         try {
-          await signUp(values.email, values.password);
+          await signUp(email, values.password);
           toast({
             title: '¡Bienvenido!',
             description: 'Tu cuenta ha sido creada y has iniciado sesión.',
@@ -100,12 +104,12 @@ export default function LoginPage() {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
-                name="email"
+                name="username"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Usuario</FormLabel>
                     <FormControl>
-                      <Input placeholder="admin@credicontrol.com" {...field} />
+                      <Input placeholder="Ej: Cristobal" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
