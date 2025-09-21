@@ -7,9 +7,20 @@ import { Button } from '@/components/ui/button';
 import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import Loading from './loading';
+import type { UserPermissions } from '@/lib/types';
+
+
+const allLinks: { href: string; id: keyof UserPermissions }[] = [
+  { href: '/dashboard', label: 'Dashboard', id: 'dashboard' },
+  { href: '/dashboard/clients', label: 'Clientes', id: 'clients' },
+  { href: '/dashboard/loans', label: 'Préstamos', id: 'loans' },
+  { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet' },
+  { href: '/dashboard/plans', label: 'Planes', id: 'plans' },
+  { href: '/dashboard/settings', label: 'Ajustes', id: 'settings' },
+];
 
 
 export default function DashboardLayout({
@@ -17,14 +28,29 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, appUser, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
+      return;
     }
-  }, [user, loading, router]);
+    
+    if (!loading && appUser && pathname === '/dashboard') {
+        // If user is not an admin and does not have dashboard access
+        if (appUser.role !== 'admin' && !appUser.permissions?.dashboard) {
+            // Find the first page the user *does* have access to
+            const firstAllowedPage = allLinks.find(link => link.id !== 'dashboard' && appUser.permissions?.[link.id]);
+            if (firstAllowedPage) {
+                router.replace(firstAllowedPage.href);
+            }
+            // If they have no permissions at all, they'll just see a blank page under /dashboard, which is acceptable.
+        }
+    }
+
+  }, [user, appUser, loading, router, pathname]);
 
   if (loading || !user) {
     return <div className="flex h-screen w-full items-center justify-center"><Loading /></div>;
