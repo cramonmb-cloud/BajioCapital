@@ -21,8 +21,11 @@ export function MainNav() {
 
   const allowedLinks = allLinks.filter(link => {
     // If user has no specific permissions object, or is an admin, show all links
-    if (!appUser?.permissions || appUser.role === 'admin') {
+    if (appUser?.role === 'admin') {
       return true;
+    }
+    if (!appUser?.permissions) {
+        return false;
     }
     // Otherwise, check if the specific permission is granted
     return appUser.permissions[link.id];

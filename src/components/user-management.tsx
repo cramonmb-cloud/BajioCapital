@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -38,7 +38,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { PlusCircle, Loader2, Users, Trash } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { PlusCircle, Loader2, Users, Trash, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -54,14 +63,21 @@ const permissionsSchema = z.object({
   settings: z.boolean().default(false),
 });
 
-const formSchema = z.object({
+const addUserFormSchema = z.object({
   username: z.string().min(3, 'El nombre de usuario debe tener al menos 3 caracteres.'),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.'),
   role: z.enum(['admin', 'supervisor'], { required_error: 'Debes seleccionar un rol.' }),
   permissions: permissionsSchema,
 });
 
-type UserFormValues = z.infer<typeof formSchema>;
+const editUserFormSchema = z.object({
+  role: z.enum(['admin', 'supervisor'], { required_error: 'Debes seleccionar un rol.' }),
+  permissions: permissionsSchema,
+});
+
+type AddUserFormValues = z.infer<typeof addUserFormSchema>;
+type EditUserFormValues = z.infer<typeof editUserFormSchema>;
+
 
 const DUMMY_DOMAIN = 'credicontrol.app';
 
@@ -80,28 +96,45 @@ interface UserManagementProps {
 
 export function UserManagement({ users }: UserManagementProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { signUp } = useAuth();
 
-  const form = useForm<UserFormValues>({
-    resolver: zodResolver(formSchema),
+  const addUserForm = useForm<AddUserFormValues>({
+    resolver: zodResolver(addUserFormSchema),
     defaultValues: {
       username: '',
       password: '',
       role: 'supervisor',
       permissions: {
         dashboard: true,
-        clients: false,
-        loans: false,
-        wallet: false,
+        clients: true,
+        loans: true,
+        wallet: true,
         plans: false,
         settings: false,
       },
     },
   });
 
-  const onSubmit = async (values: UserFormValues) => {
+  const editUserForm = useForm<EditUserFormValues>({
+    resolver: zodResolver(editUserFormSchema),
+  });
+
+  useEffect(() => {
+    if (selectedUser) {
+      editUserForm.reset({
+        role: selectedUser.role,
+        permissions: selectedUser.permissions,
+      });
+    }
+  }, [selectedUser, editUserForm]);
+
+
+  const onAddUserSubmit = async (values: AddUserFormValues) => {
     setIsSaving(true);
     const email = `${values.username.toLowerCase()}@${DUMMY_DOMAIN}`;
     try {
@@ -112,12 +145,14 @@ export function UserManagement({ users }: UserManagementProps) {
             description: `El usuario "${values.username}" ha sido registrado.`,
         });
         
-        form.reset();
+        addUserForm.reset();
         router.refresh(); 
     } catch (error: any) {
-        let errorMessage = error.message;
         if (error.code === 'auth/email-already-in-use') {
              try {
+                // If user exists in Auth but not DB, we can't get their UID here easily.
+                // We'll save it with a placeholder UID to make it appear in the list.
+                // This is a workaround for synchronization.
                 const tempUid = `sync-needed-${values.username}`;
                 await saveUserAction(tempUid, { username: values.username, role: values.role, permissions: values.permissions });
                 
@@ -126,25 +161,50 @@ export function UserManagement({ users }: UserManagementProps) {
                     description: `El usuario "${values.username}" ya existía y ha sido añadido a la lista.`,
                 });
 
-                form.reset();
+                addUserForm.reset();
                 router.refresh();
 
             } catch (syncError: any) {
                  toast({
                     variant: 'destructive',
                     title: 'Error de Sincronización',
-                    description: `El usuario ya existe, pero ocurrió un error al intentar sincronizarlo en la base de datos: ${syncError.message}`,
+                    description: `El usuario ya existe, pero ocurrió un error al intentar sincronizarlo: ${syncError.message}`,
                 });
             }
         } else {
              toast({
                 variant: 'destructive',
                 title: 'Error al Crear Usuario',
-                description: errorMessage,
+                description: error.message,
             });
         }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const onEditUserSubmit = async (values: EditUserFormValues) => {
+    if (!selectedUser) return;
+    setIsEditing(true);
+
+    try {
+        const userDataToUpdate = {
+            username: selectedUser.username,
+            role: values.role,
+            permissions: values.permissions,
+        };
+        const result = await saveUserAction(selectedUser.id, userDataToUpdate);
+        if (result.success) {
+            toast({ title: 'Usuario Actualizado', description: `Los datos de "${selectedUser.username}" han sido actualizados.`});
+            setEditDialogOpen(false);
+            router.refresh();
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error al Actualizar', description: error.message });
+    } finally {
+        setIsEditing(false);
     }
   };
 
@@ -162,11 +222,17 @@ export function UserManagement({ users }: UserManagementProps) {
     }
   };
 
+  const openEditDialog = (user: AppUser) => {
+    setSelectedUser(user);
+    setEditDialogOpen(true);
+  };
+
   const translateRole = (role: 'admin' | 'supervisor') => {
     return role === 'admin' ? 'Administrador' : 'Supervisor';
   };
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -178,11 +244,11 @@ export function UserManagement({ users }: UserManagementProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mb-6">
+        <Form {...addUserForm}>
+          <form onSubmit={addUserForm.handleSubmit(onAddUserSubmit)} className="space-y-4 mb-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
               <FormField
-                control={form.control}
+                control={addUserForm.control}
                 name="username"
                 render={({ field }) => (
                   <FormItem>
@@ -195,7 +261,7 @@ export function UserManagement({ users }: UserManagementProps) {
                 )}
               />
               <FormField
-                control={form.control}
+                control={addUserForm.control}
                 name="password"
                 render={({ field }) => (
                   <FormItem>
@@ -208,7 +274,7 @@ export function UserManagement({ users }: UserManagementProps) {
                 )}
               />
               <FormField
-                control={form.control}
+                control={addUserForm.control}
                 name="role"
                 render={({ field }) => (
                   <FormItem>
@@ -231,7 +297,7 @@ export function UserManagement({ users }: UserManagementProps) {
             </div>
 
             <FormField
-              control={form.control}
+              control={addUserForm.control}
               name="permissions"
               render={() => (
                 <FormItem>
@@ -245,7 +311,7 @@ export function UserManagement({ users }: UserManagementProps) {
                     {permissionLabels.map((item) => (
                       <FormField
                         key={item.id}
-                        control={form.control}
+                        control={addUserForm.control}
                         name={`permissions.${item.id}`}
                         render={({ field }) => (
                           <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
@@ -285,7 +351,7 @@ export function UserManagement({ users }: UserManagementProps) {
                             <TableHead>Nombre de Usuario</TableHead>
                             <TableHead>Rol</TableHead>
                             <TableHead>Permisos</TableHead>
-                            <TableHead className="text-right">Acción</TableHead>
+                            <TableHead className="text-right">Acciones</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -293,13 +359,16 @@ export function UserManagement({ users }: UserManagementProps) {
                             <TableRow key={user.id}>
                                 <TableCell>{user.username}</TableCell>
                                 <TableCell>{translateRole(user.role)}</TableCell>
-                                <TableCell className="text-xs text-muted-foreground">
-                                   {user.permissions ? Object.entries(user.permissions)
+                                <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate">
+                                   {user.role === 'admin' ? 'Todos' : user.permissions ? Object.entries(user.permissions)
                                         .filter(([, value]) => value)
                                         .map(([key]) => permissionLabels.find(p => p.id === key)?.label || key)
                                         .join(', ') : 'Ninguno'}
                                 </TableCell>
                                 <TableCell className="text-right">
+                                    <Button variant="ghost" size="icon" onClick={() => openEditDialog(user)}>
+                                        <Edit className="h-4 w-4"/>
+                                    </Button>
                                     <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
                                         <Trash className="h-4 w-4 text-destructive"/>
                                     </Button>
@@ -316,5 +385,87 @@ export function UserManagement({ users }: UserManagementProps) {
         </div>
       </CardContent>
     </Card>
+
+    <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+             <Form {...editUserForm}>
+                <form onSubmit={editUserForm.handleSubmit(onEditUserSubmit)} className="space-y-4">
+                    <DialogHeader>
+                        <DialogTitle>Editar Usuario: {selectedUser?.username}</DialogTitle>
+                        <DialogDescription>
+                            Modifica el rol y los permisos de navegación para este usuario.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <div className="space-y-4 py-4">
+                        <FormField
+                            control={editUserForm.control}
+                            name="role"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Rol</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                        <SelectValue placeholder="Selecciona un rol" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="admin">Administrador</SelectItem>
+                                        <SelectItem value="supervisor">Supervisor</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
+                         <FormField
+                            control={editUserForm.control}
+                            name="permissions"
+                            render={() => (
+                                <FormItem>
+                                <div className="mb-4">
+                                    <FormLabel className="text-base">Permisos de Navegación</FormLabel>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {permissionLabels.map((item) => (
+                                    <FormField
+                                        key={item.id}
+                                        control={editUserForm.control}
+                                        name={`permissions.${item.id}`}
+                                        render={({ field }) => (
+                                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                                            <FormControl>
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                            </FormControl>
+                                            <div className="space-y-1 leading-none">
+                                            <FormLabel>{item.label}</FormLabel>
+                                            </div>
+                                        </FormItem>
+                                        )}
+                                    />
+                                    ))}
+                                </div>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                    </div>
+
+                    <DialogFooter>
+                        <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
+                        <Button type="submit" disabled={isEditing}>
+                            {isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Guardar Cambios
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </Form>
+        </DialogContent>
+    </Dialog>
+    </>
   );
 }
