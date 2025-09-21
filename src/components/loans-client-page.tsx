@@ -226,7 +226,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                       <TableHead className="sticky left-0 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
                       <TableHead className="p-2">Grupo</TableHead>
                       <TableHead className="p-2">Supervisor</TableHead>
-                      <TableHead className="p-2">Abono Semanal</TableHead>
+                      <TableHead className="p-2">Abono</TableHead>
                       <TableHead className="p-2">Estado</TableHead>
                       {Array.from({ length: 14 }, (_, i) => (
                         <TableHead key={i} className="text-center p-2">{`S${i + 1}`}</TableHead>
