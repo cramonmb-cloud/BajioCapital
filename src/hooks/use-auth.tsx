@@ -41,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { uid } = userCredential.user;
     
     // After creating the user in Auth, save their details to Firestore
+    // This ensures that the user is visible in the user management list.
     await saveUserAction(uid, { username, role });
 
     return userCredential;
