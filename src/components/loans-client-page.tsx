@@ -134,14 +134,12 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
 
   const getWeekPaymentStatus = (loan: Loan, weekNumber: number) => {
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-    if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0 };
+    if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
     
-    // If loan is paid off, all weeks within term are considered paid.
     if (loan.status === 'Paid Off' && weekNumber <= loanPlan.termInWeeks) {
-        return { status: 'paid' as const, date: new Date(), amountPaid: 0 };
+        return { status: 'paid' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
     }
 
-    // The loan's official start date is a Saturday.
     const loanStartDate = new Date(loan.startDate);
     
     const weekStartDate = new Date(loanStartDate);
@@ -155,20 +153,29 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
     const totalPaidForWeek = paymentForWeek?.amount || 0;
 
-    const isFuture = new Date() < weekStartDate;
+    const today = new Date();
+    const isFuture = today < weekStartDate;
     
     if (isFuture) {
-      return { status: 'pending' as const, date: weekStartDate, amountPaid: 0 };
+      return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
     }
+    
+    // Logic for current week automatic payment
+    const timeDiff = today.getTime() - loanStartDate.getTime();
+    const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+    const isCurrentWeek = weekNumber === currentWeekForLoan;
 
     if (totalPaidForWeek > 0) {
         if(totalPaidForWeek >= weeklyPaymentAmount) {
-            return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek };
+            return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
         } else {
-            return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek };
+            return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
         }
     } else {
-        return { status: 'missed' as const, date: weekStartDate, amountPaid: 0 };
+        if (isCurrentWeek && loan.status === 'Active') {
+            return { status: 'paid' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: true };
+        }
+        return { status: 'missed' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
     }
   };
   
@@ -282,7 +289,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                 let statusInfo;
                                 switch(weekStatus.status) {
                                     case 'paid':
-                                        statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: 'Pagado', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
+                                        statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: weekStatus.isAssumedPaid ? 'Semana Actual (Asumido Pagado)' : 'Pagado', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
                                         break;
                                     case 'partial':
                                         statusInfo = { icon: <AlertCircle className="h-4 w-4 text-yellow-500 mx-auto" />, text: 'Pago Parcial', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
