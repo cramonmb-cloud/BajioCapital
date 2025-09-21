@@ -30,7 +30,7 @@ import Link from 'next/link';
 import { CreateLoanDialog } from '@/components/create-loan-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { Client, Loan, LoanPlan, Payment, Group } from '@/lib/types';
+import type { Client, Loan, LoanPlan, Payment, Group, Supervisor } from '@/lib/types';
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import { useRouter } from 'next/navigation';
 
@@ -52,9 +52,10 @@ interface LoansClientPageProps {
     clients: Client[];
     loanPlans: LoanPlan[];
     groups: Group[];
+    supervisors: Supervisor[];
 }
 
-export function LoansClientPage({ loans, clients, loanPlans, groups }: LoansClientPageProps) {
+export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors }: LoansClientPageProps) {
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
@@ -62,6 +63,13 @@ export function LoansClientPage({ loans, clients, loanPlans, groups }: LoansClie
   const router = useRouter();
 
   const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
+  const getGroupName = (groupId?: string) => groups.find(g => g.id === groupId)?.name || 'N/A';
+
+  const getSupervisorName = (groupId?: string) => {
+    const group = groups.find(g => g.id === groupId);
+    if (!group) return 'N/A';
+    return supervisors.find(s => s.id === group.supervisorId)?.name || 'N/A';
+  };
   
   const getWeeklyPaymentAmount = (loan: Loan) => {
     const plan = loanPlans.find(p => p.id === loan.loanPlanId);
@@ -216,6 +224,8 @@ export function LoansClientPage({ loans, clients, loanPlans, groups }: LoansClie
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky left-0 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
+                      <TableHead className="p-2">Grupo</TableHead>
+                      <TableHead className="p-2">Supervisor</TableHead>
                       <TableHead className="p-2">Abono Semanal</TableHead>
                       <TableHead className="p-2">Estado</TableHead>
                       {Array.from({ length: 14 }, (_, i) => (
@@ -237,6 +247,8 @@ export function LoansClientPage({ loans, clients, loanPlans, groups }: LoansClie
                               {getClientName(loan.clientId)}
                             </Link>
                           </TableCell>
+                          <TableCell className="p-2">{getGroupName(loan.groupId)}</TableCell>
+                          <TableCell className="p-2">{getSupervisorName(loan.groupId)}</TableCell>
                           <TableCell className="p-2">{formatCurrency(weeklyPayment)}</TableCell>
                           <TableCell className="p-2">
                             <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
@@ -313,7 +325,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups }: LoansClie
                       )})
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={18} className="text-center h-24 p-2">
+                            <TableCell colSpan={20} className="text-center h-24 p-2">
                                No hay préstamos para la semana seleccionada. O presiona "Cargar Datos de Ejemplo".
                             </TableCell>
                         </TableRow>
