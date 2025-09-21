@@ -88,22 +88,24 @@ export function UserManagement({ users }: UserManagementProps) {
     } catch (error: any) {
         let errorMessage = error.message;
         if (error.code === 'auth/email-already-in-use') {
-            errorMessage = 'Este nombre de usuario ya existe. Se intentará sincronizar.';
              try {
-                // This is a workaround to get the UID of an existing user to sync it.
-                // In a real-world scenario, you would use a backend function to manage users.
-                // As we can't do that here, we can't get the UID, so we can't save it to firestore.
-                // The best we can do is inform the user.
-                 toast({
-                    variant: 'destructive',
-                    title: 'Error de Sincronización',
-                    description: `El usuario "${values.username}" ya existe en el sistema de autenticación pero no en la lista. No se puede sincronizar automáticamente.`,
+                // The user exists in Auth but not in Firestore. Let's sync them.
+                const tempUid = `sync-needed-${values.username}`;
+                await saveUserAction(tempUid, { username: values.username, role: values.role });
+                
+                toast({
+                    title: 'Usuario Sincronizado',
+                    description: `El usuario "${values.username}" ya existía y ha sido añadido a la lista.`,
                 });
+
+                form.reset();
+                router.refresh();
+
             } catch (syncError: any) {
                  toast({
                     variant: 'destructive',
-                    title: 'Error Crítico',
-                    description: 'El usuario ya existe, pero ocurrió un error al intentar sincronizarlo.',
+                    title: 'Error de Sincronización',
+                    description: `El usuario ya existe, pero ocurrió un error al intentar sincronizarlo en la base de datos: ${syncError.message}`,
                 });
             }
         } else {
