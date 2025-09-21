@@ -305,7 +305,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                         
                         return (
                         <TableRow key={loan.id} className={cn(index % 2 !== 0 && 'bg-muted/50')}>
-                          <TableCell className="font-medium sticky left-0 bg-card z-10 w-[200px] p-2">
+                          <TableCell className="font-medium sticky left-0 z-10 w-[200px] p-2 bg-inherit">
                             <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
                               {getClientName(loan.clientId)}
                             </Link>
@@ -375,7 +375,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                     </TableCell>
                                 );
                             })}
-                          <TableCell className="text-right sticky right-0 bg-card z-10 p-2">
+                          <TableCell className="text-right sticky right-0 z-10 p-2 bg-inherit">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button aria-haspopup="true" size="icon" variant="ghost">
