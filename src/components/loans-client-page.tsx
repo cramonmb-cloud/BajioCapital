@@ -404,9 +404,9 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                   {filteredLoans.length > 0 && (
                     <TableFooter>
                         <TableRow>
-                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-1 font-semibold">Total a Cobrar</TableCell>
+                            <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
                             {weeklyTotals.map((total, i) => (
-                                <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold border-r" >
+                                <TableCell key={i} className="h-auto p-1 text-center align-bottom font-semibold border-r" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
                                         {formatCurrencySimple(total)}
@@ -414,12 +414,12 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                     ) : ''}
                                 </TableCell>
                             ))}
-                            <TableCell className="sticky right-0 bg-card z-10 p-1"></TableCell>
+                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-1 font-semibold">Falla</TableCell>
+                          <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Falla</TableCell>
                             {weeklyFailures.map((total, i) => (
-                                <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold text-destructive border-r" >
+                                <TableCell key={i} className="h-auto p-1 text-center align-bottom font-semibold text-destructive border-r" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
                                         {formatCurrencySimple(total)}
@@ -427,12 +427,12 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                     ) : ''}
                                 </TableCell>
                             ))}
-                           <TableCell className="sticky right-0 bg-card z-10 p-1"></TableCell>
+                           <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-1 font-semibold">Cobrado</TableCell>
+                            <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => (
-                                <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold text-blue-600 border-r" >
+                                <TableCell key={i} className="h-auto p-1 text-center align-bottom font-semibold text-blue-600 border-r" >
                                     {total > 0 ? (
                                       <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
                                         {formatCurrencySimple(total)}
@@ -440,7 +440,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                                     ) : ''}
                                 </TableCell>
                             ))}
-                           <TableCell className="sticky right-0 bg-card z-10 p-1"></TableCell>
+                           <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                     </TableFooter>
                   )}
