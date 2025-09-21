@@ -47,11 +47,17 @@ const stepOneSchema = z.object({
 });
 
 const stepTwoSchema = z.object({
-  address: z.string().min(5, 'La dirección es requerida.'),
   phone: z.string().min(7, 'El teléfono es requerido.'),
+  street: z.string().min(5, 'La calle y número son requeridos.'),
+  neighborhood: z.string().min(3, 'La colonia es requerida.'),
+  postalCode: z.string().min(5, 'El código postal es requerido.'),
+  city: z.string().min(3, 'La ciudad es requerida.'),
   guarantee: z.string().min(3, 'La garantía es requerida.'),
   endorsement: z.string().min(3, 'El nombre del aval es requerido.'),
-  endorsementAddress: z.string().min(5, 'La dirección del aval es requerida.'),
+  endorsementStreet: z.string().min(5, 'La calle y número del aval son requeridos.'),
+  endorsementNeighborhood: z.string().min(3, 'La colonia del aval es requerida.'),
+  endorsementPostalCode: z.string().min(5, 'El código postal del aval es requerido.'),
+  endorsementCity: z.string().min(3, 'La ciudad del aval es requerida.'),
   endorsementPhone: z.string().min(7, 'El teléfono del aval es requerido.'),
 });
 
@@ -90,11 +96,17 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
       loanPlanId: '',
       amount: 0,
       clientName: '',
-      address: '',
       phone: '',
+      street: '',
+      neighborhood: '',
+      postalCode: '',
+      city: '',
       guarantee: '',
       endorsement: '',
-      endorsementAddress: '',
+      endorsementStreet: '',
+      endorsementNeighborhood: '',
+      endorsementPostalCode: '',
+      endorsementCity: '',
       endorsementPhone: '',
     },
   });
@@ -117,8 +129,11 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
 
   const selectClient = (client: Client) => {
     form.setValue('clientName', client.name);
-    form.setValue('address', client.address);
     form.setValue('phone', client.phone);
+    form.setValue('street', client.street);
+    form.setValue('neighborhood', client.neighborhood);
+    form.setValue('postalCode', client.postalCode);
+    form.setValue('city', client.city);
     form.setValue('guarantee', client.guarantee);
     setSelectedClient(client);
     setMatchingClients([]);
@@ -163,8 +178,11 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
         }
         if (!selectedClient) {
             // If it's a new client, ensure the fields are empty
-            form.setValue('address', '');
             form.setValue('phone', '');
+            form.setValue('street', '');
+            form.setValue('neighborhood', '');
+            form.setValue('postalCode', '');
+            form.setValue('city', '');
             form.setValue('guarantee', '');
         }
         setStep(2);
@@ -200,21 +218,29 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
   const onSubmit = async (values: LoanFormValues) => {
     setIsSubmitting(true);
     try {
+      const endorsementAddress = `${values.endorsementStreet}, ${values.endorsementNeighborhood}, ${values.endorsementPostalCode}, ${values.endorsementCity}. Tel: ${values.endorsementPhone}`;
+
         const clientData: Omit<Client, 'id' | 'avatarUrl'> & { id?: string } = selectedClient ? 
-            { name: values.clientName,
-              email: selectedClient.email, 
-              address: values.address,
+            { ...selectedClient,
+              name: values.clientName,
+              street: values.street,
+              neighborhood: values.neighborhood,
+              postalCode: values.postalCode,
+              city: values.city,
               phone: values.phone,
               guarantee: values.guarantee,
-              endorsement: values.endorsement,
+              endorsement: values.endorsement, // Maybe update this too?
              } : 
             {
                 name: values.clientName,
                 email: `${values.clientName.split(' ').join('.').toLowerCase()}@example.com`,
-                address: values.address,
+                street: values.street,
+                neighborhood: values.neighborhood,
+                postalCode: values.postalCode,
+                city: values.city,
                 phone: values.phone,
                 guarantee: values.guarantee,
-                endorsement: `${values.endorsement} (Tel: ${values.endorsementPhone}, Dir: ${values.endorsementAddress})`,
+                endorsement: `${values.endorsement} (${endorsementAddress})`,
             };
 
         if(selectedClient?.id) {
@@ -412,30 +438,43 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
             )}
             
             {step === 2 && (
-              <div className="space-y-4 py-4 max-h-[50vh] overflow-y-auto pr-2">
+              <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
                  <h3 className="text-lg font-medium">Datos del Cliente</h3>
-                  <FormField
+                 <FormField
                     control={form.control}
-                    name="address"
+                    name="phone"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Domicilio Completo (Calle, Número, Colonia, CP, Ciudad)</FormLabel>
+                        <FormLabel>Teléfono</FormLabel>
                         <FormControl>
-                            <Textarea placeholder="Ej: Av. Siempreviva 742, Springfield..." {...field} disabled={!!selectedClient} />
+                            <Input placeholder="Ej: 555-0101" {...field} disabled={!!selectedClient} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                 <FormField
+                    control={form.control}
+                    name="street"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Calle y Número</FormLabel>
+                        <FormControl>
+                            <Input placeholder="Ej: Av. Siempreviva 742" {...field} disabled={!!selectedClient} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
                     )}
                  />
-                 <div className="grid grid-cols-2 gap-4">
+                 <div className="grid grid-cols-3 gap-4">
                     <FormField
                         control={form.control}
-                        name="phone"
+                        name="neighborhood"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>Teléfono</FormLabel>
+                            <FormLabel>Colonia</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: 555-0101" {...field} disabled={!!selectedClient} />
+                                <Input placeholder="Ej: Springfield" {...field} disabled={!!selectedClient} />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -443,25 +482,48 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                     />
                      <FormField
                         control={form.control}
-                        name="guarantee"
+                        name="postalCode"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>Garantías</FormLabel>
+                            <FormLabel>C.P.</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Nómina" {...field} disabled={!!selectedClient} />
+                                <Input placeholder="Ej: 12345" {...field} disabled={!!selectedClient} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="city"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Ciudad</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Ej: Springfield" {...field} disabled={!!selectedClient} />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
                         )}
                     />
                  </div>
+                 <FormField
+                    control={form.control}
+                    name="guarantee"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Garantías</FormLabel>
+                        <FormControl>
+                            <Textarea placeholder="Describe las garantías del cliente (nómina, propiedad, etc.)" {...field} disabled={!!selectedClient} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                 />
 
                  <hr className="my-6"/>
 
                  <h3 className="text-lg font-medium">Datos del Aval</h3>
-                 <p className="text-sm text-muted-foreground">
-                    Si el cliente existe, la información del aval se guardará como una nota en el perfil del cliente.
-                 </p>
                  <FormField
                     control={form.control}
                     name="endorsement"
@@ -470,19 +532,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormLabel>Nombre del Aval</FormLabel>
                         <FormControl>
                             <Input placeholder="Nombre completo del aval" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name="endorsementAddress"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Domicilio del Aval</FormLabel>
-                        <FormControl>
-                             <Textarea placeholder="Domicilio completo del aval" {...field} />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -501,6 +550,60 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         </FormItem>
                     )}
                 />
+                <FormField
+                    control={form.control}
+                    name="endorsementStreet"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Calle y Número del Aval</FormLabel>
+                        <FormControl>
+                             <Input placeholder="Domicilio del aval" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <div className="grid grid-cols-3 gap-4">
+                    <FormField
+                        control={form.control}
+                        name="endorsementNeighborhood"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Colonia</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Ej: Centro" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="endorsementPostalCode"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>C.P.</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Ej: 54321" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="endorsementCity"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Ciudad</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Ej: Shelbyville" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                 </div>
               </div>
             )}
 

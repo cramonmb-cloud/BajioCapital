@@ -3,7 +3,10 @@ export type Client = {
   name: string;
   email: string;
   phone: string;
-  address: string;
+  street: string;
+  neighborhood: string;
+  postalCode: string;
+  city: string;
   guarantee: string;
   endorsement: string;
   avatarUrl: string;

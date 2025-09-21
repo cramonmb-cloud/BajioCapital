@@ -62,6 +62,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             return 'default';
     }
   };
+  
+  const fullAddress = `${client.street}, ${client.neighborhood}, C.P. ${client.postalCode}, ${client.city}`;
 
   return (
     <div className="space-y-6">
@@ -139,7 +141,7 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                 <Home className="h-4 w-4 mt-1 text-muted-foreground" />
                 <div>
                     <span className="font-medium">Dirección</span>
-                    <p className="text-muted-foreground">{client.address}</p>
+                    <p className="text-muted-foreground">{fullAddress}</p>
                 </div>
               </div>
             </CardContent>
