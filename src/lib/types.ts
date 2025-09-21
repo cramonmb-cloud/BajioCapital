@@ -14,7 +14,7 @@ export type LoanPlan = {
   name: string;
   description: string;
   termInWeeks: number;
-  weeklyPaymentRate: number; // Renamed from weeklyPayment
+  weeklyPaymentRate: number; 
 };
 
 export type Payment = {
@@ -27,6 +27,7 @@ export type Loan = {
   id: string;
   clientId: string;
   loanPlanId: string;
+  groupId?: string; // Added groupId
   amount: number;
   startDate: string;
   status: 'Active' | 'Overdue' | 'Paid Off';
@@ -46,4 +47,15 @@ export type WalletTransaction = {
     description: string;
     loanId?: string;
     clientId?: string;
+};
+
+export type Supervisor = {
+    id: string;
+    name: string;
+};
+
+export type Group = {
+    id: string;
+    name: string;
+    supervisorId: string;
 };

@@ -1,6 +1,6 @@
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, writeBatch, query, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Client, Loan, LoanPlan, Payment, Wallet, WalletTransaction } from './types';
+import type { Client, Loan, LoanPlan, Supervisor, Group, Wallet, WalletTransaction } from './types';
 
 // Fetch all clients
 export async function getClients(): Promise<Client[]> {
@@ -149,6 +149,20 @@ export async function getWalletTransactions(): Promise<WalletTransaction[]> {
         } as WalletTransaction;
     });
     return transactionList;
+}
+
+// Fetch all supervisors
+export async function getSupervisors(): Promise<Supervisor[]> {
+  const supervisorsCol = collection(db, 'supervisors');
+  const supervisorSnapshot = await getDocs(supervisorsCol);
+  return supervisorSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Supervisor));
+}
+
+// Fetch all groups
+export async function getGroups(): Promise<Group[]> {
+  const groupsCol = collection(db, 'groups');
+  const groupSnapshot = await getDocs(groupsCol);
+  return groupSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group));
 }
 
 
