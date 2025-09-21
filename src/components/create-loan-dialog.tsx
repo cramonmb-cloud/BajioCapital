@@ -31,7 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Client, Loan, LoanPlan } from '@/lib/types';
+import type { Client, Loan, LoanPlan, Group } from '@/lib/types';
 import { PlusCircle, Loader2, AlertTriangle, BadgeDollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createLoanAction, payOffLoanAction } from '@/app/dashboard/actions';
@@ -40,6 +40,7 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent } from './ui/card';
 
 const stepOneSchema = z.object({
+  groupId: z.string().min(1, 'Debes seleccionar un grupo.'),
   loanPlanId: z.string().min(1, 'Debes seleccionar un tipo de préstamo.'),
   amount: z.coerce.number().min(1, 'El monto del préstamo debe ser mayor a 0.'),
   clientName: z.string().min(3, 'El nombre del cliente debe tener al menos 3 caracteres.'),
@@ -62,6 +63,7 @@ interface CreateLoanDialogProps {
     clients: Client[];
     loanPlans: LoanPlan[];
     loans: Loan[];
+    groups: Group[];
 }
 
 interface ActiveLoanDetails {
@@ -70,7 +72,7 @@ interface ActiveLoanDetails {
     weeksRemaining: number;
 }
 
-export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialogProps) {
+export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLoanDialogProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [matchingClients, setMatchingClients] = useState<Client[]>([]);
@@ -84,6 +86,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
   const form = useForm<LoanFormValues>({
     resolver: zodResolver(step === 1 ? stepOneSchema : formSchema),
     defaultValues: {
+      groupId: '',
       loanPlanId: '',
       amount: 0,
       clientName: '',
@@ -148,7 +151,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
   };
   
   const handleNextStep = async () => {
-    const isValid = await form.trigger(['loanPlanId', 'amount', 'clientName']);
+    const isValid = await form.trigger(['groupId', 'loanPlanId', 'amount', 'clientName']);
     if (isValid) {
         if(activeLoanDetails) {
             toast({
@@ -213,6 +216,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
         }
        
       const result = await createLoanAction({
+        groupId: values.groupId,
         loanPlanId: values.loanPlanId,
         amount: values.amount,
         client: clientData,
@@ -273,6 +277,30 @@ export function CreateLoanDialog({ clients, loanPlans, loans }: CreateLoanDialog
 
             {step === 1 && (
               <div className="space-y-4 py-4">
+                <FormField
+                    control={form.control}
+                    name="groupId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Grupo</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona un grupo" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {groups.map((group) => (
+                                <SelectItem key={group.id} value={group.id}>
+                                {group.name}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                    />
                 <div className="grid grid-cols-2 gap-4">
                     <FormField
                     control={form.control}

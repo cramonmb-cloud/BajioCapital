@@ -30,7 +30,7 @@ import Link from 'next/link';
 import { CreateLoanDialog } from '@/components/create-loan-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { Client, Loan, LoanPlan, Payment } from '@/lib/types';
+import type { Client, Loan, LoanPlan, Payment, Group } from '@/lib/types';
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import { useRouter } from 'next/navigation';
 
@@ -51,9 +51,10 @@ interface LoansClientPageProps {
     loans: Loan[];
     clients: Client[];
     loanPlans: LoanPlan[];
+    groups: Group[];
 }
 
-export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPageProps) {
+export function LoansClientPage({ loans, clients, loanPlans, groups }: LoansClientPageProps) {
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
@@ -174,7 +175,7 @@ export function LoansClientPage({ loans, clients, loanPlans }: LoansClientPagePr
             Visualiza y administra todos los préstamos por semana.
           </p>
         </div>
-        <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans}/>
+        <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans} groups={groups} />
       </div>
       
       <div className="grid gap-4 md:grid-cols-[180px_1fr]">
