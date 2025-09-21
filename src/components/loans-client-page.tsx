@@ -14,6 +14,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableFooter,
   TableHead,
   TableHeader,
   TableRow,
@@ -176,6 +177,17 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
       setPaymentDialogOpen(true);
   }
 
+  const weeklyTotals = Array.from({ length: 14 }).map((_, i) => {
+    const weekNumber = i + 1;
+    return filteredLoans.reduce((total, loan) => {
+      const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+      if (loanPlan && weekNumber <= loanPlan.termInWeeks) {
+        return total + getWeeklyPaymentAmount(loan);
+      }
+      return total;
+    }, 0);
+  });
+
   return (
     <>
     <div className="space-y-4">
@@ -334,6 +346,19 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                         </TableRow>
                     )}
                   </TableBody>
+                  {filteredLoans.length > 0 && (
+                    <TableFooter>
+                        <TableRow>
+                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-2 font-semibold">Total a Cobrar</TableCell>
+                            {weeklyTotals.map((total, i) => (
+                                <TableCell key={i} className="text-center p-2 font-semibold">
+                                    {total > 0 ? formatCurrency(total) : ''}
+                                </TableCell>
+                            ))}
+                            <TableCell className="sticky right-0 bg-card z-10 p-2"></TableCell>
+                        </TableRow>
+                    </TableFooter>
+                  )}
                 </Table>
               </ScrollArea>
             </TooltipProvider>
@@ -356,3 +381,5 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     </>
   );
 }
+
+    
