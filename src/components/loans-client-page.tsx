@@ -304,7 +304,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
                         
                         return (
-                        <TableRow key={loan.id} className={cn(index % 2 !== 0 && 'bg-muted/20')}>
+                        <TableRow key={loan.id} className={cn(index % 2 !== 0 && 'bg-muted/50')}>
                           <TableCell className="font-medium sticky left-0 bg-card z-10 w-[200px] p-2">
                             <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
                               {getClientName(loan.clientId)}
@@ -404,7 +404,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                   {filteredLoans.length > 0 && (
                     <TableFooter>
                         <TableRow>
-                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 py-1 font-semibold">Total a Cobrar</TableCell>
+                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-1 font-semibold">Total a Cobrar</TableCell>
                             {weeklyTotals.map((total, i) => (
                                 <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold border-r" >
                                     {total > 0 ? (
@@ -417,7 +417,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                             <TableCell className="sticky right-0 bg-card z-10 p-1"></TableCell>
                         </TableRow>
                         <TableRow>
-                          <TableCell colSpan={5} className="sticky left-0 bg-card z-10 py-1 font-semibold">Falla</TableCell>
+                          <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-1 font-semibold">Falla</TableCell>
                             {weeklyFailures.map((total, i) => (
                                 <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold text-destructive border-r" >
                                     {total > 0 ? (
@@ -430,7 +430,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                            <TableCell className="sticky right-0 bg-card z-10 p-1"></TableCell>
                         </TableRow>
                         <TableRow>
-                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 py-1 font-semibold">Cobrado</TableCell>
+                            <TableCell colSpan={5} className="sticky left-0 bg-card z-10 p-1 font-semibold">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => (
                                 <TableCell key={i} className="p-1 h-auto text-center align-bottom font-semibold text-blue-600 border-r" >
                                     {total > 0 ? (
