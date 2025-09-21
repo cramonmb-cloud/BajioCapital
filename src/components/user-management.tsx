@@ -41,7 +41,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import type { AppUser } from '@/lib/types';
-import { deleteUserAction } from '@/app/dashboard/settings/actions';
+import { deleteUserAction, saveUserAction } from '@/app/dashboard/settings/actions';
 
 const formSchema = z.object({
   username: z.string().min(3, 'El nombre de usuario debe tener al menos 3 caracteres.'),
@@ -76,8 +76,7 @@ export function UserManagement({ users }: UserManagementProps) {
     setIsSaving(true);
     const email = `${values.username.toLowerCase()}@${DUMMY_DOMAIN}`;
     try {
-        // The signUp function in useAuth now handles creating the user in Auth and Firestore
-        await signUp(email, values.password, values.role, values.username);
+        const userCredential = await signUp(email, values.password, values.role, values.username);
         
         toast({
             title: 'Usuario Creado',
@@ -89,13 +88,31 @@ export function UserManagement({ users }: UserManagementProps) {
     } catch (error: any) {
         let errorMessage = error.message;
         if (error.code === 'auth/email-already-in-use') {
-            errorMessage = 'Este nombre de usuario ya existe.';
+            errorMessage = 'Este nombre de usuario ya existe. Se intentará sincronizar.';
+             try {
+                // This is a workaround to get the UID of an existing user to sync it.
+                // In a real-world scenario, you would use a backend function to manage users.
+                // As we can't do that here, we can't get the UID, so we can't save it to firestore.
+                // The best we can do is inform the user.
+                 toast({
+                    variant: 'destructive',
+                    title: 'Error de Sincronización',
+                    description: `El usuario "${values.username}" ya existe en el sistema de autenticación pero no en la lista. No se puede sincronizar automáticamente.`,
+                });
+            } catch (syncError: any) {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Error Crítico',
+                    description: 'El usuario ya existe, pero ocurrió un error al intentar sincronizarlo.',
+                });
+            }
+        } else {
+             toast({
+                variant: 'destructive',
+                title: 'Error al Crear Usuario',
+                description: errorMessage,
+            });
         }
-      toast({
-        variant: 'destructive',
-        title: 'Error al Crear Usuario',
-        description: errorMessage,
-      });
     } finally {
       setIsSaving(false);
     }
@@ -128,7 +145,7 @@ export function UserManagement({ users }: UserManagementProps) {
           Gestión de Usuarios
         </CardTitle>
         <CardDescription>
-          Añade nuevos usuarios y asígnales roles. Los permisos por rol aún no están implementados.
+          Añade nuevos usuarios y asígnales roles.
         </CardDescription>
       </CardHeader>
       <CardContent>
