@@ -84,6 +84,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     initialAmount: number;
   } | null>(null);
   const router = useRouter();
+  const today = new Date();
 
   const getClient = (clientId: string) => clients.find(c => c.id === clientId);
   const getClientName = (clientId: string) => getClient(clientId)?.name || 'N/A';
@@ -526,7 +527,7 @@ const handleExportPDF = () => {
   });
 
   // Find the current week for the selected group of loans (assuming they all start on the same week)
-  const today = new Date();
+  
   let currentGroupWeek = 0;
   if(filteredLoans.length > 0) {
       const firstLoanStartDate = new Date(filteredLoans[0].startDate);
