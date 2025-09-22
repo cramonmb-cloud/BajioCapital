@@ -177,13 +177,13 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
 
   const getWeekPaymentStatus = (loan: Loan, weekNumber: number) => {
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-    if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
+    if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0 };
     
     const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
     // If the loan is fully paid, all weeks within its term are considered paid.
     if (loan.status === 'Paid Off' && weekNumber <= loanPlan.termInWeeks) {
-        return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
+        return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount };
     }
 
     const loanStartDate = new Date(loan.startDate);
@@ -198,27 +198,20 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     const totalPaidForWeek = paymentForWeek?.amount || 0;
 
     const today = new Date();
-    const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
-    const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-
-    // Rule: Assume current week is paid if no payment has been made yet.
-    if (weekNumber === currentLoanWeek && !paymentForWeek) {
-        return { status: 'paid' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: true };
-    }
 
     const isFuture = today < weekStartDate;
     if (isFuture) {
-      return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+      return { status: 'pending' as const, date: weekStartDate, amountPaid: 0 };
     }
     
     if (totalPaidForWeek > 0) {
         if(totalPaidForWeek >= weeklyPaymentAmount) {
-            return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+            return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek };
         } else {
-            return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+            return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek };
         }
     } else {
-        return { status: 'missed' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+        return { status: 'missed' as const, date: weekStartDate, amountPaid: 0 };
     }
   };
   
@@ -230,7 +223,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
         initialAmount = weeklyPayment - weekStatus.amountPaid;
     } else if (weekStatus.status === 'missed') {
         initialAmount = weeklyPayment;
-    } else if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) {
+    } else if (weekStatus.status === 'paid') {
         initialAmount = 0; // Already paid
     }
 
@@ -361,7 +354,7 @@ const handleExportPDF = () => {
         const weekNumber = i + 1;
         return filteredLoans.reduce((total, loan) => {
             const weekStatus = getWeekPaymentStatus(loan, weekNumber);
-            if ((weekStatus.status === 'paid' || weekStatus.status === 'partial') && !weekStatus.isAssumedPaid) return total + weekStatus.amountPaid;
+            if (weekStatus.status === 'paid' || weekStatus.status === 'partial') return total + weekStatus.amountPaid;
             return total;
         }, 0);
     });
@@ -370,8 +363,8 @@ const handleExportPDF = () => {
     const totalAbonos = filteredLoans.reduce((sum, loan) => sum + getWeeklyPaymentAmount(loan), 0);
     
     const footerRow1 = [
-        { content: `TOTALES:`, styles: { fontStyle: 'bold', halign: 'right' } },
-        { content: formatCurrencySimple(totalAbonos), styles: { fontStyle: 'bold', halign: 'right' } },
+        { content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold', halign: 'right' } },
+        { content: `TOTALES: ${formatCurrencySimple(totalAbonos)}`, styles: { fontStyle: 'bold', halign: 'right' } },
     ];
     const footerRow2 = [{content: 'FALLA', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold', fillColor: '#e0e0e0'}}];
     const footerRow3 = [{content: 'COBRADO', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold'}}];
@@ -388,7 +381,7 @@ const handleExportPDF = () => {
         footerRow2.push({ content: weeklyFailures[i] > 0 ? formatCurrencySimplePDF(weeklyFailures[i]) : '', styles: { fontStyle: 'bold', halign: 'right', fillColor: '#e0e0e0' } });
         footerRow3.push({ content: weeklyCollected[i] > 0 ? formatCurrencySimplePDF(weeklyCollected[i]) : '', styles: { fontStyle: 'bold', halign: 'right' } });
     });
-    footerRow1.push({ content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold', halign: 'right' } });
+    footerRow1.push({ content: '', styles: { fontStyle: 'bold', halign: 'right' } });
     footerRow2.push({ content: '', colSpan: 1 });
     footerRow3.push({ content: '', colSpan: 1 });
     
@@ -451,7 +444,7 @@ const handleExportPDF = () => {
                 let text = '';
                 let subtext = '';
 
-                if (status.status === 'paid' && !status.isAssumedPaid) {
+                if (status.status === 'paid') {
                     text = 'Abono';
                     subtext = formatCurrencySimplePDF(status.amountPaid);
                 } else if (status.status === 'partial' || status.status === 'missed') {
@@ -502,7 +495,7 @@ const handleExportPDF = () => {
     return filteredLoans.reduce((total, loan) => {
       const weekStatus = getWeekPaymentStatus(loan, weekNumber);
       
-      if ((weekStatus.status === 'paid' || weekStatus.status === 'partial') && !weekStatus.isAssumedPaid) {
+      if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
         return total + weekStatus.amountPaid;
       }
       return total;
@@ -635,7 +628,7 @@ const handleExportPDF = () => {
                                 let statusInfo;
                                 switch(weekStatus.status) {
                                     case 'paid':
-                                        const paidAmountText = weekStatus.amountPaid > 0 ? `Abono: ${formatCurrency(weekStatus.amountPaid)}` : weekStatus.isAssumedPaid ? 'Pago Asumido' : `Pagado (Plan Liquidado)`;
+                                        const paidAmountText = `Abono: ${formatCurrency(weekStatus.amountPaid)}`;
                                         statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: `Pagado`, paid: paidAmountText };
                                         break;
                                     case 'partial':
@@ -675,7 +668,6 @@ const handleExportPDF = () => {
                                                 <p>Semana {weekNumber} (Inicia: {formatDate(weekStatus.date.toISOString())})</p>
                                                 <p>Estado: {statusInfo.text}</p>
                                                 {statusInfo.paid && weekStatus.amountPaid > 0 && <p>{statusInfo.paid}</p>}
-                                                {weekStatus.isAssumedPaid && <p className="text-xs text-muted-foreground">{statusInfo.paid}</p>}
                                                 {statusInfo.pending && <p className="text-destructive">{statusInfo.pending}</p>}
                                                 {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : loan.status === 'Paid Off' ? <p className="text-xs text-muted-foreground">Préstamo liquidado</p> : <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
                                             </TooltipContent>
