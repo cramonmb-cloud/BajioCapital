@@ -289,6 +289,11 @@ const handleExportPDF = () => {
         head: [tableHeaders],
         body: tableData,
         theme: 'striped',
+        styles: {
+            cellPadding: 1.5,
+            fontSize: 8,
+            valign: 'middle',
+        },
         headStyles: {
             fillColor: [50, 50, 50], // Dark Gray
             textColor: 255,
@@ -301,16 +306,34 @@ const handleExportPDF = () => {
         alternateRowStyles: {
             fillColor: [240, 240, 240], // Light Gray
         },
+        columnStyles: {
+          0: { cellWidth: 40 }, // Wider client name column
+        },
         didParseCell: (data) => {
             // Style the last row (Totals)
             if (data.row.index === filteredLoans.length) {
                 data.cell.styles.fillColor = [220, 220, 220]; // Medium Gray
                 data.cell.styles.fontStyle = 'bold';
+                
+                // Vertical text for totals
+                if (data.column.index > 1) {
+                    data.cell.styles.valign = 'bottom';
+                    data.cell.styles.halign = 'center';
+                }
             }
         },
         willDrawCell: (data) => {
             const loan = filteredLoans[data.row.index];
-            if (!loan || data.row.index >= filteredLoans.length) return; // Don't style totals row here
+            if (!loan || data.row.index >= filteredLoans.length) {
+                 if (data.row.index === filteredLoans.length && data.column.index > 1 && data.cell.text.length > 0) {
+                    doc.setFontSize(8);
+                    doc.text(data.cell.text[0], data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height - 2, {
+                        angle: -90,
+                        align: 'right',
+                    });
+                }
+                return; // Don't style totals row here
+            }
 
             const loanStartDate = new Date(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
