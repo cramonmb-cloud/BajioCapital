@@ -178,13 +178,13 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
 
   const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number) => {
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-    if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0 };
+    if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
     
     const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
     // If the loan is fully paid, all weeks within its term are considered paid.
     if (loan.status === 'Paid Off' && weekNumber <= loanPlan.termInWeeks) {
-        return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount };
+        return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
     }
 
     const loanStartDate = new Date(loan.startDate);
@@ -198,11 +198,9 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
     const totalPaidForWeek = paymentForWeek?.amount || 0;
 
-    const today = new Date();
-
     const isFuture = today < weekStartDate;
     if (isFuture) {
-      return { status: 'pending' as const, date: weekStartDate, amountPaid: 0 };
+      return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
     }
     
     if (weekNumber === currentLoanWeek && !paymentForWeek) {
@@ -211,12 +209,12 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
 
     if (totalPaidForWeek > 0) {
         if(totalPaidForWeek >= weeklyPaymentAmount) {
-            return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek };
+            return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
         } else {
-            return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek };
+            return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
         }
     } else {
-        return { status: 'missed' as const, date: weekStartDate, amountPaid: 0 };
+        return { status: 'missed' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
     }
   };
   
@@ -463,6 +461,9 @@ const handleExportPDF = () => {
                 if (status.status === 'paid' && !status.isAssumedPaid) {
                     text = 'Abono';
                     subtext = formatCurrencySimplePDF(status.amountPaid);
+                } else if (status.status === 'paid' && status.isAssumedPaid) {
+                     text = 'Abono';
+                    subtext = formatCurrencySimplePDF(weeklyPayment);
                 } else if (status.status === 'partial' || status.status === 'missed') {
                     const fallo = weeklyPayment - status.amountPaid;
                     if(fallo > 0) {
@@ -516,11 +517,15 @@ const handleExportPDF = () => {
         const timeDiff = today.getTime() - loanStartDate.getTime();
         const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
       const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
+      const weeklyPayment = getWeeklyPaymentAmount(loan);
       
       if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
           if(!weekStatus.isAssumedPaid) {
             return total + weekStatus.amountPaid;
           }
+      }
+      if (weekStatus.isAssumedPaid) {
+          return total + weeklyPayment;
       }
       return total;
     }, 0);
@@ -691,7 +696,7 @@ const handleExportPDF = () => {
                                             <TooltipContent>
                                                 <p>Semana {weekNumber} (Inicia: {formatDate(weekStatus.date.toISOString())})</p>
                                                 <p>Estado: {statusInfo.text}</p>
-                                                {statusInfo.paid && weekStatus.amountPaid > 0 && <p>{statusInfo.paid}</p>}
+                                                {statusInfo.paid && <p>{statusInfo.paid}</p>}
                                                 {statusInfo.pending && <p className="text-destructive">{statusInfo.pending}</p>}
                                                 {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : loan.status === 'Paid Off' ? <p className="text-xs text-muted-foreground">Préstamo liquidado</p> : <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
                                             </TooltipContent>
