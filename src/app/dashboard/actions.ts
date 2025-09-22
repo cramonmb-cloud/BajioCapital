@@ -1,7 +1,7 @@
 'use server';
 
 import type { Client, Loan, LoanPlan } from '@/lib/types';
-import { collection, doc, addDoc, serverTimestamp, updateDoc, runTransaction, increment } from 'firebase/firestore';
+import { collection, doc, addDoc, serverTimestamp, updateDoc, runTransaction, increment, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { revalidatePath } from 'next/cache';
 import { getLoanPlan, getClient, getLoan } from '@/lib/firestore-data';
@@ -239,5 +239,83 @@ export async function payOffLoanAction(loanId: string) {
     } catch (error: any) {
         console.error('Error paying off loan:', error);
         return { success: false, message: `Error al liquidar el préstamo: ${error.message}` };
+    }
+}
+
+
+export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: LoanPlan[], clients: Client[]) {
+    const today = new Date();
+    const batch = writeBatch(db);
+    const walletRef = doc(db, 'wallet', 'main');
+    let totalAccumulatedAmount = 0;
+    let paymentsAccumulated = 0;
+
+    for (const loan of loans) {
+        const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+        if (!loanPlan || loan.status === 'Paid Off') continue;
+
+        const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
+        const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+
+        if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) continue;
+        
+        const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
+
+        if (!paymentExists) {
+            // This is an "assumed payment" that needs to be registered.
+            const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+            const loanRef = doc(db, 'loans', loan.id);
+            const client = clients.find(c => c.id === loan.clientId);
+            
+            const newPayment = {
+                date: new Date().toISOString(),
+                amount: weeklyPaymentAmount,
+                weekNumber: currentLoanWeek,
+            };
+
+            const updatedPayments = [...loan.payments, newPayment];
+            
+            // Check if this payment makes the loan paid off
+            const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
+            const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
+            let newStatus = loan.status;
+            if (totalPaid >= totalLoanAmount) {
+                newStatus = 'Paid Off';
+            }
+
+            batch.update(loanRef, { payments: updatedPayments, status: newStatus });
+            
+            // Add to wallet transaction
+            const walletTransactionRef = doc(collection(db, 'walletTransactions'));
+            batch.set(walletTransactionRef, {
+                type: 'credit',
+                amount: weeklyPaymentAmount,
+                date: new Date(),
+                description: `Abono (acumulado) de ${client?.name || 'N/A'} para préstamo (Semana ${currentLoanWeek}).`,
+                loanId: loan.id,
+                clientId: loan.clientId,
+            });
+
+            totalAccumulatedAmount += weeklyPaymentAmount;
+            paymentsAccumulated++;
+        }
+    }
+
+    if (paymentsAccumulated === 0) {
+        return { success: true, message: 'No había pagos asumidos para acumular.' };
+    }
+
+    try {
+        batch.update(walletRef, { balance: increment(totalAccumulatedAmount) });
+        await batch.commit();
+
+        revalidatePath('/dashboard/loans');
+        revalidatePath('/dashboard/wallet');
+        revalidatePath('/dashboard');
+        
+        return { success: true, message: `Se acumularon ${paymentsAccumulated} pagos por un total de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalAccumulatedAmount)}.` };
+    } catch (error: any) {
+        console.error('Error accumulating payments:', error);
+        return { success: false, message: `Error al acumular pagos: ${error.message}` };
     }
 }

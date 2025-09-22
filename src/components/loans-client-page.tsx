@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -46,6 +46,9 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
 import { useAuth } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
+import { accumulateAssumedPaymentsAction } from '@/app/dashboard/actions';
+
 
 interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: UserOptions) => jsPDF;
@@ -78,6 +81,8 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
   const { appUser } = useAuth();
+  const [isAccumulating, setIsAccumulating] = useState(false);
+  const { toast } = useToast();
   const [paymentDialogData, setPaymentDialogData] = useState<{
     weekNumber: number;
     weekDate: Date;
@@ -237,6 +242,30 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
       initialAmount: initialAmount > 0 ? initialAmount : 0
     });
     setPaymentDialogOpen(true);
+};
+
+const handleAccumulatePayments = async () => {
+    setIsAccumulating(true);
+    try {
+        const result = await accumulateAssumedPaymentsAction(filteredLoans, loanPlans, clients);
+        if (result.success) {
+            toast({
+                title: 'Proceso Completado',
+                description: result.message,
+            });
+            router.refresh();
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Error al Acumular',
+            description: error.message,
+        });
+    } finally {
+        setIsAccumulating(false);
+    }
 };
 
 const handleExportPDF = () => {
@@ -443,7 +472,7 @@ const handleExportPDF = () => {
             const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
             if (data.column.index === (currentWeekForLoan + 1)) {
-                 doc.setFillColor(240, 248, 255);
+                 doc.setFillColor(227, 242, 253);
                  doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
             }
             
@@ -539,6 +568,19 @@ const handleExportPDF = () => {
       const timeDiff = today.getTime() - firstLoanStartDate.getTime();
       currentGroupWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
   }
+
+    const hasAssumedPayments = filteredLoans.some(loan => {
+        if (loan.status === 'Paid Off') return false;
+        const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+        if (!loanPlan) return false;
+
+        const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
+        const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+        if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) return false;
+        
+        const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
+        return !paymentExists;
+    });
 
   return (
     <>
@@ -782,6 +824,19 @@ const handleExportPDF = () => {
               </ScrollArea>
             </TooltipProvider>
           </CardContent>
+           {filteredLoans.length > 0 && (
+                <CardFooter className="justify-end p-2 border-t">
+                    <Button 
+                        onClick={handleAccumulatePayments} 
+                        disabled={!hasAssumedPayments || isAccumulating}
+                    >
+                        {isAccumulating ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : null}
+                        {isAccumulating ? 'Acumulando...' : 'Acumular Pagos de la Semana'}
+                    </Button>
+                </CardFooter>
+            )}
         </Card>
       </div>
     </div>
