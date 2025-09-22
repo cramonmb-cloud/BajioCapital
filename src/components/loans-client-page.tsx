@@ -205,11 +205,6 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
       return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
     }
     
-    // Logic for current week automatic payment
-    const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
-    const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-    const isCurrentWeek = weekNumber === currentWeekForLoan;
-
     if (totalPaidForWeek > 0) {
         if(totalPaidForWeek >= weeklyPaymentAmount) {
             return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
@@ -217,10 +212,6 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
             return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
         }
     } else {
-        // If it's not paid but it's the current week, it might be "assumed paid" visually until proven otherwise
-        if (isCurrentWeek && loan.status === 'Active') {
-            return { status: 'paid' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: true };
-        }
         return { status: 'missed' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
     }
   };
@@ -441,7 +432,7 @@ const handleExportPDF = () => {
             
             // Highlight current week column
             if (data.column.index === (currentWeekForLoan + 1)) {
-                 doc.setFillColor(240, 248, 255); // Light blue
+                 doc.setFillColor(240, 248, 255); // Light blue (accent color)
                  doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
             }
             
@@ -506,13 +497,8 @@ const handleExportPDF = () => {
     const weekNumber = i + 1;
     return filteredLoans.reduce((total, loan) => {
       const weekStatus = getWeekPaymentStatus(loan, weekNumber);
-      const weeklyPayment = getWeeklyPaymentAmount(loan);
       
-      if (weekStatus.status === 'paid') {
-        // For 'paid', if it was assumed, amountPaid is 0, so add weekly payment. Otherwise, use actual amountPaid which might be > weekly payment.
-        return total + (weekStatus.isAssumedPaid ? weeklyPayment : weekStatus.amountPaid);
-      }
-      if (weekStatus.status === 'partial') {
+      if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
         return total + weekStatus.amountPaid;
       }
       return total;
@@ -645,8 +631,8 @@ const handleExportPDF = () => {
                                 let statusInfo;
                                 switch(weekStatus.status) {
                                     case 'paid':
-                                        const paidAmountText = weekStatus.amountPaid > 0 ? `Abono: ${formatCurrency(weekStatus.amountPaid)}` : '';
-                                        statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: weekStatus.isAssumedPaid ? 'Semana Actual (Asumido Pagado)' : `Pagado (Abono: ${formatCurrency(weekStatus.amountPaid)})`, paid: paidAmountText };
+                                        const paidAmountText = weekStatus.amountPaid > 0 ? `Abono: ${formatCurrency(weekStatus.amountPaid)}` : `Pagado (Plan Liquidado)`;
+                                        statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: `Pagado`, paid: paidAmountText };
                                         break;
                                     case 'partial':
                                         const fallo = weeklyPayment - weekStatus.amountPaid;
