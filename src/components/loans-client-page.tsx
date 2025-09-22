@@ -194,13 +194,19 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     const weekEndDate = new Date(weekStartDate);
     weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 7);
 
-
     const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
     const totalPaidForWeek = paymentForWeek?.amount || 0;
 
     const today = new Date();
+    const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
+    const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+
+    // Rule: Assume current week is paid if no payment has been made yet.
+    if (weekNumber === currentLoanWeek && !paymentForWeek) {
+        return { status: 'paid' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: true };
+    }
+
     const isFuture = today < weekStartDate;
-    
     if (isFuture) {
       return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
     }
@@ -355,7 +361,7 @@ const handleExportPDF = () => {
         const weekNumber = i + 1;
         return filteredLoans.reduce((total, loan) => {
             const weekStatus = getWeekPaymentStatus(loan, weekNumber);
-            if (weekStatus.status === 'paid' || weekStatus.status === 'partial') return total + weekStatus.amountPaid;
+            if ((weekStatus.status === 'paid' || weekStatus.status === 'partial') && !weekStatus.isAssumedPaid) return total + weekStatus.amountPaid;
             return total;
         }, 0);
     });
@@ -445,7 +451,7 @@ const handleExportPDF = () => {
                 let text = '';
                 let subtext = '';
 
-                if (status.status === 'paid') {
+                if (status.status === 'paid' && !status.isAssumedPaid) {
                     text = 'Abono';
                     subtext = formatCurrencySimplePDF(status.amountPaid);
                 } else if (status.status === 'partial' || status.status === 'missed') {
@@ -496,7 +502,7 @@ const handleExportPDF = () => {
     return filteredLoans.reduce((total, loan) => {
       const weekStatus = getWeekPaymentStatus(loan, weekNumber);
       
-      if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
+      if ((weekStatus.status === 'paid' || weekStatus.status === 'partial') && !weekStatus.isAssumedPaid) {
         return total + weekStatus.amountPaid;
       }
       return total;
@@ -629,7 +635,7 @@ const handleExportPDF = () => {
                                 let statusInfo;
                                 switch(weekStatus.status) {
                                     case 'paid':
-                                        const paidAmountText = weekStatus.amountPaid > 0 ? `Abono: ${formatCurrency(weekStatus.amountPaid)}` : `Pagado (Plan Liquidado)`;
+                                        const paidAmountText = weekStatus.amountPaid > 0 ? `Abono: ${formatCurrency(weekStatus.amountPaid)}` : weekStatus.isAssumedPaid ? 'Pago Asumido' : `Pagado (Plan Liquidado)`;
                                         statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: `Pagado`, paid: paidAmountText };
                                         break;
                                     case 'partial':
@@ -669,6 +675,7 @@ const handleExportPDF = () => {
                                                 <p>Semana {weekNumber} (Inicia: {formatDate(weekStatus.date.toISOString())})</p>
                                                 <p>Estado: {statusInfo.text}</p>
                                                 {statusInfo.paid && weekStatus.amountPaid > 0 && <p>{statusInfo.paid}</p>}
+                                                {weekStatus.isAssumedPaid && <p className="text-xs text-muted-foreground">{statusInfo.paid}</p>}
                                                 {statusInfo.pending && <p className="text-destructive">{statusInfo.pending}</p>}
                                                 {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : loan.status === 'Paid Off' ? <p className="text-xs text-muted-foreground">Préstamo liquidado</p> : <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
                                             </TooltipContent>
