@@ -205,7 +205,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     }
     
     // Logic for current week automatic payment
-    const timeDiff = today.getTime() - loanStartDate.getTime();
+    const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
     const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
     const isCurrentWeek = weekNumber === currentWeekForLoan;
 
@@ -292,26 +292,30 @@ const handleExportPDF = () => {
     doc.text('N/A'.toUpperCase(), rightColumnX + 50, 42);
     doc.text(formatCurrency(totalAmount), rightColumnX + 50, 54);
 
-    // --- Grand Totals Calculation ---
-    let grandTotalFailure = 0;
-    let grandTotalCollected = 0;
+    // --- Weekly Totals Calculation ---
+    const weeklyFailures = Array(maxWeeksToShow).fill(0);
+    const weeklyCollected = Array(maxWeeksToShow).fill(0);
 
     filteredLoans.forEach(loan => {
-        const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
-        const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+      const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+      if (!loanPlan) return;
+
+      for (let i = 1; i <= maxWeeksToShow; i++) {
+        if (i > loanPlan.termInWeeks) continue;
+        
+        const status = getWeekPaymentStatus(loan, i);
         const weeklyPayment = getWeeklyPaymentAmount(loan);
 
-        for (let i = 1; i <= currentWeekForLoan; i++) {
-            const status = getWeekPaymentStatus(loan, i);
-            if (status.status === 'missed') {
-                grandTotalFailure += weeklyPayment;
-            } else if (status.status === 'partial') {
-                grandTotalFailure += weeklyPayment - status.amountPaid;
-                grandTotalCollected += status.amountPaid;
-            } else if (status.status === 'paid') {
-                grandTotalCollected += status.isAssumedPaid ? weeklyPayment : status.amountPaid;
-            }
+        if (status.status === 'missed') {
+          weeklyFailures[i-1] += weeklyPayment;
+        } else if (status.status === 'partial') {
+          weeklyFailures[i-1] += weeklyPayment - status.amountPaid;
+          weeklyCollected[i-1] += status.amountPaid;
+        } else if (status.status === 'paid') {
+          // If it's assumed paid, the amount is 0, but it's considered collected for the summary.
+          weeklyCollected[i-1] += status.isAssumedPaid ? weeklyPayment : status.amountPaid;
         }
+      }
     });
 
     // --- Table ---
@@ -368,7 +372,7 @@ const handleExportPDF = () => {
         ];
         
         for (let i = 0; i < maxWeeksToShow; i++) {
-            rowData.push('');
+            rowData.push(''); // Placeholder, content will be drawn in didDrawCell
         }
         
         rowData.push({ content: avalInfo });
@@ -379,18 +383,30 @@ const handleExportPDF = () => {
     // --- Footer Rows ---
     const totalAbonos = filteredLoans.reduce((sum, loan) => sum + getWeeklyPaymentAmount(loan), 0);
     
-    const footerRows = [
-        [
-            { content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold' } },
-            { content: `TOTALES: ${formatCurrency(totalAbonos)}`, styles: { fontStyle: 'bold', halign: 'right' } },
-            { content: '', colSpan: maxWeeksToShow + 1 }
-        ],
-        [
-            { content: `FALLA TOTAL: ${formatCurrency(grandTotalFailure)}`, styles: { fontStyle: 'bold' } },
-            { content: `COBRADO TOTAL: ${formatCurrency(grandTotalCollected)}`, styles: { fontStyle: 'bold' } },
-            { content: '', colSpan: maxWeeksToShow + 1 }
-        ]
+    const footerRow1 = [
+        { content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold' } },
+        { content: `TOTAL A COBRAR:`, styles: { fontStyle: 'bold', halign: 'right' } },
     ];
+    const footerRow2 = [{content: 'FALLA', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold'}}];
+    const footerRow3 = [{content: 'COBRADO', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold'}}];
+
+    Array.from({ length: maxWeeksToShow }).forEach((_, i) => {
+        const weeklyTotal = filteredLoans.reduce((total, loan) => {
+            const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+            if(loanPlan && i + 1 <= loanPlan.termInWeeks) {
+                return total + getWeeklyPaymentAmount(loan);
+            }
+            return total;
+        }, 0);
+        footerRow1.push({ content: weeklyTotal > 0 ? formatCurrencySimple(weeklyTotal) : '', styles: { fontStyle: 'bold', halign: 'right' } });
+        footerRow2.push({ content: weeklyFailures[i] > 0 ? formatCurrencySimplePDF(weeklyFailures[i]) : '', styles: { fontStyle: 'bold', halign: 'right' } });
+        footerRow3.push({ content: weeklyCollected[i] > 0 ? formatCurrencySimplePDF(weeklyCollected[i]) : '', styles: { fontStyle: 'bold', halign: 'right' } });
+    });
+    footerRow1.push({ content: '', colSpan: 1 });
+    footerRow2.push({ content: '', colSpan: 1 });
+    footerRow3.push({ content: '', colSpan: 1 });
+
+    const footerRows = [footerRow1, footerRow2, footerRow3];
     
     doc.autoTable({
         startY: 80,
@@ -423,6 +439,7 @@ const handleExportPDF = () => {
         columnStyles: {
           0: { cellWidth: 90 }, // Cliente
           1: { cellWidth: 35, halign: 'right' }, // Abona
+          // Weeks
           2: { cellWidth: 30 }, 
           3: { cellWidth: 30 },
           4: { cellWidth: 30 },
@@ -436,23 +453,21 @@ const handleExportPDF = () => {
           12: { cellWidth: 90 }, // Aval
         },
         didDrawCell: (data) => {
-            if (data.row.section === 'foot') {
-                return; // Don't draw custom content in footer
-            }
             const loan = filteredLoans[data.row.index];
-            if (!loan) return;
+            if (!loan || data.row.section !== 'body') return;
 
             // Highlight current week column
             const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
             const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-            if (data.column.index === (currentWeekForLoan + 1) && data.section === 'body') {
-                 doc.setFillColor('#f0f0f0'); // Light grey for current week
+            if (data.column.index === (currentWeekForLoan + 1)) {
+                 doc.setFillColor(240, 240, 240); // Light grey for current week
                  doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
             }
             
-            if (data.row.section === 'body' && data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow) && data.row.index < filteredLoans.length) {
-                
+            if (data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
+                const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
                 const weekNumber = data.column.index - 1;
+                if (!loanPlan || weekNumber > loanPlan.termInWeeks) return;
                 
                 const weeklyPayment = getWeeklyPaymentAmount(loan);
                 const status = getWeekPaymentStatus(loan, weekNumber);
@@ -466,14 +481,12 @@ const handleExportPDF = () => {
                     subtext = formatCurrencySimplePDF(status.amountPaid);
                 } else if (status.status === 'partial' || status.status === 'missed') {
                     const fallo = weeklyPayment - status.amountPaid;
-                    text = 'Falla';
-                    subtext = formatCurrencySimplePDF(fallo);
-                    fillColor = '#e0e0e0'; // Darker grey for failure
-                }
-
-                if (fillColor) {
-                    doc.setFillColor(fillColor);
-                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                    if(fallo > 0) {
+                        text = 'Falla';
+                        subtext = formatCurrencySimplePDF(fallo);
+                        doc.setFillColor(224, 224, 224);
+                        doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                    }
                 }
 
                 if (text) {
@@ -484,13 +497,6 @@ const handleExportPDF = () => {
                     doc.text(text, centerX, centerY - 2, { align: 'center' });
                     doc.text(subtext, centerX, centerY + 5, { align: 'center' });
                 }
-            }
-
-            if (data.row.index === tableData.length - 1 && data.row.section === 'body') { 
-                 data.cell.styles.halign = 'right';
-                 if (data.column.index === 0) {
-                     data.cell.styles.halign = 'left';
-                 }
             }
         }
     });
@@ -522,7 +528,7 @@ const handleExportPDF = () => {
       
       if (weekStatus.status === 'paid') {
         // For 'paid', if it was assumed, amountPaid is 0, so add weekly payment. Otherwise, use actual amountPaid which might be > weekly payment.
-        return total + (weekStatus.isAssumedPaid ? weeklyPayment : Math.max(weeklyPayment, weekStatus.amountPaid));
+        return total + (weekStatus.isAssumedPaid ? weeklyPayment : weekStatus.amountPaid);
       }
       if (weekStatus.status === 'partial') {
         return total + weekStatus.amountPaid;
