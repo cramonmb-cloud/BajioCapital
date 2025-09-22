@@ -332,7 +332,7 @@ const handleExportPDF = () => {
                 const text = data.cell.text[0];
                 data.cell.text = []; // Clear original text
                 doc.setFontSize(8);
-                doc.text(text, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height - 2, {
+                doc.text(text, data.cell.x + data.cell.width - 2, data.cell.y + data.cell.height / 2, {
                     angle: -90,
                     align: 'center',
                 });
