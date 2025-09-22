@@ -131,7 +131,8 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
   };
    const formatDateForPDF = (date: Date) => {
-      return date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      const dateUTC = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+      return dateUTC.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
   };
 
   const translateStatus = (status: Loan['status']) => {
@@ -251,7 +252,7 @@ const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
-    const maxWeeksToShow = 10;
+    const maxWeeksToShow = 10; // Reduced for portrait mode
 
     // --- Header ---
     const today = new Date();
@@ -276,7 +277,7 @@ const handleExportPDF = () => {
     doc.text('Grupo', margin, 66);
     
     doc.setFont('helvetica', 'normal');
-    doc.text(formatDateForPDF(today), margin + 50, 30);
+    doc.text(formatDate(today.toISOString()), margin + 50, 30);
     doc.text(appUser?.username.toUpperCase() || 'N/A', margin + 50, 42);
     doc.text(supervisorName.toUpperCase(), margin + 50, 54);
     doc.text(groupName.toUpperCase(), margin + 50, 66);
@@ -288,35 +289,9 @@ const handleExportPDF = () => {
     doc.text('Cantidad', rightColumnX, 54);
 
     doc.setFont('helvetica', 'normal');
-    doc.text(loanPlan ? formatDateForPDF(vencimientoDate) : 'N/A', rightColumnX + 50, 30);
+    doc.text(loanPlan ? formatDate(vencimientoDate.toISOString()) : 'N/A', rightColumnX + 50, 30);
     doc.text('N/A'.toUpperCase(), rightColumnX + 50, 42);
     doc.text(formatCurrency(totalAmount), rightColumnX + 50, 54);
-
-    // --- Weekly Totals Calculation ---
-    const weeklyFailures = Array(maxWeeksToShow).fill(0);
-    const weeklyCollected = Array(maxWeeksToShow).fill(0);
-
-    filteredLoans.forEach(loan => {
-      const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-      if (!loanPlan) return;
-
-      for (let i = 1; i <= maxWeeksToShow; i++) {
-        if (i > loanPlan.termInWeeks) continue;
-        
-        const status = getWeekPaymentStatus(loan, i);
-        const weeklyPayment = getWeeklyPaymentAmount(loan);
-
-        if (status.status === 'missed') {
-          weeklyFailures[i-1] += weeklyPayment;
-        } else if (status.status === 'partial') {
-          weeklyFailures[i-1] += weeklyPayment - status.amountPaid;
-          weeklyCollected[i-1] += status.amountPaid;
-        } else if (status.status === 'paid') {
-          // If it's assumed paid, the amount is 0, but it's considered collected for the summary.
-          weeklyCollected[i-1] += status.isAssumedPaid ? weeklyPayment : status.amountPaid;
-        }
-      }
-    });
 
     // --- Table ---
     const tableHeaders: any[] = [
@@ -324,18 +299,12 @@ const handleExportPDF = () => {
         { content: 'ABONA' },
     ];
     
-    if(loanPlan) {
-        for (let i = 0; i < maxWeeksToShow; i++) {
-            const weekDate = new Date(loanStartDate);
-            if (i < loanPlan.termInWeeks) {
-                weekDate.setUTCDate(loanStartDate.getUTCDate() + (i * 7));
-                tableHeaders.push({ 
-                    content: `${formatDate(weekDate.toISOString())}\n${i + 1}`,
-                });
-            } else {
-                tableHeaders.push({ content: '' });
-            }
-        }
+    for (let i = 0; i < maxWeeksToShow; i++) {
+        const weekDate = new Date(loanStartDate);
+        weekDate.setUTCDate(loanStartDate.getUTCDate() + (i * 7));
+        tableHeaders.push({ 
+            content: `${formatDateForPDF(weekDate)}\n${i + 1}`,
+        });
     }
      tableHeaders.push({ content: 'AVAL' });
 
@@ -380,14 +349,34 @@ const handleExportPDF = () => {
         return rowData;
     });
 
+    const weeklyFailures = Array.from({ length: maxWeeksToShow }).map((_, i) => {
+        const weekNumber = i + 1;
+        return filteredLoans.reduce((total, loan) => {
+            const weekStatus = getWeekPaymentStatus(loan, weekNumber);
+            const weeklyPayment = getWeeklyPaymentAmount(loan);
+            if (weekStatus.status === 'missed') return total + weeklyPayment;
+            if (weekStatus.status === 'partial') return total + (weeklyPayment - weekStatus.amountPaid);
+            return total;
+        }, 0);
+    });
+
+    const weeklyCollected = Array.from({ length: maxWeeksToShow }).map((_, i) => {
+        const weekNumber = i + 1;
+        return filteredLoans.reduce((total, loan) => {
+            const weekStatus = getWeekPaymentStatus(loan, weekNumber);
+            if (weekStatus.status === 'paid' || weekStatus.status === 'partial') return total + weekStatus.amountPaid;
+            return total;
+        }, 0);
+    });
+    
     // --- Footer Rows ---
     const totalAbonos = filteredLoans.reduce((sum, loan) => sum + getWeeklyPaymentAmount(loan), 0);
     
     const footerRow1 = [
-        { content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold' } },
-        { content: `TOTAL A COBRAR:`, styles: { fontStyle: 'bold', halign: 'right' } },
+        { content: `TOTALES:`, styles: { fontStyle: 'bold', halign: 'right' } },
+        { content: formatCurrencySimple(totalAbonos), styles: { fontStyle: 'bold', halign: 'right' } },
     ];
-    const footerRow2 = [{content: 'FALLA', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold'}}];
+    const footerRow2 = [{content: 'FALLA', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold', fillColor: '#e0e0e0'}}];
     const footerRow3 = [{content: 'COBRADO', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold'}}];
 
     Array.from({ length: maxWeeksToShow }).forEach((_, i) => {
@@ -399,13 +388,13 @@ const handleExportPDF = () => {
             return total;
         }, 0);
         footerRow1.push({ content: weeklyTotal > 0 ? formatCurrencySimple(weeklyTotal) : '', styles: { fontStyle: 'bold', halign: 'right' } });
-        footerRow2.push({ content: weeklyFailures[i] > 0 ? formatCurrencySimplePDF(weeklyFailures[i]) : '', styles: { fontStyle: 'bold', halign: 'right' } });
+        footerRow2.push({ content: weeklyFailures[i] > 0 ? formatCurrencySimplePDF(weeklyFailures[i]) : '', styles: { fontStyle: 'bold', halign: 'right', fillColor: '#e0e0e0' } });
         footerRow3.push({ content: weeklyCollected[i] > 0 ? formatCurrencySimplePDF(weeklyCollected[i]) : '', styles: { fontStyle: 'bold', halign: 'right' } });
     });
-    footerRow1.push({ content: '', colSpan: 1 });
+    footerRow1.push({ content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold', halign: 'right' } });
     footerRow2.push({ content: '', colSpan: 1 });
     footerRow3.push({ content: '', colSpan: 1 });
-
+    
     const footerRows = [footerRow1, footerRow2, footerRow3];
     
     doc.autoTable({
@@ -437,30 +426,22 @@ const handleExportPDF = () => {
              fontSize: 7,
         },
         columnStyles: {
-          0: { cellWidth: 90 }, // Cliente
+          0: { cellWidth: 80 }, // Cliente
           1: { cellWidth: 35, halign: 'right' }, // Abona
           // Weeks
-          2: { cellWidth: 30 }, 
-          3: { cellWidth: 30 },
-          4: { cellWidth: 30 },
-          5: { cellWidth: 30 },
-          6: { cellWidth: 30 },
-          7: { cellWidth: 30 },
-          8: { cellWidth: 30 },
-          9: { cellWidth: 30 },
-          10: { cellWidth: 30 },
-          11: { cellWidth: 30 },
-          12: { cellWidth: 90 }, // Aval
+          ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 28 }])),
+          [maxWeeksToShow + 2]: { cellWidth: 80 }, // Aval
         },
         didDrawCell: (data) => {
             const loan = filteredLoans[data.row.index];
             if (!loan || data.row.section !== 'body') return;
 
-            // Highlight current week column
             const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
             const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            
+            // Highlight current week column
             if (data.column.index === (currentWeekForLoan + 1)) {
-                 doc.setFillColor(240, 240, 240); // Light grey for current week
+                 doc.setFillColor(240, 248, 255); // Light blue
                  doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
             }
             
@@ -474,7 +455,6 @@ const handleExportPDF = () => {
 
                 let text = '';
                 let subtext = '';
-                let fillColor: string | undefined;
 
                 if (status.status === 'paid' && !status.isAssumedPaid) {
                     text = 'Abono';
@@ -484,7 +464,7 @@ const handleExportPDF = () => {
                     if(fallo > 0) {
                         text = 'Falla';
                         subtext = formatCurrencySimplePDF(fallo);
-                        doc.setFillColor(224, 224, 224);
+                        doc.setFillColor(224, 224, 224); // light grey
                         doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
                     }
                 }
@@ -495,7 +475,9 @@ const handleExportPDF = () => {
                     doc.setFontSize(5);
                     doc.setTextColor(0, 0, 0);
                     doc.text(text, centerX, centerY - 2, { align: 'center' });
-                    doc.text(subtext, centerX, centerY + 5, { align: 'center' });
+                    if(subtext) {
+                        doc.text(subtext, centerX, centerY + 5, { align: 'center' });
+                    }
                 }
             }
         }
@@ -536,6 +518,15 @@ const handleExportPDF = () => {
       return total;
     }, 0);
   });
+
+  // Find the current week for the selected group of loans (assuming they all start on the same week)
+  const today = new Date();
+  let currentGroupWeek = 0;
+  if(filteredLoans.length > 0) {
+      const firstLoanStartDate = new Date(filteredLoans[0].startDate);
+      const timeDiff = today.getTime() - firstLoanStartDate.getTime();
+      currentGroupWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+  }
 
   return (
     <>
@@ -609,9 +600,13 @@ const handleExportPDF = () => {
                       <TableHead className="p-2">Supervisor</TableHead>
                       <TableHead className="p-2">Abono</TableHead>
                       <TableHead className="p-2">Estado</TableHead>
-                      {Array.from({ length: 14 }, (_, i) => (
-                        <TableHead key={i} className="text-center p-2 border-r">{`S${i + 1}`}</TableHead>
-                      ))}
+                      {Array.from({ length: 14 }, (_, i) => {
+                          const weekNumber = i + 1;
+                          const isCurrentWeek = weekNumber === currentGroupWeek;
+                          return (
+                            <TableHead key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-accent")}>{`S${i + 1}`}</TableHead>
+                          );
+                      })}
                       <TableHead className="text-right sticky right-0 bg-card z-10 p-2">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -620,6 +615,8 @@ const handleExportPDF = () => {
                       filteredLoans.map((loan) => {
                         const weeklyPayment = getWeeklyPaymentAmount(loan);
                         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+                        const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
+                        const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
                         
                         return (
                         <TableRow key={loan.id} className="bg-card">
@@ -636,9 +633,10 @@ const handleExportPDF = () => {
                           </TableCell>
                            {Array.from({ length: 14 }).map((_, i) => {
                                 const weekNumber = i + 1;
+                                const isCurrentWeek = weekNumber === currentLoanWeek;
                                 
                                 if (!loanPlan || weekNumber > loanPlan.termInWeeks) {
-                                    return <TableCell key={i} className="text-center p-2 border-r" />;
+                                    return <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-accent")} />;
                                 }
                                 
                                 const weekStatus = getWeekPaymentStatus(loan, weekNumber);
@@ -667,7 +665,7 @@ const handleExportPDF = () => {
                                 }
                                 
                                 return (
-                                    <TableCell key={i} className="text-center p-2 border-r">
+                                    <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-accent")}>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button 
@@ -725,6 +723,8 @@ const handleExportPDF = () => {
                         <TableRow>
                             <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
                             {Array.from({ length: 14 }).map((_, i) => {
+                                const weekNumber = i + 1;
+                                const isCurrentWeek = weekNumber === currentGroupWeek;
                                 const weeklyTotal = filteredLoans.reduce((total, loan) => {
                                     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
                                     if(loanPlan && i + 1 <= loanPlan.termInWeeks) {
@@ -733,7 +733,7 @@ const handleExportPDF = () => {
                                     return total;
                                 }, 0);
                                 return (
-                                    <TableCell key={i} className="p-1 text-center font-semibold border-r">
+                                    <TableCell key={i} className={cn("p-1 text-center font-semibold border-r", isCurrentWeek && "bg-accent")}>
                                         {weeklyTotal > 0 ? formatCurrencySimple(weeklyTotal) : ''}
                                     </TableCell>
                                 )
@@ -742,20 +742,26 @@ const handleExportPDF = () => {
                         </TableRow>
                         <TableRow className="border-t">
                           <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
-                            {weeklyFailures.map((total, i) => (
-                                <TableCell key={i} className="p-1 text-center font-semibold text-destructive border-r">
+                            {weeklyFailures.map((total, i) => {
+                                const weekNumber = i + 1;
+                                const isCurrentWeek = weekNumber === currentGroupWeek;
+                                return (
+                                <TableCell key={i} className={cn("p-1 text-center font-semibold text-destructive border-r", isCurrentWeek && "bg-accent")}>
                                     {total > 0 ? formatCurrencySimple(total) : ''}
                                 </TableCell>
-                            ))}
+                            )})}
                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
                             <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
-                            {weeklyCollected.map((total, i) => (
-                                <TableCell key={i} className="p-1 text-center font-semibold text-blue-600 border-r">
+                            {weeklyCollected.map((total, i) => {
+                                const weekNumber = i + 1;
+                                const isCurrentWeek = weekNumber === currentGroupWeek;
+                                return (
+                                <TableCell key={i} className={cn("p-1 text-center font-semibold text-blue-600 border-r", isCurrentWeek && "bg-accent")}>
                                     {total > 0 ? formatCurrencySimple(total) : ''}
                                 </TableCell>
-                            ))}
+                            )})}
                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                     </TableFooter>
