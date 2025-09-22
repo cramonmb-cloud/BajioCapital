@@ -327,18 +327,6 @@ const handleExportPDF = () => {
             }
         },
         willDrawCell: (data) => {
-            // This is for drawing totals vertically
-            if (data.row.index === filteredLoans.length && data.column.index > 1 && data.cell.text.length > 0) {
-                const text = data.cell.text[0];
-                data.cell.text = []; // Clear original text
-                doc.setFontSize(8);
-                doc.text(text, data.cell.x + data.cell.width - 2, data.cell.y + data.cell.height / 2, {
-                    angle: -90,
-                    align: 'center',
-                });
-                return; // Stop further processing for this cell
-            }
-            
             const loan = filteredLoans[data.row.index];
             if (!loan) {
                 return;
