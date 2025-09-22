@@ -334,7 +334,7 @@ const handleExportPDF = () => {
                 doc.setFontSize(8);
                 doc.text(text, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height - 2, {
                     angle: -90,
-                    align: 'right',
+                    align: 'center',
                 });
                 return; // Stop further processing for this cell
             }
