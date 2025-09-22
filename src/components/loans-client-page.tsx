@@ -373,6 +373,7 @@ const handleExportPDF = () => {
             lineColor: [0, 0, 0],
             fontSize: 6,
             cellPadding: 2,
+            valign: 'middle',
         },
         headStyles: {
             fillColor: [220, 220, 220],
@@ -385,53 +386,70 @@ const handleExportPDF = () => {
         columnStyles: {
           0: { cellWidth: 140 }, // Cliente
           1: { cellWidth: 40, halign: 'right' }, // Abona
-          2: { cellWidth: 28 }, 
-          3: { cellWidth: 28 },
-          4: { cellWidth: 28 },
-          5: { cellWidth: 28 },
-          6: { cellWidth: 28 },
-          7: { cellWidth: 28 },
-          8: { cellWidth: 28 },
-          9: { cellWidth: 28 },
-          10: { cellWidth: 28 },
-          11: { cellWidth: 28 },
-          12: { cellWidth: 28 },
-          13: { cellWidth: 28 },
-          14: { cellWidth: 28 },
-          15: { cellWidth: 28 },
+          2: { cellWidth: 35 }, 
+          3: { cellWidth: 35 },
+          4: { cellWidth: 35 },
+          5: { cellWidth: 35 },
+          6: { cellWidth: 35 },
+          7: { cellWidth: 35 },
+          8: { cellWidth: 35 },
+          9: { cellWidth: 35 },
+          10: { cellWidth: 35 },
+          11: { cellWidth: 35 },
+          12: { cellWidth: 35 },
+          13: { cellWidth: 35 },
+          14: { cellWidth: 35 },
+          15: { cellWidth: 35 },
           16: { cellWidth: 140 }, // Aval
         },
         didDrawCell: (data) => {
+            if (data.row.section === 'body') {
+                const rowIndex = data.row.index;
+                const colIndex = data.column.index;
+
+                // Check if it's a week column (2 to 15) and a loan row
+                if (colIndex >= 2 && colIndex <= 15 && rowIndex < filteredLoans.length) {
+                    const loan = filteredLoans[rowIndex];
+                    const weekNumber = colIndex - 1;
+                    const weeklyPayment = getWeeklyPaymentAmount(loan);
+                    const status = getWeekPaymentStatus(loan, weekNumber);
+
+                    let text = '';
+                    let subtext = '';
+                    let fillColor: string | undefined;
+
+                    if (status.status === 'paid' && !status.isAssumedPaid) {
+                        text = 'Abono';
+                        subtext = formatCurrencySimple(status.amountPaid);
+                    } else if (status.status === 'partial' || status.status === 'missed') {
+                        const fallo = weeklyPayment - status.amountPaid;
+                        text = 'Falla';
+                        subtext = formatCurrencySimple(fallo);
+                        fillColor = '#e0e0e0'; // Darker gray for failure
+                    }
+
+                    if (fillColor) {
+                        doc.setFillColor(fillColor);
+                        doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                    }
+
+                    if (text) {
+                        const centerX = data.cell.x + data.cell.width / 2;
+                        const centerY = data.cell.y + data.cell.height / 2;
+                        doc.setFontSize(5);
+                        doc.setTextColor(0, 0, 0);
+                        doc.text(text, centerX, centerY - 2, { align: 'center' });
+                        doc.text(subtext, centerX, centerY + 5, { align: 'center' });
+                    }
+                }
+            }
+
             // Footer alignment
-            if (data.row.index === tableData.length - 1) { 
+            if (data.row.index === tableData.length - 1 && data.row.section === 'body') { 
                  data.cell.styles.halign = 'right';
                  if (data.column.index === 0) {
                      data.cell.styles.halign = 'left';
                  }
-            }
-            
-            // Payment status shading
-            const rowIndex = data.row.index;
-            const colIndex = data.column.index;
-
-            // Check if it's a week column (2 to 15) and a loan row
-            if (colIndex >= 2 && colIndex <= 15 && rowIndex < filteredLoans.length) {
-                const loan = filteredLoans[rowIndex];
-                const weekNumber = colIndex - 1;
-
-                const status = getWeekPaymentStatus(loan, weekNumber);
-
-                let fillColor: string | undefined;
-                if (status.status === 'paid') {
-                    fillColor = '#f5f5f5'; // Light gray for paid
-                } else if (status.status === 'partial' || status.status === 'missed') {
-                    fillColor = '#e0e0e0'; // Darker gray for failure
-                }
-
-                if (fillColor) {
-                    doc.setFillColor(fillColor);
-                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-                }
             }
         }
     });
