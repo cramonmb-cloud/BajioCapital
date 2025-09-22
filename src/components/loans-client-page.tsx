@@ -178,8 +178,10 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
     if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
     
+    const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
+
     if (loan.status === 'Paid Off' && weekNumber <= loanPlan.termInWeeks) {
-        return { status: 'paid' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
+        return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
     }
 
     const loanStartDate = new Date(loan.startDate);
@@ -190,7 +192,6 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     const weekEndDate = new Date(weekStartDate);
     weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 7);
 
-    const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
     const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
     const totalPaidForWeek = paymentForWeek?.amount || 0;
@@ -407,6 +408,20 @@ const handleExportPDF = () => {
                 const rowIndex = data.row.index;
                 const colIndex = data.column.index;
 
+                 // Highlight current week column
+                if (rowIndex < filteredLoans.length) {
+                    const loan = filteredLoans[rowIndex];
+                    const loanStartDate = new Date(loan.startDate);
+                    const timeDiff = new Date().getTime() - loanStartDate.getTime();
+                    const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+                    
+                    if (colIndex - 1 === currentWeekForLoan) {
+                        doc.setFillColor('#f0f0f0'); // Light grey for current week
+                        doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                    }
+                }
+
+
                 // Check if it's a week column (2 to 15) and a loan row
                 if (colIndex >= 2 && colIndex <= 15 && rowIndex < filteredLoans.length) {
                     const loan = filteredLoans[rowIndex];
@@ -420,11 +435,11 @@ const handleExportPDF = () => {
 
                     if (status.status === 'paid' && !status.isAssumedPaid) {
                         text = 'Abono';
-                        subtext = formatCurrencySimple(status.amountPaid);
+                        subtext = formatCurrencySimplePDF(status.amountPaid);
                     } else if (status.status === 'partial' || status.status === 'missed') {
                         const fallo = weeklyPayment - status.amountPaid;
                         text = 'Falla';
-                        subtext = formatCurrencySimple(fallo);
+                        subtext = formatCurrencySimplePDF(fallo);
                         fillColor = '#e0e0e0'; // Darker gray for failure
                     }
 
