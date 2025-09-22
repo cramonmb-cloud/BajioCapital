@@ -243,7 +243,7 @@ const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
-    const maxWeeksToShow = 10; // Reduced for portrait mode
+    const maxWeeksToShow = 10; 
 
     // --- Header ---
     const today = new Date();
@@ -417,11 +417,10 @@ const handleExportPDF = () => {
              fontSize: 7,
         },
         columnStyles: {
-          0: { cellWidth: 80 }, // Cliente
-          1: { cellWidth: 35, halign: 'right' }, // Abona
-          // Weeks
+          0: { cellWidth: 80 }, 
+          1: { cellWidth: 35, halign: 'right' }, 
           ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 28 }])),
-          [maxWeeksToShow + 2]: { cellWidth: 80 }, // Aval
+          [maxWeeksToShow + 2]: { cellWidth: 80 },
         },
         didDrawCell: (data) => {
             const loan = filteredLoans[data.row.index];
@@ -430,9 +429,8 @@ const handleExportPDF = () => {
             const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
             const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
-            // Highlight current week column
             if (data.column.index === (currentWeekForLoan + 1)) {
-                 doc.setFillColor(240, 248, 255); // Light blue (accent color)
+                 doc.setFillColor(240, 248, 255);
                  doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
             }
             
@@ -447,7 +445,7 @@ const handleExportPDF = () => {
                 let text = '';
                 let subtext = '';
 
-                if (status.status === 'paid' && !status.isAssumedPaid) {
+                if (status.status === 'paid') {
                     text = 'Abono';
                     subtext = formatCurrencySimplePDF(status.amountPaid);
                 } else if (status.status === 'partial' || status.status === 'missed') {
@@ -455,7 +453,7 @@ const handleExportPDF = () => {
                     if(fallo > 0) {
                         text = 'Falla';
                         subtext = formatCurrencySimplePDF(fallo);
-                        doc.setFillColor(224, 224, 224); // light grey
+                        doc.setFillColor(224, 224, 224);
                         doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
                     }
                 }
@@ -590,7 +588,7 @@ const handleExportPDF = () => {
                           const weekNumber = i + 1;
                           const isCurrentWeek = weekNumber === currentGroupWeek;
                           return (
-                            <TableHead key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-accent")}>{`S${i + 1}`}</TableHead>
+                            <TableHead key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>{`S${i + 1}`}</TableHead>
                           );
                       })}
                       <TableHead className="text-right sticky right-0 bg-card z-10 p-2">Acciones</TableHead>
@@ -622,7 +620,7 @@ const handleExportPDF = () => {
                                 const isCurrentWeek = weekNumber === currentLoanWeek;
                                 
                                 if (!loanPlan || weekNumber > loanPlan.termInWeeks) {
-                                    return <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-accent")} />;
+                                    return <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")} />;
                                 }
                                 
                                 const weekStatus = getWeekPaymentStatus(loan, weekNumber);
@@ -651,7 +649,7 @@ const handleExportPDF = () => {
                                 }
                                 
                                 return (
-                                    <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-accent")}>
+                                    <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button 
@@ -719,7 +717,7 @@ const handleExportPDF = () => {
                                     return total;
                                 }, 0);
                                 return (
-                                    <TableCell key={i} className={cn("p-1 text-center font-semibold border-r", isCurrentWeek && "bg-accent")}>
+                                    <TableCell key={i} className={cn("p-1 text-center font-semibold border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>
                                         {weeklyTotal > 0 ? formatCurrencySimple(weeklyTotal) : ''}
                                     </TableCell>
                                 )
@@ -732,7 +730,7 @@ const handleExportPDF = () => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
                                 return (
-                                <TableCell key={i} className={cn("p-1 text-center font-semibold text-destructive border-r", isCurrentWeek && "bg-accent")}>
+                                <TableCell key={i} className={cn("p-1 text-center font-semibold text-destructive border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>
                                     {total > 0 ? formatCurrencySimple(total) : ''}
                                 </TableCell>
                             )})}
@@ -744,7 +742,7 @@ const handleExportPDF = () => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
                                 return (
-                                <TableCell key={i} className={cn("p-1 text-center font-semibold text-blue-600 border-r", isCurrentWeek && "bg-accent")}>
+                                <TableCell key={i} className={cn("p-1 text-center font-semibold text-blue-600 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>
                                     {total > 0 ? formatCurrencySimple(total) : ''}
                                 </TableCell>
                             )})}
