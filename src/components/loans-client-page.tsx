@@ -216,6 +216,8 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
         initialAmount = weeklyPayment - weekStatus.amountPaid;
     } else if (weekStatus.status === 'missed') {
         initialAmount = weeklyPayment;
+    } else if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) {
+        initialAmount = 0; // Already paid
     }
 
     setSelectedLoanForPayment(loan);
@@ -237,6 +239,14 @@ const weeklyTotals = Array.from({ length: 14 }).map((_, i) => {
       return total;
     }, 0);
   });
+
+const formatCurrencySimplePDF = (amount: number) => {
+    return new Intl.NumberFormat('es-MX', {
+      style: 'decimal',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  };
 
 const handleExportPDF = () => {
     const doc = new jsPDF() as jsPDFWithAutoTable;
@@ -273,7 +283,7 @@ const handleExportPDF = () => {
     }
     
     // Add totals row
-    const totalsRow = ['Total a Cobrar', '', ...weeklyTotals.map(t => t > 0 ? formatCurrencySimple(t) : '')];
+    const totalsRow = ['Total a Cobrar', '', ...weeklyTotals.map(t => t > 0 ? formatCurrencySimplePDF(t) : '')];
     tableData.push(totalsRow);
 
     const groupName = selectedGroup === 'all' ? 'Todos los Grupos' : getGroupName(filteredLoans[0]?.groupId);
@@ -471,7 +481,7 @@ const handleExportPDF = () => {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky left-0 bg-inherit z-10 w-[200px] p-2">Cliente</TableHead>
+                      <TableHead className="sticky left-0 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
                       <TableHead className="p-2">Grupo</TableHead>
                       <TableHead className="p-2">Supervisor</TableHead>
                       <TableHead className="p-2">Abono</TableHead>
@@ -479,17 +489,17 @@ const handleExportPDF = () => {
                       {Array.from({ length: 14 }, (_, i) => (
                         <TableHead key={i} className="text-center p-2 border-r">{`S${i + 1}`}</TableHead>
                       ))}
-                      <TableHead className="text-right sticky right-0 bg-inherit z-10 p-2">Acciones</TableHead>
+                      <TableHead className="text-right sticky right-0 bg-card z-10 p-2">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredLoans.length > 0 ? (
-                      filteredLoans.map((loan, index) => {
+                      filteredLoans.map((loan) => {
                         const weeklyPayment = getWeeklyPaymentAmount(loan);
                         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
                         
                         return (
-                        <TableRow key={loan.id} className={cn(index % 2 !== 0 && 'bg-muted/50')}>
+                        <TableRow key={loan.id} className="bg-card">
                           <TableCell className="font-medium sticky left-0 z-10 w-[200px] p-2 bg-inherit">
                             <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
                               {getClientName(loan.clientId)}
