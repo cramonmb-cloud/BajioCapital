@@ -317,50 +317,28 @@ const handleExportPDF = () => {
             fillColor: [240, 240, 240], // Light Gray
         },
         columnStyles: {
-          0: { cellWidth: 40 }, // Wider client name column
+          0: { cellWidth: 35 },
+          1: { cellWidth: 'auto' },
+          2: { cellWidth: 10 },
+          3: { cellWidth: 10 },
+          4: { cellWidth: 10 },
+          5: { cellWidth: 10 },
+          6: { cellWidth: 10 },
+          7: { cellWidth: 10 },
+          8: { cellWidth: 10 },
+          9: { cellWidth: 10 },
+          10: { cellWidth: 10 },
+          11: { cellWidth: 10 },
+          12: { cellWidth: 10 },
+          13: { cellWidth: 10 },
+          14: { cellWidth: 10 },
+          15: { cellWidth: 10 },
         },
         didParseCell: (data) => {
             // Style the last row (Totals)
             if (data.row.index === filteredLoans.length) {
                 data.cell.styles.fillColor = [220, 220, 220]; // Medium Gray
                 data.cell.styles.fontStyle = 'bold';
-            }
-        },
-        willDrawCell: (data) => {
-            const loan = filteredLoans[data.row.index];
-            if (!loan) {
-                return;
-            }
-
-            const loanStartDate = new Date(loan.startDate);
-            const timeDiff = today.getTime() - loanStartDate.getTime();
-            const currentWeekForLoan = Math.ceil(timeDiff / (1000 * 3600 * 24 * 7));
-            const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-
-            // S1 is at column index 2
-            const weekNumber = data.column.index - 1;
-            
-            if (weekNumber > 0 && loanPlan && weekNumber <= loanPlan.termInWeeks) {
-              const weekStatus = getWeekPaymentStatus(loan, weekNumber);
-
-              if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) {
-                  doc.setFillColor(230, 230, 230); // Light gray for paid
-              }
-              if (weekStatus.status === 'partial') {
-                  doc.setTextColor(0, 0, 0);
-                  doc.setFillColor(200, 200, 200); // Medium-light gray for partial
-              }
-              if (weekStatus.status === 'missed') {
-                   doc.setFillColor(180, 180, 180); // Medium-dark gray for missed
-              }
-
-              // Highlight current week
-              if (loan.status === 'Active' && weekNumber === currentWeekForLoan) {
-                  doc.setFillColor(150, 150, 150); // Darkest gray for current collection week
-                  doc.setTextColor(255, 255, 255);
-              } else {
-                  doc.setTextColor(0, 0, 0);
-              }
             }
         },
     });
@@ -589,12 +567,8 @@ const handleExportPDF = () => {
                         <TableRow>
                             <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
                             {weeklyTotals.map((total, i) => (
-                                <TableCell key={i} className="h-auto p-1 text-center align-bottom font-semibold border-r" >
-                                    {total > 0 ? (
-                                      <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
-                                        {formatCurrencySimple(total)}
-                                      </div>
-                                    ) : ''}
+                                <TableCell key={i} className="p-1 text-center font-semibold border-r">
+                                    {total > 0 ? formatCurrencySimple(total) : ''}
                                 </TableCell>
                             ))}
                             <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
@@ -602,12 +576,8 @@ const handleExportPDF = () => {
                         <TableRow className="border-t">
                           <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Falla</TableCell>
                             {weeklyFailures.map((total, i) => (
-                                <TableCell key={i} className="h-auto p-1 text-center align-bottom font-semibold text-destructive border-r" >
-                                    {total > 0 ? (
-                                      <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
-                                        {formatCurrencySimple(total)}
-                                      </div>
-                                    ) : ''}
+                                <TableCell key={i} className="p-1 text-center font-semibold text-destructive border-r">
+                                    {total > 0 ? formatCurrencySimple(total) : ''}
                                 </TableCell>
                             ))}
                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
@@ -615,12 +585,8 @@ const handleExportPDF = () => {
                         <TableRow className="border-t">
                             <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => (
-                                <TableCell key={i} className="h-auto p-1 text-center align-bottom font-semibold text-blue-600 border-r" >
-                                    {total > 0 ? (
-                                      <div className="[writing-mode:vertical-rl] transform rotate-180 whitespace-nowrap">
-                                        {formatCurrencySimple(total)}
-                                      </div>
-                                    ) : ''}
+                                <TableCell key={i} className="p-1 text-center font-semibold text-blue-600 border-r">
+                                    {total > 0 ? formatCurrencySimple(total) : ''}
                                 </TableCell>
                             ))}
                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
