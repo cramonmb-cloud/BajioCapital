@@ -45,6 +45,7 @@ import { cn } from '@/lib/utils';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
+import { useAuth } from '@/hooks/use-auth';
 
 interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: UserOptions) => jsPDF;
@@ -76,6 +77,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
   const [selectedGroup, setSelectedGroup] = useState<string>('all');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
+  const { appUser } = useAuth();
   const [paymentDialogData, setPaymentDialogData] = useState<{
     weekNumber: number;
     weekDate: Date;
@@ -83,7 +85,8 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
   } | null>(null);
   const router = useRouter();
 
-  const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
+  const getClient = (clientId: string) => clients.find(c => c.id === clientId);
+  const getClientName = (clientId: string) => getClient(clientId)?.name || 'N/A';
   const getGroupName = (groupId?: string) => groups.find(g => g.id === groupId)?.name || 'N/A';
 
   const getSupervisorName = (groupId?: string) => {
@@ -119,6 +122,9 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
       const userTimezoneOffset = date.getTimezoneOffset() * 60000;
       const correctedDate = new Date(date.getTime() + userTimezoneOffset);
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
+  };
+   const formatDateForPDF = (date: Date) => {
+      return date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' })
   };
 
   const translateStatus = (status: Loan['status']) => {
@@ -229,106 +235,164 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     setPaymentDialogOpen(true);
 };
 
-const weeklyTotals = Array.from({ length: 14 }).map((_, i) => {
-    const weekNumber = i + 1;
-    return filteredLoans.reduce((total, loan) => {
-      const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-      if (loanPlan && weekNumber <= loanPlan.termInWeeks) {
-        return total + getWeeklyPaymentAmount(loan);
-      }
-      return total;
-    }, 0);
-  });
-
-const formatCurrencySimplePDF = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'decimal',
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount);
-  };
-
 const handleExportPDF = () => {
-    const doc = new jsPDF({ orientation: 'landscape' }) as jsPDFWithAutoTable;
-    const tableData: (string | number)[][] = [];
-    const tableHeaders = ['Cliente', 'Abono', ...Array.from({ length: 14 }, (_, i) => `S${i + 1}`)];
+    if (filteredLoans.length === 0) return;
 
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' }) as jsPDFWithAutoTable;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 30;
+
+    // --- Header ---
     const today = new Date();
+    const firstLoan = filteredLoans[0];
+    const groupName = getGroupName(firstLoan.groupId);
+    const supervisorName = getSupervisorName(firstLoan.groupId);
+    const loanPlan = loanPlans.find(p => p.id === firstLoan.loanPlanId);
+    const totalAmount = filteredLoans.reduce((sum, loan) => sum + loan.amount, 0);
 
-    for (const loan of filteredLoans) {
+    const loanStartDate = new Date(firstLoan.startDate);
+    const vencimientoDate = new Date(loanStartDate);
+    if(loanPlan) {
+        vencimientoDate.setUTCDate(loanStartDate.getUTCDate() + (loanPlan.termInWeeks * 7));
+    }
+
+
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Fecha', margin, 30);
+    doc.text('Ejecutivo', margin, 42);
+    doc.text('Supervisor', margin, 54);
+    doc.text('Grupo', margin, 66);
+    
+    doc.setFont('helvetica', 'normal');
+    doc.text(formatDateForPDF(today), margin + 60, 30);
+    doc.text(appUser?.username.toUpperCase() || 'N/A', margin + 60, 42);
+    doc.text(supervisorName.toUpperCase(), margin + 60, 54);
+    doc.text(groupName.toUpperCase(), margin + 60, 66);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Vence', pageWidth / 2 + 100, 30);
+    doc.text('Plaza', pageWidth / 2 + 100, 42);
+    doc.text('Cantidad', pageWidth / 2 + 100, 54);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(loanPlan ? formatDateForPDF(vencimientoDate) : 'N/A', pageWidth / 2 + 150, 30);
+    doc.text('N/A'.toUpperCase(), pageWidth / 2 + 150, 42);
+    doc.text(formatCurrency(totalAmount), pageWidth / 2 + 150, 54);
+
+
+    // --- Table ---
+    const tableHeaders: any[] = [
+        { content: 'CLIENTE', styles: { halign: 'center' } },
+        { content: 'Abona', styles: { halign: 'center' } },
+    ];
+    
+    const weekDates: Date[] = [];
+    if(loanPlan) {
+        for (let i = 0; i < loanPlan.termInWeeks; i++) {
+            const weekDate = new Date(loanStartDate);
+            weekDate.setUTCDate(loanStartDate.getUTCDate() + (i * 7));
+            weekDates.push(weekDate);
+            tableHeaders.push({ 
+                content: `${formatDate(weekDate.toISOString())}\n${i + 1}`,
+                styles: { halign: 'center', fontSize: 7, cellWidth: 20 }
+            });
+        }
+    }
+     if (loanPlan && loanPlan.termInWeeks < 14) {
+        for (let i = loanPlan.termInWeeks; i < 14; i++) {
+            tableHeaders.push({ content: '', styles: { cellWidth: 20 } });
+        }
+    }
+     tableHeaders.push({ content: 'AVAL', styles: { halign: 'center' } });
+
+
+    const tableData = filteredLoans.map(loan => {
+        const client = getClient(loan.clientId);
         const weeklyPayment = getWeeklyPaymentAmount(loan);
-        const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
 
-        const row: (string | number)[] = [
-            getClientName(loan.clientId),
-            formatCurrency(weeklyPayment),
-        ];
+        const clientInfo = `${client?.name || ''}\n${client?.street || ''}\n${client?.neighborhood || ''}\n${client?.phone || ''}`;
+        
+        let avalInfo = '';
+        if(client?.endorsement) {
+            // "Nombre (Direccion, Colonia, CP, Ciudad. Tel: 123)"
+            const match = client.endorsement.match(/(.*) \((.*)\)/);
+            if (match) {
+                const [, avalName, avalDetails] = match;
+                const detailsArray = avalDetails.split(',').map(s => s.trim());
+                const telMatch = avalDetails.match(/Tel: (.*)/);
+                const tel = telMatch ? telMatch[1] : '';
+                // Assume structure: street, neighborhood, postal, city. Tel: phone
+                const addressParts = detailsArray.slice(0, -1).join('\n');
+                avalInfo = `${avalName}\n${addressParts}\n${tel}`;
 
-        for (let i = 1; i <= 14; i++) {
-            if (loanPlan && i <= loanPlan.termInWeeks) {
-                 const weekStatus = getWeekPaymentStatus(loan, i);
-                 let content = '';
-                 if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) content = 'P';
-                 if (weekStatus.status === 'partial') {
-                    const fallo = weeklyPayment - weekStatus.amountPaid;
-                    content = `Fallo: ${formatCurrencySimple(fallo)}`;
-                 }
-                 if (weekStatus.status === 'missed') content = 'F';
-                 row.push(content);
             } else {
-                 row.push('');
+                avalInfo = client.endorsement;
             }
         }
-        tableData.push(row);
+        
+        const row = [
+            { content: clientInfo, styles: { fontSize: 7, cellWidth: 150 } },
+            { content: formatCurrency(weeklyPayment), styles: { halign: 'right', fontSize: 8, cellWidth: 40 } },
+        ];
+
+        // Add empty cells for week columns
+        for (let i = 0; i < 14; i++) {
+            row.push('');
+        }
+        
+        row.push({ content: avalInfo, styles: { fontSize: 7, cellWidth: 150 } });
+
+        return row;
+    });
+
+    // --- Footer Row ---
+    const totalAbonos = filteredLoans.reduce((sum, loan) => sum + getWeeklyPaymentAmount(loan), 0);
+    const footerRow: any[] = [
+        { content: `TOT. CLIENTES\n${filteredLoans.length}`, styles: { halign: 'left', fontSize: 8, fontStyle: 'bold' } },
+        { content: `TOTALES\n${formatCurrency(totalAbonos)}`, styles: { halign: 'right', fontSize: 8, fontStyle: 'bold' } },
+    ];
+     for (let i = 0; i < 14; i++) {
+        footerRow.push('0.00'); // Placeholder for weekly totals if needed in future
     }
-    
-    const totalsRow = ['Total a Cobrar', '', ...weeklyTotals.map(t => t > 0 ? formatCurrencySimplePDF(t) : '')];
-    tableData.push(totalsRow);
+    footerRow.push(''); // Empty cell for AVAL column in footer
 
-    const groupName = selectedGroup === 'all' ? 'Todos los Grupos' : getGroupName(filteredLoans[0]?.groupId);
+    tableData.push(footerRow);
 
-    doc.setFontSize(16);
-    doc.text('Reporte de Cobranza', 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Grupo: ${groupName}`, 14, 22);
-    doc.text(`Semana de Préstamo: ${selectedWeek ? formatDate(selectedWeek) : 'N/A'}`, 14, 27);
 
     doc.autoTable({
-        startY: 32,
+        startY: 80,
         head: [tableHeaders],
         body: tableData,
-        theme: 'striped',
+        theme: 'grid',
         styles: {
-            fontSize: 8,
-            cellPadding: 1,
+            lineWidth: 0.5,
+            lineColor: [0, 0, 0],
         },
         headStyles: {
-            fillColor: [50, 50, 50],
-            textColor: 255,
+            fillColor: [255, 255, 255],
+            textColor: [0, 0, 0],
             fontStyle: 'bold',
-        },
-        columnStyles: {
-            0: { cellWidth: 40 }, // Cliente
-            1: { cellWidth: 15 }, // Abono
-            // Semanas S1-S14
-            2: { cellWidth: 15 }, 3: { cellWidth: 15 }, 4: { cellWidth: 15 },
-            5: { cellWidth: 15 }, 6: { cellWidth: 15 }, 7: { cellWidth: 15 },
-            8: { cellWidth: 15 }, 9: { cellWidth: 15 }, 10: { cellWidth: 15 },
-            11: { cellWidth: 15 }, 12: { cellWidth: 15 }, 13: { cellWidth: 15 },
-            14: { cellWidth: 15 }, 15: { cellWidth: 15 },
+            fontSize: 8,
         },
         didParseCell: (data) => {
-            // Style the last row (Totals)
-            if (data.row.index === filteredLoans.length) {
-                data.cell.styles.fillColor = [220, 220, 220]; // Medium Gray
-                data.cell.styles.fontStyle = 'bold';
+            if (data.row.index === tableData.length - 1) { // Last row (footer)
+                 data.cell.styles.fontStyle = 'bold';
+                 data.cell.styles.fontSize = 8;
+                 data.cell.styles.halign = 'right';
+                 data.cell.styles.valign = 'middle';
+                 if (data.column.index === 0) { // TOT. CLIENTES
+                     data.cell.styles.halign = 'left';
+                 }
             }
-        },
+             if (data.row.section === 'body' && data.column.index >= 2 && data.column.index < 16) {
+                data.cell.text = []; // Clear the default text to draw our own indicators
+            }
+        }
     });
 
     doc.save('reporte_cobranza.pdf');
 };
-
 
   
   const weeklyFailures = Array.from({ length: 14 }).map((_, i) => {
@@ -549,11 +613,20 @@ const handleExportPDF = () => {
                     <TableFooter>
                         <TableRow>
                             <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
-                            {weeklyTotals.map((total, i) => (
-                                <TableCell key={i} className="p-1 text-center font-semibold border-r">
-                                    {total > 0 ? formatCurrencySimple(total) : ''}
-                                </TableCell>
-                            ))}
+                            {Array.from({ length: 14 }).map((_, i) => {
+                                const weeklyTotal = filteredLoans.reduce((total, loan) => {
+                                    const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+                                    if(loanPlan && i + 1 <= loanPlan.termInWeeks) {
+                                        return total + getWeeklyPaymentAmount(loan);
+                                    }
+                                    return total;
+                                }, 0);
+                                return (
+                                    <TableCell key={i} className="p-1 text-center font-semibold border-r">
+                                        {weeklyTotal > 0 ? formatCurrencySimple(weeklyTotal) : ''}
+                                    </TableCell>
+                                )
+                            })}
                             <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
