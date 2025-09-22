@@ -180,6 +180,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     
     const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
+    // If the loan is fully paid, all weeks within its term are considered paid.
     if (loan.status === 'Paid Off' && weekNumber <= loanPlan.termInWeeks) {
         return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
     }
@@ -316,7 +317,32 @@ const handleExportPDF = () => {
         const client = getClient(loan.clientId);
         const weeklyPayment = getWeeklyPaymentAmount(loan);
 
-        const clientInfo = `${client?.name || ''}\n${client?.street || ''}, ${client?.neighborhood || ''}\n${client?.phone || ''}`;
+        // --- Cumulative Calculations ---
+        const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
+        const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+        let cumulativeFailure = 0;
+        let cumulativeCollected = 0;
+
+        for (let i = 1; i <= currentWeekForLoan; i++) {
+            const status = getWeekPaymentStatus(loan, i);
+            if (status.status === 'missed') {
+                cumulativeFailure += weeklyPayment;
+            } else if (status.status === 'partial') {
+                cumulativeFailure += weeklyPayment - status.amountPaid;
+                cumulativeCollected += status.amountPaid;
+            } else if (status.status === 'paid') {
+                 // For 'paid', if it was assumed, the amountPaid is 0, so we add the weekly payment. Otherwise, add the actual amount.
+                cumulativeCollected += status.isAssumedPaid ? weeklyPayment : status.amountPaid;
+            }
+        }
+        
+        const clientInfo = [
+            client?.name || '',
+            `${client?.street || ''}, ${client?.neighborhood || ''}`,
+            client?.phone || '',
+            `Falla Acumulada: ${formatCurrency(cumulativeFailure)}`,
+            `Total Cobrado: ${formatCurrency(cumulativeCollected)}`
+        ].join('\n');
         
         let avalInfo = '';
         if(client?.endorsement) {
@@ -383,7 +409,7 @@ const handleExportPDF = () => {
             fontSize: 5,
         },
         columnStyles: {
-          0: { cellWidth: 100 }, // Cliente
+          0: { cellWidth: 90 }, // Cliente
           1: { cellWidth: 35, halign: 'right' }, // Abona
           // Weeks (10 columns)
           2: { cellWidth: 30 }, 
@@ -396,21 +422,24 @@ const handleExportPDF = () => {
           9: { cellWidth: 30 },
           10: { cellWidth: 30 },
           11: { cellWidth: 30 },
-          12: { cellWidth: 100 }, // Aval
+          12: { cellWidth: 90 }, // Aval
         },
         didDrawCell: (data) => {
+            const loan = filteredLoans[data.row.index];
+            if (!loan) return;
+
+            // Highlight current week column
+            const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
+            const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            if (data.column.index === (currentWeekForLoan + 1) && data.section === 'body') {
+                 doc.setFillColor('#f0f0f0'); // Light grey for current week
+                 doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+            }
+            
             if (data.row.section === 'body' && data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow) && data.row.index < filteredLoans.length) {
-                const loan = filteredLoans[data.row.index];
+                
                 const weekNumber = data.column.index - 1;
                 
-                const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
-                const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-                
-                if (weekNumber === currentWeekForLoan) {
-                    doc.setFillColor('#f0f0f0');
-                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-                }
-
                 const weeklyPayment = getWeeklyPaymentAmount(loan);
                 const status = getWeekPaymentStatus(loan, weekNumber);
 
@@ -425,7 +454,7 @@ const handleExportPDF = () => {
                     const fallo = weeklyPayment - status.amountPaid;
                     text = 'Falla';
                     subtext = formatCurrencySimplePDF(fallo);
-                    fillColor = '#e0e0e0';
+                    fillColor = '#e0e0e0'; // Darker grey for failure
                 }
 
                 if (fillColor) {
