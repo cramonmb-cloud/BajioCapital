@@ -249,7 +249,7 @@ const formatCurrencySimplePDF = (amount: number) => {
   };
 
 const handleExportPDF = () => {
-    const doc = new jsPDF() as jsPDFWithAutoTable;
+    const doc = new jsPDF({ orientation: 'landscape' }) as jsPDFWithAutoTable;
     const tableData: (string | number)[][] = [];
     const tableHeaders = ['Cliente', 'Abono', ...Array.from({ length: 14 }, (_, i) => `S${i + 1}`)];
 
@@ -282,7 +282,6 @@ const handleExportPDF = () => {
         tableData.push(row);
     }
     
-    // Add totals row
     const totalsRow = ['Total a Cobrar', '', ...weeklyTotals.map(t => t > 0 ? formatCurrencySimplePDF(t) : '')];
     tableData.push(totalsRow);
 
@@ -300,39 +299,23 @@ const handleExportPDF = () => {
         body: tableData,
         theme: 'striped',
         styles: {
-            cellPadding: 1.5,
             fontSize: 8,
-            valign: 'middle',
+            cellPadding: 1,
         },
         headStyles: {
-            fillColor: [50, 50, 50], // Dark Gray
+            fillColor: [50, 50, 50],
             textColor: 255,
-            fontSize: 8,
-        },
-        bodyStyles: {
-            fontSize: 8,
-            cellPadding: 1.5,
-        },
-        alternateRowStyles: {
-            fillColor: [240, 240, 240], // Light Gray
+            fontStyle: 'bold',
         },
         columnStyles: {
-          0: { cellWidth: 35 },
-          1: { cellWidth: 'auto' },
-          2: { cellWidth: 10 },
-          3: { cellWidth: 10 },
-          4: { cellWidth: 10 },
-          5: { cellWidth: 10 },
-          6: { cellWidth: 10 },
-          7: { cellWidth: 10 },
-          8: { cellWidth: 10 },
-          9: { cellWidth: 10 },
-          10: { cellWidth: 10 },
-          11: { cellWidth: 10 },
-          12: { cellWidth: 10 },
-          13: { cellWidth: 10 },
-          14: { cellWidth: 10 },
-          15: { cellWidth: 10 },
+            0: { cellWidth: 40 }, // Cliente
+            1: { cellWidth: 15 }, // Abono
+            // Semanas S1-S14
+            2: { cellWidth: 15 }, 3: { cellWidth: 15 }, 4: { cellWidth: 15 },
+            5: { cellWidth: 15 }, 6: { cellWidth: 15 }, 7: { cellWidth: 15 },
+            8: { cellWidth: 15 }, 9: { cellWidth: 15 }, 10: { cellWidth: 15 },
+            11: { cellWidth: 15 }, 12: { cellWidth: 15 }, 13: { cellWidth: 15 },
+            14: { cellWidth: 15 }, 15: { cellWidth: 15 },
         },
         didParseCell: (data) => {
             // Style the last row (Totals)
