@@ -246,9 +246,10 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
 const handleExportPDF = () => {
     if (filteredLoans.length === 0) return;
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
+    const maxWeeksToShow = 10;
 
     // --- Header ---
     const today = new Date();
@@ -296,7 +297,7 @@ const handleExportPDF = () => {
     ];
     
     if(loanPlan) {
-        for (let i = 0; i < 14; i++) {
+        for (let i = 0; i < maxWeeksToShow; i++) {
             const weekDate = new Date(loanStartDate);
             if (i < loanPlan.termInWeeks) {
                 weekDate.setUTCDate(loanStartDate.getUTCDate() + (i * 7));
@@ -319,12 +320,10 @@ const handleExportPDF = () => {
         
         let avalInfo = '';
         if(client?.endorsement) {
-            // "Nombre (Direccion, Colonia, CP, Ciudad. Tel: 123)"
             const match = client.endorsement.match(/(.*) \((.*)\)/);
             if (match) {
                 const [, avalName, avalDetails] = match;
                 const detailsArray = avalDetails.split(',').map(s => s.trim());
-                // Find Tel part and separate it
                 const telIndex = detailsArray.findIndex(d => d.toUpperCase().startsWith('TEL:'));
                 const tel = telIndex > -1 ? detailsArray[telIndex] : '';
                 const addressParts = telIndex > -1 ? detailsArray.slice(0, telIndex) : detailsArray;
@@ -340,8 +339,7 @@ const handleExportPDF = () => {
             { content: formatCurrency(weeklyPayment) },
         ];
         
-        // Add empty cells for week columns, will be filled by didDrawCell
-        for (let i = 0; i < 14; i++) {
+        for (let i = 0; i < maxWeeksToShow; i++) {
             rowData.push('');
         }
         
@@ -353,10 +351,10 @@ const handleExportPDF = () => {
     // --- Footer Row ---
     const totalAbonos = filteredLoans.reduce((sum, loan) => sum + getWeeklyPaymentAmount(loan), 0);
     const footerRow: any[] = [
-        { content: `TOT. CLIENTES\n${filteredLoans.length}`, styles: { fontStyle: 'bold' } },
-        { content: `TOTALES\n${formatCurrency(totalAbonos)}`, styles: { fontStyle: 'bold' } },
+        { content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold' } },
+        { content: `${formatCurrency(totalAbonos)}`, styles: { fontStyle: 'bold', halign: 'right' } },
     ];
-     for (let i = 0; i < 14; i++) {
+     for (let i = 0; i < maxWeeksToShow; i++) {
         footerRow.push(''); // Placeholder for weekly totals if needed in future
     }
     footerRow.push(''); // Empty cell for AVAL column in footer
@@ -372,7 +370,7 @@ const handleExportPDF = () => {
         styles: {
             lineWidth: 0.5,
             lineColor: [0, 0, 0],
-            fontSize: 6,
+            fontSize: 5.5,
             cellPadding: 2,
             valign: 'middle',
         },
@@ -385,81 +383,66 @@ const handleExportPDF = () => {
             fontSize: 5,
         },
         columnStyles: {
-          0: { cellWidth: 140 }, // Cliente
-          1: { cellWidth: 40, halign: 'right' }, // Abona
-          2: { cellWidth: 35 }, 
-          3: { cellWidth: 35 },
-          4: { cellWidth: 35 },
-          5: { cellWidth: 35 },
-          6: { cellWidth: 35 },
-          7: { cellWidth: 35 },
-          8: { cellWidth: 35 },
-          9: { cellWidth: 35 },
-          10: { cellWidth: 35 },
-          11: { cellWidth: 35 },
-          12: { cellWidth: 35 },
-          13: { cellWidth: 35 },
-          14: { cellWidth: 35 },
-          15: { cellWidth: 35 },
-          16: { cellWidth: 140 }, // Aval
+          0: { cellWidth: 100 }, // Cliente
+          1: { cellWidth: 35, halign: 'right' }, // Abona
+          // Weeks (10 columns)
+          2: { cellWidth: 30 }, 
+          3: { cellWidth: 30 },
+          4: { cellWidth: 30 },
+          5: { cellWidth: 30 },
+          6: { cellWidth: 30 },
+          7: { cellWidth: 30 },
+          8: { cellWidth: 30 },
+          9: { cellWidth: 30 },
+          10: { cellWidth: 30 },
+          11: { cellWidth: 30 },
+          12: { cellWidth: 100 }, // Aval
         },
         didDrawCell: (data) => {
-            if (data.row.section === 'body') {
-                const rowIndex = data.row.index;
-                const colIndex = data.column.index;
-
-                 // Highlight current week column
-                if (rowIndex < filteredLoans.length) {
-                    const loan = filteredLoans[rowIndex];
-                    const loanStartDate = new Date(loan.startDate);
-                    const timeDiff = new Date().getTime() - loanStartDate.getTime();
-                    const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-                    
-                    if (colIndex - 1 === currentWeekForLoan) {
-                        doc.setFillColor('#f0f0f0'); // Light grey for current week
-                        doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-                    }
+            if (data.row.section === 'body' && data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow) && data.row.index < filteredLoans.length) {
+                const loan = filteredLoans[data.row.index];
+                const weekNumber = data.column.index - 1;
+                
+                const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
+                const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+                
+                if (weekNumber === currentWeekForLoan) {
+                    doc.setFillColor('#f0f0f0');
+                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
                 }
 
+                const weeklyPayment = getWeeklyPaymentAmount(loan);
+                const status = getWeekPaymentStatus(loan, weekNumber);
 
-                // Check if it's a week column (2 to 15) and a loan row
-                if (colIndex >= 2 && colIndex <= 15 && rowIndex < filteredLoans.length) {
-                    const loan = filteredLoans[rowIndex];
-                    const weekNumber = colIndex - 1;
-                    const weeklyPayment = getWeeklyPaymentAmount(loan);
-                    const status = getWeekPaymentStatus(loan, weekNumber);
+                let text = '';
+                let subtext = '';
+                let fillColor: string | undefined;
 
-                    let text = '';
-                    let subtext = '';
-                    let fillColor: string | undefined;
+                if (status.status === 'paid' && !status.isAssumedPaid) {
+                    text = 'Abono';
+                    subtext = formatCurrencySimplePDF(status.amountPaid);
+                } else if (status.status === 'partial' || status.status === 'missed') {
+                    const fallo = weeklyPayment - status.amountPaid;
+                    text = 'Falla';
+                    subtext = formatCurrencySimplePDF(fallo);
+                    fillColor = '#e0e0e0';
+                }
 
-                    if (status.status === 'paid' && !status.isAssumedPaid) {
-                        text = 'Abono';
-                        subtext = formatCurrencySimplePDF(status.amountPaid);
-                    } else if (status.status === 'partial' || status.status === 'missed') {
-                        const fallo = weeklyPayment - status.amountPaid;
-                        text = 'Falla';
-                        subtext = formatCurrencySimplePDF(fallo);
-                        fillColor = '#e0e0e0'; // Darker gray for failure
-                    }
+                if (fillColor) {
+                    doc.setFillColor(fillColor);
+                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                }
 
-                    if (fillColor) {
-                        doc.setFillColor(fillColor);
-                        doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-                    }
-
-                    if (text) {
-                        const centerX = data.cell.x + data.cell.width / 2;
-                        const centerY = data.cell.y + data.cell.height / 2;
-                        doc.setFontSize(5);
-                        doc.setTextColor(0, 0, 0);
-                        doc.text(text, centerX, centerY - 2, { align: 'center' });
-                        doc.text(subtext, centerX, centerY + 5, { align: 'center' });
-                    }
+                if (text) {
+                    const centerX = data.cell.x + data.cell.width / 2;
+                    const centerY = data.cell.y + data.cell.height / 2;
+                    doc.setFontSize(5);
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(text, centerX, centerY - 2, { align: 'center' });
+                    doc.text(subtext, centerX, centerY + 5, { align: 'center' });
                 }
             }
 
-            // Footer alignment
             if (data.row.index === tableData.length - 1 && data.row.section === 'body') { 
                  data.cell.styles.halign = 'right';
                  if (data.column.index === 0) {
@@ -495,7 +478,6 @@ const handleExportPDF = () => {
       const weeklyPayment = getWeeklyPaymentAmount(loan);
       
       if (weekStatus.status === 'paid') {
-        // If it's assumed paid, we add the full weekly amount. If it's explicitly paid, we use the recorded amount if it's higher (e.g. overpayment).
         return total + (weekStatus.isAssumedPaid ? weeklyPayment : Math.max(weeklyPayment, weekStatus.amountPaid));
       }
       if (weekStatus.status === 'partial') {
