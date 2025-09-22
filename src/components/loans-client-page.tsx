@@ -95,7 +95,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
   const getWeeklyPaymentAmount = (loan: Loan) => {
     const plan = loanPlans.find(p => p.id === loan.loanPlanId);
     if (!plan) return 0;
-    return (loan.amount / 1000) * plan.weeklyPaymentRate;
+    return (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
   };
   
   const formatCurrency = (amount: number) => {
@@ -227,9 +227,20 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     setPaymentDialogOpen(true);
 };
 
+const weeklyTotals = Array.from({ length: 14 }).map((_, i) => {
+    const weekNumber = i + 1;
+    return filteredLoans.reduce((total, loan) => {
+      const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+      if (loanPlan && weekNumber <= loanPlan.termInWeeks) {
+        return total + getWeeklyPaymentAmount(loan);
+      }
+      return total;
+    }, 0);
+  });
+
 const handleExportPDF = () => {
     const doc = new jsPDF() as jsPDFWithAutoTable;
-    const tableData = [];
+    const tableData: (string | number)[][] = [];
     const tableHeaders = ['Cliente', 'Abono', ...Array.from({ length: 14 }, (_, i) => `S${i + 1}`)];
 
     const today = new Date();
@@ -237,11 +248,8 @@ const handleExportPDF = () => {
     for (const loan of filteredLoans) {
         const weeklyPayment = getWeeklyPaymentAmount(loan);
         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-        const loanStartDate = new Date(loan.startDate);
-        const timeDiff = today.getTime() - loanStartDate.getTime();
-        const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
 
-        const row = [
+        const row: (string | number)[] = [
             getClientName(loan.clientId),
             formatCurrency(weeklyPayment),
         ];
@@ -251,7 +259,10 @@ const handleExportPDF = () => {
                  const weekStatus = getWeekPaymentStatus(loan, i);
                  let content = '';
                  if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) content = 'P';
-                 if (weekStatus.status === 'partial') content = `A: ${formatCurrencySimple(weekStatus.amountPaid)}`;
+                 if (weekStatus.status === 'partial') {
+                    const fallo = weeklyPayment - weekStatus.amountPaid;
+                    content = `Fallo: ${formatCurrencySimple(fallo)}`;
+                 }
                  if (weekStatus.status === 'missed') content = 'F';
                  row.push(content);
             } else {
@@ -261,6 +272,10 @@ const handleExportPDF = () => {
         tableData.push(row);
     }
     
+    // Add totals row
+    const totalsRow = ['Total a Cobrar', '', ...weeklyTotals.map(t => t > 0 ? formatCurrencySimple(t) : '')];
+    tableData.push(totalsRow);
+
     const groupName = selectedGroup === 'all' ? 'Todos los Grupos' : getGroupName(filteredLoans[0]?.groupId);
 
     doc.setFontSize(16);
@@ -275,7 +290,7 @@ const handleExportPDF = () => {
         body: tableData,
         theme: 'striped',
         headStyles: {
-            fillColor: [22, 160, 133], // Dark green
+            fillColor: [50, 50, 50], // Dark Gray
             textColor: 255,
             fontSize: 8,
         },
@@ -284,11 +299,18 @@ const handleExportPDF = () => {
             cellPadding: 1.5,
         },
         alternateRowStyles: {
-            fillColor: [240, 240, 240],
+            fillColor: [240, 240, 240], // Light Gray
+        },
+        didParseCell: (data) => {
+            // Style the last row (Totals)
+            if (data.row.index === filteredLoans.length) {
+                data.cell.styles.fillColor = [220, 220, 220]; // Medium Gray
+                data.cell.styles.fontStyle = 'bold';
+            }
         },
         willDrawCell: (data) => {
             const loan = filteredLoans[data.row.index];
-            if (!loan) return;
+            if (!loan || data.row.index >= filteredLoans.length) return; // Don't style totals row here
 
             const loanStartDate = new Date(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
@@ -302,19 +324,22 @@ const handleExportPDF = () => {
               const weekStatus = getWeekPaymentStatus(loan, weekNumber);
 
               if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) {
-                  doc.setFillColor(213, 245, 227); // Light green for paid
+                  doc.setFillColor(230, 230, 230); // Light gray for paid
               }
               if (weekStatus.status === 'partial') {
-                  doc.setTextColor(231, 76, 60); // Red text for failure amount
-                  doc.setFillColor(252, 243, 207); // Yellow for partial
+                  doc.setTextColor(0, 0, 0);
+                  doc.setFillColor(200, 200, 200); // Medium-light gray for partial
               }
               if (weekStatus.status === 'missed') {
-                   doc.setFillColor(250, 219, 216); // Light red for missed
+                   doc.setFillColor(180, 180, 180); // Medium-dark gray for missed
               }
 
               // Highlight current week
               if (loan.status === 'Active' && weekNumber === currentWeekForLoan) {
-                  doc.setFillColor(133, 193, 233, 0.5); // Light blue for current collection week
+                  doc.setFillColor(150, 150, 150); // Darkest gray for current collection week
+                  doc.setTextColor(255, 255, 255);
+              } else {
+                  doc.setTextColor(0, 0, 0);
               }
             }
         },
@@ -324,16 +349,6 @@ const handleExportPDF = () => {
 };
 
 
-  const weeklyTotals = Array.from({ length: 14 }).map((_, i) => {
-    const weekNumber = i + 1;
-    return filteredLoans.reduce((total, loan) => {
-      const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-      if (loanPlan && weekNumber <= loanPlan.termInWeeks) {
-        return total + getWeeklyPaymentAmount(loan);
-      }
-      return total;
-    }, 0);
-  });
   
   const weeklyFailures = Array.from({ length: 14 }).map((_, i) => {
     const weekNumber = i + 1;
