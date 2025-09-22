@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -42,6 +42,13 @@ import type { Client, Loan, LoanPlan, Payment, Group, Supervisor } from '@/lib/t
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import type { UserOptions } from 'jspdf-autotable';
+
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: UserOptions) => jsPDF;
+}
 
 
 // Helper to get the Saturday of the week for a given date
@@ -220,6 +227,102 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     setPaymentDialogOpen(true);
 };
 
+const handleExportPDF = () => {
+    const doc = new jsPDF() as jsPDFWithAutoTable;
+    const tableData = [];
+    const tableHeaders = ['Cliente', 'Abono', ...Array.from({ length: 14 }, (_, i) => `S${i + 1}`)];
+
+    const today = new Date();
+
+    for (const loan of filteredLoans) {
+        const weeklyPayment = getWeeklyPaymentAmount(loan);
+        const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+        const loanStartDate = new Date(loan.startDate);
+        const timeDiff = today.getTime() - loanStartDate.getTime();
+        const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+
+        const row = [
+            getClientName(loan.clientId),
+            formatCurrency(weeklyPayment),
+        ];
+
+        for (let i = 1; i <= 14; i++) {
+            if (loanPlan && i <= loanPlan.termInWeeks) {
+                 const weekStatus = getWeekPaymentStatus(loan, i);
+                 let content = '';
+                 if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) content = 'P';
+                 if (weekStatus.status === 'partial') content = `A: ${formatCurrencySimple(weekStatus.amountPaid)}`;
+                 if (weekStatus.status === 'missed') content = 'F';
+                 row.push(content);
+            } else {
+                 row.push('');
+            }
+        }
+        tableData.push(row);
+    }
+    
+    const groupName = selectedGroup === 'all' ? 'Todos los Grupos' : getGroupName(filteredLoans[0]?.groupId);
+
+    doc.setFontSize(16);
+    doc.text('Reporte de Cobranza', 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Grupo: ${groupName}`, 14, 22);
+    doc.text(`Semana de Préstamo: ${selectedWeek ? formatDate(selectedWeek) : 'N/A'}`, 14, 27);
+
+    doc.autoTable({
+        startY: 32,
+        head: [tableHeaders],
+        body: tableData,
+        theme: 'striped',
+        headStyles: {
+            fillColor: [22, 160, 133], // Dark green
+            textColor: 255,
+            fontSize: 8,
+        },
+        bodyStyles: {
+            fontSize: 8,
+            cellPadding: 1.5,
+        },
+        alternateRowStyles: {
+            fillColor: [240, 240, 240],
+        },
+        willDrawCell: (data) => {
+            const loan = filteredLoans[data.row.index];
+            if (!loan) return;
+
+            const loanStartDate = new Date(loan.startDate);
+            const timeDiff = today.getTime() - loanStartDate.getTime();
+            const currentWeekForLoan = Math.ceil(timeDiff / (1000 * 3600 * 24 * 7));
+            const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+
+            // S1 is at column index 2
+            const weekNumber = data.column.index - 1;
+            
+            if (weekNumber > 0 && loanPlan && weekNumber <= loanPlan.termInWeeks) {
+              const weekStatus = getWeekPaymentStatus(loan, weekNumber);
+
+              if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) {
+                  doc.setFillColor(213, 245, 227); // Light green for paid
+              }
+              if (weekStatus.status === 'partial') {
+                  doc.setTextColor(231, 76, 60); // Red text for failure amount
+                  doc.setFillColor(252, 243, 207); // Yellow for partial
+              }
+              if (weekStatus.status === 'missed') {
+                   doc.setFillColor(250, 219, 216); // Light red for missed
+              }
+
+              // Highlight current week
+              if (loan.status === 'Active' && weekNumber === currentWeekForLoan) {
+                  doc.setFillColor(133, 193, 233, 0.5); // Light blue for current collection week
+              }
+            }
+        },
+    });
+
+    doc.save('reporte_cobranza.pdf');
+};
+
 
   const weeklyTotals = Array.from({ length: 14 }).map((_, i) => {
     const weekNumber = i + 1;
@@ -286,6 +389,10 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                     ))}
                 </SelectContent>
             </Select>
+            <Button variant="outline" onClick={handleExportPDF} disabled={filteredLoans.length === 0}>
+                <FileDown className="mr-2 h-4 w-4" />
+                Exportar a PDF
+            </Button>
             <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans} groups={groups} />
         </div>
       </div>
@@ -327,7 +434,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky left-0 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
+                      <TableHead className="sticky left-0 bg-inherit z-10 w-[200px] p-2">Cliente</TableHead>
                       <TableHead className="p-2">Grupo</TableHead>
                       <TableHead className="p-2">Supervisor</TableHead>
                       <TableHead className="p-2">Abono</TableHead>
@@ -335,7 +442,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
                       {Array.from({ length: 14 }, (_, i) => (
                         <TableHead key={i} className="text-center p-2 border-r">{`S${i + 1}`}</TableHead>
                       ))}
-                      <TableHead className="text-right sticky right-0 bg-card z-10 p-2">Acciones</TableHead>
+                      <TableHead className="text-right sticky right-0 bg-inherit z-10 p-2">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
