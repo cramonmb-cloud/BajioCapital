@@ -216,6 +216,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
             return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
         }
     } else {
+        // If it's not paid but it's the current week, it might be "assumed paid" visually until proven otherwise
         if (isCurrentWeek && loan.status === 'Active') {
             return { status: 'paid' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: true };
         }
@@ -291,6 +292,28 @@ const handleExportPDF = () => {
     doc.text('N/A'.toUpperCase(), rightColumnX + 50, 42);
     doc.text(formatCurrency(totalAmount), rightColumnX + 50, 54);
 
+    // --- Grand Totals Calculation ---
+    let grandTotalFailure = 0;
+    let grandTotalCollected = 0;
+
+    filteredLoans.forEach(loan => {
+        const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
+        const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+        const weeklyPayment = getWeeklyPaymentAmount(loan);
+
+        for (let i = 1; i <= currentWeekForLoan; i++) {
+            const status = getWeekPaymentStatus(loan, i);
+            if (status.status === 'missed') {
+                grandTotalFailure += weeklyPayment;
+            } else if (status.status === 'partial') {
+                grandTotalFailure += weeklyPayment - status.amountPaid;
+                grandTotalCollected += status.amountPaid;
+            } else if (status.status === 'paid') {
+                grandTotalCollected += status.isAssumedPaid ? weeklyPayment : status.amountPaid;
+            }
+        }
+    });
+
     // --- Table ---
     const tableHeaders: any[] = [
         { content: 'CLIENTE' },
@@ -317,31 +340,10 @@ const handleExportPDF = () => {
         const client = getClient(loan.clientId);
         const weeklyPayment = getWeeklyPaymentAmount(loan);
 
-        // --- Cumulative Calculations ---
-        const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
-        const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-        let cumulativeFailure = 0;
-        let cumulativeCollected = 0;
-
-        for (let i = 1; i <= currentWeekForLoan; i++) {
-            const status = getWeekPaymentStatus(loan, i);
-            if (status.status === 'missed') {
-                cumulativeFailure += weeklyPayment;
-            } else if (status.status === 'partial') {
-                cumulativeFailure += weeklyPayment - status.amountPaid;
-                cumulativeCollected += status.amountPaid;
-            } else if (status.status === 'paid') {
-                 // For 'paid', if it was assumed, the amountPaid is 0, so we add the weekly payment. Otherwise, add the actual amount.
-                cumulativeCollected += status.isAssumedPaid ? weeklyPayment : status.amountPaid;
-            }
-        }
-        
         const clientInfo = [
             client?.name || '',
             `${client?.street || ''}, ${client?.neighborhood || ''}`,
             client?.phone || '',
-            `Falla Acumulada: ${formatCurrency(cumulativeFailure)}`,
-            `Total Cobrado: ${formatCurrency(cumulativeCollected)}`
         ].join('\n');
         
         let avalInfo = '';
@@ -360,7 +362,7 @@ const handleExportPDF = () => {
             }
         }
         
-        const rowData = [
+        const rowData: any[] = [
             { content: clientInfo },
             { content: formatCurrency(weeklyPayment) },
         ];
@@ -374,24 +376,27 @@ const handleExportPDF = () => {
         return rowData;
     });
 
-    // --- Footer Row ---
+    // --- Footer Rows ---
     const totalAbonos = filteredLoans.reduce((sum, loan) => sum + getWeeklyPaymentAmount(loan), 0);
-    const footerRow: any[] = [
-        { content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold' } },
-        { content: `${formatCurrency(totalAbonos)}`, styles: { fontStyle: 'bold', halign: 'right' } },
+    
+    const footerRows = [
+        [
+            { content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold' } },
+            { content: `TOTALES: ${formatCurrency(totalAbonos)}`, styles: { fontStyle: 'bold', halign: 'right' } },
+            { content: '', colSpan: maxWeeksToShow + 1 }
+        ],
+        [
+            { content: `FALLA TOTAL: ${formatCurrency(grandTotalFailure)}`, styles: { fontStyle: 'bold' } },
+            { content: `COBRADO TOTAL: ${formatCurrency(grandTotalCollected)}`, styles: { fontStyle: 'bold' } },
+            { content: '', colSpan: maxWeeksToShow + 1 }
+        ]
     ];
-     for (let i = 0; i < maxWeeksToShow; i++) {
-        footerRow.push(''); // Placeholder for weekly totals if needed in future
-    }
-    footerRow.push(''); // Empty cell for AVAL column in footer
-
-    tableData.push(footerRow);
-
-
+    
     doc.autoTable({
         startY: 80,
         head: [tableHeaders],
         body: tableData,
+        foot: footerRows,
         theme: 'grid',
         styles: {
             lineWidth: 0.5,
@@ -408,10 +413,16 @@ const handleExportPDF = () => {
             valign: 'middle',
             fontSize: 5,
         },
+        footStyles: {
+             fillColor: [220, 220, 220],
+             textColor: [0, 0, 0],
+             fontStyle: 'bold',
+             valign: 'middle',
+             fontSize: 7,
+        },
         columnStyles: {
           0: { cellWidth: 90 }, // Cliente
           1: { cellWidth: 35, halign: 'right' }, // Abona
-          // Weeks (10 columns)
           2: { cellWidth: 30 }, 
           3: { cellWidth: 30 },
           4: { cellWidth: 30 },
@@ -425,6 +436,9 @@ const handleExportPDF = () => {
           12: { cellWidth: 90 }, // Aval
         },
         didDrawCell: (data) => {
+            if (data.row.section === 'foot') {
+                return; // Don't draw custom content in footer
+            }
             const loan = filteredLoans[data.row.index];
             if (!loan) return;
 
@@ -507,6 +521,7 @@ const handleExportPDF = () => {
       const weeklyPayment = getWeeklyPaymentAmount(loan);
       
       if (weekStatus.status === 'paid') {
+        // For 'paid', if it was assumed, amountPaid is 0, so add weekly payment. Otherwise, use actual amountPaid which might be > weekly payment.
         return total + (weekStatus.isAssumedPaid ? weeklyPayment : Math.max(weeklyPayment, weekStatus.amountPaid));
       }
       if (weekStatus.status === 'partial') {
@@ -627,7 +642,7 @@ const handleExportPDF = () => {
                                 switch(weekStatus.status) {
                                     case 'paid':
                                         const paidAmountText = weekStatus.amountPaid > 0 ? `Abono: ${formatCurrency(weekStatus.amountPaid)}` : '';
-                                        statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: weekStatus.isAssumedPaid ? 'Semana Actual (Asumido Pagado)' : 'Pagado', paid: paidAmountText };
+                                        statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: weekStatus.isAssumedPaid ? 'Semana Actual (Asumido Pagado)' : `Pagado (Abono: ${formatCurrency(weekStatus.amountPaid)})`, paid: paidAmountText };
                                         break;
                                     case 'partial':
                                         const fallo = weeklyPayment - weekStatus.amountPaid;
