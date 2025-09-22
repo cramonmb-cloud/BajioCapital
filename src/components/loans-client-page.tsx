@@ -95,7 +95,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
   const getWeeklyPaymentAmount = (loan: Loan) => {
     const plan = loanPlans.find(p => p.id === loan.loanPlanId);
     if (!plan) return 0;
-    return (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+    return (loan.amount / 1000) * plan.weeklyPaymentRate;
   };
   
   const formatCurrency = (amount: number) => {
