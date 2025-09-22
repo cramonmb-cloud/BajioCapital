@@ -115,7 +115,14 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
       maximumFractionDigits: 0,
     }).format(amount);
   };
-  
+    const formatCurrencySimplePDF = (amount: number) => {
+        return new Intl.NumberFormat('es-MX', {
+            style: 'decimal',
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 0,
+        }).format(amount);
+    };
+
   const formatDate = (dateString: string) => {
       const date = new Date(dateString);
       // Adjust for timezone offset to show the correct local date
@@ -238,9 +245,9 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
 const handleExportPDF = () => {
     if (filteredLoans.length === 0) return;
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt' }) as jsPDFWithAutoTable;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 30;
+    const margin = 20;
 
     // --- Header ---
     const today = new Date();
@@ -257,7 +264,7 @@ const handleExportPDF = () => {
     }
 
 
-    doc.setFontSize(10);
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text('Fecha', margin, 30);
     doc.text('Ejecutivo', margin, 42);
@@ -265,53 +272,49 @@ const handleExportPDF = () => {
     doc.text('Grupo', margin, 66);
     
     doc.setFont('helvetica', 'normal');
-    doc.text(formatDateForPDF(today), margin + 60, 30);
-    doc.text(appUser?.username.toUpperCase() || 'N/A', margin + 60, 42);
-    doc.text(supervisorName.toUpperCase(), margin + 60, 54);
-    doc.text(groupName.toUpperCase(), margin + 60, 66);
+    doc.text(formatDateForPDF(today), margin + 50, 30);
+    doc.text(appUser?.username.toUpperCase() || 'N/A', margin + 50, 42);
+    doc.text(supervisorName.toUpperCase(), margin + 50, 54);
+    doc.text(groupName.toUpperCase(), margin + 50, 66);
 
+    const rightColumnX = pageWidth - margin - 100;
     doc.setFont('helvetica', 'bold');
-    doc.text('Vence', pageWidth / 2 + 100, 30);
-    doc.text('Plaza', pageWidth / 2 + 100, 42);
-    doc.text('Cantidad', pageWidth / 2 + 100, 54);
+    doc.text('Vence', rightColumnX, 30);
+    doc.text('Plaza', rightColumnX, 42);
+    doc.text('Cantidad', rightColumnX, 54);
 
     doc.setFont('helvetica', 'normal');
-    doc.text(loanPlan ? formatDateForPDF(vencimientoDate) : 'N/A', pageWidth / 2 + 150, 30);
-    doc.text('N/A'.toUpperCase(), pageWidth / 2 + 150, 42);
-    doc.text(formatCurrency(totalAmount), pageWidth / 2 + 150, 54);
-
+    doc.text(loanPlan ? formatDateForPDF(vencimientoDate) : 'N/A', rightColumnX + 50, 30);
+    doc.text('N/A'.toUpperCase(), rightColumnX + 50, 42);
+    doc.text(formatCurrency(totalAmount), rightColumnX + 50, 54);
 
     // --- Table ---
     const tableHeaders: any[] = [
-        { content: 'CLIENTE', styles: { halign: 'center' } },
-        { content: 'Abona', styles: { halign: 'center' } },
+        { content: 'CLIENTE' },
+        { content: 'ABONA' },
     ];
     
-    const weekDates: Date[] = [];
     if(loanPlan) {
-        for (let i = 0; i < loanPlan.termInWeeks; i++) {
+        for (let i = 0; i < 14; i++) {
             const weekDate = new Date(loanStartDate);
-            weekDate.setUTCDate(loanStartDate.getUTCDate() + (i * 7));
-            weekDates.push(weekDate);
-            tableHeaders.push({ 
-                content: `${formatDate(weekDate.toISOString())}\n${i + 1}`,
-                styles: { halign: 'center', fontSize: 7, cellWidth: 20 }
-            });
+            if (i < loanPlan.termInWeeks) {
+                weekDate.setUTCDate(loanStartDate.getUTCDate() + (i * 7));
+                tableHeaders.push({ 
+                    content: `${formatDate(weekDate.toISOString())}\n${i + 1}`,
+                });
+            } else {
+                tableHeaders.push({ content: '' });
+            }
         }
     }
-     if (loanPlan && loanPlan.termInWeeks < 14) {
-        for (let i = loanPlan.termInWeeks; i < 14; i++) {
-            tableHeaders.push({ content: '', styles: { cellWidth: 20 } });
-        }
-    }
-     tableHeaders.push({ content: 'AVAL', styles: { halign: 'center' } });
+     tableHeaders.push({ content: 'AVAL' });
 
 
     const tableData = filteredLoans.map(loan => {
         const client = getClient(loan.clientId);
         const weeklyPayment = getWeeklyPaymentAmount(loan);
 
-        const clientInfo = `${client?.name || ''}\n${client?.street || ''}\n${client?.neighborhood || ''}\n${client?.phone || ''}`;
+        const clientInfo = `${client?.name || ''}\n${client?.street || ''}, ${client?.neighborhood || ''}\n${client?.phone || ''}`;
         
         let avalInfo = '';
         if(client?.endorsement) {
@@ -320,40 +323,40 @@ const handleExportPDF = () => {
             if (match) {
                 const [, avalName, avalDetails] = match;
                 const detailsArray = avalDetails.split(',').map(s => s.trim());
-                const telMatch = avalDetails.match(/Tel: (.*)/);
-                const tel = telMatch ? telMatch[1] : '';
-                // Assume structure: street, neighborhood, postal, city. Tel: phone
-                const addressParts = detailsArray.slice(0, -1).join('\n');
-                avalInfo = `${avalName}\n${addressParts}\n${tel}`;
-
+                // Find Tel part and separate it
+                const telIndex = detailsArray.findIndex(d => d.toUpperCase().startsWith('TEL:'));
+                const tel = telIndex > -1 ? detailsArray[telIndex] : '';
+                const addressParts = telIndex > -1 ? detailsArray.slice(0, telIndex) : detailsArray;
+                
+                avalInfo = `${avalName}\n${addressParts.join(', ')}\n${tel}`;
             } else {
                 avalInfo = client.endorsement;
             }
         }
         
-        const row = [
-            { content: clientInfo, styles: { fontSize: 7, cellWidth: 150 } },
-            { content: formatCurrency(weeklyPayment), styles: { halign: 'right', fontSize: 8, cellWidth: 40 } },
+        const rowData = [
+            { content: clientInfo },
+            { content: formatCurrency(weeklyPayment) },
         ];
-
-        // Add empty cells for week columns
+        
+        // Add empty cells for week columns, will be filled by didDrawCell
         for (let i = 0; i < 14; i++) {
-            row.push('');
+            rowData.push('');
         }
         
-        row.push({ content: avalInfo, styles: { fontSize: 7, cellWidth: 150 } });
+        rowData.push({ content: avalInfo });
 
-        return row;
+        return rowData;
     });
 
     // --- Footer Row ---
     const totalAbonos = filteredLoans.reduce((sum, loan) => sum + getWeeklyPaymentAmount(loan), 0);
     const footerRow: any[] = [
-        { content: `TOT. CLIENTES\n${filteredLoans.length}`, styles: { halign: 'left', fontSize: 8, fontStyle: 'bold' } },
-        { content: `TOTALES\n${formatCurrency(totalAbonos)}`, styles: { halign: 'right', fontSize: 8, fontStyle: 'bold' } },
+        { content: `TOT. CLIENTES\n${filteredLoans.length}`, styles: { fontStyle: 'bold' } },
+        { content: `TOTALES\n${formatCurrency(totalAbonos)}`, styles: { fontStyle: 'bold' } },
     ];
      for (let i = 0; i < 14; i++) {
-        footerRow.push('0.00'); // Placeholder for weekly totals if needed in future
+        footerRow.push(''); // Placeholder for weekly totals if needed in future
     }
     footerRow.push(''); // Empty cell for AVAL column in footer
 
@@ -368,25 +371,67 @@ const handleExportPDF = () => {
         styles: {
             lineWidth: 0.5,
             lineColor: [0, 0, 0],
+            fontSize: 6,
+            cellPadding: 2,
         },
         headStyles: {
-            fillColor: [255, 255, 255],
+            fillColor: [220, 220, 220],
             textColor: [0, 0, 0],
             fontStyle: 'bold',
-            fontSize: 8,
+            halign: 'center',
+            valign: 'middle',
+            fontSize: 5,
         },
-        didParseCell: (data) => {
-            if (data.row.index === tableData.length - 1) { // Last row (footer)
-                 data.cell.styles.fontStyle = 'bold';
-                 data.cell.styles.fontSize = 8;
+        columnStyles: {
+          0: { cellWidth: 140 }, // Cliente
+          1: { cellWidth: 40, halign: 'right' }, // Abona
+          2: { cellWidth: 28 }, 
+          3: { cellWidth: 28 },
+          4: { cellWidth: 28 },
+          5: { cellWidth: 28 },
+          6: { cellWidth: 28 },
+          7: { cellWidth: 28 },
+          8: { cellWidth: 28 },
+          9: { cellWidth: 28 },
+          10: { cellWidth: 28 },
+          11: { cellWidth: 28 },
+          12: { cellWidth: 28 },
+          13: { cellWidth: 28 },
+          14: { cellWidth: 28 },
+          15: { cellWidth: 28 },
+          16: { cellWidth: 140 }, // Aval
+        },
+        didDrawCell: (data) => {
+            // Footer alignment
+            if (data.row.index === tableData.length - 1) { 
                  data.cell.styles.halign = 'right';
-                 data.cell.styles.valign = 'middle';
-                 if (data.column.index === 0) { // TOT. CLIENTES
+                 if (data.column.index === 0) {
                      data.cell.styles.halign = 'left';
                  }
             }
-             if (data.row.section === 'body' && data.column.index >= 2 && data.column.index < 16) {
-                data.cell.text = []; // Clear the default text to draw our own indicators
+            
+            // Payment status shading
+            const rowIndex = data.row.index;
+            const colIndex = data.column.index;
+
+            // Check if it's a week column (2 to 15) and a loan row
+            if (colIndex >= 2 && colIndex <= 15 && rowIndex < filteredLoans.length) {
+                const loan = filteredLoans[rowIndex];
+                const weekNumber = colIndex - 1;
+
+                const status = getWeekPaymentStatus(loan, weekNumber);
+
+                let fillColor: string | undefined;
+                if (status.status === 'paid') {
+                    fillColor = '#f5f5f5'; // Light gray for paid
+                } else if (status.status === 'partial' || status.status === 'missed') {
+                    fillColor = '#e0e0e0'; // Darker gray for failure
+                }
+
+                if (fillColor) {
+                    doc.setFillColor(fillColor);
+                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                }
             }
         }
     });
@@ -537,7 +582,8 @@ const handleExportPDF = () => {
                                 let statusInfo;
                                 switch(weekStatus.status) {
                                     case 'paid':
-                                        statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: weekStatus.isAssumedPaid ? 'Semana Actual (Asumido Pagado)' : 'Pagado', paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}` };
+                                        const paidAmountText = weekStatus.amountPaid > 0 ? `Abono: ${formatCurrency(weekStatus.amountPaid)}` : '';
+                                        statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: weekStatus.isAssumedPaid ? 'Semana Actual (Asumido Pagado)' : 'Pagado', paid: paidAmountText };
                                         break;
                                     case 'partial':
                                         const fallo = weeklyPayment - weekStatus.amountPaid;
@@ -630,7 +676,7 @@ const handleExportPDF = () => {
                             <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                          <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Falla</TableCell>
+                          <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
                             {weeklyFailures.map((total, i) => (
                                 <TableCell key={i} className="p-1 text-center font-semibold text-destructive border-r">
                                     {total > 0 ? formatCurrencySimple(total) : ''}
@@ -639,7 +685,7 @@ const handleExportPDF = () => {
                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                            <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Cobrado</TableCell>
+                            <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => (
                                 <TableCell key={i} className="p-1 text-center font-semibold text-blue-600 border-r">
                                     {total > 0 ? formatCurrencySimple(total) : ''}
