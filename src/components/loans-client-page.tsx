@@ -314,25 +314,24 @@ const handleExportPDF = () => {
             if (data.row.index === filteredLoans.length) {
                 data.cell.styles.fillColor = [220, 220, 220]; // Medium Gray
                 data.cell.styles.fontStyle = 'bold';
-                
-                // Vertical text for totals
-                if (data.column.index > 1) {
-                    data.cell.styles.valign = 'bottom';
-                    data.cell.styles.halign = 'center';
-                }
             }
         },
         willDrawCell: (data) => {
+            // This is for drawing totals vertically
+            if (data.row.index === filteredLoans.length && data.column.index > 1 && data.cell.text.length > 0) {
+                const text = data.cell.text[0];
+                data.cell.text = []; // Clear original text
+                doc.setFontSize(8);
+                doc.text(text, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height - 2, {
+                    angle: -90,
+                    align: 'right',
+                });
+                return; // Stop further processing for this cell
+            }
+            
             const loan = filteredLoans[data.row.index];
-            if (!loan || data.row.index >= filteredLoans.length) {
-                 if (data.row.index === filteredLoans.length && data.column.index > 1 && data.cell.text.length > 0) {
-                    doc.setFontSize(8);
-                    doc.text(data.cell.text[0], data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height - 2, {
-                        angle: -90,
-                        align: 'right',
-                    });
-                }
-                return; // Don't style totals row here
+            if (!loan) {
+                return;
             }
 
             const loanStartDate = new Date(loan.startDate);
