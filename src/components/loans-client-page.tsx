@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -90,7 +90,12 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     initialAmount: number;
   } | null>(null);
   const router = useRouter();
-  const today = new Date();
+
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const getClient = (clientId: string) => clients.find(c => c.id === clientId);
   const getClientName = (clientId: string) => getClient(clientId)?.name || 'N/A';
@@ -181,6 +186,9 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     const isCorrectGroup = selectedGroup === 'all' ? true : loan.groupId === selectedGroup;
     return isCorrectWeek && isCorrectGroup;
   });
+  
+  // All calculations depending on `today` should be inside the component or hooks
+  const today = new Date();
 
   const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number) => {
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
@@ -278,7 +286,7 @@ const handleExportPDF = () => {
     const maxWeeksToShow = 10; 
 
     // --- Header ---
-    const today = new Date();
+    const pdfToday = new Date();
     const firstLoan = filteredLoans[0];
     const groupName = getGroupName(firstLoan.groupId);
     const supervisorName = getSupervisorName(firstLoan.groupId);
@@ -300,7 +308,7 @@ const handleExportPDF = () => {
     doc.text('Grupo', margin, 66);
     
     doc.setFont('helvetica', 'normal');
-    doc.text(formatDate(today.toISOString()), margin + 50, 30);
+    doc.text(formatDate(pdfToday.toISOString()), margin + 50, 30);
     doc.text(appUser?.username.toUpperCase() || 'N/A', margin + 50, 42);
     doc.text(supervisorName.toUpperCase(), margin + 50, 54);
     doc.text(groupName.toUpperCase(), margin + 50, 66);
@@ -376,7 +384,7 @@ const handleExportPDF = () => {
         const weekNumber = i + 1;
         return filteredLoans.reduce((total, loan) => {
             const loanStartDate = new Date(loan.startDate);
-            const timeDiff = today.getTime() - loanStartDate.getTime();
+            const timeDiff = pdfToday.getTime() - loanStartDate.getTime();
             const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
 
             const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
@@ -391,13 +399,18 @@ const handleExportPDF = () => {
         const weekNumber = i + 1;
         return filteredLoans.reduce((total, loan) => {
             const loanStartDate = new Date(loan.startDate);
-            const timeDiff = today.getTime() - loanStartDate.getTime();
+            const timeDiff = pdfToday.getTime() - loanStartDate.getTime();
             const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
+            const weeklyPayment = getWeeklyPaymentAmount(loan);
+      
             if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
-                 if (!weekStatus.isAssumedPaid) {
-                     return total + weekStatus.amountPaid;
-                 }
+                if(!weekStatus.isAssumedPaid) {
+                    return total + weekStatus.amountPaid;
+                }
+            }
+            if (weekStatus.isAssumedPaid) {
+                return total + weeklyPayment;
             }
             return total;
         }, 0);
@@ -525,9 +538,9 @@ const handleExportPDF = () => {
   const weeklyFailures = Array.from({ length: 14 }).map((_, i) => {
     const weekNumber = i + 1;
     return filteredLoans.reduce((total, loan) => {
-        const loanStartDate = new Date(loan.startDate);
-        const timeDiff = today.getTime() - loanStartDate.getTime();
-        const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+      const loanStartDate = new Date(loan.startDate);
+      const timeDiff = today.getTime() - loanStartDate.getTime();
+      const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
       const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
       const weeklyPayment = getWeeklyPaymentAmount(loan);
       if (weekStatus.status === 'missed') {
@@ -543,9 +556,9 @@ const handleExportPDF = () => {
   const weeklyCollected = Array.from({ length: 14 }).map((_, i) => {
     const weekNumber = i + 1;
     return filteredLoans.reduce((total, loan) => {
-        const loanStartDate = new Date(loan.startDate);
-        const timeDiff = today.getTime() - loanStartDate.getTime();
-        const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+      const loanStartDate = new Date(loan.startDate);
+      const timeDiff = today.getTime() - loanStartDate.getTime();
+      const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
       const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
       const weeklyPayment = getWeeklyPaymentAmount(loan);
       
@@ -582,6 +595,10 @@ const handleExportPDF = () => {
         const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
         return !paymentExists;
     });
+
+  if (!isClient) {
+    return null; // or a loading skeleton
+  }
 
   return (
     <>
