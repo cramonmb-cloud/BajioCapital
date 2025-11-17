@@ -96,6 +96,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
 
   useEffect(() => {
     setIsClient(true);
+    // Setting today in useEffect ensures it's only set on the client
     setToday(new Date());
   }, []);
 
@@ -229,7 +230,10 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
             return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
         }
     } else {
-        return { status: 'missed' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+        if (weekNumber < currentLoanWeek) {
+            return { status: 'missed' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+        }
+        return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
     }
   };
   
