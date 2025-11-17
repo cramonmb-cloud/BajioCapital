@@ -92,9 +92,11 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
   const router = useRouter();
 
   const [isClient, setIsClient] = useState(false);
+  const [today, setToday] = useState(new Date());
 
   useEffect(() => {
     setIsClient(true);
+    setToday(new Date());
   }, []);
 
   const getClient = (clientId: string) => clients.find(c => c.id === clientId);
@@ -177,18 +179,17 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
   ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()); // Sort descending
 
   // Set the most recent week as the default selected week if none is selected
-  if (!selectedWeek && loanWeeks.length > 0) {
-      setSelectedWeek(loanWeeks[0]);
-  }
+  useEffect(() => {
+    if (!selectedWeek && loanWeeks.length > 0) {
+        setSelectedWeek(loanWeeks[0]);
+    }
+  }, [loanWeeks, selectedWeek]);
   
   const filteredLoans = loans.filter(loan => {
     const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
     const isCorrectGroup = selectedGroup === 'all' ? true : loan.groupId === selectedGroup;
     return isCorrectWeek && isCorrectGroup;
   });
-  
-  // All calculations depending on `today` should be inside the component or hooks
-  const today = new Date();
 
   const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number) => {
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
@@ -283,7 +284,7 @@ const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
-    const maxWeeksToShow = 10; 
+    const maxWeeksToShow = 14; 
 
     // --- Header ---
     const pdfToday = new Date();
@@ -533,68 +534,84 @@ const handleExportPDF = () => {
 
     doc.save('reporte_cobranza.pdf');
 };
-
   
-  const weeklyFailures = Array.from({ length: 14 }).map((_, i) => {
-    const weekNumber = i + 1;
-    return filteredLoans.reduce((total, loan) => {
-      const loanStartDate = new Date(loan.startDate);
-      const timeDiff = today.getTime() - loanStartDate.getTime();
-      const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-      const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
-      const weeklyPayment = getWeeklyPaymentAmount(loan);
-      if (weekStatus.status === 'missed') {
-        return total + weeklyPayment;
-      }
-      if (weekStatus.status === 'partial') {
-        return total + (weeklyPayment - weekStatus.amountPaid);
-      }
-      return total;
-    }, 0);
-  });
-
-  const weeklyCollected = Array.from({ length: 14 }).map((_, i) => {
-    const weekNumber = i + 1;
-    return filteredLoans.reduce((total, loan) => {
-      const loanStartDate = new Date(loan.startDate);
-      const timeDiff = today.getTime() - loanStartDate.getTime();
-      const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-      const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
-      const weeklyPayment = getWeeklyPaymentAmount(loan);
-      
-      if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
-          if(!weekStatus.isAssumedPaid) {
-            return total + weekStatus.amountPaid;
-          }
-      }
-      if (weekStatus.isAssumedPaid) {
-          return total + weeklyPayment;
-      }
-      return total;
-    }, 0);
-  });
-
-  // Find the current week for the selected group of loans (assuming they all start on the same week)
+  // All calculations depending on `today` should be inside the component or hooks
+  const [currentGroupWeek, setCurrentGroupWeek] = useState(0);
+  const [weeklyFailures, setWeeklyFailures] = useState<number[]>([]);
+  const [weeklyCollected, setWeeklyCollected] = useState<number[]>([]);
+  const [hasAssumedPayments, setHasAssumedPayments] = useState(false);
   
-  let currentGroupWeek = 0;
-  if(filteredLoans.length > 0) {
-      const firstLoanStartDate = new Date(filteredLoans[0].startDate);
-      const timeDiff = today.getTime() - firstLoanStartDate.getTime();
-      currentGroupWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-  }
+  useEffect(() => {
+    if (!isClient || filteredLoans.length === 0) return;
 
-    const hasAssumedPayments = filteredLoans.some(loan => {
+    const todayDate = new Date();
+    
+    // --- Current Week ---
+    const firstLoanStartDate = new Date(filteredLoans[0].startDate);
+    const timeDiff = todayDate.getTime() - firstLoanStartDate.getTime();
+    const currentWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+    setCurrentGroupWeek(currentWeek);
+
+    // --- Totals ---
+    const failures = Array.from({ length: 14 }).map((_, i) => {
+        const weekNumber = i + 1;
+        return filteredLoans.reduce((total, loan) => {
+            const loanStartDate = new Date(loan.startDate);
+            const timeDiff = todayDate.getTime() - loanStartDate.getTime();
+            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
+            const weeklyPayment = getWeeklyPaymentAmount(loan);
+            if (weekStatus.status === 'missed') {
+                return total + weeklyPayment;
+            }
+            if (weekStatus.status === 'partial') {
+                return total + (weeklyPayment - weekStatus.amountPaid);
+            }
+            return total;
+        }, 0);
+    });
+    setWeeklyFailures(failures);
+
+    const collected = Array.from({ length: 14 }).map((_, i) => {
+        const weekNumber = i + 1;
+        return filteredLoans.reduce((total, loan) => {
+            const loanStartDate = new Date(loan.startDate);
+            const timeDiff = todayDate.getTime() - loanStartDate.getTime();
+            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
+            const weeklyPayment = getWeeklyPaymentAmount(loan);
+            
+            if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
+                if(!weekStatus.isAssumedPaid) {
+                    return total + weekStatus.amountPaid;
+                }
+            }
+             if (weekStatus.isAssumedPaid) {
+                return total + weeklyPayment;
+            }
+            return total;
+        }, 0);
+    });
+    setWeeklyCollected(collected);
+    
+    // --- Assumed Payments Check ---
+    const hasAssumed = filteredLoans.some(loan => {
         if (loan.status === 'Paid Off') return false;
         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
         if (!loanPlan) return false;
 
-        const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
-        const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+        const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
+        const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
         if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) return false;
         
         const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
         return !paymentExists;
     });
+    setHasAssumedPayments(hasAssumed);
+
+  }, [isClient, filteredLoans, loanPlans, clients]);
+
+
 
   if (!isClient) {
     return null; // or a loading skeleton
@@ -685,10 +702,28 @@ const handleExportPDF = () => {
                   <TableBody>
                     {filteredLoans.length > 0 ? (
                       filteredLoans.map((loan) => {
-                        const weeklyPayment = getWeeklyPaymentAmount(loan);
-                        const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+                        const originalLoanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+                        
                         const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
                         const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+
+                        // Calculate penalty
+                        let missedWeeksCount = 0;
+                        if (originalLoanPlan) {
+                            for (let i = 1; i < currentLoanWeek; i++) {
+                                const weekStatus = getWeekPaymentStatus(loan, i, currentLoanWeek);
+                                if (weekStatus.status === 'missed') {
+                                    missedWeeksCount++;
+                                }
+                            }
+                        }
+                        
+                        const effectiveLoanPlan = { ...originalLoanPlan } as LoanPlan;
+                        if (originalLoanPlan && missedWeeksCount >= 2) {
+                            effectiveLoanPlan.termInWeeks = originalLoanPlan.termInWeeks + 1;
+                        }
+
+                        const weeklyPayment = getWeeklyPaymentAmount(loan);
                         
                         return (
                         <TableRow key={loan.id} className="bg-card">
@@ -707,7 +742,7 @@ const handleExportPDF = () => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentLoanWeek;
                                 
-                                if (!loanPlan || weekNumber > loanPlan.termInWeeks) {
+                                if (!effectiveLoanPlan || weekNumber > effectiveLoanPlan.termInWeeks) {
                                     return <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")} />;
                                 }
                                 
@@ -736,8 +771,10 @@ const handleExportPDF = () => {
                                         statusInfo = { icon: <Circle className="h-4 w-4 text-muted-foreground mx-auto" />, text: 'Pendiente' };
                                 }
                                 
+                                const isPenaltyWeek = originalLoanPlan && weekNumber > originalLoanPlan.termInWeeks;
+
                                 return (
-                                    <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>
+                                    <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30", isPenaltyWeek && "bg-orange-100 dark:bg-orange-900/30")}>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button 
@@ -754,7 +791,8 @@ const handleExportPDF = () => {
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                                <p>Semana {weekNumber} (Inicia: {formatDate(weekStatus.date.toISOString())})</p>
+                                                <p>Semana {weekNumber} {isPenaltyWeek && <span className='font-bold text-orange-500'>(Penalización)</span>}</p>
+                                                <p>(Inicia: {formatDate(weekStatus.date.toISOString())})</p>
                                                 <p>Estado: {statusInfo.text}</p>
                                                 {statusInfo.paid && <p>{statusInfo.paid}</p>}
                                                 {statusInfo.pending && <p className="text-destructive">{statusInfo.pending}</p>}
@@ -790,7 +828,7 @@ const handleExportPDF = () => {
                         </TableRow>
                     )}
                   </TableBody>
-                  {filteredLoans.length > 0 && (
+                  {filteredLoans.length > 0 && weeklyFailures.length > 0 && weeklyCollected.length > 0 && (
                     <TableFooter>
                         <TableRow>
                             <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
