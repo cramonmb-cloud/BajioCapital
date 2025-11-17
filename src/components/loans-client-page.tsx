@@ -92,13 +92,40 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
   const router = useRouter();
 
   const [isClient, setIsClient] = useState(false);
-  const [today, setToday] = useState(new Date());
+  const [pageData, setPageData] = useState<{
+      currentGroupWeek: number;
+      weeklyFailures: number[];
+      weeklyCollected: number[];
+      hasAssumedPayments: boolean;
+      loansWithPenalty: Record<string, boolean>;
+  }>({
+      currentGroupWeek: 0,
+      weeklyFailures: [],
+      weeklyCollected: [],
+      hasAssumedPayments: false,
+      loansWithPenalty: {},
+  });
+  
+  const loanWeeks = useMemo(() => 
+    Array.from(
+      new Set(loans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
+    ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+  , [loans]);
+
+  const filteredLoans = useMemo(() => loans.filter(loan => {
+    const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
+    const isCorrectGroup = selectedGroup === 'all' ? true : loan.groupId === selectedGroup;
+    return isCorrectWeek && isCorrectGroup;
+  }), [loans, selectedWeek, selectedGroup]);
+
 
   useEffect(() => {
     setIsClient(true);
-    // Setting today in useEffect ensures it's only set on the client
-    setToday(new Date());
-  }, []);
+    if (!selectedWeek && loanWeeks.length > 0) {
+        setSelectedWeek(loanWeeks[0]);
+    }
+  }, [loanWeeks, selectedWeek]);
+
 
   const getClient = (clientId: string) => clients.find(c => c.id === clientId);
   const getClientName = (clientId: string) => getClient(clientId)?.name || 'N/A';
@@ -173,35 +200,13 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
             return 'default';
     }
   };
-
-  // Get unique weeks (represented by Saturday's date string) from all loans
-  const loanWeeks = useMemo(() => 
-    Array.from(
-      new Set(loans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
-    ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
-  , [loans]);
-
-
-  // Set the most recent week as the default selected week if none is selected
-  useEffect(() => {
-    if (!selectedWeek && loanWeeks.length > 0) {
-        setSelectedWeek(loanWeeks[0]);
-    }
-  }, [loanWeeks, selectedWeek]);
   
-  const filteredLoans = useMemo(() => loans.filter(loan => {
-    const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
-    const isCorrectGroup = selectedGroup === 'all' ? true : loan.groupId === selectedGroup;
-    return isCorrectWeek && isCorrectGroup;
-  }), [loans, selectedWeek, selectedGroup]);
-
   const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number) => {
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
     if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
     
     const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
-    // If the loan is fully paid, all weeks within its term are considered paid.
     if (loan.status === 'Paid Off' && weekNumber <= loanPlan.termInWeeks) {
         return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
     }
@@ -217,7 +222,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
     const totalPaidForWeek = paymentForWeek?.amount || 0;
 
-    const isFuture = today < weekStartDate;
+    const isFuture = new Date() < weekStartDate;
     if (isFuture) {
       return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
     }
@@ -542,10 +547,10 @@ const handleExportPDF = () => {
     doc.save('reporte_cobranza.pdf');
 };
   
-  // All calculations depending on `today` should be inside the component or hooks
-  const { currentGroupWeek, weeklyFailures, weeklyCollected, hasAssumedPayments } = useMemo(() => {
+ useEffect(() => {
     if (!isClient || filteredLoans.length === 0) {
-        return { currentGroupWeek: 0, weeklyFailures: [], weeklyCollected: [], hasAssumedPayments: false };
+      setPageData(prev => ({ ...prev, weeklyFailures: [], weeklyCollected: [], hasAssumedPayments: false }));
+      return;
     }
 
     const todayDate = new Date();
@@ -554,65 +559,98 @@ const handleExportPDF = () => {
     const timeDiff = todayDate.getTime() - firstLoanStartDate.getTime();
     const currentGroupWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
 
-    const failures = Array.from({ length: 14 }).map((_, i) => {
-        const weekNumber = i + 1;
-        return filteredLoans.reduce((total, loan) => {
-            const loanStartDate = new Date(loan.startDate);
-            const timeDiff = todayDate.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-            const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
-            const weeklyPayment = getWeeklyPaymentAmount(loan);
-            if (weekStatus.status === 'missed') {
-                return total + weeklyPayment;
-            }
-            if (weekStatus.status === 'partial') {
-                return total + (weeklyPayment - weekStatus.amountPaid);
-            }
-            return total;
-        }, 0);
-    });
+    const newLoansWithPenalty = { ...pageData.loansWithPenalty };
 
-    const collected = Array.from({ length: 14 }).map((_, i) => {
-        const weekNumber = i + 1;
-        return filteredLoans.reduce((total, loan) => {
-            const loanStartDate = new Date(loan.startDate);
-            const timeDiff = todayDate.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-            const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
-            const weeklyPayment = getWeeklyPaymentAmount(loan);
-            
-            if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
-                if(!weekStatus.isAssumedPaid) {
-                    return total + weekStatus.amountPaid;
-                }
-            }
-             if (weekStatus.isAssumedPaid) {
-                return total + weeklyPayment;
-            }
-            return total;
-        }, 0);
-    });
-    
-    const hasAssumed = filteredLoans.some(loan => {
-        if (loan.status === 'Paid Off') return false;
-        const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-        if (!loanPlan) return false;
+    const calculateData = () => {
+      const failures = Array.from({ length: 14 }).map((_, i) => {
+          const weekNumber = i + 1;
+          return filteredLoans.reduce((total, loan) => {
+              const loanStartDate = new Date(loan.startDate);
+              const timeDiff = todayDate.getTime() - loanStartDate.getTime();
+              const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+              const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
+              const weeklyPayment = getWeeklyPaymentAmount(loan);
+              if (weekStatus.status === 'missed') {
+                  return total + weeklyPayment;
+              }
+              if (weekStatus.status === 'partial') {
+                  return total + (weeklyPayment - weekStatus.amountPaid);
+              }
+              return total;
+          }, 0);
+      });
 
-        const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
-        const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
-        if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) return false;
-        
-        const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
-        return !paymentExists;
-    });
+      const collected = Array.from({ length: 14 }).map((_, i) => {
+          const weekNumber = i + 1;
+          return filteredLoans.reduce((total, loan) => {
+              const loanStartDate = new Date(loan.startDate);
+              const timeDiff = todayDate.getTime() - loanStartDate.getTime();
+              const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+              const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
+              const weeklyPayment = getWeeklyPaymentAmount(loan);
+              
+              if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
+                  if(!weekStatus.isAssumedPaid) {
+                      return total + weekStatus.amountPaid;
+                  }
+              }
+               if (weekStatus.isAssumedPaid) {
+                  return total + weeklyPayment;
+              }
+              return total;
+          }, 0);
+      });
+      
+      const hasAssumed = filteredLoans.some(loan => {
+          if (loan.status === 'Paid Off') return false;
+          const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+          if (!loanPlan) return false;
 
-    return { currentGroupWeek, weeklyFailures: failures, weeklyCollected: collected, hasAssumedPayments: hasAssumed };
-  }, [isClient, filteredLoans, loanPlans, clients, today]);
+          const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
+          const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
+          if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) return false;
+          
+          const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
+          return !paymentExists;
+      });
+
+      // Update penalty status
+      filteredLoans.forEach(loan => {
+          if (newLoansWithPenalty[loan.id]) return; // Already penalized, don't re-calculate
+
+          const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
+          const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
+          let missedWeeksCount = 0;
+          for (let i = 1; i < currentLoanWeek; i++) {
+              const weekStatus = getWeekPaymentStatus(loan, i, currentLoanWeek);
+              if (weekStatus.status === 'missed') {
+                  missedWeeksCount++;
+              }
+          }
+          if (missedWeeksCount >= 2) {
+              newLoansWithPenalty[loan.id] = true;
+          }
+      });
+      
+      setPageData({
+        currentGroupWeek,
+        weeklyFailures: failures,
+        weeklyCollected: collected,
+        hasAssumedPayments: hasAssumed,
+        loansWithPenalty: newLoansWithPenalty
+      });
+    }
+
+    calculateData();
+  }, [isClient, filteredLoans, loanPlans, clients]);
+
 
 
   if (!isClient) {
     return null; // or a loading skeleton
   }
+
+  const { currentGroupWeek, weeklyFailures, weeklyCollected, hasAssumedPayments, loansWithPenalty } = pageData;
 
   return (
     <>
@@ -701,25 +739,14 @@ const handleExportPDF = () => {
                       filteredLoans.map((loan) => {
                         const originalLoanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
                         
+                        if (!originalLoanPlan) return null;
+
+                        const today = new Date();
                         const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
                         const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
 
-                        // Calculate penalty
-                        let missedWeeksCount = 0;
-                        if (originalLoanPlan) {
-                            for (let i = 1; i < currentLoanWeek; i++) {
-                                const weekStatus = getWeekPaymentStatus(loan, i, currentLoanWeek);
-                                if (weekStatus.status === 'missed') {
-                                    missedWeeksCount++;
-                                }
-                            }
-                        }
-                        
-                        const effectiveLoanPlan = { ...originalLoanPlan } as LoanPlan;
-                        if (originalLoanPlan && missedWeeksCount >= 2) {
-                            effectiveLoanPlan.termInWeeks = originalLoanPlan.termInWeeks + 1;
-                        }
-
+                        const hasPenalty = loansWithPenalty[loan.id] || false;
+                        const termInWeeks = originalLoanPlan.termInWeeks + (hasPenalty ? 1 : 0);
                         const weeklyPayment = getWeeklyPaymentAmount(loan);
                         
                         return (
@@ -738,8 +765,9 @@ const handleExportPDF = () => {
                            {Array.from({ length: 14 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentLoanWeek;
-                                
-                                if (!effectiveLoanPlan || weekNumber > effectiveLoanPlan.termInWeeks) {
+                                const isPenaltyWeek = hasPenalty && weekNumber === termInWeeks;
+
+                                if (weekNumber > termInWeeks) {
                                     return <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")} />;
                                 }
                                 
@@ -768,8 +796,6 @@ const handleExportPDF = () => {
                                         statusInfo = { icon: <Circle className="h-4 w-4 text-muted-foreground mx-auto" />, text: 'Pendiente' };
                                 }
                                 
-                                const isPenaltyWeek = originalLoanPlan && weekNumber > originalLoanPlan.termInWeeks;
-
                                 return (
                                     <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30", isPenaltyWeek && "bg-orange-100 dark:bg-orange-900/30")}>
                                         <Tooltip>
@@ -788,7 +814,7 @@ const handleExportPDF = () => {
                                                 </button>
                                             </TooltipTrigger>
                                             <TooltipContent>
-                                                <p>Semana {weekNumber} {isPenaltyWeek && <span className='font-bold text-orange-500'>(Penalización)</span>}</p>
+                                                <p>Semana {weekNumber} {isPenaltyWeek && <span className='font-bold text-orange-500'>(Semana Extra)</span>}</p>
                                                 <p>(Inicia: {formatDate(weekStatus.date.toISOString())})</p>
                                                 <p>Estado: {statusInfo.text}</p>
                                                 {statusInfo.paid && <p>{statusInfo.paid}</p>}
