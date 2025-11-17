@@ -89,7 +89,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             // --- Main Payment Distribution Logic ---
             while (remainingAmountToDistribute > 0 && tempCurrentWeekNumber <= loanPlan.termInWeeks) {
                 // Find existing payment for the target week.
-                // A payment's week number is encoded in its description if it's a multi-week payment, or we can calculate it.
                 const paymentForWeekIndex = allPayments.findIndex(p => p.weekNumber === tempCurrentWeekNumber);
                 
                 let existingPartialAmount = 0;
@@ -152,7 +151,30 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             let newStatus = loan.status;
             if (totalPaid >= totalLoanAmount) {
                 newStatus = 'Paid Off';
+            } else {
+                // Check if the loan is now up-to-date
+                const today = new Date();
+                const loanStartDate = new Date(loan.startDate);
+                const timeDiff = today.getTime() - loanStartDate.getTime();
+                const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+                
+                let isUpToDate = true;
+                for (let i = 1; i < currentLoanWeek; i++) {
+                    const paymentForWeek = allPayments.find(p => p.weekNumber === i);
+                    const paidForWeek = paymentForWeek?.amount || 0;
+                    if (paidForWeek < weeklyPayment) {
+                        isUpToDate = false;
+                        break;
+                    }
+                }
+
+                if (isUpToDate) {
+                    newStatus = 'Active';
+                } else {
+                    newStatus = 'Overdue';
+                }
             }
+
 
             transaction.update(loanRef, {
                 payments: allPayments,
