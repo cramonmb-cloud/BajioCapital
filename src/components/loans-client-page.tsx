@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -175,9 +175,12 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
   };
 
   // Get unique weeks (represented by Saturday's date string) from all loans
-  const loanWeeks = Array.from(
-    new Set(loans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
-  ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime()); // Sort descending
+  const loanWeeks = useMemo(() => 
+    Array.from(
+      new Set(loans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
+    ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+  , [loans]);
+
 
   // Set the most recent week as the default selected week if none is selected
   useEffect(() => {
@@ -186,11 +189,11 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     }
   }, [loanWeeks, selectedWeek]);
   
-  const filteredLoans = loans.filter(loan => {
+  const filteredLoans = useMemo(() => loans.filter(loan => {
     const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
     const isCorrectGroup = selectedGroup === 'all' ? true : loan.groupId === selectedGroup;
     return isCorrectWeek && isCorrectGroup;
-  });
+  }), [loans, selectedWeek, selectedGroup]);
 
   const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number) => {
     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
@@ -540,23 +543,17 @@ const handleExportPDF = () => {
 };
   
   // All calculations depending on `today` should be inside the component or hooks
-  const [currentGroupWeek, setCurrentGroupWeek] = useState(0);
-  const [weeklyFailures, setWeeklyFailures] = useState<number[]>([]);
-  const [weeklyCollected, setWeeklyCollected] = useState<number[]>([]);
-  const [hasAssumedPayments, setHasAssumedPayments] = useState(false);
-  
-  useEffect(() => {
-    if (!isClient || filteredLoans.length === 0) return;
+  const { currentGroupWeek, weeklyFailures, weeklyCollected, hasAssumedPayments } = useMemo(() => {
+    if (!isClient || filteredLoans.length === 0) {
+        return { currentGroupWeek: 0, weeklyFailures: [], weeklyCollected: [], hasAssumedPayments: false };
+    }
 
     const todayDate = new Date();
     
-    // --- Current Week ---
     const firstLoanStartDate = new Date(filteredLoans[0].startDate);
     const timeDiff = todayDate.getTime() - firstLoanStartDate.getTime();
-    const currentWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-    setCurrentGroupWeek(currentWeek);
+    const currentGroupWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
 
-    // --- Totals ---
     const failures = Array.from({ length: 14 }).map((_, i) => {
         const weekNumber = i + 1;
         return filteredLoans.reduce((total, loan) => {
@@ -574,7 +571,6 @@ const handleExportPDF = () => {
             return total;
         }, 0);
     });
-    setWeeklyFailures(failures);
 
     const collected = Array.from({ length: 14 }).map((_, i) => {
         const weekNumber = i + 1;
@@ -596,9 +592,7 @@ const handleExportPDF = () => {
             return total;
         }, 0);
     });
-    setWeeklyCollected(collected);
     
-    // --- Assumed Payments Check ---
     const hasAssumed = filteredLoans.some(loan => {
         if (loan.status === 'Paid Off') return false;
         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
@@ -611,10 +605,9 @@ const handleExportPDF = () => {
         const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
         return !paymentExists;
     });
-    setHasAssumedPayments(hasAssumed);
 
-  }, [isClient, filteredLoans, loanPlans, clients]);
-
+    return { currentGroupWeek, weeklyFailures: failures, weeklyCollected: collected, hasAssumedPayments: hasAssumed };
+  }, [isClient, filteredLoans, loanPlans, clients, today]);
 
 
   if (!isClient) {
