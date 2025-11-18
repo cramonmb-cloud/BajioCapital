@@ -37,10 +37,23 @@ export default async function OverduePortfolioPage() {
             
             let calculatedAmountDue = 0;
             let missedPaymentsCount = 0;
+            let missedWeeksForPenalty = 0;
+
+            // First, determine penalty
+            for (let i = 1; i < currentLoanWeek; i++) {
+                const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
+                const paidForWeek = paymentForWeek?.amount || 0;
+                if (paidForWeek < weeklyPayment) {
+                    missedWeeksForPenalty++;
+                }
+            }
             
-            // Corrected loop to include the current week
+            const hasPenalty = missedWeeksForPenalty >= 2;
+            const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
+            
+            // Now, calculate amount due with the correct term
             for(let i = 1; i <= currentLoanWeek; i++) {
-                if (i > loanPlan.termInWeeks) break; // Don't calculate past the loan term
+                if (i > termInWeeks) break; // Don't calculate past the adjusted loan term
 
                 const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
                 const paidForWeek = paymentForWeek?.amount || 0;
