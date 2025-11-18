@@ -15,6 +15,18 @@ interface OverdueCardProps {
     allLoanPlans: LoanPlan[];
 }
 
+// Helper to get the Saturday of the week for a given date
+const getSaturdayOfWeek = (d: Date) => {
+  const date = new Date(d);
+  date.setUTCHours(0, 0, 0, 0); // Normalize time
+  const day = date.getUTCDay(); // Sunday = 0, Saturday = 6
+  // If it's Sunday, we want the previous saturday. Otherwise, find the upcoming one.
+  const diff = day === 0 ? -1 : 6 - day;
+  date.setUTCDate(date.getUTCDate() + diff);
+  return date;
+};
+
+
 export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardProps) {
     const { client, loan, loanPlan, amountDue, missedPayments } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -48,6 +60,8 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
 
     const weekDate = new Date(loan.startDate);
     weekDate.setDate(weekDate.getDate() + ((currentLoanWeek - 1) * 7));
+    
+    const loanWeekDate = getSaturdayOfWeek(new Date(loan.startDate));
 
     return (
         <>
@@ -72,7 +86,7 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
                         </div>
                          <div className="flex items-center gap-2 pt-1">
                             <Calendar className="h-3 w-3" />
-                            <span>Fecha de Préstamo: {formatDate(loan.startDate)}</span>
+                            <span>Semana del Prestamo: {formatDate(loanWeekDate.toISOString())}</span>
                         </div>
                     </div>
                     
