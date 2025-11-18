@@ -185,17 +185,21 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
         return 'Vencido';
       case 'Paid Off':
         return 'Pagado';
+      case 'Recuperado':
+        return 'Recuperado';
       default:
         return status;
     }
   };
 
-  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' => {
+  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'recovered' => {
     switch (status) {
         case 'Overdue':
             return 'destructive';
         case 'Paid Off':
             return 'success';
+        case 'Recuperado':
+            return 'recovered';
         default:
             return 'default';
     }
@@ -207,7 +211,15 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     
     const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
-    if (loan.status === 'Paid Off' && weekNumber <= loanPlan.termInWeeks) {
+    // This logic handles the penalty week.
+    const originalTermInWeeks = loanPlan.termInWeeks;
+    let termInWeeks = originalTermInWeeks;
+    if (pageData.loansWithPenalty[loan.id]) {
+        termInWeeks = originalTermInWeeks + 1;
+    }
+    const isPenaltyWeek = pageData.loansWithPenalty[loan.id] && weekNumber === termInWeeks;
+
+    if (loan.status === 'Paid Off' && weekNumber <= termInWeeks) {
         return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
     }
 
@@ -227,6 +239,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
       return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
     }
     
+    // Assumed paid logic for current week if no payment is registered
     if (weekNumber === currentLoanWeek && !paymentForWeek) {
         return { status: 'paid' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: true };
     }
@@ -549,7 +562,7 @@ const handleExportPDF = () => {
   
  useEffect(() => {
     if (!isClient || filteredLoans.length === 0) {
-      setPageData(prev => ({ ...prev, weeklyFailures: [], weeklyCollected: [], hasAssumedPayments: false }));
+      setPageData(prev => ({ ...prev, weeklyFailures: [], weeklyCollected: [], hasAssumedPayments: false, loansWithPenalty: {} }));
       return;
     }
 
@@ -559,15 +572,35 @@ const handleExportPDF = () => {
     const timeDiff = todayDate.getTime() - firstLoanStartDate.getTime();
     const currentGroupWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
 
-    const newLoansWithPenalty = { ...pageData.loansWithPenalty };
-
+    
     const calculateData = () => {
+      const newLoansWithPenalty = { ...pageData.loansWithPenalty };
+
+      // Update penalty status first, as it affects other calculations
+      filteredLoans.forEach(loan => {
+          if (newLoansWithPenalty[loan.id]) return; // Already penalized, don't re-calculate
+
+          const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
+          const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
+          let missedWeeksCount = 0;
+          for (let i = 1; i < currentLoanWeek; i++) {
+              // Temporarily use getWeekPaymentStatus without penalty to check for missed weeks
+              const weekStatus = getWeekPaymentStatus(loan, i, currentLoanWeek);
+              if (weekStatus.status === 'missed') {
+                  missedWeeksCount++;
+              }
+          }
+          if (missedWeeksCount >= 2) {
+              newLoansWithPenalty[loan.id] = true;
+          }
+      });
+
+
       const failures = Array.from({ length: 14 }).map((_, i) => {
           const weekNumber = i + 1;
           return filteredLoans.reduce((total, loan) => {
-              const loanStartDate = new Date(loan.startDate);
-              const timeDiff = todayDate.getTime() - loanStartDate.getTime();
-              const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+              const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
+              const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
               const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
               const weeklyPayment = getWeeklyPaymentAmount(loan);
               if (weekStatus.status === 'missed') {
@@ -583,9 +616,8 @@ const handleExportPDF = () => {
       const collected = Array.from({ length: 14 }).map((_, i) => {
           const weekNumber = i + 1;
           return filteredLoans.reduce((total, loan) => {
-              const loanStartDate = new Date(loan.startDate);
-              const timeDiff = todayDate.getTime() - loanStartDate.getTime();
-              const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+              const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
+              const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
               const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
               const weeklyPayment = getWeeklyPaymentAmount(loan);
               
@@ -612,24 +644,6 @@ const handleExportPDF = () => {
           
           const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
           return !paymentExists;
-      });
-
-      // Update penalty status
-      filteredLoans.forEach(loan => {
-          if (newLoansWithPenalty[loan.id]) return; // Already penalized, don't re-calculate
-
-          const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
-          const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
-          let missedWeeksCount = 0;
-          for (let i = 1; i < currentLoanWeek; i++) {
-              const weekStatus = getWeekPaymentStatus(loan, i, currentLoanWeek);
-              if (weekStatus.status === 'missed') {
-                  missedWeeksCount++;
-              }
-          }
-          if (missedWeeksCount >= 2) {
-              newLoansWithPenalty[loan.id] = true;
-          }
       });
       
       setPageData({

@@ -33,7 +33,7 @@ export type Loan = {
   groupId?: string; // Added groupId
   amount: number;
   startDate: string;
-  status: 'Active' | 'Overdue' | 'Paid Off';
+  status: 'Active' | 'Overdue' | 'Paid Off' | 'Recuperado';
   payments: Payment[];
 };
 

@@ -66,6 +66,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             }
 
             const loan = loanSnap.data() as Loan;
+            const wasOverdue = loan.status === 'Overdue';
             const client = await getClient(loan.clientId);
             const loanPlan = await getLoanPlan(loan.loanPlanId);
             const walletRef = doc(db, 'wallet', 'main');
@@ -94,7 +95,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
             // Go backwards from starting week to week 1 to cover debts
-            for (let week = startingWeekNumber; week >= 1; week--) {
+            for (let week = 1; week < currentLoanWeek; week++) {
                 if (remainingAmountToDistribute <= 0) break;
 
                 const paymentForWeekIndex = allPayments.findIndex(p => p.weekNumber === week);
@@ -193,7 +194,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const totalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
             const totalLoanAmount = weeklyPayment * loanPlan.termInWeeks;
 
-            let newStatus = loan.status;
+            let newStatus: Loan['status'] = loan.status;
             if (totalPaid >= totalLoanAmount) {
                 newStatus = 'Paid Off';
             } else {
@@ -208,7 +209,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
 
                 if (isUpToDate) {
-                    newStatus = 'Active';
+                    newStatus = wasOverdue ? 'Recuperado' : 'Active';
                 } else {
                     newStatus = 'Overdue';
                 }
