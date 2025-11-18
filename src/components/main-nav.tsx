@@ -10,6 +10,7 @@ const allLinks: { href: string; label: string; id: keyof UserPermissions }[] = [
   { href: '/dashboard', label: 'Dashboard', id: 'dashboard' },
   { href: '/dashboard/clients', label: 'Clientes', id: 'clients' },
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans' },
+  { href: '/dashboard/overdue-portfolio', label: 'Cartera Vencida', id: 'overduePortfolio' },
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet' },
   { href: '/dashboard/plans', label: 'Planes', id: 'plans' },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings' },

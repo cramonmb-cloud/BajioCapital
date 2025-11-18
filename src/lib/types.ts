@@ -67,6 +67,7 @@ export type UserPermissions = {
     dashboard: boolean;
     clients: boolean;
     loans: boolean;
+    overduePortfolio: boolean;
     wallet: boolean;
     plans: boolean;
     settings: boolean;

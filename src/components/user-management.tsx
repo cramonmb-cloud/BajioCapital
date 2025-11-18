@@ -58,6 +58,7 @@ const permissionsSchema = z.object({
   dashboard: z.boolean().default(false),
   clients: z.boolean().default(false),
   loans: z.boolean().default(false),
+  overduePortfolio: z.boolean().default(false),
   wallet: z.boolean().default(false),
   plans: z.boolean().default(false),
   settings: z.boolean().default(false),
@@ -85,6 +86,7 @@ const permissionLabels: { id: keyof AppUser['permissions']; label: string }[] = 
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'clients', label: 'Clientes' },
     { id: 'loans', label: 'Préstamos' },
+    { id: 'overduePortfolio', label: 'Cartera Vencida'},
     { id: 'wallet', label: 'Cartera' },
     { id: 'plans', label: 'Planes' },
     { id: 'settings', label: 'Ajustes' },
@@ -113,6 +115,7 @@ export function UserManagement({ users }: UserManagementProps) {
         dashboard: true,
         clients: true,
         loans: true,
+        overduePortfolio: true,
         wallet: true,
         plans: false,
         settings: false,
@@ -128,7 +131,7 @@ export function UserManagement({ users }: UserManagementProps) {
     if (selectedUser) {
       editUserForm.reset({
         role: selectedUser.role,
-        permissions: selectedUser.permissions,
+        permissions: { ...permissionsSchema.parse({}), ...selectedUser.permissions },
       });
     }
   }, [selectedUser, editUserForm]);
@@ -307,7 +310,7 @@ export function UserManagement({ users }: UserManagementProps) {
                       Selecciona las secciones a las que el usuario tendrá acceso.
                     </FormDescription>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {permissionLabels.map((item) => (
                       <FormField
                         key={item.id}
