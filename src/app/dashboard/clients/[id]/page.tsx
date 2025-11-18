@@ -54,14 +54,14 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     }
   };
   
-  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'paid-from-cv' => {
+  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'purple' => {
     switch (status) {
         case 'Overdue':
             return 'destructive';
         case 'Paid Off':
             return 'success';
         case 'Pagado desde CV':
-            return 'paid-from-cv';
+            return 'purple';
         default:
             return 'default';
     }

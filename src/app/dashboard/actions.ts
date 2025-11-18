@@ -267,7 +267,7 @@ export async function payOffLoanAction(loanId: string) {
             const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
             const settlementAmount = totalLoanAmount - totalPaid;
 
-            const finalStatus = wasOverdue ? 'Pagado desde CV' : 'Paid Off';
+            const finalStatus: Loan['status'] = wasOverdue ? 'Pagado desde CV' : 'Paid Off';
 
             if (settlementAmount <= 0) {
                 // If already paid off, just update status and return
@@ -394,5 +394,3 @@ export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: 
         return { success: false, message: `Error al acumular pagos: ${error.message}` };
     }
 }
-
-    

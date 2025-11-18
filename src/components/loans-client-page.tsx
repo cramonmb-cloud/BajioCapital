@@ -192,14 +192,14 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     }
   };
 
-  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'paid-from-cv' => {
+  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'purple' => {
     switch (status) {
         case 'Overdue':
             return 'destructive';
         case 'Paid Off':
             return 'success';
         case 'Pagado desde CV':
-            return 'paid-from-cv';
+            return 'purple';
         default:
             return 'default';
     }
@@ -219,7 +219,7 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
     }
     const isPenaltyWeek = pageData.loansWithPenalty[loan.id] && weekNumber === termInWeeks;
 
-    if (loan.status === 'Paid Off' && weekNumber <= termInWeeks) {
+    if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
         return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
     }
 
