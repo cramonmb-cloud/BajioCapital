@@ -8,7 +8,6 @@ import { Phone, User, Calendar, MessageSquare } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import type { Client, LoanPlan } from '@/lib/types';
-import { ClientOutreach } from './client-outreach';
 
 interface OverdueCardProps {
     details: OverdueLoanDetails;
@@ -85,15 +84,7 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
                     </div>
 
                     <div className="border-t pt-3 space-y-2">
-                         <div className="grid grid-cols-3 gap-2">
-                            <ClientOutreach clientInfo={{
-                                clientId: client.id,
-                                clientName: client.name,
-                                loanAmount: loan.amount,
-                                loanStatus: loan.status,
-                                paymentHistory: `Debe ${formatCurrency(amountDue)}`,
-                                missedPayments: missedPayments,
-                            }}/>
+                         <div className="grid grid-cols-2 gap-2">
                              <Button variant="outline" size="sm" onClick={handleWhatsApp}>
                                 <MessageSquare className="mr-1 h-3 w-3" />
                                 WhatsApp
