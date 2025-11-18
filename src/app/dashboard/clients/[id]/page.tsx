@@ -47,17 +47,21 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         return 'Vencido';
       case 'Paid Off':
         return 'Pagado';
+      case 'Recuperado':
+        return 'Recuperado';
       default:
         return status;
     }
   };
   
-  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' => {
+  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'recovered' => {
     switch (status) {
         case 'Overdue':
             return 'destructive';
         case 'Paid Off':
             return 'success';
+        case 'Recuperado':
+            return 'recovered';
         default:
             return 'default';
     }

@@ -195,7 +195,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             let newStatus: Loan['status'] = loan.status;
 
             if (totalPaid >= totalLoanAmount) {
-                newStatus = 'Paid Off';
+                newStatus = wasOverdue ? 'Recuperado' : 'Paid Off';
             } else {
                 let isUpToDate = true;
                 for (let i = 1; i < currentLoanWeek; i++) {
@@ -208,7 +208,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
 
                 if (isUpToDate) {
-                    newStatus = wasOverdue ? 'Recuperado' : 'Active';
+                    newStatus = 'Active';
                 } else {
                     newStatus = 'Overdue';
                 }
@@ -243,6 +243,7 @@ export async function payOffLoanAction(loanId: string) {
             }
 
             const loan = loanDoc.data() as Loan;
+            const wasOverdue = loan.status === 'Overdue';
             const client = await getClient(loan.clientId);
             const loanPlan = await getLoanPlan(loan.loanPlanId);
             
@@ -255,9 +256,11 @@ export async function payOffLoanAction(loanId: string) {
             const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
             const settlementAmount = totalLoanAmount - totalPaid;
 
+            const finalStatus = wasOverdue ? 'Recuperado' : 'Paid Off';
+
             if (settlementAmount <= 0) {
                 // If already paid off, just update status and return
-                transaction.update(loanRef, { status: "Paid Off" });
+                transaction.update(loanRef, { status: finalStatus });
                 return { success: true, message: "Este préstamo ya estaba liquidado." };
             }
 
@@ -281,10 +284,10 @@ export async function payOffLoanAction(loanId: string) {
             });
             transaction.update(walletRef, { balance: increment(settlementAmount) });
 
-            // Update loan status to 'Paid Off'
+            // Update loan status
             transaction.update(loanRef, {
                 payments: newPayments,
-                status: 'Paid Off',
+                status: finalStatus,
             });
             
             return { success: true, message: "Préstamo liquidado con éxito." };
@@ -341,7 +344,7 @@ export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: 
             const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
             let newStatus = loan.status;
             if (totalPaid >= totalLoanAmount) {
-                newStatus = 'Paid Off';
+                newStatus = loan.status === 'Overdue' ? 'Recuperado' : 'Paid Off';
             }
 
             batch.update(loanRef, { payments: updatedPayments, status: newStatus });
