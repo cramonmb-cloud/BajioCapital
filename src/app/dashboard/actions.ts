@@ -127,6 +127,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 let paymentForWeek = allPayments.find(p => p.weekNumber === weekToPay);
                 const paidForWeek = paymentForWeek?.amount || 0;
                 
+                // Only proceed if the week is not fully paid
                 if (paidForWeek < weeklyPayment) {
                     const amountNeeded = weeklyPayment - paidForWeek;
                     const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
@@ -148,16 +149,15 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                     }
                 }
                 
-                // Move to the next week only if the current one is fully paid
-                const finalPaidForWeek = allPayments.find(p => p.weekNumber === weekToPay)?.amount || 0;
+                // Move to the next week only if the current one is now fully paid
+                const finalPaidForWeek = (allPayments.find(p => p.weekNumber === weekToPay)?.amount || 0);
                 if(finalPaidForWeek >= weeklyPayment) {
                     weekToPay++;
                 } else {
-                    // If we applied some but not all, and still have money, stay on this week in the next loop
-                    // This case is rare but can happen if logic is changed. To be safe, break if we can't fill a week.
-                     if (remainingAmountToDistribute > 0) {
-                        // This will just continue applying to the same week if it's not full.
-                    }
+                    // If we have money left but couldn't fill the week, it means we ran out of money on this week.
+                    // We should break to avoid an infinite loop if remainingAmountToDistribute > 0 but is not enough to fill the week.
+                    // The only way to move to the next week is to fill the current one.
+                    break;
                 }
             }
 
@@ -171,7 +171,8 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 } else if (weeksPaidInTx.length === 1) {
                     weeksDescription = `Semana ${weeksPaidInTx[0]}`;
                 } else {
-                    weeksDescription = `Semana ${startingWeekNumber}`;
+                    // Fallback if no specific week was targeted but payment was made
+                     weeksDescription = `Abono general`;
                 }
 
                 transaction.set(walletTransactionRef, {
