@@ -74,7 +74,7 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
                         </div>
                          <div className="flex items-center gap-2 pt-1">
                             <Calendar className="h-3 w-3" />
-                            <span>Inició: {formatDate(loan.startDate)}</span>
+                            <span>Fecha de Préstamo: {formatDate(loan.startDate)}</span>
                         </div>
                     </div>
                     
