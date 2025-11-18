@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Phone, User, Edit, MessageSquare } from 'lucide-react';
+import { Phone, User, Edit, MessageSquare, Calendar } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import type { Client, LoanPlan } from '@/lib/types';
@@ -22,6 +22,14 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
     };
+    
+    const formatDate = (dateString: string) => {
+      const date = new Date(dateString);
+      // Adjust for timezone offset to show the correct local date
+      const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+      const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+      return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+  };
 
     const handleWhatsApp = () => {
         if (client.phone) {
@@ -63,6 +71,10 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
                         <div className="flex items-center gap-2">
                             <User className="h-3 w-3" />
                             <span>Aval: {avalName}</span>
+                        </div>
+                         <div className="flex items-center gap-2 pt-1">
+                            <Calendar className="h-3 w-3" />
+                            <span>Inició: {formatDate(loan.startDate)}</span>
                         </div>
                     </div>
                     
