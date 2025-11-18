@@ -83,7 +83,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const weeklyPayment = getWeeklyPaymentAmount(loan);
             let remainingAmountToDistribute = amountPaid;
             
-            // Create a mutable copy of payments to work with
             const allPayments = [...loan.payments];
             const weeksPaidInTx: number[] = [];
             
@@ -92,74 +91,79 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
 
-            // --- 1. Pay off past due weeks ---
-            for (let week = 1; week < currentLoanWeek; week++) {
-                if (remainingAmountToDistribute <= 0) break;
-                
-                let paymentForWeek = allPayments.find(p => p.weekNumber === week);
-                const paidForWeek = paymentForWeek?.amount || 0;
+            const hasPastDues = loan.payments.some((p, index) => {
+                const weekNumber = p.weekNumber || index + 1;
+                return weekNumber < currentLoanWeek && p.amount < weeklyPayment;
+            }) || Array.from({ length: currentLoanWeek -1 }, (_, i) => i + 1).some(week => !loan.payments.find(p => p.weekNumber === week));
 
-                if (paidForWeek < weeklyPayment) {
-                    const amountNeeded = weeklyPayment - paidForWeek;
-                    const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
+            // --- Distribution Logic ---
 
-                    if (amountToApply > 0) {
+            // 1. Apply payment to the starting week if it's not fully paid
+            if (remainingAmountToDistribute > 0) {
+                 let paymentForStartingWeek = allPayments.find(p => p.weekNumber === startingWeekNumber);
+                 const paidForStartingWeek = paymentForStartingWeek?.amount || 0;
+                 if (paidForStartingWeek < weeklyPayment) {
+                     const amountNeeded = weeklyPayment - paidForStartingWeek;
+                     const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
+                     if (paymentForStartingWeek) {
+                         paymentForStartingWeek.amount += amountToApply;
+                     } else {
+                         allPayments.push({ date: new Date().toISOString(), amount: amountToApply, weekNumber: startingWeekNumber });
+                     }
+                     remainingAmountToDistribute -= amountToApply;
+                     if (!weeksPaidInTx.includes(startingWeekNumber)) {
+                        weeksPaidInTx.push(startingWeekNumber);
+                     }
+                 }
+            }
+            
+            // 2. If there are past dues, apply remaining amount backwards
+            if (hasPastDues && remainingAmountToDistribute > 0) {
+                for (let week = startingWeekNumber - 1; week >= 1; week--) {
+                    if (remainingAmountToDistribute <= 0) break;
+
+                    let paymentForWeek = allPayments.find(p => p.weekNumber === week);
+                    const paidForWeek = paymentForWeek?.amount || 0;
+
+                    if (paidForWeek < weeklyPayment) {
+                        const amountNeeded = weeklyPayment - paidForWeek;
+                        const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
+                        if (paymentForWeek) {
+                            paymentForWeek.amount += amountToApply;
+                        } else {
+                            allPayments.push({ date: new Date().toISOString(), amount: amountToApply, weekNumber: week });
+                        }
+                        remainingAmountToDistribute -= amountToApply;
                          if (!weeksPaidInTx.includes(week)) {
                             weeksPaidInTx.push(week);
                         }
-                        if (paymentForWeek) {
-                            paymentForWeek.amount += amountToApply;
-                        } else {
-                            allPayments.push({
-                                date: new Date().toISOString(),
-                                amount: amountToApply,
-                                weekNumber: week
-                            });
-                        }
-                        remainingAmountToDistribute -= amountToApply;
                     }
                 }
             }
-            
-            // --- 2. Apply to current and future weeks ---
-            let weekToPay = startingWeekNumber;
-            while (remainingAmountToDistribute > 0 && weekToPay <= loanPlan.termInWeeks) {
-                let paymentForWeek = allPayments.find(p => p.weekNumber === weekToPay);
-                const paidForWeek = paymentForWeek?.amount || 0;
-                
-                // Only proceed if the week is not fully paid
-                if (paidForWeek < weeklyPayment) {
-                    const amountNeeded = weeklyPayment - paidForWeek;
-                    const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
 
-                    if (amountToApply > 0) {
-                        if (!weeksPaidInTx.includes(weekToPay)) {
+            // 3. If no past dues or money still remains, apply forwards
+            if (remainingAmountToDistribute > 0) {
+                let weekToPay = startingWeekNumber + 1;
+                while (remainingAmountToDistribute > 0 && weekToPay <= loanPlan.termInWeeks) {
+                    let paymentForWeek = allPayments.find(p => p.weekNumber === weekToPay);
+                    const paidForWeek = paymentForWeek?.amount || 0;
+
+                     if (paidForWeek < weeklyPayment) {
+                        const amountNeeded = weeklyPayment - paidForWeek;
+                        const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
+                        if (paymentForWeek) {
+                            paymentForWeek.amount += amountToApply;
+                        } else {
+                             allPayments.push({ date: new Date().toISOString(), amount: amountToApply, weekNumber: weekToPay });
+                        }
+                        remainingAmountToDistribute -= amountToApply;
+                         if (!weeksPaidInTx.includes(weekToPay)) {
                             weeksPaidInTx.push(weekToPay);
                         }
-                        if (paymentForWeek) {
-                            paymentForWeek.amount += amountToApply;
-                        } else {
-                             allPayments.push({
-                                date: new Date().toISOString(),
-                                amount: amountToApply,
-                                weekNumber: weekToPay
-                            });
-                        }
-                        remainingAmountToDistribute -= amountToApply;
                     }
-                }
-                
-                // This is the crucial part: determine if we can move to the next week.
-                const finalPaidForWeek = (allPayments.find(p => p.weekNumber === weekToPay)?.amount || 0);
-                if(finalPaidForWeek >= weeklyPayment) {
-                    // Current week is fully paid, move to the next one.
                     weekToPay++;
-                } else {
-                    // Current week is not fully paid and we have no more money to apply to it. Stop.
-                    break;
                 }
             }
-
 
             // --- Wallet and Transaction Logic ---
             if (amountPaid > 0) {
@@ -170,7 +174,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 } else if (weeksPaidInTx.length === 1) {
                     weeksDescription = `Semana ${weeksPaidInTx[0]}`;
                 } else {
-                    // Fallback if no specific week was targeted but payment was made
                      weeksDescription = `Abono general`;
                 }
 
@@ -195,7 +198,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 newStatus = 'Paid Off';
             } else {
                 let isUpToDate = true;
-                // Check all past weeks up to the one before the current one
                 for (let i = 1; i < currentLoanWeek; i++) {
                     const paymentForWeek = allPayments.find(p => p.weekNumber === i);
                     const paidForWeek = paymentForWeek?.amount || 0;
@@ -206,7 +208,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
 
                 if (isUpToDate) {
-                    // If it was overdue and now is up-to-date, it's 'Recuperado'
                     newStatus = wasOverdue ? 'Recuperado' : 'Active';
                 } else {
                     newStatus = 'Overdue';
