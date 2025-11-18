@@ -1,3 +1,4 @@
+
 import { notFound } from 'next/navigation';
 import { getClient, getLoansByClientId, getLoanPlans } from '@/lib/firestore-data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -70,6 +71,15 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   };
   
   const fullAddress = `${client.street}, ${client.neighborhood}, C.P. ${client.postalCode}, ${client.city}`;
+  
+  let endorsementName = client.endorsement;
+  let endorsementDetails = '';
+  const endorsementMatch = client.endorsement.match(/(.*) \((.*)\)/);
+  if (endorsementMatch) {
+    endorsementName = endorsementMatch[1];
+    endorsementDetails = endorsementMatch[2];
+  }
+
 
   return (
     <div className="space-y-6">
@@ -171,7 +181,8 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                 <UserCheck className="h-4 w-4 mt-1 text-muted-foreground" />
                 <div>
                     <span className="font-medium">Aval</span>
-                    <p className="text-muted-foreground">{client.endorsement}</p>
+                    <p className="text-muted-foreground font-semibold">{endorsementName}</p>
+                    {endorsementDetails && <p className="text-muted-foreground">{endorsementDetails}</p>}
                 </div>
               </div>
             </CardContent>
