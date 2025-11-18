@@ -149,14 +149,13 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                     }
                 }
                 
-                // Move to the next week only if the current one is now fully paid
+                // This is the crucial part: determine if we can move to the next week.
                 const finalPaidForWeek = (allPayments.find(p => p.weekNumber === weekToPay)?.amount || 0);
                 if(finalPaidForWeek >= weeklyPayment) {
+                    // Current week is fully paid, move to the next one.
                     weekToPay++;
                 } else {
-                    // If we have money left but couldn't fill the week, it means we ran out of money on this week.
-                    // We should break to avoid an infinite loop if remainingAmountToDistribute > 0 but is not enough to fill the week.
-                    // The only way to move to the next week is to fill the current one.
+                    // Current week is not fully paid and we have no more money to apply to it. Stop.
                     break;
                 }
             }
