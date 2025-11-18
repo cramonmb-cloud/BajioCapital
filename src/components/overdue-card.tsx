@@ -40,10 +40,14 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
     
     const avalName = client.endorsement.split('(')[0].trim();
     
-    // The dialog needs a week number to be opened, we'll default to the last possible week.
-    const lastWeekNumber = details.loanPlan.termInWeeks;
+    // Calculate the current week of the loan to pass to the dialog
+    const today = new Date();
+    const loanStartDate = new Date(loan.startDate);
+    const timeDiff = today.getTime() - loanStartDate.getTime();
+    const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+
     const weekDate = new Date(loan.startDate);
-    weekDate.setDate(weekDate.getDate() + (lastWeekNumber * 7));
+    weekDate.setDate(weekDate.getDate() + ((currentLoanWeek - 1) * 7));
 
     return (
         <>
@@ -103,7 +107,7 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
                 loan={loan}
                 clients={allClients}
                 loanPlans={allLoanPlans}
-                weekNumber={lastWeekNumber}
+                weekNumber={currentLoanWeek}
                 weekDate={weekDate}
                 initialAmount={amountDue}
                 onPaymentRegistered={() => {

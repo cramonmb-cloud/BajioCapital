@@ -91,10 +91,17 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
 
-            const hasPastDues = loan.payments.some((p, index) => {
-                const weekNumber = p.weekNumber || index + 1;
-                return weekNumber < currentLoanWeek && p.amount < weeklyPayment;
-            }) || Array.from({ length: currentLoanWeek -1 }, (_, i) => i + 1).some(week => !loan.payments.find(p => p.weekNumber === week));
+            // Determine if penalty should apply based on missed payments *before* this transaction
+            let missedWeeksForPenalty = 0;
+             for (let i = 1; i < currentLoanWeek; i++) {
+                const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
+                const paidForWeek = paymentForWeek?.amount || 0;
+                if (paidForWeek < weeklyPayment) {
+                    missedWeeksForPenalty++;
+                }
+            }
+            const hasPenalty = missedWeeksForPenalty >= 2;
+            const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
 
             // --- Distribution Logic ---
 
@@ -117,8 +124,8 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                  }
             }
             
-            // 2. If there are past dues, apply remaining amount backwards from the starting week
-            if (hasPastDues && remainingAmountToDistribute > 0) {
+            // 2. Apply remaining amount to past dues, backwards from the week *before* the starting one
+            if (remainingAmountToDistribute > 0) {
                 for (let week = startingWeekNumber - 1; week >= 1; week--) {
                     if (remainingAmountToDistribute <= 0) break;
 
@@ -141,10 +148,10 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
             }
 
-            // 3. If no past dues or money still remains, apply forwards from the week after the starting one
+            // 3. Apply any final remaining amount forwards from the week *after* the starting one
             if (remainingAmountToDistribute > 0) {
                 let weekToPay = startingWeekNumber + 1;
-                while (remainingAmountToDistribute > 0 && weekToPay <= loanPlan.termInWeeks) {
+                while (remainingAmountToDistribute > 0 && weekToPay <= termInWeeks) {
                     let paymentForWeek = allPayments.find(p => p.weekNumber === weekToPay);
                     const paidForWeek = paymentForWeek?.amount || 0;
 
@@ -190,15 +197,19 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             // --- End Wallet Logic ---
 
             const totalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
-            const totalLoanAmount = weeklyPayment * loanPlan.termInWeeks;
+            const totalLoanAmount = weeklyPayment * termInWeeks;
 
             let newStatus: Loan['status'] = loan.status;
 
             if (totalPaid >= totalLoanAmount) {
                 newStatus = wasOverdue ? 'Recuperado' : 'Paid Off';
             } else {
+                // Re-check current week status after payment distribution
+                const updatedCurrentTimeDiff = today.getTime() - loanStartDate.getTime();
+                const updatedCurrentLoanWeek = Math.max(1, Math.floor(updatedCurrentTimeDiff / (1000 * 3600 * 24 * 7)) + 1);
+
                 let isUpToDate = true;
-                for (let i = 1; i < currentLoanWeek; i++) {
+                for (let i = 1; i < updatedCurrentLoanWeek; i++) {
                     const paymentForWeek = allPayments.find(p => p.weekNumber === i);
                     const paidForWeek = paymentForWeek?.amount || 0;
                     if (paidForWeek < weeklyPayment) {
