@@ -117,7 +117,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                  }
             }
             
-            // 2. If there are past dues, apply remaining amount backwards
+            // 2. If there are past dues, apply remaining amount backwards from the starting week
             if (hasPastDues && remainingAmountToDistribute > 0) {
                 for (let week = startingWeekNumber - 1; week >= 1; week--) {
                     if (remainingAmountToDistribute <= 0) break;
@@ -141,7 +141,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
             }
 
-            // 3. If no past dues or money still remains, apply forwards
+            // 3. If no past dues or money still remains, apply forwards from the week after the starting one
             if (remainingAmountToDistribute > 0) {
                 let weekToPay = startingWeekNumber + 1;
                 while (remainingAmountToDistribute > 0 && weekToPay <= loanPlan.termInWeeks) {
@@ -383,3 +383,5 @@ export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: 
         return { success: false, message: `Error al acumular pagos: ${error.message}` };
     }
 }
+
+    
