@@ -4,8 +4,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Mail, Phone, Home, Shield, UserCheck } from 'lucide-react';
+import { Mail, Phone, Home, Shield, UserCheck, Edit } from 'lucide-react';
 import type { Loan } from '@/lib/types';
+import Link from 'next/link';
+import { ClientPageActions } from './page-actions';
 
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
@@ -71,15 +73,18 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center space-x-4">
-        <Avatar className="h-20 w-20 border">
-          <AvatarImage src={client.avatarUrl} alt={client.name} />
-          <AvatarFallback>{client.name.charAt(0)}</AvatarFallback>
-        </Avatar>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{client.name}</h1>
-          <p className="text-muted-foreground">ID de Cliente: {client.id}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+            <Avatar className="h-20 w-20 border">
+            <AvatarImage src={client.avatarUrl} alt={client.name} />
+            <AvatarFallback>{client.name.charAt(0)}</AvatarFallback>
+            </Avatar>
+            <div>
+            <h1 className="text-3xl font-bold tracking-tight">{client.name}</h1>
+            <p className="text-muted-foreground">ID de Cliente: {client.id}</p>
+            </div>
         </div>
+        <ClientPageActions clientId={client.id} />
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">

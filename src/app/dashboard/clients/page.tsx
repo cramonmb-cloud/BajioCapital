@@ -36,7 +36,7 @@ export default async function ClientsPage() {
             Administra tus clientes y su información.
           </p>
         </div>
-        <Button>
+        <Button disabled>
           <PlusCircle className="mr-2 h-4 w-4" />
           Registrar Cliente
         </Button>

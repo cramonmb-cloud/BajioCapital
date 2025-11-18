@@ -62,6 +62,7 @@ const permissionsSchema = z.object({
   wallet: z.boolean().default(false),
   plans: z.boolean().default(false),
   settings: z.boolean().default(false),
+  editClients: z.boolean().default(false),
 });
 
 const addUserFormSchema = z.object({
@@ -90,6 +91,7 @@ const permissionLabels: { id: keyof AppUser['permissions']; label: string }[] = 
     { id: 'wallet', label: 'Cartera' },
     { id: 'plans', label: 'Planes' },
     { id: 'settings', label: 'Ajustes' },
+    { id: 'editClients', label: 'Editar Clientes' },
 ];
 
 interface UserManagementProps {
@@ -119,6 +121,7 @@ export function UserManagement({ users }: UserManagementProps) {
         wallet: true,
         plans: false,
         settings: false,
+        editClients: false,
       },
     },
   });
@@ -310,7 +313,7 @@ export function UserManagement({ users }: UserManagementProps) {
                       Selecciona las secciones a las que el usuario tendrá acceso.
                     </FormDescription>
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                     {permissionLabels.map((item) => (
                       <FormField
                         key={item.id}

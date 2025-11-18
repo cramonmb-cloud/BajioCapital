@@ -71,6 +71,7 @@ export type UserPermissions = {
     wallet: boolean;
     plans: boolean;
     settings: boolean;
+    editClients: boolean;
 };
 
 export type AppUser = {
