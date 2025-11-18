@@ -33,19 +33,22 @@ export default async function OverduePortfolioPage() {
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
             let calculatedAmountDue = 0;
             let missedPaymentsCount = 0;
             
-            for(let i = 1; i < currentLoanWeek; i++) {
+            // Corrected loop to include the current week
+            for(let i = 1; i <= currentLoanWeek; i++) {
+                if (i > loanPlan.termInWeeks) break; // Don't calculate past the loan term
+
                 const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
                 const paidForWeek = paymentForWeek?.amount || 0;
 
                 if (paidForWeek < weeklyPayment) {
                     calculatedAmountDue += (weeklyPayment - paidForWeek);
-                    // We count a week as "missed" if it wasn't paid in full
-                    if (!paymentForWeek) {
+                    // We count a week as "missed" if a payment was expected but not made (or made partially)
+                    if (!paymentForWeek || paidForWeek < weeklyPayment) {
                        missedPaymentsCount++;
                     }
                 }
