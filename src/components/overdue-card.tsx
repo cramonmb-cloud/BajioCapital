@@ -28,7 +28,7 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
       // Adjust for timezone offset to show the correct local date
       const userTimezoneOffset = date.getTimezoneOffset() * 60000;
       const correctedDate = new Date(date.getTime() + userTimezoneOffset);
-      return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
+      return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
   };
 
     const handleWhatsApp = () => {
