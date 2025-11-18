@@ -4,10 +4,11 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Phone, User, Edit, MessageSquare, Calendar } from 'lucide-react';
+import { Phone, User, Calendar, MessageSquare } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import type { Client, LoanPlan } from '@/lib/types';
+import { ClientOutreach } from './client-outreach';
 
 interface OverdueCardProps {
     details: OverdueLoanDetails;
@@ -16,7 +17,7 @@ interface OverdueCardProps {
 }
 
 export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardProps) {
-    const { client, loan, amountDue } = details;
+    const { client, loan, loanPlan, amountDue, missedPayments } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
 
     const formatCurrency = (amount: number) => {
@@ -38,12 +39,6 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
         }
     };
     
-    const handleSMS = () => {
-        if (client.phone) {
-             window.open(`sms:${client.phone}`);
-        }
-    }
-
     const avalName = client.endorsement.split('(')[0].trim();
     
     // The dialog needs a week number to be opened, we'll default to the last possible week.
@@ -90,10 +85,18 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
                     </div>
 
                     <div className="border-t pt-3 space-y-2">
-                        <div className="grid grid-cols-2 gap-2">
+                         <div className="grid grid-cols-3 gap-2">
+                            <ClientOutreach clientInfo={{
+                                clientId: client.id,
+                                clientName: client.name,
+                                loanAmount: loan.amount,
+                                loanStatus: loan.status,
+                                paymentHistory: `Debe ${formatCurrency(amountDue)}`,
+                                missedPayments: missedPayments,
+                            }}/>
                              <Button variant="outline" size="sm" onClick={handleWhatsApp}>
                                 <MessageSquare className="mr-1 h-3 w-3" />
-                                Enviar WhatsApp
+                                WhatsApp
                             </Button>
                             <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="col-span-1">
                                 ${' '}Abonar
