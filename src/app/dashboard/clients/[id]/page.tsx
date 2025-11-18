@@ -47,21 +47,21 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
         return 'Vencido';
       case 'Paid Off':
         return 'Pagado';
-      case 'Recuperado':
-        return 'Recuperado';
+      case 'Pagado desde CV':
+        return 'Pagado desde CV';
       default:
         return status;
     }
   };
   
-  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'recovered' => {
+  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'paid-from-cv' => {
     switch (status) {
         case 'Overdue':
             return 'destructive';
         case 'Paid Off':
             return 'success';
-        case 'Recuperado':
-            return 'recovered';
+        case 'Pagado desde CV':
+            return 'paid-from-cv';
         default:
             return 'default';
     }

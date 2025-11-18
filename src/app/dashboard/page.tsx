@@ -57,8 +57,8 @@ export default async function DashboardPage() {
         return 'Vencido';
       case 'Paid Off':
         return 'Pagado';
-      case 'Recuperado':
-        return 'Recuperado';
+      case 'Pagado desde CV':
+        return 'Pagado desde CV';
       default:
         return status;
     }

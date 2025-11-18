@@ -185,21 +185,21 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
         return 'Vencido';
       case 'Paid Off':
         return 'Pagado';
-      case 'Recuperado':
-        return 'Recuperado';
+      case 'Pagado desde CV':
+        return 'Pagado desde CV';
       default:
         return status;
     }
   };
 
-  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'recovered' => {
+  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'paid-from-cv' => {
     switch (status) {
         case 'Overdue':
             return 'destructive';
         case 'Paid Off':
             return 'success';
-        case 'Recuperado':
-            return 'recovered';
+        case 'Pagado desde CV':
+            return 'paid-from-cv';
         default:
             return 'default';
     }
@@ -786,7 +786,7 @@ const handleExportPDF = () => {
                                 }
                                 
                                 const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
-                                const canRegisterPayment = (loan.status !== 'Paid Off') && (weekStatus.status !== 'pending');
+                                const canRegisterPayment = (loan.status !== 'Paid Off' && loan.status !== 'Pagado desde CV') && (weekStatus.status !== 'pending');
 
                                 let statusInfo;
                                 switch(weekStatus.status) {
@@ -833,7 +833,7 @@ const handleExportPDF = () => {
                                                 <p>Estado: {statusInfo.text}</p>
                                                 {statusInfo.paid && <p>{statusInfo.paid}</p>}
                                                 {statusInfo.pending && <p className="text-destructive">{statusInfo.pending}</p>}
-                                                {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : loan.status === 'Paid Off' ? <p className="text-xs text-muted-foreground">Préstamo liquidado</p> : <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
+                                                {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : loan.status === 'Paid Off' || loan.status === 'Pagado desde CV' ? <p className="text-xs text-muted-foreground">Préstamo liquidado</p> : <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
                                             </TooltipContent>
                                         </Tooltip>
                                     </TableCell>

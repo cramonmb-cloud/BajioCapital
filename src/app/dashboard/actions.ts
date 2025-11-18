@@ -202,7 +202,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             let newStatus: Loan['status'] = loan.status;
 
             if (totalPaid >= totalLoanAmount) {
-                newStatus = wasOverdue ? 'Recuperado' : 'Paid Off';
+                newStatus = wasOverdue ? 'Pagado desde CV' : 'Paid Off';
             } else {
                 // Re-check current week status after payment distribution
                 const updatedCurrentTimeDiff = today.getTime() - loanStartDate.getTime();
@@ -267,7 +267,7 @@ export async function payOffLoanAction(loanId: string) {
             const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
             const settlementAmount = totalLoanAmount - totalPaid;
 
-            const finalStatus = wasOverdue ? 'Recuperado' : 'Paid Off';
+            const finalStatus = wasOverdue ? 'Pagado desde CV' : 'Paid Off';
 
             if (settlementAmount <= 0) {
                 // If already paid off, just update status and return
@@ -355,7 +355,7 @@ export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: 
             const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
             let newStatus = loan.status;
             if (totalPaid >= totalLoanAmount) {
-                newStatus = loan.status === 'Overdue' ? 'Recuperado' : 'Paid Off';
+                newStatus = loan.status === 'Overdue' ? 'Pagado desde CV' : 'Paid Off';
             }
 
             batch.update(loanRef, { payments: updatedPayments, status: newStatus });
