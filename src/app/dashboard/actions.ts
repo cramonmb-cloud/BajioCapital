@@ -83,87 +83,82 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const weeklyPayment = getWeeklyPaymentAmount(loan);
             let remainingAmountToDistribute = amountPaid;
             
+            // Create a mutable copy of payments to work with
             const allPayments = [...loan.payments];
             const weeksPaidInTx: number[] = [];
-
-            // --- Main Payment Distribution Logic ---
             
-            // First, try to apply payment to past due weeks
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-            
-            // Go backwards from starting week to week 1 to cover debts
+            const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+
+            // --- 1. Pay off past due weeks ---
             for (let week = 1; week < currentLoanWeek; week++) {
                 if (remainingAmountToDistribute <= 0) break;
+                
+                let paymentForWeek = allPayments.find(p => p.weekNumber === week);
+                const paidForWeek = paymentForWeek?.amount || 0;
 
-                const paymentForWeekIndex = allPayments.findIndex(p => p.weekNumber === week);
-                let existingPartialAmount = 0;
-                if (paymentForWeekIndex !== -1) {
-                    existingPartialAmount = allPayments[paymentForWeekIndex].amount;
-                }
+                if (paidForWeek < weeklyPayment) {
+                    const amountNeeded = weeklyPayment - paidForWeek;
+                    const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
 
-                if (existingPartialAmount >= weeklyPayment) continue; // Already paid
-
-                const amountNeeded = weeklyPayment - existingPartialAmount;
-                const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
-
-                if (amountToApply > 0) {
-                    if (!weeksPaidInTx.includes(week)) {
-                        weeksPaidInTx.push(week);
+                    if (amountToApply > 0) {
+                         if (!weeksPaidInTx.includes(week)) {
+                            weeksPaidInTx.push(week);
+                        }
+                        if (paymentForWeek) {
+                            paymentForWeek.amount += amountToApply;
+                        } else {
+                            allPayments.push({
+                                date: new Date().toISOString(),
+                                amount: amountToApply,
+                                weekNumber: week
+                            });
+                        }
+                        remainingAmountToDistribute -= amountToApply;
                     }
-                    
-                    if (paymentForWeekIndex !== -1) {
-                        allPayments[paymentForWeekIndex].amount += amountToApply;
-                    } else {
-                        allPayments.push({
-                            date: new Date().toISOString(),
-                            amount: amountToApply,
-                            weekNumber: week
-                        });
-                    }
-                    remainingAmountToDistribute -= amountToApply;
                 }
             }
             
-            // If there's still money, apply it forward from the starting week
-            let forwardWeek = startingWeekNumber;
-            while(remainingAmountToDistribute > 0 && forwardWeek <= loanPlan.termInWeeks) {
-                 const paymentForWeekIndex = allPayments.findIndex(p => p.weekNumber === forwardWeek);
-                 let existingPartialAmount = 0;
-                 if (paymentForWeekIndex !== -1) {
-                     existingPartialAmount = allPayments[paymentForWeekIndex].amount;
-                 }
+            // --- 2. Apply to current and future weeks ---
+            let weekToPay = startingWeekNumber;
+            while (remainingAmountToDistribute > 0 && weekToPay <= loanPlan.termInWeeks) {
+                let paymentForWeek = allPayments.find(p => p.weekNumber === weekToPay);
+                const paidForWeek = paymentForWeek?.amount || 0;
+                
+                if (paidForWeek < weeklyPayment) {
+                    const amountNeeded = weeklyPayment - paidForWeek;
+                    const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
 
-                 if (existingPartialAmount >= weeklyPayment) {
-                     forwardWeek++;
-                     continue; // Skip already fully paid week
-                 };
-
-                 const amountNeeded = weeklyPayment - existingPartialAmount;
-                 const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
-
-                 if(amountToApply > 0) {
-                    if (!weeksPaidInTx.includes(forwardWeek)) {
-                        weeksPaidInTx.push(forwardWeek);
+                    if (amountToApply > 0) {
+                        if (!weeksPaidInTx.includes(weekToPay)) {
+                            weeksPaidInTx.push(weekToPay);
+                        }
+                        if (paymentForWeek) {
+                            paymentForWeek.amount += amountToApply;
+                        } else {
+                             allPayments.push({
+                                date: new Date().toISOString(),
+                                amount: amountToApply,
+                                weekNumber: weekToPay
+                            });
+                        }
+                        remainingAmountToDistribute -= amountToApply;
                     }
-                    if (paymentForWeekIndex !== -1) {
-                        allPayments[paymentForWeekIndex].amount += amountToApply;
-                    } else {
-                        allPayments.push({
-                            date: new Date().toISOString(),
-                            amount: amountToApply,
-                            weekNumber: forwardWeek
-                        });
+                }
+                
+                // Move to the next week only if the current one is fully paid
+                const finalPaidForWeek = allPayments.find(p => p.weekNumber === weekToPay)?.amount || 0;
+                if(finalPaidForWeek >= weeklyPayment) {
+                    weekToPay++;
+                } else {
+                    // If we applied some but not all, and still have money, stay on this week in the next loop
+                    // This case is rare but can happen if logic is changed. To be safe, break if we can't fill a week.
+                     if (remainingAmountToDistribute > 0) {
+                        // This will just continue applying to the same week if it's not full.
                     }
-                    remainingAmountToDistribute -= amountToApply;
-                 }
-                 
-                // Only increment if we fill the week, otherwise stay to fill it more
-                 if (allPayments.find(p=>p.weekNumber === forwardWeek)!.amount >= weeklyPayment) {
-                    forwardWeek++;
-                 }
+                }
             }
 
 
@@ -195,10 +190,12 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const totalLoanAmount = weeklyPayment * loanPlan.termInWeeks;
 
             let newStatus: Loan['status'] = loan.status;
+
             if (totalPaid >= totalLoanAmount) {
                 newStatus = 'Paid Off';
             } else {
                 let isUpToDate = true;
+                // Check all past weeks up to the one before the current one
                 for (let i = 1; i < currentLoanWeek; i++) {
                     const paymentForWeek = allPayments.find(p => p.weekNumber === i);
                     const paidForWeek = paymentForWeek?.amount || 0;
@@ -209,6 +206,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
 
                 if (isUpToDate) {
+                    // If it was overdue and now is up-to-date, it's 'Recuperado'
                     newStatus = wasOverdue ? 'Recuperado' : 'Active';
                 } else {
                     newStatus = 'Overdue';
