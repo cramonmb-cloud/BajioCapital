@@ -82,67 +82,112 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const weeklyPayment = getWeeklyPaymentAmount(loan);
             let remainingAmountToDistribute = amountPaid;
             
-            let tempCurrentWeekNumber = startingWeekNumber;
-            const weeksPaidInTx: number[] = [];
             const allPayments = [...loan.payments];
+            const weeksPaidInTx: number[] = [];
 
             // --- Main Payment Distribution Logic ---
-            while (remainingAmountToDistribute > 0 && tempCurrentWeekNumber <= loanPlan.termInWeeks) {
-                // Find existing payment for the target week.
-                const paymentForWeekIndex = allPayments.findIndex(p => p.weekNumber === tempCurrentWeekNumber);
-                
+            
+            // First, try to apply payment to past due weeks
+            const today = new Date();
+            const loanStartDate = new Date(loan.startDate);
+            const timeDiff = today.getTime() - loanStartDate.getTime();
+            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            
+            // Go backwards from starting week to week 1 to cover debts
+            for (let week = startingWeekNumber; week >= 1; week--) {
+                if (remainingAmountToDistribute <= 0) break;
+
+                const paymentForWeekIndex = allPayments.findIndex(p => p.weekNumber === week);
                 let existingPartialAmount = 0;
-                 if (paymentForWeekIndex !== -1) {
+                if (paymentForWeekIndex !== -1) {
                     existingPartialAmount = allPayments[paymentForWeekIndex].amount;
-                 }
-                
+                }
+
+                if (existingPartialAmount >= weeklyPayment) continue; // Already paid
+
                 const amountNeeded = weeklyPayment - existingPartialAmount;
                 const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
 
                 if (amountToApply > 0) {
-                   if (!weeksPaidInTx.includes(tempCurrentWeekNumber)) {
-                       weeksPaidInTx.push(tempCurrentWeekNumber);
-                   }
-                   
+                    if (!weeksPaidInTx.includes(week)) {
+                        weeksPaidInTx.push(week);
+                    }
+                    
                     if (paymentForWeekIndex !== -1) {
                         allPayments[paymentForWeekIndex].amount += amountToApply;
                     } else {
-                        // Create a new payment record for this week.
                         allPayments.push({
                             date: new Date().toISOString(),
                             amount: amountToApply,
-                            weekNumber: tempCurrentWeekNumber
+                            weekNumber: week
                         });
                     }
-                }
-               
-                remainingAmountToDistribute -= amountToApply;
-                
-                if (remainingAmountToDistribute > 0) {
-                    tempCurrentWeekNumber++;
+                    remainingAmountToDistribute -= amountToApply;
                 }
             }
             
-            // --- Wallet and Transaction Logic ---
-            const walletTransactionRef = doc(collection(db, 'walletTransactions'));
-            let weeksDescription = '';
-            if (weeksPaidInTx.length > 1) {
-                weeksDescription = `Semanas ${weeksPaidInTx.join(', ')}`;
-            } else if (weeksPaidInTx.length === 1) {
-                weeksDescription = `Semana ${weeksPaidInTx[0]}`;
-            } else {
-                weeksDescription = `Semana ${startingWeekNumber}`;
+            // If there's still money, apply it forward from the starting week
+            let forwardWeek = startingWeekNumber;
+            while(remainingAmountToDistribute > 0 && forwardWeek <= loanPlan.termInWeeks) {
+                 const paymentForWeekIndex = allPayments.findIndex(p => p.weekNumber === forwardWeek);
+                 let existingPartialAmount = 0;
+                 if (paymentForWeekIndex !== -1) {
+                     existingPartialAmount = allPayments[paymentForWeekIndex].amount;
+                 }
+
+                 if (existingPartialAmount >= weeklyPayment) {
+                     forwardWeek++;
+                     continue; // Skip already fully paid week
+                 };
+
+                 const amountNeeded = weeklyPayment - existingPartialAmount;
+                 const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
+
+                 if(amountToApply > 0) {
+                    if (!weeksPaidInTx.includes(forwardWeek)) {
+                        weeksPaidInTx.push(forwardWeek);
+                    }
+                    if (paymentForWeekIndex !== -1) {
+                        allPayments[paymentForWeekIndex].amount += amountToApply;
+                    } else {
+                        allPayments.push({
+                            date: new Date().toISOString(),
+                            amount: amountToApply,
+                            weekNumber: forwardWeek
+                        });
+                    }
+                    remainingAmountToDistribute -= amountToApply;
+                 }
+                 
+                // Only increment if we fill the week, otherwise stay to fill it more
+                 if (allPayments.find(p=>p.weekNumber === forwardWeek)!.amount >= weeklyPayment) {
+                    forwardWeek++;
+                 }
             }
 
-            transaction.set(walletTransactionRef, {
-                type: 'credit',
-                amount: amountPaid,
-                date: new Date(),
-                description: `Abono de ${client?.name || 'N/A'} para préstamo (${weeksDescription}).`,
-                loanId: loanId,
-                clientId: loan.clientId,
-            });
-            transaction.set(walletRef, { balance: increment(amountPaid) }, { merge: true });
+
+            // --- Wallet and Transaction Logic ---
+            if (amountPaid > 0) {
+                const walletTransactionRef = doc(collection(db, 'walletTransactions'));
+                let weeksDescription = '';
+                if (weeksPaidInTx.length > 1) {
+                    weeksDescription = `Semanas ${weeksPaidInTx.sort((a,b)=> a-b).join(', ')}`;
+                } else if (weeksPaidInTx.length === 1) {
+                    weeksDescription = `Semana ${weeksPaidInTx[0]}`;
+                } else {
+                    weeksDescription = `Semana ${startingWeekNumber}`;
+                }
+
+                transaction.set(walletTransactionRef, {
+                    type: 'credit',
+                    amount: amountPaid,
+                    date: new Date(),
+                    description: `Abono de ${client?.name || 'N/A'} para préstamo (${weeksDescription}).`,
+                    loanId: loanId,
+                    clientId: loan.clientId,
+                });
+                transaction.update(walletRef, { balance: increment(amountPaid) });
+            }
             // --- End Wallet Logic ---
 
             const totalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
@@ -152,12 +197,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             if (totalPaid >= totalLoanAmount) {
                 newStatus = 'Paid Off';
             } else {
-                // Check if the loan is now up-to-date
-                const today = new Date();
-                const loanStartDate = new Date(loan.startDate);
-                const timeDiff = today.getTime() - loanStartDate.getTime();
-                const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-                
                 let isUpToDate = true;
                 for (let i = 1; i < currentLoanWeek; i++) {
                     const paymentForWeek = allPayments.find(p => p.weekNumber === i);
