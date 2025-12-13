@@ -309,7 +309,7 @@ const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
-    const maxWeeksToShow = 14; 
+    const maxWeeksToShow = 15; 
 
     // --- Header ---
     const pdfToday = new Date();
@@ -596,7 +596,7 @@ const handleExportPDF = () => {
       });
 
 
-      const failures = Array.from({ length: 14 }).map((_, i) => {
+      const failures = Array.from({ length: 15 }).map((_, i) => {
           const weekNumber = i + 1;
           return filteredLoans.reduce((total, loan) => {
               const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
@@ -613,7 +613,7 @@ const handleExportPDF = () => {
           }, 0);
       });
 
-      const collected = Array.from({ length: 14 }).map((_, i) => {
+      const collected = Array.from({ length: 15 }).map((_, i) => {
           const weekNumber = i + 1;
           return filteredLoans.reduce((total, loan) => {
               const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
@@ -738,7 +738,7 @@ const handleExportPDF = () => {
                       <TableHead className="p-2">Supervisor</TableHead>
                       <TableHead className="p-2">Abono</TableHead>
                       <TableHead className="p-2">Estado</TableHead>
-                      {Array.from({ length: 14 }, (_, i) => {
+                      {Array.from({ length: 15 }, (_, i) => {
                           const weekNumber = i + 1;
                           const isCurrentWeek = weekNumber === currentGroupWeek;
                           return (
@@ -776,7 +776,7 @@ const handleExportPDF = () => {
                           <TableCell className="p-2">
                             <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
                           </TableCell>
-                           {Array.from({ length: 14 }).map((_, i) => {
+                           {Array.from({ length: 15 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentLoanWeek;
                                 const isPenaltyWeek = hasPenalty && weekNumber === termInWeeks;
@@ -869,7 +869,7 @@ const handleExportPDF = () => {
                     <TableFooter>
                         <TableRow>
                             <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
-                            {Array.from({ length: 14 }).map((_, i) => {
+                            {Array.from({ length: 15 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
                                 const weeklyTotal = filteredLoans.reduce((total, loan) => {
