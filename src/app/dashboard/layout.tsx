@@ -78,14 +78,11 @@ export default function DashboardLayout({
             <Logo />
             <span className="sr-only">CrediControl</span>
         </Link>
-        <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-2 md:text-sm lg:gap-4">
+        <div className="flex-1">
           <MainNav />
-        </nav>
+        </div>
         {/* Mobile Menu can be added here if needed */}
-        <div className="flex w-full items-center gap-4 md:ml-auto md:gap-2 lg:gap-4">
-            <div className="ml-auto flex-1 sm:flex-initial">
-                {/* A search bar could go here */}
-            </div>
+        <div className="flex items-center gap-4 md:gap-2 lg:gap-4">
           <Button variant="ghost" size="icon" className="rounded-full">
             <Bell className="h-4 w-4" />
             <span className="sr-only">Toggle notifications</span>

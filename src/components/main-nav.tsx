@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type { UserPermissions } from '@/lib/types';
 import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, FileText, Settings, type LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: LucideIcon }[] = [
   { href: '/dashboard', label: 'Dashboard', id: 'dashboard', icon: LayoutDashboard },
@@ -34,25 +35,31 @@ export function MainNav() {
   });
 
   return (
-    <>
-      {allowedLinks.map((link) => {
-        const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
-        return (
-            <Button
-                key={link.href}
-                asChild
-                variant={isActive ? 'secondary' : 'ghost'}
-                className="justify-start"
-            >
-                <Link
-                href={link.href}
-                >
-                <link.icon className="mr-2 h-4 w-4" />
-                {link.label}
-                </Link>
-            </Button>
-        );
-      })}
-    </>
+    <TooltipProvider>
+        <div className="flex items-center gap-2">
+            {allowedLinks.map((link) => {
+                const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
+                return (
+                    <Tooltip key={link.href}>
+                        <TooltipTrigger asChild>
+                             <Button
+                                asChild
+                                variant={isActive ? 'secondary' : 'ghost'}
+                                size="icon"
+                                aria-label={link.label}
+                            >
+                                <Link href={link.href}>
+                                    <link.icon className="h-5 w-5" />
+                                </Link>
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                            <p>{link.label}</p>
+                        </TooltipContent>
+                    </Tooltip>
+                );
+            })}
+        </div>
+    </TooltipProvider>
   );
 }
