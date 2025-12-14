@@ -15,6 +15,16 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Form,
   FormControl,
   FormDescription,
@@ -47,18 +57,18 @@ const stepOneSchema = z.object({
 });
 
 const stepTwoSchema = z.object({
-  phone: z.string().min(7, 'El teléfono es requerido.'),
-  street: z.string().min(5, 'La calle y número son requeridos.'),
-  neighborhood: z.string().min(3, 'La colonia es requerida.'),
-  postalCode: z.string().min(5, 'El código postal es requerido.'),
-  city: z.string().min(3, 'La ciudad es requerida.'),
-  guarantee: z.string().min(3, 'La garantía es requerida.'),
-  endorsement: z.string().min(3, 'El nombre del aval es requerido.'),
-  endorsementStreet: z.string().min(5, 'La calle y número del aval son requeridos.'),
-  endorsementNeighborhood: z.string().min(3, 'La colonia del aval es requerida.'),
-  endorsementPostalCode: z.string().min(5, 'El código postal del aval es requerido.'),
-  endorsementCity: z.string().min(3, 'La ciudad del aval es requerida.'),
-  endorsementPhone: z.string().min(7, 'El teléfono del aval es requerido.'),
+  phone: z.string().optional(),
+  street: z.string().optional(),
+  neighborhood: z.string().optional(),
+  postalCode: z.string().optional(),
+  city: z.string().optional(),
+  guarantee: z.string().optional(),
+  endorsement: z.string().optional(),
+  endorsementStreet: z.string().optional(),
+  endorsementNeighborhood: z.string().optional(),
+  endorsementPostalCode: z.string().optional(),
+  endorsementCity: z.string().optional(),
+  endorsementPhone: z.string().optional(),
 });
 
 const formSchema = stepOneSchema.merge(stepTwoSchema);
@@ -86,6 +96,8 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
   const [activeLoanDetails, setActiveLoanDetails] = useState<ActiveLoanDetails | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isPayingOff, setIsPayingOff] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [formValues, setFormValues] = useState<LoanFormValues | null>(null);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -222,71 +234,104 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
     }
   };
   
-  const onSubmit = async (values: LoanFormValues) => {
-    setIsSubmitting(true);
-    try {
-      const endorsementAddress = `${values.endorsementStreet.toUpperCase()}, ${values.endorsementNeighborhood.toUpperCase()}, ${values.endorsementPostalCode.toUpperCase()}, ${values.endorsementCity.toUpperCase()}. Tel: ${values.endorsementPhone.toUpperCase()}`;
+    const proceedWithSubmission = async (values: LoanFormValues) => {
+        setIsSubmitting(true);
+        try {
+            const endorsementAddressParts = [
+                values.endorsementStreet?.toUpperCase(),
+                values.endorsementNeighborhood?.toUpperCase(),
+                values.endorsementPostalCode?.toUpperCase(),
+                values.endorsementCity?.toUpperCase(),
+                values.endorsementPhone ? `Tel: ${values.endorsementPhone.toUpperCase()}` : ''
+            ].filter(Boolean); // filter out empty strings
 
-        const clientData: Omit<Client, 'id' | 'avatarUrl'> & { id?: string } = selectedClient ? 
-            { ...selectedClient,
-              name: values.clientName.toUpperCase(),
-              street: values.street.toUpperCase(),
-              neighborhood: values.neighborhood.toUpperCase(),
-              postalCode: values.postalCode.toUpperCase(),
-              city: values.city.toUpperCase(),
-              phone: values.phone.toUpperCase(),
-              guarantee: values.guarantee.toUpperCase(),
-              // Update endorsement details if client is re-selected for a new loan
-              endorsement: `${values.endorsement.toUpperCase()} (${endorsementAddress})`,
-             } : 
-            {
-                name: values.clientName.toUpperCase(),
-                email: `${values.clientName.split(' ').join('.').toLowerCase()}@example.com`,
-                street: values.street.toUpperCase(),
-                neighborhood: values.neighborhood.toUpperCase(),
-                postalCode: values.postalCode.toUpperCase(),
-                city: values.city.toUpperCase(),
-                phone: values.phone.toUpperCase(),
-                guarantee: values.guarantee.toUpperCase(),
-                endorsement: `${values.endorsement.toUpperCase()} (${endorsementAddress})`,
-            };
+            const endorsementAddress = endorsementAddressParts.join(', ');
 
-        if(selectedClient?.id) {
-            clientData.id = selectedClient.id;
+            const endorsementValue = values.endorsement?.toUpperCase();
+            
+            const fullEndorsement = endorsementValue && endorsementAddress ? `${endorsementValue} (${endorsementAddress})` : endorsementValue || '';
+
+
+            const clientData: Omit<Client, 'id' | 'avatarUrl'> & { id?: string } = selectedClient ?
+                {
+                    ...selectedClient,
+                    name: values.clientName.toUpperCase(),
+                    street: values.street?.toUpperCase() || '',
+                    neighborhood: values.neighborhood?.toUpperCase() || '',
+                    postalCode: values.postalCode?.toUpperCase() || '',
+                    city: values.city?.toUpperCase() || '',
+                    phone: values.phone?.toUpperCase() || '',
+                    guarantee: values.guarantee?.toUpperCase() || '',
+                    endorsement: fullEndorsement,
+                } :
+                {
+                    name: values.clientName.toUpperCase(),
+                    email: `${values.clientName.split(' ').join('.').toLowerCase()}@example.com`,
+                    street: values.street?.toUpperCase() || '',
+                    neighborhood: values.neighborhood?.toUpperCase() || '',
+                    postalCode: values.postalCode?.toUpperCase() || '',
+                    city: values.city?.toUpperCase() || '',
+                    phone: values.phone?.toUpperCase() || '',
+                    guarantee: values.guarantee?.toUpperCase() || '',
+                    endorsement: fullEndorsement,
+                };
+
+            if (selectedClient?.id) {
+                clientData.id = selectedClient.id;
+            }
+
+            const result = await createLoanAction({
+                groupId: values.groupId,
+                loanPlanId: values.loanPlanId,
+                amount: values.amount,
+                client: clientData,
+            });
+
+            if (result.success) {
+                toast({
+                    title: 'Préstamo Creado',
+                    description: `El préstamo para ${values.clientName} ha sido creado exitosamente.`,
+                });
+
+                form.reset();
+                setStep(1);
+                setMatchingClients([]);
+                setSelectedClient(null);
+                setActiveLoanDetails(null);
+                setOpen(false);
+            } else {
+                throw new Error(result.message || 'Error desconocido');
+            }
+
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: error.message || 'Hubo un error al crear el préstamo. Por favor, inténtelo de nuevo.',
+            });
+        } finally {
+            setIsSubmitting(false);
+            setShowConfirmation(false);
+            setFormValues(null);
         }
-       
-      const result = await createLoanAction({
-        groupId: values.groupId,
-        loanPlanId: values.loanPlanId,
-        amount: values.amount,
-        client: clientData,
-      });
+    };
 
-      if (result.success) {
-        toast({
-            title: 'Préstamo Creado',
-            description: `El préstamo para ${values.clientName} ha sido creado exitosamente.`,
-        });
 
-        // Reset form and state
-        form.reset();
-        setStep(1);
-        setMatchingClients([]);
-        setSelectedClient(null);
-        setActiveLoanDetails(null);
-        setOpen(false);
-      } else {
-        throw new Error(result.message || 'Error desconocido');
-      }
+  const onSubmit = async (values: LoanFormValues) => {
+    const step2Fields = [
+        values.phone, values.street, values.neighborhood, values.postalCode,
+        values.city, values.guarantee, values.endorsement, values.endorsementStreet,
+        values.endorsementNeighborhood, values.endorsementPostalCode,
+        values.endorsementCity, values.endorsementPhone
+    ];
 
-    } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: error.message || 'Hubo un error al crear el préstamo. Por favor, inténtelo de nuevo.',
-      });
-    } finally {
-      setIsSubmitting(false);
+    const areStep2FieldsEmpty = step2Fields.every(field => !field || field.trim() === '');
+
+    if (areStep2FieldsEmpty) {
+        setFormValues(values);
+        setShowConfirmation(true);
+    } else {
+        await proceedWithSubmission(values);
     }
   };
   
@@ -298,6 +343,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={(isOpen) => {
         setOpen(isOpen);
         if (!isOpen) {
@@ -320,7 +366,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
             <DialogHeader>
               <DialogTitle>Crear Nuevo Préstamo - Paso {step} de 2</DialogTitle>
               <DialogDescription>
-                {step === 1 ? 'Completa la información inicial del préstamo.' : 'Completa los datos del cliente y su aval.'}
+                {step === 1 ? 'Completa la información inicial del préstamo.' : 'Completa los datos del cliente y su aval (opcional).'}
               </DialogDescription>
             </DialogHeader>
 
@@ -464,7 +510,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Teléfono</FormLabel>
                         <FormControl>
-                            <Input placeholder="Ej: 555-0101" {...field} className="uppercase" />
+                            <Input placeholder="Ej: 555-0101" {...field} value={field.value || ''} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -477,7 +523,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Calle y Número</FormLabel>
                         <FormControl>
-                            <Input placeholder="Ej: Av. Siempreviva 742" {...field} className="uppercase" />
+                            <Input placeholder="Ej: Av. Siempreviva 742" {...field} value={field.value || ''} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -491,7 +537,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>Colonia</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Springfield" {...field} className="uppercase" />
+                                <Input placeholder="Ej: Springfield" {...field} value={field.value || ''} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -504,7 +550,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>C.P.</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: 12345" {...field} className="uppercase" />
+                                <Input placeholder="Ej: 12345" {...field} value={field.value || ''} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -517,7 +563,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>Ciudad</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Springfield" {...field} className="uppercase" />
+                                <Input placeholder="Ej: Springfield" {...field} value={field.value || ''} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -531,7 +577,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Garantías</FormLabel>
                         <FormControl>
-                            <Textarea placeholder="Describe las garantías del cliente (nómina, propiedad, etc.)" {...field} className="uppercase" />
+                            <Textarea placeholder="Describe las garantías del cliente (nómina, propiedad, etc.)" {...field} value={field.value || ''} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -548,7 +594,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Nombre del Aval</FormLabel>
                         <FormControl>
-                            <Input placeholder="Nombre completo del aval" {...field} className="uppercase" />
+                            <Input placeholder="Nombre completo del aval" {...field} value={field.value || ''} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -561,7 +607,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Teléfono del Aval</FormLabel>
                         <FormControl>
-                            <Input placeholder="Teléfono de contacto del aval" {...field} className="uppercase" />
+                            <Input placeholder="Teléfono de contacto del aval" {...field} value={field.value || ''} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -574,7 +620,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                         <FormItem>
                         <FormLabel>Calle y Número del Aval</FormLabel>
                         <FormControl>
-                             <Input placeholder="Domicilio del aval" {...field} className="uppercase" />
+                             <Input placeholder="Domicilio del aval" {...field} value={field.value || ''} className="uppercase" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -588,7 +634,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>Colonia</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Centro" {...field} className="uppercase" />
+                                <Input placeholder="Ej: Centro" {...field} value={field.value || ''} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -601,7 +647,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>C.P.</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: 54321" {...field} className="uppercase" />
+                                <Input placeholder="Ej: 54321" {...field} value={field.value || ''} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -614,7 +660,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
                             <FormItem>
                             <FormLabel>Ciudad</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Shelbyville" {...field} className="uppercase" />
+                                <Input placeholder="Ej: Shelbyville" {...field} value={field.value || ''} className="uppercase" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -642,5 +688,22 @@ export function CreateLoanDialog({ clients, loanPlans, loans, groups }: CreateLo
         </Form>
       </DialogContent>
     </Dialog>
+    <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>¿Continuar con datos incompletos?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    No se han registrado todos los datos del cliente y/o aval. ¿Deseas crear el préstamo de todos modos?
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setFormValues(null)}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => { if (formValues) proceedWithSubmission(formValues); }}>
+                    Continuar
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
