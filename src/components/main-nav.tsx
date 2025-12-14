@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { UserPermissions } from '@/lib/types';
-import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, FileText, Settings, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, FileText, Settings, Activity, type LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
 
 const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: LucideIcon }[] = [
@@ -14,6 +14,7 @@ const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: 
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans', icon: Landmark },
   { href: '/dashboard/overdue-portfolio', label: 'Cartera Vencida', id: 'overduePortfolio', icon: FileWarning },
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet', icon: Wallet },
+  { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity },
   { href: '/dashboard/plans', label: 'Planes', id: 'plans', icon: FileText },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings', icon: Settings },
 ];

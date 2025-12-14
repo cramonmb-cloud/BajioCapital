@@ -78,6 +78,7 @@ export type UserPermissions = {
     plans: boolean;
     settings: boolean;
     editClients: boolean;
+    control: boolean;
 };
 
 export type AppUser = {

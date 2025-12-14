@@ -51,7 +51,7 @@ import { PlusCircle, Loader2, Users, Trash, Edit } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import type { AppUser } from '@/lib/types';
+import type { AppUser, UserPermissions } from '@/lib/types';
 import { deleteUserAction, saveUserAction } from '@/app/dashboard/settings/actions';
 
 const permissionsSchema = z.object({
@@ -63,6 +63,7 @@ const permissionsSchema = z.object({
   plans: z.boolean().default(false),
   settings: z.boolean().default(false),
   editClients: z.boolean().default(false),
+  control: z.boolean().default(false),
 });
 
 const addUserFormSchema = z.object({
@@ -83,12 +84,13 @@ type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 
 const DUMMY_DOMAIN = 'credicontrol.app';
 
-const permissionLabels: { id: keyof AppUser['permissions']; label: string }[] = [
+const permissionLabels: { id: keyof UserPermissions; label: string }[] = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'clients', label: 'Clientes' },
     { id: 'loans', label: 'Préstamos' },
     { id: 'overduePortfolio', label: 'Cartera Vencida'},
     { id: 'wallet', label: 'Cartera' },
+    { id: 'control', label: 'Control' },
     { id: 'plans', label: 'Planes' },
     { id: 'settings', label: 'Ajustes' },
     { id: 'editClients', label: 'Editar Clientes' },
@@ -122,6 +124,7 @@ export function UserManagement({ users }: UserManagementProps) {
         plans: false,
         settings: false,
         editClients: false,
+        control: true,
       },
     },
   });

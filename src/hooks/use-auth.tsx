@@ -12,7 +12,7 @@ import {
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { saveUserAction } from '@/app/dashboard/settings/actions';
-import type { AppUser } from '@/lib/types';
+import type { AppUser, UserPermissions } from '@/lib/types';
 
 interface AuthContextType {
   user: User | null;
@@ -44,13 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // This is a failsafe for the first user or desynchronized users.
           console.warn("User exists in Auth but not in Firestore. Creating a default admin profile.");
           const username = user.email?.split('@')[0] || 'admin';
-          const defaultAdminPermissions: AppUser['permissions'] = {
+          const defaultAdminPermissions: UserPermissions = {
             dashboard: true,
             clients: true,
             loans: true,
+            overduePortfolio: true,
             wallet: true,
             plans: true,
             settings: true,
+            editClients: true,
+            control: true,
           };
           const newAppUser: Omit<AppUser, 'id'> = {
             username: username.charAt(0).toUpperCase() + username.slice(1),
