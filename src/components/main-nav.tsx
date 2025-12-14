@@ -7,7 +7,6 @@ import { useAuth } from '@/hooks/use-auth';
 import type { UserPermissions } from '@/lib/types';
 import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, FileText, Settings, type LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: LucideIcon }[] = [
   { href: '/dashboard', label: 'Dashboard', id: 'dashboard', icon: LayoutDashboard },
@@ -35,31 +34,24 @@ export function MainNav() {
   });
 
   return (
-    <TooltipProvider>
         <div className="flex items-center gap-2">
             {allowedLinks.map((link) => {
                 const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
                 return (
-                    <Tooltip key={link.href}>
-                        <TooltipTrigger asChild>
-                             <Button
-                                asChild
-                                variant={isActive ? 'secondary' : 'ghost'}
-                                size="icon"
-                                aria-label={link.label}
-                            >
-                                <Link href={link.href}>
-                                    <link.icon className="h-5 w-5" />
-                                </Link>
-                            </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                            <p>{link.label}</p>
-                        </TooltipContent>
-                    </Tooltip>
+                    <Button
+                        key={link.href}
+                        asChild
+                        variant={isActive ? 'secondary' : 'ghost'}
+                        className="h-auto flex flex-col items-center justify-center gap-1 p-2"
+                        aria-label={link.label}
+                    >
+                        <Link href={link.href}>
+                            <link.icon className="h-7 w-7" />
+                            <span className="text-xs">{link.label}</span>
+                        </Link>
+                    </Button>
                 );
             })}
         </div>
-    </TooltipProvider>
   );
 }
