@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { getLoanPlan, getClient, getLoan } from '@/lib/firestore-data';
 
 export type CreateLoanInput = {
-    groupId: string;
+    promotoraId: string;
     loanPlanId: string;
     amount: number;
     client: Omit<Client, 'id' | 'avatarUrl'> & { id?: string };
@@ -38,7 +38,7 @@ export async function createLoanAction(input: CreateLoanInput) {
 
     const newLoan = {
         clientId: clientId,
-        groupId: input.groupId,
+        promotoraId: input.promotoraId,
         loanPlanId: input.loanPlanId,
         amount: input.amount,
         startDate: saturday, // Use the Date object directly, Firestore will convert it

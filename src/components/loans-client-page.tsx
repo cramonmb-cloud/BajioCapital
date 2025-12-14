@@ -39,7 +39,7 @@ import Link from 'next/link';
 import { CreateLoanDialog } from '@/components/create-loan-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import type { Client, Loan, LoanPlan, Payment, Group, Supervisor } from '@/lib/types';
+import type { Client, Loan, LoanPlan, Payment, Plaza, Localidad, Promotora } from '@/lib/types';
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -72,13 +72,14 @@ interface LoansClientPageProps {
     loans: Loan[];
     clients: Client[];
     loanPlans: LoanPlan[];
-    groups: Group[];
-    supervisors: Supervisor[];
+    plazas: Plaza[];
+    localidades: Localidad[];
+    promotoras: Promotora[];
 }
 
-export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors }: LoansClientPageProps) {
+export function LoansClientPage({ loans, clients, loanPlans, plazas, localidades, promotoras }: LoansClientPageProps) {
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
-  const [selectedGroup, setSelectedGroup] = useState<string>('all');
+  const [selectedPromotora, setSelectedPromotora] = useState<string>('all');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
   const { appUser } = useAuth();
@@ -114,9 +115,9 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
 
   const filteredLoans = useMemo(() => loans.filter(loan => {
     const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
-    const isCorrectGroup = selectedGroup === 'all' ? true : loan.groupId === selectedGroup;
-    return isCorrectWeek && isCorrectGroup;
-  }), [loans, selectedWeek, selectedGroup]);
+    const isCorrectPromotora = selectedPromotora === 'all' ? true : loan.promotoraId === selectedPromotora;
+    return isCorrectWeek && isCorrectPromotora;
+  }), [loans, selectedWeek, selectedPromotora]);
 
 
   useEffect(() => {
@@ -129,12 +130,16 @@ export function LoansClientPage({ loans, clients, loanPlans, groups, supervisors
 
   const getClient = (clientId: string) => clients.find(c => c.id === clientId);
   const getClientName = (clientId: string) => getClient(clientId)?.name || 'N/A';
-  const getGroupName = (groupId?: string) => groups.find(g => g.id === groupId)?.name || 'N/A';
-
-  const getSupervisorName = (groupId?: string) => {
-    const group = groups.find(g => g.id === groupId);
-    if (!group) return 'N/A';
-    return supervisors.find(s => s.id === group.supervisorId)?.name || 'N/A';
+  
+  const getHierarchy = (promotoraId?: string) => {
+    const promotora = promotoras.find(p => p.id === promotoraId);
+    const localidad = localidades.find(l => l.id === promotora?.localidadId);
+    const plaza = plazas.find(p => p.id === localidad?.plazaId);
+    return {
+      promotoraName: promotora?.name || 'N/A',
+      localidadName: localidad?.name || 'N/A',
+      plazaName: plaza?.name || 'N/A',
+    };
   };
   
   const getWeeklyPaymentAmount = (loan: Loan) => {
@@ -314,8 +319,7 @@ const handleExportPDF = () => {
     // --- Header ---
     const pdfToday = new Date();
     const firstLoan = filteredLoans[0];
-    const groupName = getGroupName(firstLoan.groupId);
-    const supervisorName = getSupervisorName(firstLoan.groupId);
+    const { promotoraName, localidadName, plazaName } = getHierarchy(firstLoan.promotoraId);
     const loanPlan = loanPlans.find(p => p.id === firstLoan.loanPlanId);
     const totalAmount = filteredLoans.reduce((sum, loan) => sum + loan.amount, 0);
 
@@ -329,15 +333,15 @@ const handleExportPDF = () => {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
     doc.text('Fecha', margin, 30);
-    doc.text('Ejecutivo', margin, 42);
-    doc.text('Supervisor', margin, 54);
-    doc.text('Grupo', margin, 66);
+    doc.text('Promotora', margin, 42);
+    doc.text('Localidad', margin, 54);
+    doc.text('Plaza', margin, 66);
     
     doc.setFont('helvetica', 'normal');
     doc.text(formatDate(pdfToday.toISOString()), margin + 50, 30);
-    doc.text(appUser?.username.toUpperCase() || 'N/A', margin + 50, 42);
-    doc.text(supervisorName.toUpperCase(), margin + 50, 54);
-    doc.text(groupName.toUpperCase(), margin + 50, 66);
+    doc.text(promotoraName.toUpperCase(), margin + 50, 42);
+    doc.text(localidadName.toUpperCase(), margin + 50, 54);
+    doc.text(plazaName.toUpperCase(), margin + 50, 66);
 
     const rightColumnX = pageWidth - margin - 100;
     doc.setFont('helvetica', 'bold');
@@ -347,7 +351,7 @@ const handleExportPDF = () => {
 
     doc.setFont('helvetica', 'normal');
     doc.text(loanPlan ? formatDate(vencimientoDate.toISOString()) : 'N/A', rightColumnX + 50, 30);
-    doc.text('N/A'.toUpperCase(), rightColumnX + 50, 42);
+    doc.text(plazaName.toUpperCase(), rightColumnX + 50, 42);
     doc.text(formatCurrency(totalAmount), rightColumnX + 50, 54);
 
     // --- Table ---
@@ -677,14 +681,14 @@ const handleExportPDF = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-            <Select value={selectedGroup} onValueChange={setSelectedGroup}>
+            <Select value={selectedPromotora} onValueChange={setSelectedPromotora}>
                 <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Filtrar por grupo" />
+                    <SelectValue placeholder="Filtrar por promotora" />
                 </SelectTrigger>
                 <SelectContent>
-                    <SelectItem value="all">Todos los Grupos</SelectItem>
-                    {groups.map(group => (
-                        <SelectItem key={group.id} value={group.id}>{group.name}</SelectItem>
+                    <SelectItem value="all">Todas las promotoras</SelectItem>
+                    {promotoras.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                     ))}
                 </SelectContent>
             </Select>
@@ -692,7 +696,7 @@ const handleExportPDF = () => {
                 <FileDown className="mr-2 h-4 w-4" />
                 Exportar a PDF
             </Button>
-            <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans} groups={groups} />
+            <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans} promotoras={promotoras} />
         </div>
       </div>
       
@@ -734,8 +738,9 @@ const handleExportPDF = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky left-0 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
-                      <TableHead className="p-2">Grupo</TableHead>
-                      <TableHead className="p-2">Supervisor</TableHead>
+                      <TableHead className="p-2">Plaza</TableHead>
+                      <TableHead className="p-2">Localidad</TableHead>
+                      <TableHead className="p-2">Promotora</TableHead>
                       <TableHead className="p-2">Abono</TableHead>
                       <TableHead className="p-2">Estado</TableHead>
                       {Array.from({ length: 15 }, (_, i) => {
@@ -752,6 +757,7 @@ const handleExportPDF = () => {
                     {filteredLoans.length > 0 ? (
                       filteredLoans.map((loan) => {
                         const originalLoanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+                        const { plazaName, localidadName, promotoraName } = getHierarchy(loan.promotoraId);
                         
                         if (!originalLoanPlan) return null;
 
@@ -770,8 +776,9 @@ const handleExportPDF = () => {
                               {getClientName(loan.clientId)}
                             </Link>
                           </TableCell>
-                          <TableCell className="p-2">{getGroupName(loan.groupId)}</TableCell>
-                          <TableCell className="p-2">{getSupervisorName(loan.groupId)}</TableCell>
+                          <TableCell className="p-2">{plazaName}</TableCell>
+                          <TableCell className="p-2">{localidadName}</TableCell>
+                          <TableCell className="p-2">{promotoraName}</TableCell>
                           <TableCell className="p-2">{formatCurrency(weeklyPayment)}</TableCell>
                           <TableCell className="p-2">
                             <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
@@ -859,7 +866,7 @@ const handleExportPDF = () => {
                       )})
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={20} className="text-center h-24 p-2">
+                            <TableCell colSpan={22} className="text-center h-24 p-2">
                                No hay préstamos para la semana seleccionada. O presiona "Cargar Datos de Ejemplo".
                             </TableCell>
                         </TableRow>
@@ -868,7 +875,7 @@ const handleExportPDF = () => {
                   {filteredLoans.length > 0 && weeklyFailures.length > 0 && weeklyCollected.length > 0 && (
                     <TableFooter>
                         <TableRow>
-                            <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
+                            <TableCell colSpan={6} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
                             {Array.from({ length: 15 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -888,7 +895,7 @@ const handleExportPDF = () => {
                             <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                          <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
+                          <TableCell colSpan={6} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
                             {weeklyFailures.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -900,7 +907,7 @@ const handleExportPDF = () => {
                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                            <TableCell colSpan={5} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
+                            <TableCell colSpan={6} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;

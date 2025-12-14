@@ -3,7 +3,7 @@
 import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
-import type { Group, Supervisor, AppUser } from '@/lib/types';
+import type { Plaza, Localidad, Promotora, AppUser } from '@/lib/types';
 
 async function deleteCollection(collectionPath: string) {
     const collectionRef = collection(db, collectionPath);
@@ -25,8 +25,9 @@ export async function deleteAllDataAction() {
         await deleteCollection('loans');
         await deleteCollection('loanPlans');
         await deleteCollection('walletTransactions');
-        await deleteCollection('groups');
-        await deleteCollection('supervisors');
+        await deleteCollection('plazas');
+        await deleteCollection('localidades');
+        await deleteCollection('promotoras');
         await deleteCollection('users');
         
         // Reset wallet
@@ -66,35 +67,65 @@ export async function deleteUserAction(uid: string) {
     }
 }
 
-
-// Supervisor Actions
-export async function saveSupervisorAction(name: string) {
+// Plaza Actions
+export async function savePlazaAction(name: string) {
     try {
-        await addDoc(collection(db, 'supervisors'), { name });
+        await addDoc(collection(db, 'plazas'), { name });
         revalidatePath('/dashboard/settings');
-        return { success: true, message: 'Supervisor guardado con éxito.' };
+        return { success: true, message: 'Plaza guardada con éxito.' };
     } catch (error: any) {
-        return { success: false, message: `Error al guardar supervisor: ${error.message}` };
+        return { success: false, message: `Error al guardar plaza: ${error.message}` };
     }
 }
 
-// Group Actions
-export async function saveGroupAction(groupData: Omit<Group, 'id'>) {
+export async function deletePlazaAction(id: string) {
     try {
-        await addDoc(collection(db, 'groups'), groupData);
+        await deleteDoc(doc(db, 'plazas', id));
         revalidatePath('/dashboard/settings');
-        return { success: true, message: 'Grupo guardado con éxito.' };
+        return { success: true, message: 'Plaza eliminada con éxito.' };
     } catch (error: any) {
-        return { success: false, message: `Error al guardar grupo: ${error.message}` };
+        return { success: false, message: `Error al eliminar plaza: ${error.message}` };
     }
 }
 
-export async function deleteGroupAction(groupId: string) {
+// Localidad Actions
+export async function saveLocalidadAction(data: Omit<Localidad, 'id'>) {
     try {
-        await deleteDoc(doc(db, 'groups', groupId));
+        await addDoc(collection(db, 'localidades'), data);
         revalidatePath('/dashboard/settings');
-        return { success: true, message: 'Grupo eliminado con éxito.' };
+        return { success: true, message: 'Localidad guardada con éxito.' };
     } catch (error: any) {
-        return { success: false, message: `Error al eliminar grupo: ${error.message}` };
+        return { success: false, message: `Error al guardar localidad: ${error.message}` };
+    }
+}
+
+export async function deleteLocalidadAction(id: string) {
+    try {
+        await deleteDoc(doc(db, 'localidades', id));
+        revalidatePath('/dashboard/settings');
+        return { success: true, message: 'Localidad eliminada con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al eliminar localidad: ${error.message}` };
+    }
+}
+
+// Promotora Actions
+export async function savePromotoraAction(data: Omit<Promotora, 'id'>) {
+    try {
+        await addDoc(collection(db, 'promotoras'), data);
+        revalidatePath('/dashboard/settings');
+        return { success: true, message: 'Promotora guardada con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar promotora: ${error.message}` };
+    }
+}
+
+export async function deletePromotoraAction(id: string) {
+    try {
+        await deleteDoc(doc(db, 'promotoras', id));
+        revalidatePath('/dashboard/settings');
+        return { success: true, message: 'Promotora eliminada con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al eliminar promotora: ${error.message}` };
     }
 }

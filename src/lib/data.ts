@@ -82,7 +82,7 @@ export const loans: Loan[] = [
     startDate: getPastDate(4),
     status: 'Active',
     payments: [],
-    groupId: 'group-1',
+    promotoraId: 'promotora-1',
   },
   {
     id: 'loan-2',
@@ -101,7 +101,7 @@ export const loans: Loan[] = [
         { date: getPastDate(4), amount: 150, weekNumber: 6 },
         // Missed all subsequent weeks
     ],
-    groupId: 'group-2',
+    promotoraId: 'promotora-2',
   },
   {
     id: 'loan-3',
@@ -111,7 +111,7 @@ export const loans: Loan[] = [
     startDate: getPastDate(20),
     status: 'Paid Off',
     payments: [],
-    groupId: 'group-1',
+    promotoraId: 'promotora-1',
   },
    {
     id: 'loan-4',
@@ -121,6 +121,6 @@ export const loans: Loan[] = [
     startDate: getPastDate(1),
     status: 'Active',
     payments: [],
-    groupId: 'group-2',
+    promotoraId: 'promotora-2',
   },
 ];

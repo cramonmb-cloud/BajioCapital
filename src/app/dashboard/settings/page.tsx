@@ -1,13 +1,14 @@
 import { SettingsClientPage } from "@/components/settings-client-page";
-import { GroupsManagement } from "@/components/groups-management";
+import { PlazaManagement } from "@/components/plaza-management";
 import { UserManagement } from "@/components/user-management";
 import { Separator } from "@/components/ui/separator";
-import { getGroups, getSupervisors, getUsers } from "@/lib/firestore-data";
+import { getPlazas, getLocalidades, getPromotoras, getUsers } from "@/lib/firestore-data";
 
 export default async function SettingsPage() {
-    const [groups, supervisors, users] = await Promise.all([
-        getGroups(),
-        getSupervisors(),
+    const [plazas, localidades, promotoras, users] = await Promise.all([
+        getPlazas(),
+        getLocalidades(),
+        getPromotoras(),
         getUsers(),
     ]);
     
@@ -24,7 +25,11 @@ export default async function SettingsPage() {
 
             <Separator />
 
-            <GroupsManagement initialGroups={groups} initialSupervisors={supervisors} />
+            <PlazaManagement 
+                initialPlazas={plazas} 
+                initialLocalidades={localidades} 
+                initialPromotoras={promotoras} 
+            />
 
             <Separator />
             

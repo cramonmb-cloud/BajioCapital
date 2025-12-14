@@ -30,7 +30,7 @@ export type Loan = {
   id: string;
   clientId: string;
   loanPlanId: string;
-  groupId?: string; // Added groupId
+  promotoraId?: string;
   amount: number;
   startDate: string;
   status: 'Active' | 'Overdue' | 'Paid Off' | 'Pagado desde CV';
@@ -52,15 +52,21 @@ export type WalletTransaction = {
     clientId?: string;
 };
 
-export type Supervisor = {
+export type Plaza = {
     id: string;
     name: string;
 };
 
-export type Group = {
+export type Localidad = {
     id: string;
     name: string;
-    supervisorId: string;
+    plazaId: string;
+};
+
+export type Promotora = {
+    id: string;
+    name: string;
+    localidadId: string;
 };
 
 export type UserPermissions = {

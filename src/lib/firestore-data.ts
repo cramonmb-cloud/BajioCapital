@@ -1,6 +1,6 @@
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, writeBatch, query, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Client, Loan, LoanPlan, Supervisor, Group, Wallet, WalletTransaction, AppUser } from './types';
+import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora, Wallet, WalletTransaction, AppUser } from './types';
 
 // Fetch all clients
 export async function getClients(): Promise<Client[]> {
@@ -151,18 +151,25 @@ export async function getWalletTransactions(): Promise<WalletTransaction[]> {
     return transactionList;
 }
 
-// Fetch all supervisors
-export async function getSupervisors(): Promise<Supervisor[]> {
-  const supervisorsCol = collection(db, 'supervisors');
-  const supervisorSnapshot = await getDocs(supervisorsCol);
-  return supervisorSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Supervisor));
+// Fetch all plazas
+export async function getPlazas(): Promise<Plaza[]> {
+  const col = collection(db, 'plazas');
+  const snapshot = await getDocs(col);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Plaza));
 }
 
-// Fetch all groups
-export async function getGroups(): Promise<Group[]> {
-  const groupsCol = collection(db, 'groups');
-  const groupSnapshot = await getDocs(groupsCol);
-  return groupSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Group));
+// Fetch all localidades
+export async function getLocalidades(): Promise<Localidad[]> {
+  const col = collection(db, 'localidades');
+  const snapshot = await getDocs(col);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Localidad));
+}
+
+// Fetch all promotoras
+export async function getPromotoras(): Promise<Promotora[]> {
+  const col = collection(db, 'promotoras');
+  const snapshot = await getDocs(col);
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Promotora));
 }
 
 // Fetch all users
