@@ -88,6 +88,11 @@ interface ActiveLoanDetails {
     loan: Loan;
     settlementAmount: number;
     weeksRemaining: number;
+    hierarchy: {
+        plazaName: string;
+        localidadName: string;
+        promotoraName: string;
+    };
 }
 
 export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidades, promotoras }: CreateLoanDialogProps) {
@@ -129,6 +134,17 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
 
   const filteredLocalidades = localidades.filter(l => l.plazaId === selectedPlaza);
   const filteredPromotoras = promotoras.filter(p => p.localidadId === selectedLocalidad);
+
+  const getHierarchy = (promotoraId?: string) => {
+    const promotora = promotoras.find(p => p.id === promotoraId);
+    const localidad = localidades.find(l => l.id === promotora?.localidadId);
+    const plaza = plazas.find(p => p.id === localidad?.plazaId);
+    return {
+      promotoraName: promotora?.name || 'N/A',
+      localidadName: localidad?.name || 'N/A',
+      plazaName: plaza?.name || 'N/A',
+    };
+  };
 
   const handleClientNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
@@ -173,11 +189,14 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             // Simplified weeks remaining calculation
             const weeksPaid = totalPaid / weeklyPayment;
             const weeksRemaining = Math.max(0, loanPlan.termInWeeks - weeksPaid);
+            
+            const hierarchy = getHierarchy(activeLoan.promotoraId);
 
             setActiveLoanDetails({
                 loan: activeLoan,
                 settlementAmount: settlementAmount > 0 ? settlementAmount : 0,
                 weeksRemaining: Math.ceil(weeksRemaining),
+                hierarchy: hierarchy
             });
         }
     } else {
@@ -529,6 +548,11 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                                                 <p><strong>Monto Original:</strong> {formatCurrency(activeLoanDetails.loan.amount)}</p>
                                                 <p><strong>Saldo para Liquidar:</strong> <span className="font-bold">{formatCurrency(activeLoanDetails.settlementAmount)}</span></p>
                                                 <p><strong>Semanas Restantes:</strong> {activeLoanDetails.weeksRemaining}</p>
+                                                <div className='border-t border-destructive/30 mt-2 pt-2'>
+                                                  <p><strong>Plaza:</strong> {activeLoanDetails.hierarchy.plazaName}</p>
+                                                  <p><strong>Localidad:</strong> {activeLoanDetails.hierarchy.localidadName}</p>
+                                                  <p><strong>Promotora:</strong> {activeLoanDetails.hierarchy.promotoraName}</p>
+                                                </div>
                                             </div>
                                              <Button 
                                                 type="button" 
