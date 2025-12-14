@@ -5,53 +5,54 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { UserPermissions } from '@/lib/types';
+import { LayoutDashboard, Users, Landmark, FolderWarning, Wallet, FileText, Settings, type LucideIcon } from 'lucide-react';
+import { Button } from './ui/button';
 
-const allLinks: { href: string; label: string; id: keyof UserPermissions }[] = [
-  { href: '/dashboard', label: 'Dashboard', id: 'dashboard' },
-  { href: '/dashboard/clients', label: 'Clientes', id: 'clients' },
-  { href: '/dashboard/loans', label: 'Préstamos', id: 'loans' },
-  { href: '/dashboard/overdue-portfolio', label: 'Cartera Vencida', id: 'overduePortfolio' },
-  { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet' },
-  { href: '/dashboard/plans', label: 'Planes', id: 'plans' },
-  { href: '/dashboard/settings', label: 'Ajustes', id: 'settings' },
+const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: LucideIcon }[] = [
+  { href: '/dashboard', label: 'Dashboard', id: 'dashboard', icon: LayoutDashboard },
+  { href: '/dashboard/clients', label: 'Clientes', id: 'clients', icon: Users },
+  { href: '/dashboard/loans', label: 'Préstamos', id: 'loans', icon: Landmark },
+  { href: '/dashboard/overdue-portfolio', label: 'Cartera Vencida', id: 'overduePortfolio', icon: FolderWarning },
+  { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet', icon: Wallet },
+  { href: '/dashboard/plans', label: 'Planes', id: 'plans', icon: FileText },
+  { href: '/dashboard/settings', label: 'Ajustes', id: 'settings', icon: Settings },
 ];
 
 export function MainNav() {
   const pathname = usePathname();
   const { appUser } = useAuth();
 
-  // Si no tenemos la información del usuario, no mostramos nada para evitar errores.
   if (!appUser) {
     return null;
   }
 
   const allowedLinks = allLinks.filter(link => {
-    // Caso 1: El usuario es administrador. Mostrar todos los enlaces.
     if (appUser.role === 'admin') {
       return true;
     }
-
-    // Caso 2: El usuario no es administrador. Verificar sus permisos.
-    // Verificar si el usuario tiene el objeto de permisos y si el permiso específico está en true.
     return appUser.permissions && appUser.permissions[link.id];
   });
 
   return (
     <>
-      {allowedLinks.map((link) => (
-        <Link
-          key={link.href}
-          href={link.href}
-          className={cn(
-            "transition-colors hover:text-foreground",
-            pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href))
-              ? "text-foreground"
-              : "text-muted-foreground"
-          )}
-        >
-          {link.label}
-        </Link>
-      ))}
+      {allowedLinks.map((link) => {
+        const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
+        return (
+            <Button
+                key={link.href}
+                asChild
+                variant={isActive ? 'secondary' : 'ghost'}
+                className="justify-start"
+            >
+                <Link
+                href={link.href}
+                >
+                <link.icon className="mr-2 h-4 w-4" />
+                {link.label}
+                </Link>
+            </Button>
+        );
+      })}
     </>
   );
 }
