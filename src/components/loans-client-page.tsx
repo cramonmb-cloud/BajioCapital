@@ -696,7 +696,7 @@ const handleExportPDF = () => {
                 <FileDown className="mr-2 h-4 w-4" />
                 Exportar a PDF
             </Button>
-            <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans} promotoras={promotoras} />
+            <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans} plazas={plazas} localidades={localidades} promotoras={promotoras} />
         </div>
       </div>
       
@@ -956,3 +956,5 @@ const handleExportPDF = () => {
     </>
   );
 }
+
+    

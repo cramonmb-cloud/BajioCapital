@@ -41,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Client, Loan, LoanPlan, Promotora } from '@/lib/types';
+import type { Client, Loan, LoanPlan, Promotora, Plaza, Localidad } from '@/lib/types';
 import { PlusCircle, Loader2, AlertTriangle, BadgeDollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createLoanAction, payOffLoanAction } from '@/app/dashboard/actions';
@@ -79,6 +79,8 @@ interface CreateLoanDialogProps {
     clients: Client[];
     loanPlans: LoanPlan[];
     loans: Loan[];
+    plazas: Plaza[];
+    localidades: Localidad[];
     promotoras: Promotora[];
 }
 
@@ -88,7 +90,7 @@ interface ActiveLoanDetails {
     weeksRemaining: number;
 }
 
-export function CreateLoanDialog({ clients, loanPlans, loans, promotoras }: CreateLoanDialogProps) {
+export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidades, promotoras }: CreateLoanDialogProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [matchingClients, setMatchingClients] = useState<Client[]>([]);
@@ -98,6 +100,8 @@ export function CreateLoanDialog({ clients, loanPlans, loans, promotoras }: Crea
   const [isPayingOff, setIsPayingOff] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [formValues, setFormValues] = useState<LoanFormValues | null>(null);
+  const [selectedPlaza, setSelectedPlaza] = useState<string>('');
+  const [selectedLocalidad, setSelectedLocalidad] = useState<string>('');
   const { toast } = useToast();
   const router = useRouter();
 
@@ -122,6 +126,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, promotoras }: Crea
       endorsementPhone: '',
     },
   });
+
+  const filteredLocalidades = localidades.filter(l => l.plazaId === selectedPlaza);
+  const filteredPromotoras = promotoras.filter(p => p.localidadId === selectedLocalidad);
 
   const handleClientNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value;
@@ -298,6 +305,8 @@ export function CreateLoanDialog({ clients, loanPlans, loans, promotoras }: Crea
                 setMatchingClients([]);
                 setSelectedClient(null);
                 setActiveLoanDetails(null);
+                setSelectedPlaza('');
+                setSelectedLocalidad('');
                 setOpen(false);
             } else {
                 throw new Error(result.message || 'Error desconocido');
@@ -342,6 +351,17 @@ export function CreateLoanDialog({ clients, loanPlans, loans, promotoras }: Crea
     }).format(amount);
   };
 
+  const handlePlazaChange = (plazaId: string) => {
+    setSelectedPlaza(plazaId);
+    setSelectedLocalidad('');
+    form.setValue('promotoraId', '');
+  };
+
+  const handleLocalidadChange = (localidadId: string) => {
+      setSelectedLocalidad(localidadId);
+      form.setValue('promotoraId', '');
+  };
+
   return (
     <>
     <Dialog open={open} onOpenChange={(isOpen) => {
@@ -352,6 +372,8 @@ export function CreateLoanDialog({ clients, loanPlans, loans, promotoras }: Crea
           setMatchingClients([]);
           setSelectedClient(null);
           setActiveLoanDetails(null);
+          setSelectedPlaza('');
+          setSelectedLocalidad('');
         }
     }}>
       <DialogTrigger asChild>
@@ -372,30 +394,66 @@ export function CreateLoanDialog({ clients, loanPlans, loans, promotoras }: Crea
 
             {step === 1 && (
               <div className="space-y-4 py-4">
-                <FormField
-                    control={form.control}
-                    name="promotoraId"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Promotora</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                    <FormItem>
+                        <FormLabel>Plaza</FormLabel>
+                        <Select onValueChange={handlePlazaChange} value={selectedPlaza}>
                             <FormControl>
                             <SelectTrigger>
-                                <SelectValue placeholder="Selecciona una promotora" />
+                                <SelectValue placeholder="Selecciona una plaza" />
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                            {promotoras.map((promotora) => (
-                                <SelectItem key={promotora.id} value={promotora.id}>
-                                {promotora.name}
+                            {plazas.map((plaza) => (
+                                <SelectItem key={plaza.id} value={plaza.id}>
+                                {plaza.name}
                                 </SelectItem>
                             ))}
                             </SelectContent>
                         </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
+                    </FormItem>
+                    <FormItem>
+                        <FormLabel>Localidad</FormLabel>
+                        <Select onValueChange={handleLocalidadChange} value={selectedLocalidad} disabled={!selectedPlaza}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona una localidad" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {filteredLocalidades.map((localidad) => (
+                                <SelectItem key={localidad.id} value={localidad.id}>
+                                {localidad.name}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                    </FormItem>
+                    <FormField
+                        control={form.control}
+                        name="promotoraId"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Promotora</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedLocalidad}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecciona una promotora" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                {filteredPromotoras.map((promotora) => (
+                                    <SelectItem key={promotora.id} value={promotora.id}>
+                                    {promotora.name}
+                                    </SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                     <FormField
                     control={form.control}
@@ -707,3 +765,5 @@ export function CreateLoanDialog({ clients, loanPlans, loans, promotoras }: Crea
     </>
   );
 }
+
+    
