@@ -544,11 +544,13 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                                             <p className="text-sm text-destructive/90">
                                                 Este cliente no puede solicitar un nuevo préstamo hasta que el actual sea liquidado.
                                             </p>
-                                            <div className="mt-2 text-sm space-y-1">
-                                                <p><strong>Monto Original:</strong> {formatCurrency(activeLoanDetails.loan.amount)}</p>
-                                                <p><strong>Saldo para Liquidar:</strong> <span className="font-bold">{formatCurrency(activeLoanDetails.settlementAmount)}</span></p>
-                                                <p><strong>Semanas Restantes:</strong> {activeLoanDetails.weeksRemaining}</p>
-                                                <div className='border-t border-destructive/30 mt-2 pt-2'>
+                                            <div className="mt-2 text-sm grid grid-cols-2 gap-x-4 gap-y-1">
+                                                <div>
+                                                    <p><strong>Monto Original:</strong> {formatCurrency(activeLoanDetails.loan.amount)}</p>
+                                                    <p><strong>Saldo para Liquidar:</strong> <span className="font-bold">{formatCurrency(activeLoanDetails.settlementAmount)}</span></p>
+                                                    <p><strong>Semanas Restantes:</strong> {activeLoanDetails.weeksRemaining}</p>
+                                                </div>
+                                                <div className='border-l border-destructive/30 pl-4'>
                                                   <p><strong>Plaza:</strong> {activeLoanDetails.hierarchy.plazaName}</p>
                                                   <p><strong>Localidad:</strong> {activeLoanDetails.hierarchy.localidadName}</p>
                                                   <p><strong>Promotora:</strong> {activeLoanDetails.hierarchy.promotoraName}</p>
@@ -789,5 +791,3 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     </>
   );
 }
-
-    
