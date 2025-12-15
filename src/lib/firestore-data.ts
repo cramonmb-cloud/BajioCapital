@@ -1,6 +1,6 @@
 import { collection, getDocs, doc, getDoc, addDoc, updateDoc, writeBatch, query, where, Timestamp, orderBy } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora, Wallet, WalletTransaction, AppUser } from './types';
+import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora, Wallet, WalletTransaction, AppUser, AppConfig } from './types';
 
 // Fetch all clients
 export async function getClients(): Promise<Client[]> {
@@ -177,6 +177,16 @@ export async function getUsers(): Promise<AppUser[]> {
     const usersCol = collection(db, 'users');
     const userSnapshot = await getDocs(usersCol);
     return userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
+}
+
+// Fetch app configuration
+export async function getAppConfig(): Promise<AppConfig | null> {
+    const configRef = doc(db, 'config', 'main');
+    const configSnap = await getDoc(configRef);
+    if (configSnap.exists()) {
+        return configSnap.data() as AppConfig;
+    }
+    return null;
 }
 
 

@@ -1,7 +1,13 @@
 import { CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
-export function Logo({ className }: { className?: string }) {
+interface LogoProps {
+  className?: string;
+  logoUrl?: string | null;
+}
+
+export function Logo({ className, logoUrl }: LogoProps) {
   return (
     <div
       className={cn(
@@ -9,7 +15,11 @@ export function Logo({ className }: { className?: string }) {
         className
       )}
     >
-      <CreditCard className="size-5" />
+      {logoUrl ? (
+        <Image src={logoUrl} alt="Logo" width={32} height={32} className="h-8 w-8 object-contain" />
+      ) : (
+        <CreditCard className="size-5" />
+      )}
       CrediControl
     </div>
   );

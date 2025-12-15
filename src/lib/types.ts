@@ -87,3 +87,7 @@ export type AppUser = {
     role: 'admin' | 'supervisor';
     permissions: UserPermissions;
 };
+
+export type AppConfig = {
+  logoUrl?: string;
+};

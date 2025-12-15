@@ -8,9 +8,10 @@ import { Bell } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Loading from './loading';
 import type { UserPermissions } from '@/lib/types';
+import { getAppConfig } from '@/lib/firestore-data';
 
 
 const allLinks = [
@@ -19,6 +20,7 @@ const allLinks = [
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans' },
   { href: '/dashboard/overdue-portfolio', label: 'Cartera Vencida', id: 'overduePortfolio'},
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet' },
+  { href: '/dashboard/control', label: 'Control', id: 'control' },
   { href: '/dashboard/plans', label: 'Planes', id: 'plans' },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings' },
 ] as const;
@@ -30,6 +32,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user, appUser, loading } = useAuth();
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -56,6 +59,16 @@ export default function DashboardLayout({
         }
     }
   }, [user, appUser, loading, router, pathname]);
+
+   useEffect(() => {
+    async function fetchLogo() {
+      const config = await getAppConfig();
+      if (config?.logoUrl) {
+        setLogoUrl(config.logoUrl);
+      }
+    }
+    fetchLogo();
+  }, [pathname]); // Refetch on path change to ensure it's up to date
   
   if (loading || !user || !appUser) {
     return <div className="flex h-screen w-full items-center justify-center"><Loading /></div>;
@@ -75,7 +88,7 @@ export default function DashboardLayout({
             href="/dashboard"
             className="flex items-center gap-2 text-lg font-semibold md:text-base mr-4"
           >
-            <Logo />
+            <Logo logoUrl={logoUrl} />
             <span className="sr-only">CrediControl</span>
         </Link>
         <div className="flex-1">

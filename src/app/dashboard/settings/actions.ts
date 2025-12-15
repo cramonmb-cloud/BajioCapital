@@ -3,7 +3,7 @@
 import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
-import type { Plaza, Localidad, Promotora, AppUser } from '@/lib/types';
+import type { Plaza, Localidad, Promotora, AppUser, AppConfig } from '@/lib/types';
 
 async function deleteCollection(collectionPath: string) {
     const collectionRef = collection(db, collectionPath);
@@ -29,6 +29,7 @@ export async function deleteAllDataAction() {
         await deleteCollection('localidades');
         await deleteCollection('promotoras');
         await deleteCollection('users');
+        await deleteCollection('config');
         
         // Reset wallet
         const walletRef = doc(db, 'wallet', 'main');
@@ -127,5 +128,18 @@ export async function deletePromotoraAction(id: string) {
         return { success: true, message: 'Promotora eliminada con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al eliminar promotora: ${error.message}` };
+    }
+}
+
+
+// App Config Actions
+export async function saveLogoAction(logoUrl: string) {
+    try {
+        const configRef = doc(db, 'config', 'main');
+        await setDoc(configRef, { logoUrl }, { merge: true });
+        revalidatePath('/dashboard', 'layout');
+        return { success: true, message: 'Logo actualizado con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar el logo: ${error.message}` };
     }
 }

@@ -2,14 +2,15 @@ import { SettingsClientPage } from "@/components/settings-client-page";
 import { PlazaManagement } from "@/components/plaza-management";
 import { UserManagement } from "@/components/user-management";
 import { Separator } from "@/components/ui/separator";
-import { getPlazas, getLocalidades, getPromotoras, getUsers } from "@/lib/firestore-data";
+import { getPlazas, getLocalidades, getPromotoras, getUsers, getAppConfig } from "@/lib/firestore-data";
 
 export default async function SettingsPage() {
-    const [plazas, localidades, promotoras, users] = await Promise.all([
+    const [plazas, localidades, promotoras, users, config] = await Promise.all([
         getPlazas(),
         getLocalidades(),
         getPromotoras(),
         getUsers(),
+        getAppConfig(),
     ]);
     
     return (
@@ -33,7 +34,7 @@ export default async function SettingsPage() {
 
             <Separator />
             
-            <SettingsClientPage />
+            <SettingsClientPage initialConfig={config} />
         </div>
     );
 }
