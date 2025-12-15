@@ -697,12 +697,26 @@ const handleExportPDF = () => {
   return (
     <>
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Préstamos</h1>
-          <p className="text-muted-foreground">
-            Visualiza y administra todos los préstamos por semana.
-          </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={selectedPlaza} onValueChange={handlePlazaChange}>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Selecciona Plaza" /></SelectTrigger>
+              <SelectContent>
+                  {plazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+          </Select>
+          <Select value={selectedLocalidad} onValueChange={handleLocalidadChange} disabled={!selectedPlaza}>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Selecciona Localidad" /></SelectTrigger>
+              <SelectContent>
+                  {filteredLocalidades.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+              </SelectContent>
+          </Select>
+          <Select value={selectedPromotora} onValueChange={handlePromotoraChange} disabled={!selectedLocalidad}>
+              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Selecciona Promotora" /></SelectTrigger>
+              <SelectContent>
+                  {filteredPromotoras.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+              </SelectContent>
+          </Select>
         </div>
         <div className="flex items-center gap-2">
             <Button variant="outline" onClick={handleExportPDF} disabled={filteredLoans.length === 0}>
@@ -725,59 +739,31 @@ const handleExportPDF = () => {
         </div>
       </div>
       
-      <div className="grid gap-4 md:grid-cols-[140px_1fr]">
-        {/* Filters and Weeks List */}
-        <div className="space-y-4">
-            <Card>
-                <CardHeader className="p-2 pt-4">
-                    <CardTitle className="text-base">Filtros</CardTitle>
-                </CardHeader>
-                <CardContent className="p-2 space-y-2">
-                    <Select value={selectedPlaza} onValueChange={handlePlazaChange}>
-                        <SelectTrigger><SelectValue placeholder="Selecciona Plaza" /></SelectTrigger>
-                        <SelectContent>
-                            {plazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <Select value={selectedLocalidad} onValueChange={handleLocalidadChange} disabled={!selectedPlaza}>
-                        <SelectTrigger><SelectValue placeholder="Selecciona Localidad" /></SelectTrigger>
-                        <SelectContent>
-                            {filteredLocalidades.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                    <Select value={selectedPromotora} onValueChange={handlePromotoraChange} disabled={!selectedLocalidad}>
-                        <SelectTrigger><SelectValue placeholder="Selecciona Promotora" /></SelectTrigger>
-                        <SelectContent>
-                            {filteredPromotoras.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                        </SelectContent>
-                    </Select>
-                </CardContent>
-            </Card>
-            <Card>
-                <CardHeader className="p-2 pt-4">
-                    <CardTitle className="text-base">Semanas</CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="space-y-1 px-2 pb-2">
-                        {loanWeeks.map((week) => (
-                            <Button 
-                                key={week}
-                                variant={selectedWeek === week ? 'secondary' : 'ghost'}
-                                className="w-full justify-start h-8 px-2 text-xs"
-                                onClick={() => setSelectedWeek(week)}
-                                disabled={!selectedPromotora}
-                            >
-                                {formatDate(week)}
-                            </Button>
-                        ))}
-                        {selectedPromotora && loanWeeks.length === 0 && (
-                            <p className="text-sm text-muted-foreground text-center p-4">No hay préstamos para esta promotora.</p>
-                        )}
-                        {!selectedPromotora && <p className="text-sm text-muted-foreground text-center p-4">Selecciona una promotora para ver las semanas.</p>}
-                    </div>
-                </CardContent>
-            </Card>
-        </div>
+      <div className="grid gap-4 md:grid-cols-[200px_1fr]">
+        <Card>
+            <CardHeader className="p-2 pt-4">
+                <CardTitle className="text-base">Semanas</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+                <div className="space-y-1 px-2 pb-2">
+                    {loanWeeks.map((week) => (
+                        <Button 
+                            key={week}
+                            variant={selectedWeek === week ? 'secondary' : 'ghost'}
+                            className="w-full justify-start h-8 px-2 text-xs"
+                            onClick={() => setSelectedWeek(week)}
+                            disabled={!selectedPromotora}
+                        >
+                            {formatDate(week)}
+                        </Button>
+                    ))}
+                    {selectedPromotora && loanWeeks.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center p-4">No hay préstamos para esta promotora.</p>
+                    )}
+                    {!selectedPromotora && <p className="text-sm text-muted-foreground text-center p-4">Selecciona una promotora para ver las semanas.</p>}
+                </div>
+            </CardContent>
+        </Card>
 
         {/* Loans Table */}
         <Card>
