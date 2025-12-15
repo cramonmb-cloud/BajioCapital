@@ -215,7 +215,7 @@ export default async function DashboardPage() {
                     </TableCell>
                     <TableCell className="text-right">
                        <Button asChild variant="ghost" size="icon">
-                        <Link href={`/dashboard/clients/${loan.clientId}`}>
+                        <Link href="/dashboard/overdue-portfolio">
                           <ArrowRight className="h-4 w-4" />
                         </Link>
                       </Button>
