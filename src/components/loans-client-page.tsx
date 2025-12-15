@@ -638,7 +638,7 @@ const handleExportPDF = () => {
       });
       
       const hasAssumed = filteredLoans.some(loan => {
-          if (loan.status === 'Paid Off') return false;
+          if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') return false;
           const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
           if (!loanPlan) return false;
 
