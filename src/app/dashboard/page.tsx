@@ -14,20 +14,24 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getClients, getLoans, getLoanPlans } from '@/lib/firestore-data';
+import { getClients, getLoans, getLoanPlans, getAppConfig } from '@/lib/firestore-data';
 import { Users, Landmark, Banknote, ArrowRight, Database, TrendingUp, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { seedDatabaseAction } from './seed-actions';
 import type { Loan } from '@/lib/types';
+import Image from 'next/image';
 
 
 export default async function DashboardPage() {
-  const [clients, loans, loanPlans] = await Promise.all([
+  const [clients, loans, loanPlans, config] = await Promise.all([
     getClients(),
     getLoans(),
-    getLoanPlans()
+    getLoanPlans(),
+    getAppConfig()
   ]);
+
+  const logoUrl = config?.logoUrl;
 
   const totalClients = clients.length;
   const activeLoans = loans.filter((loan) => loan.status === 'Active' || loan.status === 'Overdue').length;
@@ -97,6 +101,21 @@ export default async function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
       </div>
+
+      {logoUrl && (
+        <div className="flex justify-center">
+            <Card className="w-48 h-48 flex items-center justify-center p-4">
+                <div className="relative w-full h-full">
+                    <Image 
+                        src={logoUrl} 
+                        alt="Logo de la aplicación" 
+                        layout="fill"
+                        objectFit="contain"
+                    />
+                </div>
+            </Card>
+        </div>
+      )}
       
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card>
