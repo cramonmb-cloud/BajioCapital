@@ -323,7 +323,7 @@ const handleExportPDF = () => {
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
-    const maxWeeksToShow = 12; // Reduced for portrait mode
+    const maxWeeksToShow = 12;
 
     // --- Header ---
     const pdfToday = new Date();
@@ -512,10 +512,10 @@ const handleExportPDF = () => {
              fontSize: 7,
         },
         columnStyles: {
-          0: { cellWidth: 80 }, 
+          0: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] }, 
           1: { cellWidth: 35, halign: 'right' }, 
           ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 30 }])),
-          [maxWeeksToShow + 2]: { cellWidth: 80 },
+          [maxWeeksToShow + 2]: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] },
         },
         didDrawCell: (data) => {
             const loan = filteredLoans[data.row.index];
@@ -775,7 +775,7 @@ const handleExportPDF = () => {
 
         {/* Loans Table */}
         <Card>
-          <CardHeader className="flex justify-between items-start p-2 pt-4">
+          <CardHeader className="flex flex-row justify-between items-start p-4">
             <div>
                 <CardTitle>Préstamos de la Semana</CardTitle>
                 <CardDescription>
@@ -1004,5 +1004,3 @@ const handleExportPDF = () => {
     </>
   );
 }
-
-    
