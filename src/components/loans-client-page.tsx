@@ -320,10 +320,10 @@ const handleAccumulatePayments = async () => {
 const handleExportPDF = () => {
     if (filteredLoans.length === 0 || !selectedWeek) return;
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
-    const maxWeeksToShow = 15; 
+    const maxWeeksToShow = 12; // Reduced for portrait mode
 
     // --- Header ---
     const pdfToday = new Date();
@@ -512,10 +512,10 @@ const handleExportPDF = () => {
              fontSize: 7,
         },
         columnStyles: {
-          0: { cellWidth: 90 }, 
-          1: { cellWidth: 40, halign: 'right' }, 
-          ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 35 }])),
-          [maxWeeksToShow + 2]: { cellWidth: 90 },
+          0: { cellWidth: 80 }, 
+          1: { cellWidth: 35, halign: 'right' }, 
+          ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 30 }])),
+          [maxWeeksToShow + 2]: { cellWidth: 80 },
         },
         didDrawCell: (data) => {
             const loan = filteredLoans[data.row.index];
