@@ -783,9 +783,6 @@ const handleExportPDF = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky left-0 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
-                      <TableHead className="p-2">Plaza</TableHead>
-                      <TableHead className="p-2">Localidad</TableHead>
-                      <TableHead className="p-2">Promotora</TableHead>
                       <TableHead className="p-2">Abono</TableHead>
                       <TableHead className="p-2">Estado</TableHead>
                       {Array.from({ length: 15 }, (_, i) => {
@@ -802,7 +799,6 @@ const handleExportPDF = () => {
                     {filteredLoans.length > 0 ? (
                       filteredLoans.map((loan) => {
                         const originalLoanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-                        const { plazaName, localidadName, promotoraName } = getHierarchy(loan.promotoraId);
                         
                         if (!originalLoanPlan) return null;
 
@@ -821,9 +817,6 @@ const handleExportPDF = () => {
                               {getClientName(loan.clientId)}
                             </Link>
                           </TableCell>
-                          <TableCell className="p-2">{plazaName}</TableCell>
-                          <TableCell className="p-2">{localidadName}</TableCell>
-                          <TableCell className="p-2">{promotoraName}</TableCell>
                           <TableCell className="p-2">{formatCurrency(weeklyPayment)}</TableCell>
                           <TableCell className="p-2">
                             <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
@@ -911,7 +904,7 @@ const handleExportPDF = () => {
                       )})
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={22} className="text-center h-24 p-2">
+                            <TableCell colSpan={19} className="text-center h-24 p-2">
                                {selectedPromotora ? "No hay préstamos para la semana y promotora seleccionada." : "Selecciona una promotora para comenzar."}
                             </TableCell>
                         </TableRow>
@@ -920,7 +913,7 @@ const handleExportPDF = () => {
                   {filteredLoans.length > 0 && weeklyFailures.length > 0 && weeklyCollected.length > 0 && (
                     <TableFooter>
                         <TableRow>
-                            <TableCell colSpan={6} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
+                            <TableCell colSpan={3} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
                             {Array.from({ length: 15 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -940,7 +933,7 @@ const handleExportPDF = () => {
                             <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                          <TableCell colSpan={6} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
+                          <TableCell colSpan={3} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
                             {weeklyFailures.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -952,7 +945,7 @@ const handleExportPDF = () => {
                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                            <TableCell colSpan={6} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
+                            <TableCell colSpan={3} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
