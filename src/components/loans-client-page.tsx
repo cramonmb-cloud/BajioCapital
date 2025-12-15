@@ -320,7 +320,7 @@ const handleAccumulatePayments = async () => {
 const handleExportPDF = () => {
     if (filteredLoans.length === 0 || !selectedWeek) return;
 
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
     const margin = 20;
     const maxWeeksToShow = 15; 
@@ -512,10 +512,10 @@ const handleExportPDF = () => {
              fontSize: 7,
         },
         columnStyles: {
-          0: { cellWidth: 80 }, 
-          1: { cellWidth: 35, halign: 'right' }, 
-          ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 28 }])),
-          [maxWeeksToShow + 2]: { cellWidth: 80 },
+          0: { cellWidth: 90 }, 
+          1: { cellWidth: 40, halign: 'right' }, 
+          ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 35 }])),
+          [maxWeeksToShow + 2]: { cellWidth: 90 },
         },
         didDrawCell: (data) => {
             const loan = filteredLoans[data.row.index];
@@ -688,11 +688,13 @@ const handleExportPDF = () => {
       setSelectedPlaza(plazaId);
       setSelectedLocalidad('');
       setSelectedPromotora('');
+      setSelectedWeek(null);
   };
 
   const handleLocalidadChange = (localidadId: string) => {
       setSelectedLocalidad(localidadId);
       setSelectedPromotora('');
+      setSelectedWeek(null);
   };
 
   const handlePromotoraChange = (promotoraId: string) => {
@@ -773,14 +775,16 @@ const handleExportPDF = () => {
 
         {/* Loans Table */}
         <Card>
-          <CardHeader className="p-2 pt-4">
-            <CardTitle>Préstamos de la Semana</CardTitle>
-            <CardDescription>
-              {selectedWeek
-                ? `Mostrando ${filteredLoans.length} préstamos para la semana del ${formatDate(selectedWeek)}.`
-                : 'Selecciona una promotora y una semana para ver los préstamos.'
-              }
-            </CardDescription>
+          <CardHeader className="flex justify-between items-start p-2 pt-4">
+            <div>
+                <CardTitle>Préstamos de la Semana</CardTitle>
+                <CardDescription>
+                {selectedWeek
+                    ? `Mostrando ${filteredLoans.length} préstamos para la semana del ${formatDate(selectedWeek)}.`
+                    : 'Selecciona una promotora y una semana para ver los préstamos.'
+                }
+                </CardDescription>
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             <TooltipProvider>
