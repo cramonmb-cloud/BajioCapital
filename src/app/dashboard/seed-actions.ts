@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { db } from '@/lib/firebase';
-import { clients, loanPlans, loans } from '@/lib/data';
+import { clients, loanPlans, loans, plazas, localidades, promotoras } from '@/lib/data';
 import { writeBatch, doc, collection } from 'firebase/firestore';
 
 export async function seedDatabaseAction() {
@@ -23,6 +23,30 @@ export async function seedDatabaseAction() {
       const { id, ...planData } = plan;
       const docRef = doc(plansCol, id);
       batch.set(docRef, planData);
+    });
+
+    // Seed plazas
+    const plazasCol = collection(db, 'plazas');
+    plazas.forEach((plaza) => {
+      const { id, ...plazaData } = plaza;
+      const docRef = doc(plazasCol, id);
+      batch.set(docRef, plazaData);
+    });
+
+    // Seed localidades
+    const localidadesCol = collection(db, 'localidades');
+    localidades.forEach((localidad) => {
+        const { id, ...localidadData } = localidad;
+        const docRef = doc(localidadesCol, id);
+        batch.set(docRef, localidadData);
+    });
+
+    // Seed promotoras
+    const promotorasCol = collection(db, 'promotoras');
+    promotoras.forEach((promotora) => {
+        const { id, ...promotoraData } = promotora;
+        const docRef = doc(promotorasCol, id);
+        batch.set(docRef, promotoraData);
     });
 
     // Seed loans
