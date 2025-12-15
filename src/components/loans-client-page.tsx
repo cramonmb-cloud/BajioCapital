@@ -49,6 +49,7 @@ import type { UserOptions } from 'jspdf-autotable';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { accumulateAssumedPaymentsAction } from '@/app/dashboard/actions';
+import { format as formatDateFns } from 'date-fns';
 
 
 interface jsPDFWithAutoTable extends jsPDF {
@@ -317,7 +318,7 @@ const handleAccumulatePayments = async () => {
 };
 
 const handleExportPDF = () => {
-    if (filteredLoans.length === 0) return;
+    if (filteredLoans.length === 0 || !selectedWeek) return;
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -569,7 +570,12 @@ const handleExportPDF = () => {
         }
     });
 
-    doc.save('reporte_cobranza.pdf');
+    const weekDate = new Date(selectedWeek);
+    const formattedDate = formatDateFns(weekDate, 'dd-MM-yyyy');
+    
+    const fileName = `${plazaName} - ${localidadName} - ${promotoraName} - ${formattedDate}.pdf`;
+
+    doc.save(fileName);
 };
   
  useEffect(() => {
@@ -904,7 +910,7 @@ const handleExportPDF = () => {
                       )})
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={19} className="text-center h-24 p-2">
+                            <TableCell colSpan={18} className="text-center h-24 p-2">
                                {selectedPromotora ? "No hay préstamos para la semana y promotora seleccionada." : "Selecciona una promotora para comenzar."}
                             </TableCell>
                         </TableRow>
