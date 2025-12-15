@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { Loan, LoanPlan } from '@/lib/types';
+import type { Loan, LoanPlan, Client, Plaza, Localidad, Promotora } from '@/lib/types';
 import {
   Card,
   CardContent,
@@ -11,12 +11,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Banknote, TrendingDown, X } from 'lucide-react';
-import { addDays, format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
+import { ReportsSection } from './reports-section';
+import { Separator } from './ui/separator';
 
 interface ControlClientPageProps {
     initialLoans: Loan[];
     initialLoanPlans: LoanPlan[];
+    clients: Client[];
+    plazas: Plaza[];
+    localidades: Localidad[];
+    promotoras: Promotora[];
 }
 
 // This function calculates if a loan has a penalty
@@ -32,7 +37,7 @@ const hasPenalty = (loan: Loan, currentLoanWeek: number, weeklyPayment: number) 
     return missedWeeksCount >= 2;
 };
 
-export function ControlClientPage({ initialLoans, initialLoanPlans }: ControlClientPageProps) {
+export function ControlClientPage({ initialLoans, initialLoanPlans, clients, plazas, localidades, promotoras }: ControlClientPageProps) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
     const filteredLoans = useMemo(() => {
@@ -146,6 +151,17 @@ export function ControlClientPage({ initialLoans, initialLoanPlans }: ControlCli
                     </CardContent>
                 </Card>
             </div>
+            
+            <Separator />
+
+            <ReportsSection 
+                loans={initialLoans} 
+                clients={clients} 
+                loanPlans={initialLoanPlans} 
+                plazas={plazas} 
+                localidades={localidades} 
+                promotoras={promotoras} 
+            />
         </div>
     );
 }
