@@ -79,7 +79,9 @@ interface LoansClientPageProps {
 
 export function LoansClientPage({ loans, clients, loanPlans, plazas, localidades, promotoras }: LoansClientPageProps) {
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
-  const [selectedPromotora, setSelectedPromotora] = useState<string>('all');
+  const [selectedPlaza, setSelectedPlaza] = useState<string>('');
+  const [selectedLocalidad, setSelectedLocalidad] = useState<string>('');
+  const [selectedPromotora, setSelectedPromotora] = useState<string>('');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
   const { appUser } = useAuth();
@@ -106,16 +108,19 @@ export function LoansClientPage({ loans, clients, loanPlans, plazas, localidades
       hasAssumedPayments: false,
       loansWithPenalty: {},
   });
+
+  const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza), [localidades, selectedPlaza]);
+  const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad), [promotoras, selectedLocalidad]);
   
   const loanWeeks = useMemo(() => 
     Array.from(
-      new Set(loans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
+      new Set(loans.filter(l => l.promotoraId === selectedPromotora).map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
     ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
-  , [loans]);
+  , [loans, selectedPromotora]);
 
   const filteredLoans = useMemo(() => loans.filter(loan => {
     const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
-    const isCorrectPromotora = selectedPromotora === 'all' ? true : loan.promotoraId === selectedPromotora;
+    const isCorrectPromotora = selectedPromotora ? loan.promotoraId === selectedPromotora : false;
     return isCorrectWeek && isCorrectPromotora;
   }), [loans, selectedWeek, selectedPromotora]);
 
@@ -124,6 +129,9 @@ export function LoansClientPage({ loans, clients, loanPlans, plazas, localidades
     setIsClient(true);
     if (!selectedWeek && loanWeeks.length > 0) {
         setSelectedWeek(loanWeeks[0]);
+    }
+    if (selectedWeek && !loanWeeks.includes(selectedWeek)) {
+        setSelectedWeek(loanWeeks[0] || null);
     }
   }, [loanWeeks, selectedWeek]);
 
@@ -670,6 +678,22 @@ const handleExportPDF = () => {
 
   const { currentGroupWeek, weeklyFailures, weeklyCollected, hasAssumedPayments, loansWithPenalty } = pageData;
 
+  const handlePlazaChange = (plazaId: string) => {
+      setSelectedPlaza(plazaId);
+      setSelectedLocalidad('');
+      setSelectedPromotora('');
+  };
+
+  const handleLocalidadChange = (localidadId: string) => {
+      setSelectedLocalidad(localidadId);
+      setSelectedPromotora('');
+  };
+
+  const handlePromotoraChange = (promotoraId: string) => {
+      setSelectedPromotora(promotoraId);
+      setSelectedWeek(null); // Reset week selection
+  };
+
   return (
     <>
     <div className="space-y-4">
@@ -681,54 +705,89 @@ const handleExportPDF = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-            <Select value={selectedPromotora} onValueChange={setSelectedPromotora}>
-                <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Filtrar por promotora" />
-                </SelectTrigger>
-                <SelectContent>
-                    <SelectItem value="all">Todas las promotoras</SelectItem>
-                    {promotoras.map(p => (
-                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
-                </SelectContent>
-            </Select>
             <Button variant="outline" onClick={handleExportPDF} disabled={filteredLoans.length === 0}>
                 <FileDown className="mr-2 h-4 w-4" />
                 Exportar a PDF
             </Button>
-            <CreateLoanDialog clients={clients} loanPlans={loanPlans} loans={loans} plazas={plazas} localidades={localidades} promotoras={promotoras} />
+            <CreateLoanDialog
+              clients={clients}
+              loanPlans={loanPlans}
+              loans={loans}
+              plazas={plazas}
+              localidades={localidades}
+              promotoras={promotoras}
+              initialSelection={{
+                plazaId: selectedPlaza,
+                localidadId: selectedLocalidad,
+                promotoraId: selectedPromotora,
+              }}
+             />
         </div>
       </div>
       
       <div className="grid gap-4 md:grid-cols-[140px_1fr]">
-        {/* Weeks List */}
-        <Card>
-            <CardHeader className="p-2 pt-4">
-                <CardTitle className="text-base">Semanas</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-                <div className="space-y-1 px-2 pb-2">
-                    {loanWeeks.map((week) => (
-                        <Button 
-                            key={week}
-                            variant={selectedWeek === week ? 'secondary' : 'ghost'}
-                            className="w-full justify-start h-8 px-2 text-xs"
-                            onClick={() => setSelectedWeek(week)}
-                        >
-                            {formatDate(week)}
-                        </Button>
-                    ))}
-                    {loanWeeks.length === 0 && <p className="text-sm text-muted-foreground text-center p-4">No hay préstamos.</p>}
-                </div>
-            </CardContent>
-        </Card>
+        {/* Filters and Weeks List */}
+        <div className="space-y-4">
+            <Card>
+                <CardHeader className="p-2 pt-4">
+                    <CardTitle className="text-base">Filtros</CardTitle>
+                </CardHeader>
+                <CardContent className="p-2 space-y-2">
+                    <Select value={selectedPlaza} onValueChange={handlePlazaChange}>
+                        <SelectTrigger><SelectValue placeholder="Selecciona Plaza" /></SelectTrigger>
+                        <SelectContent>
+                            {plazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Select value={selectedLocalidad} onValueChange={handleLocalidadChange} disabled={!selectedPlaza}>
+                        <SelectTrigger><SelectValue placeholder="Selecciona Localidad" /></SelectTrigger>
+                        <SelectContent>
+                            {filteredLocalidades.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                    <Select value={selectedPromotora} onValueChange={handlePromotoraChange} disabled={!selectedLocalidad}>
+                        <SelectTrigger><SelectValue placeholder="Selecciona Promotora" /></SelectTrigger>
+                        <SelectContent>
+                            {filteredPromotoras.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        </SelectContent>
+                    </Select>
+                </CardContent>
+            </Card>
+            <Card>
+                <CardHeader className="p-2 pt-4">
+                    <CardTitle className="text-base">Semanas</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="space-y-1 px-2 pb-2">
+                        {loanWeeks.map((week) => (
+                            <Button 
+                                key={week}
+                                variant={selectedWeek === week ? 'secondary' : 'ghost'}
+                                className="w-full justify-start h-8 px-2 text-xs"
+                                onClick={() => setSelectedWeek(week)}
+                                disabled={!selectedPromotora}
+                            >
+                                {formatDate(week)}
+                            </Button>
+                        ))}
+                        {selectedPromotora && loanWeeks.length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center p-4">No hay préstamos para esta promotora.</p>
+                        )}
+                        {!selectedPromotora && <p className="text-sm text-muted-foreground text-center p-4">Selecciona una promotora para ver las semanas.</p>}
+                    </div>
+                </CardContent>
+            </Card>
+        </div>
 
         {/* Loans Table */}
         <Card>
           <CardHeader className="p-2 pt-4">
             <CardTitle>Préstamos de la Semana</CardTitle>
             <CardDescription>
-              {`Mostrando ${filteredLoans.length} préstamos para la semana del ${selectedWeek ? formatDate(selectedWeek) : 'N/A'}.`}
+              {selectedWeek
+                ? `Mostrando ${filteredLoans.length} préstamos para la semana del ${formatDate(selectedWeek)}.`
+                : 'Selecciona una promotora y una semana para ver los préstamos.'
+              }
             </CardDescription>
           </CardHeader>
           <CardContent className="p-0">
@@ -867,7 +926,7 @@ const handleExportPDF = () => {
                     ) : (
                         <TableRow>
                             <TableCell colSpan={22} className="text-center h-24 p-2">
-                               No hay préstamos para la semana seleccionada. O presiona "Cargar Datos de Ejemplo".
+                               {selectedPromotora ? "No hay préstamos para la semana y promotora seleccionada." : "Selecciona una promotora para comenzar."}
                             </TableCell>
                         </TableRow>
                     )}

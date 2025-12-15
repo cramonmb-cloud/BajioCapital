@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -82,6 +82,11 @@ interface CreateLoanDialogProps {
     plazas: Plaza[];
     localidades: Localidad[];
     promotoras: Promotora[];
+    initialSelection?: {
+        plazaId: string;
+        localidadId: string;
+        promotoraId: string;
+    };
 }
 
 interface ActiveLoanDetails {
@@ -95,7 +100,7 @@ interface ActiveLoanDetails {
     };
 }
 
-export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidades, promotoras }: CreateLoanDialogProps) {
+export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidades, promotoras, initialSelection }: CreateLoanDialogProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [matchingClients, setMatchingClients] = useState<Client[]>([]);
@@ -105,15 +110,17 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
   const [isPayingOff, setIsPayingOff] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [formValues, setFormValues] = useState<LoanFormValues | null>(null);
-  const [selectedPlaza, setSelectedPlaza] = useState<string>('');
-  const [selectedLocalidad, setSelectedLocalidad] = useState<string>('');
+  
+  const [selectedPlaza, setSelectedPlaza] = useState(initialSelection?.plazaId || '');
+  const [selectedLocalidad, setSelectedLocalidad] = useState(initialSelection?.localidadId || '');
+
   const { toast } = useToast();
   const router = useRouter();
 
   const form = useForm<LoanFormValues>({
     resolver: zodResolver(step === 1 ? stepOneSchema : formSchema),
     defaultValues: {
-      promotoraId: '',
+      promotoraId: initialSelection?.promotoraId || '',
       loanPlanId: '',
       amount: 0,
       clientName: '',
@@ -131,6 +138,35 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
       endorsementPhone: '',
     },
   });
+
+  useEffect(() => {
+    if (initialSelection) {
+      setSelectedPlaza(initialSelection.plazaId);
+      setSelectedLocalidad(initialSelection.localidadId);
+      form.setValue('promotoraId', initialSelection.promotoraId);
+    }
+     if (open) {
+      // Reset form when dialog opens and there's a pre-selection
+      if(initialSelection) {
+        setSelectedPlaza(initialSelection.plazaId);
+        setSelectedLocalidad(initialSelection.localidadId);
+        form.reset({
+          ...form.getValues(),
+          promotoraId: initialSelection.promotoraId,
+        });
+      }
+    } else {
+        // Reset everything when dialog closes
+        form.reset();
+        setStep(1);
+        setMatchingClients([]);
+        setSelectedClient(null);
+        setActiveLoanDetails(null);
+        setSelectedPlaza('');
+        setSelectedLocalidad('');
+    }
+  }, [initialSelection, open, form]);
+
 
   const filteredLocalidades = localidades.filter(l => l.plazaId === selectedPlaza);
   const filteredPromotoras = promotoras.filter(p => p.localidadId === selectedLocalidad);
@@ -319,13 +355,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     description: `El préstamo para ${values.clientName} ha sido creado exitosamente.`,
                 });
 
-                form.reset();
-                setStep(1);
-                setMatchingClients([]);
-                setSelectedClient(null);
-                setActiveLoanDetails(null);
-                setSelectedPlaza('');
-                setSelectedLocalidad('');
                 setOpen(false);
             } else {
                 throw new Error(result.message || 'Error desconocido');
@@ -383,20 +412,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
 
   return (
     <>
-    <Dialog open={open} onOpenChange={(isOpen) => {
-        setOpen(isOpen);
-        if (!isOpen) {
-          form.reset();
-          setStep(1);
-          setMatchingClients([]);
-          setSelectedClient(null);
-          setActiveLoanDetails(null);
-          setSelectedPlaza('');
-          setSelectedLocalidad('');
-        }
-    }}>
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button disabled={!initialSelection?.promotoraId}>
           <PlusCircle className="mr-2 h-4 w-4" />
           Crear Préstamo
         </Button>
@@ -416,7 +434,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                 <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
                     <FormItem>
                         <FormLabel>Plaza</FormLabel>
-                        <Select onValueChange={handlePlazaChange} value={selectedPlaza}>
+                        <Select onValueChange={handlePlazaChange} value={selectedPlaza} disabled={!!initialSelection?.plazaId}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Selecciona una plaza" />
@@ -433,7 +451,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     </FormItem>
                     <FormItem>
                         <FormLabel>Localidad</FormLabel>
-                        <Select onValueChange={handleLocalidadChange} value={selectedLocalidad} disabled={!selectedPlaza}>
+                        <Select onValueChange={handleLocalidadChange} value={selectedLocalidad} disabled={!selectedPlaza || !!initialSelection?.localidadId}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Selecciona una localidad" />
@@ -454,7 +472,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                         render={({ field }) => (
                             <FormItem>
                             <FormLabel>Promotora</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value} disabled={!selectedLocalidad}>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!selectedLocalidad || !!initialSelection?.promotoraId}>
                                 <FormControl>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Selecciona una promotora" />
