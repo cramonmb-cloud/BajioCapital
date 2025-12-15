@@ -130,7 +130,7 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
 
       (dataToExport as any[]).forEach((row, rowIndex) => {
         Object.keys(row).forEach((key, colIndex) => {
-             if (row[key].length > colWidths[colIndex].wch) {
+             if (row[key] && row[key].length > colWidths[colIndex].wch) {
                 colWidths[colIndex].wch = row[key].length + 2;
              }
              if(currencyCols.includes(key)) {
@@ -141,8 +141,14 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
       });
       worksheet['!cols'] = colWidths;
 
+      const plazaName = selectedPlaza === 'all' ? 'General' : plazas.find(p => p.id === selectedPlaza)?.name || '';
+      const localidadName = selectedLocalidad === 'all' ? '' : localidades.find(l => l.id === selectedLocalidad)?.name || '';
+      const promotoraName = selectedPromotora === 'all' ? '' : promotoras.find(p => p.id === selectedPromotora)?.name || '';
 
-      XLSX.writeFile(workbook, 'Reporte_Prestamos.xlsx');
+      const fileNameParts = ['Reporte', plazaName, localidadName, promotoraName].filter(Boolean);
+      const fileName = `${fileNameParts.join('_')}.xlsx`;
+
+      XLSX.writeFile(workbook, fileName);
 
       toast({
         title: 'Exportación Exitosa',
