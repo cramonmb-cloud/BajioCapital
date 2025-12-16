@@ -75,7 +75,7 @@ export const loanPlans: LoanPlan[] = [
     name: 'PLAN EXTENDIDO',
     description: 'Abonos semanales más pequeños por un período más largo.',
     termInWeeks: 14,
-    weeklyPaymentRate: 75,
+    weeklyPaymentRate: 100,
   },
 ];
 
