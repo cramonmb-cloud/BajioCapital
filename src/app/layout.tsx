@@ -7,10 +7,25 @@ import { getAppConfig } from '@/lib/firestore-data';
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getAppConfig();
   const appName = config?.appName || 'CrediControl';
+  const logoUrl = config?.logoUrl || '';
+  const description = `Gestión de préstamos personales para ${appName}`;
 
   return {
     title: appName,
-    description: `Gestión de préstamos personales para ${appName}`,
+    description: description,
+    openGraph: {
+      title: appName,
+      description: description,
+      images: [
+        {
+          url: logoUrl,
+          width: 1200,
+          height: 630,
+          alt: `Logo de ${appName}`,
+        },
+      ],
+      type: 'website',
+    },
   };
 }
 
