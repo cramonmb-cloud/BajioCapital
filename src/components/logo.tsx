@@ -17,7 +17,7 @@ export function Logo({ className, logoUrl, appName = 'CrediControl' }: LogoProps
       )}
     >
       {logoUrl ? (
-        <Image src={logoUrl} alt="Logo" width={32} height={32} className="h-8 w-8 object-contain" />
+        <Image src={logoUrl} alt="Logo" width={64} height={64} className="h-16 w-16 object-contain" />
       ) : (
         <CreditCard className="size-5" />
       )}
