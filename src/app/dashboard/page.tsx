@@ -104,16 +104,17 @@ export default async function DashboardPage() {
 
       {logoUrl && (
         <div className="flex justify-center">
-            <Card className="w-48 h-48 flex items-center justify-center p-4">
+            <div className="w-48 h-48 flex items-center justify-center p-4">
                 <div className="relative w-full h-full">
                     <Image 
                         src={logoUrl} 
                         alt="Logo de la aplicación" 
                         layout="fill"
                         objectFit="contain"
+                        className="rounded-full border"
                     />
                 </div>
-            </Card>
+            </div>
         </div>
       )}
       
