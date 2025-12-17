@@ -111,7 +111,7 @@ export default async function DashboardPage() {
                         alt="Logo de la aplicación" 
                         layout="fill"
                         objectFit="contain"
-                        className="rounded-full border"
+                        className="rounded-lg border"
                     />
                 </div>
             </div>
