@@ -33,6 +33,7 @@ export default function DashboardLayout({
 }) {
   const { user, appUser, loading } = useAuth();
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [appName, setAppName] = useState<string>('CrediControl');
   const router = useRouter();
   const pathname = usePathname();
 
@@ -61,13 +62,16 @@ export default function DashboardLayout({
   }, [user, appUser, loading, router, pathname]);
 
    useEffect(() => {
-    async function fetchLogo() {
+    async function fetchConfig() {
       const config = await getAppConfig();
       if (config?.logoUrl) {
         setLogoUrl(config.logoUrl);
       }
+      if (config?.appName) {
+        setAppName(config.appName);
+      }
     }
-    fetchLogo();
+    fetchConfig();
   }, [pathname]); // Refetch on path change to ensure it's up to date
   
   if (loading || !user || !appUser) {
@@ -88,8 +92,8 @@ export default function DashboardLayout({
             href="/dashboard"
             className="flex items-center gap-2 text-lg font-semibold md:text-base mr-4"
           >
-            <Logo logoUrl={logoUrl} />
-            <span className="sr-only">CrediControl</span>
+            <Logo logoUrl={logoUrl} appName={appName} />
+            <span className="sr-only">{appName}</span>
         </Link>
         <div className="flex-1">
           <MainNav />

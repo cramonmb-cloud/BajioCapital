@@ -5,9 +5,10 @@ import Image from 'next/image';
 interface LogoProps {
   className?: string;
   logoUrl?: string | null;
+  appName?: string;
 }
 
-export function Logo({ className, logoUrl }: LogoProps) {
+export function Logo({ className, logoUrl, appName = 'CrediControl' }: LogoProps) {
   return (
     <div
       className={cn(
@@ -20,7 +21,7 @@ export function Logo({ className, logoUrl }: LogoProps) {
       ) : (
         <CreditCard className="size-5" />
       )}
-      CrediControl
+      {appName}
     </div>
   );
 }

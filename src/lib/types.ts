@@ -89,5 +89,6 @@ export type AppUser = {
 };
 
 export type AppConfig = {
+  appName?: string;
   logoUrl?: string;
 };

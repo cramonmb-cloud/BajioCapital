@@ -34,17 +34,22 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Trash2, Loader2, Database, Image as ImageIcon } from "lucide-react";
+import { Trash2, Loader2, Database, Image as ImageIcon, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAllDataAction, saveLogoAction } from "@/app/dashboard/settings/actions";
+import { deleteAllDataAction, saveLogoAction, saveAppNameAction } from "@/app/dashboard/settings/actions";
 import { seedDatabaseAction } from "@/app/dashboard/seed-actions";
 import { useRouter } from "next/navigation";
 import type { AppConfig } from "@/lib/types";
+import { Separator } from "./ui/separator";
 
+const appNameSchema = z.object({
+  appName: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
+});
 const logoFormSchema = z.object({
   logoUrl: z.string().url('Por favor, introduce una URL válida.').or(z.literal('')),
 });
 
+type AppNameFormValues = z.infer<typeof appNameSchema>;
 type LogoFormValues = z.infer<typeof logoFormSchema>;
 
 interface SettingsClientPageProps {
@@ -54,9 +59,16 @@ interface SettingsClientPageProps {
 export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSeeding, setIsSeeding] = useState(false);
-    const [isSavingLogo, setIsSavingLogo] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
+
+    const appNameForm = useForm<AppNameFormValues>({
+        resolver: zodResolver(appNameSchema),
+        defaultValues: {
+            appName: initialConfig?.appName || '',
+        },
+    });
 
     const logoForm = useForm<LogoFormValues>({
         resolver: zodResolver(logoFormSchema),
@@ -113,8 +125,28 @@ export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
         }
     };
 
+    const onSaveAppNameSubmit = async (values: AppNameFormValues) => {
+        setIsSaving(true);
+        try {
+            const result = await saveAppNameAction(values.appName);
+            if (result.success) {
+                toast({
+                    title: 'Nombre Actualizado',
+                    description: 'El nombre de la aplicación ha sido actualizado.',
+                });
+                router.refresh();
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error al Guardar', description: error.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const onSaveLogoSubmit = async (values: LogoFormValues) => {
-        setIsSavingLogo(true);
+        setIsSaving(true);
         try {
             const result = await saveLogoAction(values.logoUrl);
             if (result.success) {
@@ -133,7 +165,7 @@ export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
                 description: error.message || 'No se pudo guardar el logo.',
             });
         } finally {
-            setIsSavingLogo(false);
+            setIsSaving(false);
         }
     };
 
@@ -143,10 +175,37 @@ export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
                 <CardHeader>
                     <CardTitle>Personalización</CardTitle>
                     <CardDescription>
-                       Ajusta la apariencia de tu aplicación.
+                       Ajusta la apariencia y el nombre de tu aplicación.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="space-y-6">
+                    <Form {...appNameForm}>
+                        <form onSubmit={appNameForm.handleSubmit(onSaveAppNameSubmit)} className="space-y-4">
+                             <FormField
+                                control={appNameForm.control}
+                                name="appName"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Nombre de la Aplicación</FormLabel>
+                                        <FormControl>
+                                            <div className="flex items-center gap-2">
+                                                <Pencil className="h-5 w-5 text-muted-foreground" />
+                                                <Input placeholder="Mi App de Préstamos" {...field} />
+                                            </div>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                                <Button type="submit" disabled={isSaving}>
+                                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Guardar Nombre
+                                </Button>
+                        </form>
+                    </Form>
+                    
+                    <Separator />
+
                     <Form {...logoForm}>
                         <form onSubmit={logoForm.handleSubmit(onSaveLogoSubmit)} className="space-y-4">
                              <FormField
@@ -165,8 +224,8 @@ export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
                                     </FormItem>
                                 )}
                                 />
-                                <Button type="submit" disabled={isSavingLogo}>
-                                    {isSavingLogo && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                <Button type="submit" disabled={isSaving}>
+                                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                     Guardar Logo
                                 </Button>
                         </form>

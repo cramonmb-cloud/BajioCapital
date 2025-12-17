@@ -143,3 +143,14 @@ export async function saveLogoAction(logoUrl: string) {
         return { success: false, message: `Error al guardar el logo: ${error.message}` };
     }
 }
+
+export async function saveAppNameAction(appName: string) {
+    try {
+        const configRef = doc(db, 'config', 'main');
+        await setDoc(configRef, { appName }, { merge: true });
+        revalidatePath('/dashboard', 'layout');
+        return { success: true, message: 'Nombre de la aplicación actualizado con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar el nombre de la aplicación: ${error.message}` };
+    }
+}
