@@ -26,7 +26,6 @@ export default async function LoginPage() {
                 )}
                 <h1 className="text-2xl font-bold tracking-tighter">{appName}</h1>
             </div>
-          <CardTitle>Iniciar Sesión</CardTitle>
           <CardDescription>
             Introduce tus credenciales para acceder al sistema. El registro de nuevos usuarios se realiza desde Ajustes.
           </CardDescription>
@@ -38,4 +37,3 @@ export default async function LoginPage() {
     </div>
   );
 }
-
