@@ -2,9 +2,7 @@
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import { getAppConfig } from '@/lib/firestore-data';
 import Image from 'next/image';
@@ -26,9 +24,6 @@ export default async function LoginPage() {
                 )}
                 <h1 className="text-2xl font-bold tracking-tighter">{appName}</h1>
             </div>
-          <CardDescription>
-            Introduce tus credenciales para acceder al sistema. El registro de nuevos usuarios se realiza desde Ajustes.
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <LoginForm />
