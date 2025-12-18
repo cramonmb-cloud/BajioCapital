@@ -28,7 +28,7 @@ export function IdScanner({ onDataExtracted, disabled }: IdScannerProps) {
   const streamRef = useRef<MediaStream | null>(null);
   const { toast } = useToast();
 
-  const openCamera = async () => {
+  const openCamera = useCallback(async () => {
     if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
@@ -56,7 +56,7 @@ export function IdScanner({ onDataExtracted, disabled }: IdScannerProps) {
         });
       setIsOpen(false);
     }
-  };
+  }, [toast]);
 
   const closeCamera = useCallback(() => {
     if (streamRef.current) {
@@ -74,11 +74,11 @@ export function IdScanner({ onDataExtracted, disabled }: IdScannerProps) {
     } else {
       closeCamera();
     }
-    // Cleanup function
+    // Cleanup function to ensure camera is off when component unmounts or dialog closes
     return () => {
       closeCamera();
     };
-  }, [isOpen, closeCamera]);
+  }, [isOpen, openCamera, closeCamera]);
   
 
   const handleScan = async () => {
