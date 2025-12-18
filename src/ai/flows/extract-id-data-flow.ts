@@ -8,6 +8,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {googleAI} from '@genkit-ai/google-genai';
 import {z} from 'genkit';
 
 const IdDataInputSchema = z.object({
@@ -34,6 +35,7 @@ export async function extractIdData(input: IdDataInput): Promise<IdDataOutput> {
 
 const prompt = ai.definePrompt({
   name: 'extractIdDataPrompt',
+  model: googleAI('gemini-pro-vision'),
   input: {schema: IdDataInputSchema},
   output: {schema: IdDataOutputSchema},
   prompt: `You are an expert OCR system for official ID cards from Mexico (INE). Your task is to extract the person's full name and address details from the provided image.

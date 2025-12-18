@@ -10,6 +10,7 @@
  */
 
 import {ai} from '@/ai/genkit';
+import {googleAI} from '@genkit-ai/google-genai';
 import {z} from 'genkit';
 
 const ClientOutreachInputSchema = z.object({
@@ -35,6 +36,7 @@ export async function getClientOutreachSuggestion(
 
 const clientOutreachPrompt = ai.definePrompt({
   name: 'clientOutreachPrompt',
+  model: googleAI('gemini-pro'),
   input: {schema: ClientOutreachInputSchema},
   output: {schema: ClientOutreachOutputSchema},
   prompt: `You are a helpful AI assistant that provides personalized outreach suggestions for loan clients.
