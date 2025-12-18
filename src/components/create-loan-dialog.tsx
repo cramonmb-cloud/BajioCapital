@@ -48,6 +48,8 @@ import { createLoanAction, payOffLoanAction } from '@/app/dashboard/actions';
 import { useRouter } from 'next/navigation';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent } from './ui/card';
+import { IdScanner } from './id-scanner';
+import type { IdDataOutput } from '@/ai/flows/extract-id-data-flow';
 
 const stepOneSchema = z.object({
   promotoraId: z.string().min(1, 'Debes seleccionar una promotora.'),
@@ -410,6 +412,18 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
       form.setValue('promotoraId', '');
   };
 
+    const handleDataExtracted = (data: Partial<IdDataOutput>) => {
+        if (data.name) form.setValue('clientName', data.name);
+        if (data.street) form.setValue('street', data.street);
+        if (data.neighborhood) form.setValue('neighborhood', data.neighborhood);
+        if (data.postalCode) form.setValue('postalCode', data.postalCode);
+        if (data.city) form.setValue('city', data.city);
+
+        // Since this is for a new client, we clear any selected client
+        setSelectedClient(null);
+        setActiveLoanDetails(null);
+    };
+
   return (
     <>
     <Dialog open={open} onOpenChange={setOpen}>
@@ -536,9 +550,12 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Nombre del Cliente</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Busca o registra un cliente" {...field} onChange={handleClientNameChange} className="uppercase" />
-                      </FormControl>
+                        <div className="flex items-center gap-2">
+                          <FormControl>
+                            <Input placeholder="Busca o registra un cliente" {...field} onChange={handleClientNameChange} className="uppercase flex-grow" />
+                          </FormControl>
+                          <IdScanner onDataExtracted={handleDataExtracted} />
+                        </div>
                        {matchingClients.length > 0 && (
                         <div className="relative">
                             <ul className="absolute z-10 w-full bg-card border rounded-md shadow-lg max-h-40 overflow-y-auto">
