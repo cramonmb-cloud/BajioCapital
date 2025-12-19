@@ -1,6 +1,6 @@
 'use server';
 
-import { doc, deleteDoc, setDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, deleteDoc, setDoc, addDoc, collection } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { revalidatePath } from 'next/cache';
 import type { LoanPlan } from '@/lib/types';
@@ -15,7 +15,7 @@ export async function deleteLoanPlanAction(planId: string) {
     await deleteDoc(planRef);
 
     revalidatePath('/dashboard/plans');
-    revalidatePath('/dashboard/plans/[id]/edit', 'page');
+    revalidatePath('/dashboard/control');
     
     return { success: true, message: 'Plan eliminado con éxito.' };
   } catch (error: any) {
@@ -36,6 +36,7 @@ export async function saveLoanPlanAction(planData: Omit<LoanPlan, 'id'>, planId?
         }
 
         revalidatePath('/dashboard/plans');
+        revalidatePath('/dashboard/control');
         if (planId) {
             revalidatePath(`/dashboard/plans/${planId}/edit`);
         }
