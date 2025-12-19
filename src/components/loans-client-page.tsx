@@ -50,6 +50,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { accumulateAssumedPaymentsAction } from '@/app/dashboard/actions';
 import { format as formatDateFns } from 'date-fns';
+import { useRealtimeData } from '@/hooks/use-realtime-data';
+import Loading from '../app/dashboard/loading';
 
 
 interface jsPDFWithAutoTable extends jsPDF {
@@ -70,15 +72,24 @@ const getSaturdayOfWeek = (d: Date) => {
 };
 
 interface LoansClientPageProps {
-    loans: Loan[];
-    clients: Client[];
-    loanPlans: LoanPlan[];
-    plazas: Plaza[];
-    localidades: Localidad[];
-    promotoras: Promotora[];
+    initialClients: Client[];
+    initialLoanPlans: LoanPlan[];
+    initialPlazas: Plaza[];
+    initialLocalidades: Localidad[];
+    initialPromotoras: Promotora[];
 }
 
-export function LoansClientPage({ loans, clients, loanPlans, plazas, localidades, promotoras }: LoansClientPageProps) {
+export function LoansClientPage({ initialClients, initialLoanPlans, initialPlazas, initialLocalidades, initialPromotoras }: LoansClientPageProps) {
+  const { data, loading: dataLoading } = useRealtimeData();
+  const { loans, clients, loanPlans, plazas, localidades, promotoras } = data || { 
+      loans: [], 
+      clients: initialClients, 
+      loanPlans: initialLoanPlans, 
+      plazas: initialPlazas, 
+      localidades: initialLocalidades, 
+      promotoras: initialPromotoras 
+  };
+    
   const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const [selectedPlaza, setSelectedPlaza] = useState<string>('');
   const [selectedLocalidad, setSelectedLocalidad] = useState<string>('');
@@ -95,7 +106,6 @@ export function LoansClientPage({ loans, clients, loanPlans, plazas, localidades
   } | null>(null);
   const router = useRouter();
 
-  const [isClient, setIsClient] = useState(false);
   const [pageData, setPageData] = useState<{
       currentGroupWeek: number;
       weeklyFailures: number[];
@@ -127,7 +137,6 @@ export function LoansClientPage({ loans, clients, loanPlans, plazas, localidades
 
 
   useEffect(() => {
-    setIsClient(true);
     if (!selectedWeek && loanWeeks.length > 0) {
         setSelectedWeek(loanWeeks[0]);
     }
@@ -302,7 +311,7 @@ const handleAccumulatePayments = async () => {
                 title: 'Proceso Completado',
                 description: result.message,
             });
-            router.refresh();
+            // router.refresh() is not needed, real-time updates will handle it
         } else {
             throw new Error(result.message);
         }
@@ -579,7 +588,7 @@ const handleExportPDF = () => {
 };
   
  useEffect(() => {
-    if (!isClient || filteredLoans.length === 0) {
+    if (dataLoading || filteredLoans.length === 0) {
       setPageData(prev => ({ ...prev, weeklyFailures: [], weeklyCollected: [], hasAssumedPayments: false, loansWithPenalty: {} }));
       return;
     }
@@ -674,12 +683,12 @@ const handleExportPDF = () => {
     }
 
     calculateData();
-  }, [isClient, filteredLoans, loanPlans, clients]);
+  }, [dataLoading, filteredLoans, loanPlans, clients]);
 
 
 
-  if (!isClient) {
-    return null; // or a loading skeleton
+  if (dataLoading) {
+    return <Loading />;
   }
 
   const { currentGroupWeek, weeklyFailures, weeklyCollected, hasAssumedPayments, loansWithPenalty } = pageData;
@@ -998,7 +1007,9 @@ const handleExportPDF = () => {
             weekNumber={paymentDialogData.weekNumber}
             weekDate={paymentDialogData.weekDate}
             initialAmount={paymentDialogData.initialAmount}
-            onPaymentRegistered={() => router.refresh()}
+            onPaymentRegistered={() => {
+                // No need to call router.refresh(), real-time updates handle it.
+            }}
         />
     }
     </>

@@ -1,23 +1,20 @@
-
-import { getLoans, getLoanPlans, getClients, getPlazas, getLocalidades, getPromotoras } from '@/lib/firestore-data';
+import { getClients, getLoanPlans, getPlazas, getLocalidades, getPromotoras } from '@/lib/firestore-data';
 import { ControlClientPage } from '@/components/control-client-page';
 
 export default async function ControlPage() {
-    const [loans, loanPlans, clients, plazas, localidades, promotoras] = await Promise.all([
-        getLoans(),
-        getLoanPlans(),
+    const [clients, loanPlans, plazas, localidades, promotoras] = await Promise.all([
         getClients(),
+        getLoanPlans(),
         getPlazas(),
         getLocalidades(),
         getPromotoras(),
     ]);
 
     return <ControlClientPage 
-                initialLoans={loans} 
+                initialClients={clients} 
                 initialLoanPlans={loanPlans}
-                clients={clients}
-                plazas={plazas}
-                localidades={localidades}
-                promotoras={promotoras}
+                initialPlazas={plazas}
+                initialLocalidades={localidades}
+                initialPromotoras={promotoras}
             />;
 }

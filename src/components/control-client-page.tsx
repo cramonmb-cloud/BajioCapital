@@ -14,14 +14,16 @@ import { Banknote, TrendingDown, X } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 import { ReportsSection } from './reports-section';
 import { Separator } from './ui/separator';
+import { useRealtimeData } from '@/hooks/use-realtime-data';
+import Loading from '@/app/dashboard/loading';
+
 
 interface ControlClientPageProps {
-    initialLoans: Loan[];
+    initialClients: Client[];
     initialLoanPlans: LoanPlan[];
-    clients: Client[];
-    plazas: Plaza[];
-    localidades: Localidad[];
-    promotoras: Promotora[];
+    initialPlazas: Plaza[];
+    initialLocalidades: Localidad[];
+    initialPromotoras: Promotora[];
 }
 
 // This function calculates if a loan has a penalty
@@ -37,23 +39,33 @@ const hasPenalty = (loan: Loan, currentLoanWeek: number, weeklyPayment: number) 
     return missedWeeksCount >= 2;
 };
 
-export function ControlClientPage({ initialLoans, initialLoanPlans, clients, plazas, localidades, promotoras }: ControlClientPageProps) {
+export function ControlClientPage({ initialClients, initialLoanPlans, initialPlazas, initialLocalidades, initialPromotoras }: ControlClientPageProps) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+    const { data, loading: dataLoading } = useRealtimeData();
+
+    const { loans, clients, loanPlans, plazas, localidades, promotoras } = data || {
+        loans: [],
+        clients: initialClients,
+        loanPlans: initialLoanPlans,
+        plazas: initialPlazas,
+        localidades: initialLocalidades,
+        promotoras: initialPromotoras,
+    };
 
     const filteredLoans = useMemo(() => {
         if (!dateRange || !dateRange.from) {
-            return initialLoans;
+            return loans;
         }
         const fromDate = dateRange.from;
         // If only 'from' is selected, use it as a single day filter. 
         // If 'to' is also selected, use the full range.
         const toDate = dateRange.to ? dateRange.to : fromDate;
 
-        return initialLoans.filter(loan => {
+        return loans.filter(loan => {
             const loanStartDate = new Date(loan.startDate);
             return loanStartDate >= fromDate && loanStartDate <= toDate;
         });
-    }, [initialLoans, dateRange]);
+    }, [loans, dateRange]);
 
 
     const stats = useMemo(() => {
@@ -64,7 +76,7 @@ export function ControlClientPage({ initialLoans, initialLoanPlans, clients, pla
         const dineroEnCalle = filteredLoans
             .filter(loan => loan.status === 'Active' || loan.status === 'Overdue')
             .reduce((totalDue, loan) => {
-                const loanPlan = initialLoanPlans.find(p => p.id === loan.loanPlanId);
+                const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
                 if (!loanPlan) return totalDue;
                 
                 const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
@@ -86,7 +98,7 @@ export function ControlClientPage({ initialLoans, initialLoanPlans, clients, pla
             }, 0);
 
             return { totalPrestado, dineroEnCalle };
-    }, [filteredLoans, initialLoanPlans]);
+    }, [filteredLoans, loanPlans]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('es-MX', {
@@ -98,6 +110,10 @@ export function ControlClientPage({ initialLoans, initialLoanPlans, clients, pla
     const clearFilters = () => {
         setDateRange(undefined);
     };
+
+    if (dataLoading) {
+        return <Loading />;
+    }
 
     return (
         <div className="space-y-6">
@@ -149,9 +165,9 @@ export function ControlClientPage({ initialLoans, initialLoanPlans, clients, pla
             <Separator />
 
             <ReportsSection 
-                loans={initialLoans} 
+                loans={loans} 
                 clients={clients} 
-                loanPlans={initialLoanPlans} 
+                loanPlans={loanPlans} 
                 plazas={plazas} 
                 localidades={localidades} 
                 promotoras={promotoras} 

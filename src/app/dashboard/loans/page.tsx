@@ -1,9 +1,9 @@
-import { getClients, getLoanPlans, getLoans, getPlazas, getLocalidades, getPromotoras } from '@/lib/firestore-data';
+import { getClients, getLoanPlans, getPlazas, getLocalidades, getPromotoras } from '@/lib/firestore-data';
 import { LoansClientPage } from '@/components/loans-client-page';
 
 export default async function LoansPageContainer() {
-  const [loans, clients, loanPlans, plazas, localidades, promotoras] = await Promise.all([
-    getLoans(),
+  // Fetch data that is less likely to change in real-time or needed for initial setup
+  const [clients, loanPlans, plazas, localidades, promotoras] = await Promise.all([
     getClients(),
     getLoanPlans(),
     getPlazas(),
@@ -12,11 +12,10 @@ export default async function LoansPageContainer() {
   ]);
 
   return <LoansClientPage 
-            loans={loans} 
-            clients={clients} 
-            loanPlans={loanPlans} 
-            plazas={plazas} 
-            localidades={localidades} 
-            promotoras={promotoras} 
+            initialClients={clients} 
+            initialLoanPlans={loanPlans} 
+            initialPlazas={plazas} 
+            initialLocalidades={localidades} 
+            initialPromotoras={promotoras} 
         />;
 }
