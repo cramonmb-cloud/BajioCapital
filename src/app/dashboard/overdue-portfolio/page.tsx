@@ -11,6 +11,20 @@ export type OverdueLoanDetails = {
     missedPayments: number;
 };
 
+// Helper function to check if a loan has a penalty
+const hasPenalty = (loan: Loan, currentLoanWeek: number, weeklyPayment: number) => {
+    let missedWeeksCount = 0;
+    for (let i = 1; i < currentLoanWeek; i++) {
+        const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
+        const paidForWeek = paymentForWeek?.amount || 0;
+        if (paidForWeek < weeklyPayment) {
+            missedWeeksCount++;
+        }
+    }
+    return missedWeeksCount >= 2;
+};
+
+
 export default async function OverduePortfolioPage() {
     const [loans, clients, loanPlans] = await Promise.all([
         getLoans(),
@@ -37,19 +51,9 @@ export default async function OverduePortfolioPage() {
             
             let calculatedAmountDue = 0;
             let missedPaymentsCount = 0;
-            let missedWeeksForPenalty = 0;
-
-            // First, determine penalty
-            for (let i = 1; i < currentLoanWeek; i++) {
-                const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
-                const paidForWeek = paymentForWeek?.amount || 0;
-                if (paidForWeek < weeklyPayment) {
-                    missedWeeksForPenalty++;
-                }
-            }
             
-            const hasPenalty = missedWeeksForPenalty >= 2;
-            const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
+            const loanHasPenalty = hasPenalty(loan, currentLoanWeek, weeklyPayment);
+            const termInWeeks = loanPlan.termInWeeks + (loanHasPenalty ? 1 : 0);
             
             // Now, calculate amount due with the correct term
             for(let i = 1; i <= currentLoanWeek; i++) {

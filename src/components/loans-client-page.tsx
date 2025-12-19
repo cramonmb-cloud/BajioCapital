@@ -106,20 +106,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   } | null>(null);
   const router = useRouter();
 
-  const [pageData, setPageData] = useState<{
-      currentGroupWeek: number;
-      weeklyFailures: number[];
-      weeklyCollected: number[];
-      hasAssumedPayments: boolean;
-      loansWithPenalty: Record<string, boolean>;
-  }>({
-      currentGroupWeek: 0,
-      weeklyFailures: [],
-      weeklyCollected: [],
-      hasAssumedPayments: false,
-      loansWithPenalty: {},
-  });
-
   const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza), [localidades, selectedPlaza]);
   const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad), [promotoras, selectedLocalidad]);
   
@@ -227,489 +213,503 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             return 'default';
     }
   };
-  
-  const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number) => {
-    const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-    if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
-    
-    const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
 
-    // This logic handles the penalty week.
-    const originalTermInWeeks = loanPlan.termInWeeks;
-    let termInWeeks = originalTermInWeeks;
-    if (pageData.loansWithPenalty[loan.id]) {
-        termInWeeks = originalTermInWeeks + 1;
-    }
-    const isPenaltyWeek = pageData.loansWithPenalty[loan.id] && weekNumber === termInWeeks;
-
-    if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
-        return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
-    }
-
-    const loanStartDate = new Date(loan.startDate);
-    
-    const weekStartDate = new Date(loanStartDate);
-    weekStartDate.setUTCDate(loanStartDate.getUTCDate() + ((weekNumber - 1) * 7));
-    
-    const weekEndDate = new Date(weekStartDate);
-    weekEndDate.setUTCDate(weekStartDate.getUTCDate() + 7);
-
-    const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
-    const totalPaidForWeek = paymentForWeek?.amount || 0;
-
-    const isFuture = new Date() < weekStartDate;
-    if (isFuture) {
-      return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
-    }
-    
-    // Assumed paid logic for current week if no payment is registered
-    if (weekNumber === currentLoanWeek && !paymentForWeek) {
-        return { status: 'paid' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: true };
-    }
-
-    if (totalPaidForWeek > 0) {
-        if(totalPaidForWeek >= weeklyPaymentAmount) {
-            return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
-        } else {
-            return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+    const {
+        currentGroupWeek,
+        weeklyFailures,
+        weeklyCollected,
+        hasAssumedPayments,
+        loansWithPenalty
+    } = useMemo(() => {
+        if (dataLoading || filteredLoans.length === 0) {
+            return {
+                currentGroupWeek: 0,
+                weeklyFailures: [],
+                weeklyCollected: [],
+                hasAssumedPayments: false,
+                loansWithPenalty: {}
+            };
         }
-    } else {
-        if (weekNumber < currentLoanWeek) {
-            return { status: 'missed' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
-        }
-        return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
-    }
-  };
-  
- const handleRegisterPaymentClick = (loan: Loan, weekNumber: number, weekStatus: ReturnType<typeof getWeekPaymentStatus>) => {
-    const weeklyPayment = getWeeklyPaymentAmount(loan);
-    let initialAmount = weeklyPayment;
-
-    if (weekStatus.status === 'partial') {
-        initialAmount = weeklyPayment - weekStatus.amountPaid;
-    } else if (weekStatus.status === 'missed') {
-        initialAmount = weeklyPayment;
-    } else if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) {
-        initialAmount = 0; // Already paid
-    }
-
-    setSelectedLoanForPayment(loan);
-    setPaymentDialogData({ 
-      weekNumber, 
-      weekDate: weekStatus.date,
-      initialAmount: initialAmount > 0 ? initialAmount : 0
-    });
-    setPaymentDialogOpen(true);
-};
-
-const handleAccumulatePayments = async () => {
-    setIsAccumulating(true);
-    try {
-        const result = await accumulateAssumedPaymentsAction(filteredLoans, loanPlans, clients);
-        if (result.success) {
-            toast({
-                title: 'Proceso Completado',
-                description: result.message,
-            });
-            // router.refresh() is not needed, real-time updates will handle it
-        } else {
-            throw new Error(result.message);
-        }
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Error al Acumular',
-            description: error.message,
-        });
-    } finally {
-        setIsAccumulating(false);
-    }
-};
-
-const handleExportPDF = () => {
-    if (filteredLoans.length === 0 || !selectedWeek) return;
-
-    const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    const maxWeeksToShow = 12;
-
-    // --- Header ---
-    const pdfToday = new Date();
-    const firstLoan = filteredLoans[0];
-    const { promotoraName, localidadName, plazaName } = getHierarchy(firstLoan.promotoraId);
-    const loanPlan = loanPlans.find(p => p.id === firstLoan.loanPlanId);
-    const totalAmount = filteredLoans.reduce((sum, loan) => sum + loan.amount, 0);
-
-    const loanStartDate = new Date(firstLoan.startDate);
-    const vencimientoDate = new Date(loanStartDate);
-    if(loanPlan) {
-        vencimientoDate.setUTCDate(loanStartDate.getUTCDate() + (loanPlan.termInWeeks * 7));
-    }
-
-
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Fecha', margin, 30);
-    doc.text('Promotora', margin, 42);
-    doc.text('Localidad', margin, 54);
-    doc.text('Plaza', margin, 66);
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text(formatDate(pdfToday.toISOString()), margin + 50, 30);
-    doc.text(promotoraName.toUpperCase(), margin + 50, 42);
-    doc.text(localidadName.toUpperCase(), margin + 50, 54);
-    doc.text(plazaName.toUpperCase(), margin + 50, 66);
-
-    const rightColumnX = pageWidth - margin - 100;
-    doc.setFont('helvetica', 'bold');
-    doc.text('Vence', rightColumnX, 30);
-    doc.text('Plaza', rightColumnX, 42);
-    doc.text('Cantidad', rightColumnX, 54);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(loanPlan ? formatDate(vencimientoDate.toISOString()) : 'N/A', rightColumnX + 50, 30);
-    doc.text(plazaName.toUpperCase(), rightColumnX + 50, 42);
-    doc.text(formatCurrency(totalAmount), rightColumnX + 50, 54);
-
-    // --- Table ---
-    const tableHeaders: any[] = [
-        { content: 'CLIENTE' },
-        { content: 'ABONA' },
-    ];
-    
-    for (let i = 0; i < maxWeeksToShow; i++) {
-        const weekDate = new Date(loanStartDate);
-        weekDate.setUTCDate(loanStartDate.getUTCDate() + (i * 7));
-        tableHeaders.push({ 
-            content: `${formatDateForPDF(weekDate)}\n${i + 1}`,
-        });
-    }
-     tableHeaders.push({ content: 'AVAL' });
-
-
-    const tableData = filteredLoans.map(loan => {
-        const client = getClient(loan.clientId);
-        const weeklyPayment = getWeeklyPaymentAmount(loan);
-
-        const clientInfo = [
-            client?.name || '',
-            `${client?.street || ''}, ${client?.neighborhood || ''}`,
-            client?.phone || '',
-        ].join('\n');
         
-        let avalInfo = '';
-        if(client?.endorsement) {
-            const match = client.endorsement.match(/(.*) \((.*)\)/);
-            if (match) {
-                const [, avalName, avalDetails] = match;
-                const detailsArray = avalDetails.split(',').map(s => s.trim());
-                const telIndex = detailsArray.findIndex(d => d.toUpperCase().startsWith('TEL:'));
-                const tel = telIndex > -1 ? detailsArray[telIndex] : '';
-                const addressParts = telIndex > -1 ? detailsArray.slice(0, telIndex) : detailsArray;
-                
-                avalInfo = `${avalName}\n${addressParts.join(', ')}\n${tel}`;
-            } else {
-                avalInfo = client.endorsement;
+        const todayDate = new Date();
+        const firstLoanStartDate = new Date(filteredLoans[0].startDate);
+        const timeDiff = todayDate.getTime() - firstLoanStartDate.getTime();
+        const currentGroupWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+        
+        const newLoansWithPenalty: Record<string, boolean> = {};
+
+        // Helper function for payment status calculation that can be reused
+        const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number, penalty: boolean) => {
+          const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+          if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
+          
+          const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
+          const termInWeeks = loanPlan.termInWeeks + (penalty ? 1 : 0);
+          
+          if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
+              return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
+          }
+          
+          const loanStartDate = new Date(loan.startDate);
+          const weekStartDate = new Date(loanStartDate);
+          weekStartDate.setUTCDate(loanStartDate.getUTCDate() + ((weekNumber - 1) * 7));
+          
+          const isFuture = new Date() < weekStartDate;
+          if (isFuture) {
+            return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+          }
+          
+          const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
+          const totalPaidForWeek = paymentForWeek?.amount || 0;
+
+          if (weekNumber === currentLoanWeek && !paymentForWeek) {
+              return { status: 'paid' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: true };
+          }
+
+          if (totalPaidForWeek > 0) {
+              if (totalPaidForWeek >= weeklyPaymentAmount) {
+                  return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+              } else {
+                  return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+              }
+          } else {
+              if (weekNumber < currentLoanWeek) {
+                  return { status: 'missed' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+              }
+              return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+          }
+        };
+
+        filteredLoans.forEach(loan => {
+            const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
+            const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            let missedWeeksCount = 0;
+            for (let i = 1; i < currentLoanWeek; i++) {
+                const weekStatus = getWeekPaymentStatus(loan, i, currentLoanWeek, false);
+                if (weekStatus.status === 'missed' || weekStatus.status === 'partial') {
+                    missedWeeksCount++;
+                }
             }
+            if (missedWeeksCount >= 2) {
+                newLoansWithPenalty[loan.id] = true;
+            }
+        });
+
+        const calculateTotals = (length: number, type: 'failures' | 'collected') => {
+            return Array.from({ length }).map((_, i) => {
+                const weekNumber = i + 1;
+                return filteredLoans.reduce((total, loan) => {
+                    const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
+                    const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
+                    const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek, newLoansWithPenalty[loan.id] || false);
+                    const weeklyPayment = getWeeklyPaymentAmount(loan);
+
+                    if (type === 'failures') {
+                        if (weekStatus.status === 'missed') return total + weeklyPayment;
+                        if (weekStatus.status === 'partial') return total + (weeklyPayment - weekStatus.amountPaid);
+                    } else { // collected
+                        if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
+                           if (!weekStatus.isAssumedPaid) return total + weekStatus.amountPaid;
+                        }
+                        if (weekStatus.isAssumedPaid) return total + weeklyPayment;
+                    }
+                    return total;
+                }, 0);
+            });
+        };
+
+        const failures = calculateTotals(15, 'failures');
+        const collected = calculateTotals(15, 'collected');
+
+        const hasAssumed = filteredLoans.some(loan => {
+            if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') return false;
+            const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+            if (!loanPlan) return false;
+            const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
+            const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) return false;
+            const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
+            return !paymentExists;
+        });
+
+        return { currentGroupWeek, weeklyFailures: failures, weeklyCollected: collected, hasAssumedPayments: hasAssumed, loansWithPenalty: newLoansWithPenalty };
+
+    }, [dataLoading, filteredLoans, loanPlans]);
+
+
+    const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number) => {
+        const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+        if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
+        
+        const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
+        const hasPenalty = loansWithPenalty[loan.id] || false;
+        const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
+        
+        if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
+            return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
+        }
+    
+        const loanStartDate = new Date(loan.startDate);
+        
+        const weekStartDate = new Date(loanStartDate);
+        weekStartDate.setUTCDate(loanStartDate.getUTCDate() + ((weekNumber - 1) * 7));
+        
+        const isFuture = new Date() < weekStartDate;
+        if (isFuture) {
+          return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
         }
         
-        const rowData: any[] = [
-            { content: clientInfo },
-            { content: formatCurrency(weeklyPayment) },
+        const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
+        const totalPaidForWeek = paymentForWeek?.amount || 0;
+    
+        if (weekNumber === currentLoanWeek && !paymentForWeek) {
+            return { status: 'paid' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: true };
+        }
+    
+        if (totalPaidForWeek > 0) {
+            if(totalPaidForWeek >= weeklyPaymentAmount) {
+                return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+            } else {
+                return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+            }
+        } else {
+            if (weekNumber < currentLoanWeek) {
+                return { status: 'missed' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+            }
+            return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+        }
+    };
+
+    const handleRegisterPaymentClick = (loan: Loan, weekNumber: number, weekStatus: ReturnType<typeof getWeekPaymentStatus>) => {
+        const weeklyPayment = getWeeklyPaymentAmount(loan);
+        let initialAmount = weeklyPayment;
+
+        if (weekStatus.status === 'partial') {
+            initialAmount = weeklyPayment - weekStatus.amountPaid;
+        } else if (weekStatus.status === 'missed') {
+            initialAmount = weeklyPayment;
+        } else if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) {
+            initialAmount = 0; // Already paid
+        }
+
+        setSelectedLoanForPayment(loan);
+        setPaymentDialogData({ 
+        weekNumber, 
+        weekDate: weekStatus.date,
+        initialAmount: initialAmount > 0 ? initialAmount : 0
+        });
+        setPaymentDialogOpen(true);
+    };
+
+    const handleAccumulatePayments = async () => {
+        setIsAccumulating(true);
+        try {
+            const result = await accumulateAssumedPaymentsAction(filteredLoans, loanPlans, clients);
+            if (result.success) {
+                toast({
+                    title: 'Proceso Completado',
+                    description: result.message,
+                });
+                // router.refresh() is not needed, real-time updates will handle it
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error al Acumular',
+                description: error.message,
+            });
+        } finally {
+            setIsAccumulating(false);
+        }
+    };
+
+    const handleExportPDF = () => {
+        if (filteredLoans.length === 0 || !selectedWeek) return;
+
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 20;
+        const maxWeeksToShow = 12;
+
+        // --- Header ---
+        const pdfToday = new Date();
+        const firstLoan = filteredLoans[0];
+        const { promotoraName, localidadName, plazaName } = getHierarchy(firstLoan.promotoraId);
+        const loanPlan = loanPlans.find(p => p.id === firstLoan.loanPlanId);
+        const totalAmount = filteredLoans.reduce((sum, loan) => sum + loan.amount, 0);
+
+        const loanStartDate = new Date(firstLoan.startDate);
+        const vencimientoDate = new Date(loanStartDate);
+        if(loanPlan) {
+            vencimientoDate.setUTCDate(loanStartDate.getUTCDate() + (loanPlan.termInWeeks * 7));
+        }
+
+
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Fecha', margin, 30);
+        doc.text('Promotora', margin, 42);
+        doc.text('Localidad', margin, 54);
+        doc.text('Plaza', margin, 66);
+        
+        doc.setFont('helvetica', 'normal');
+        doc.text(formatDate(pdfToday.toISOString()), margin + 50, 30);
+        doc.text(promotoraName.toUpperCase(), margin + 50, 42);
+        doc.text(localidadName.toUpperCase(), margin + 50, 54);
+        doc.text(plazaName.toUpperCase(), margin + 50, 66);
+
+        const rightColumnX = pageWidth - margin - 100;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Vence', rightColumnX, 30);
+        doc.text('Plaza', rightColumnX, 42);
+        doc.text('Cantidad', rightColumnX, 54);
+
+        doc.setFont('helvetica', 'normal');
+        doc.text(loanPlan ? formatDate(vencimientoDate.toISOString()) : 'N/A', rightColumnX + 50, 30);
+        doc.text(plazaName.toUpperCase(), rightColumnX + 50, 42);
+        doc.text(formatCurrency(totalAmount), rightColumnX + 50, 54);
+
+        // --- Table ---
+        const tableHeaders: any[] = [
+            { content: 'CLIENTE' },
+            { content: 'ABONA' },
         ];
         
         for (let i = 0; i < maxWeeksToShow; i++) {
-            rowData.push(''); // Placeholder, content will be drawn in didDrawCell
+            const weekDate = new Date(loanStartDate);
+            weekDate.setUTCDate(loanStartDate.getUTCDate() + (i * 7));
+            tableHeaders.push({ 
+                content: `${formatDateForPDF(weekDate)}\n${i + 1}`,
+            });
         }
-        
-        rowData.push({ content: avalInfo });
+        tableHeaders.push({ content: 'AVAL' });
 
-        return rowData;
-    });
 
-    const weeklyFailures = Array.from({ length: maxWeeksToShow }).map((_, i) => {
-        const weekNumber = i + 1;
-        return filteredLoans.reduce((total, loan) => {
-            const loanStartDate = new Date(loan.startDate);
-            const timeDiff = pdfToday.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-
-            const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
+        const tableData = filteredLoans.map(loan => {
+            const client = getClient(loan.clientId);
             const weeklyPayment = getWeeklyPaymentAmount(loan);
-            if (weekStatus.status === 'missed') return total + weeklyPayment;
-            if (weekStatus.status === 'partial') return total + (weeklyPayment - weekStatus.amountPaid);
-            return total;
-        }, 0);
-    });
 
-    const weeklyCollected = Array.from({ length: maxWeeksToShow }).map((_, i) => {
-        const weekNumber = i + 1;
-        return filteredLoans.reduce((total, loan) => {
-            const loanStartDate = new Date(loan.startDate);
-            const timeDiff = pdfToday.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-            const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
-            const weeklyPayment = getWeeklyPaymentAmount(loan);
-      
-            if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
-                if(!weekStatus.isAssumedPaid) {
-                    return total + weekStatus.amountPaid;
+            const clientInfo = [
+                client?.name || '',
+                `${client?.street || ''}, ${client?.neighborhood || ''}`,
+                client?.phone || '',
+            ].join('\n');
+            
+            let avalInfo = '';
+            if(client?.endorsement) {
+                const match = client.endorsement.match(/(.*) \((.*)\)/);
+                if (match) {
+                    const [, avalName, avalDetails] = match;
+                    const detailsArray = avalDetails.split(',').map(s => s.trim());
+                    const telIndex = detailsArray.findIndex(d => d.toUpperCase().startsWith('TEL:'));
+                    const tel = telIndex > -1 ? detailsArray[telIndex] : '';
+                    const addressParts = telIndex > -1 ? detailsArray.slice(0, telIndex) : detailsArray;
+                    
+                    avalInfo = `${avalName}\n${addressParts.join(', ')}\n${tel}`;
+                } else {
+                    avalInfo = client.endorsement;
                 }
             }
-            if (weekStatus.isAssumedPaid) {
-                return total + weeklyPayment;
-            }
-            return total;
-        }, 0);
-    });
-    
-    // --- Footer Rows ---
-    const totalAbonos = filteredLoans.reduce((sum, loan) => sum + getWeeklyPaymentAmount(loan), 0);
-    
-    const footerRow1 = [
-        { content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold', halign: 'right' } },
-        { content: `TOTALES: ${formatCurrencySimple(totalAbonos)}`, styles: { fontStyle: 'bold', halign: 'right' } },
-    ];
-    const footerRow2 = [{content: 'FALLA', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold', fillColor: '#e0e0e0'}}];
-    const footerRow3 = [{content: 'COBRADO', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold'}}];
-
-    Array.from({ length: maxWeeksToShow }).forEach((_, i) => {
-        const weeklyTotal = filteredLoans.reduce((total, loan) => {
-            const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-            if(loanPlan && i + 1 <= loanPlan.termInWeeks) {
-                return total + getWeeklyPaymentAmount(loan);
-            }
-            return total;
-        }, 0);
-        footerRow1.push({ content: weeklyTotal > 0 ? formatCurrencySimple(weeklyTotal) : '', styles: { fontStyle: 'bold', halign: 'right' } });
-        footerRow2.push({ content: weeklyFailures[i] > 0 ? formatCurrencySimplePDF(weeklyFailures[i]) : '', styles: { fontStyle: 'bold', halign: 'right', fillColor: '#e0e0e0' } });
-        footerRow3.push({ content: weeklyCollected[i] > 0 ? formatCurrencySimplePDF(weeklyCollected[i]) : '', styles: { fontStyle: 'bold', halign: 'right' } });
-    });
-    footerRow1.push({ content: '', styles: { fontStyle: 'bold', halign: 'right' } });
-    footerRow2.push({ content: '', colSpan: 1 });
-    footerRow3.push({ content: '', colSpan: 1 });
-    
-    const footerRows = [footerRow1, footerRow2, footerRow3];
-    
-    doc.autoTable({
-        startY: 80,
-        head: [tableHeaders],
-        body: tableData,
-        foot: footerRows,
-        theme: 'grid',
-        styles: {
-            lineWidth: 0.5,
-            lineColor: [0, 0, 0],
-            fontSize: 5.5,
-            cellPadding: 2,
-            valign: 'middle',
-        },
-        headStyles: {
-            fillColor: [220, 220, 220],
-            textColor: [0, 0, 0],
-            fontStyle: 'bold',
-            halign: 'center',
-            valign: 'middle',
-            fontSize: 5,
-        },
-        footStyles: {
-             fillColor: [220, 220, 220],
-             textColor: [0, 0, 0],
-             fontStyle: 'bold',
-             valign: 'middle',
-             fontSize: 7,
-        },
-        columnStyles: {
-          0: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] }, 
-          1: { cellWidth: 35, halign: 'right' }, 
-          ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 30 }])),
-          [maxWeeksToShow + 2]: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] },
-        },
-        didDrawCell: (data) => {
-            const loan = filteredLoans[data.row.index];
-            if (!loan || data.row.section !== 'body') return;
-
-            const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
-            const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
-            if (data.column.index === (currentWeekForLoan + 1)) {
-                 doc.setFillColor(227, 242, 253);
-                 doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+            const rowData: any[] = [
+                { content: clientInfo },
+                { content: formatCurrency(weeklyPayment) },
+            ];
+            
+            for (let i = 0; i < maxWeeksToShow; i++) {
+                rowData.push(''); // Placeholder, content will be drawn in didDrawCell
             }
             
-            if (data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
-                const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-                const weekNumber = data.column.index - 1;
-                if (!loanPlan || weekNumber > loanPlan.termInWeeks) return;
-                
+            rowData.push({ content: avalInfo });
+
+            return rowData;
+        });
+
+        const weeklyFailuresPDF = Array.from({ length: maxWeeksToShow }).map((_, i) => {
+            const weekNumber = i + 1;
+            return filteredLoans.reduce((total, loan) => {
+                const loanStartDate = new Date(loan.startDate);
+                const timeDiff = pdfToday.getTime() - loanStartDate.getTime();
+                const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+
+                const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
                 const weeklyPayment = getWeeklyPaymentAmount(loan);
-                const status = getWeekPaymentStatus(loan, weekNumber, currentWeekForLoan);
+                if (weekStatus.status === 'missed') return total + weeklyPayment;
+                if (weekStatus.status === 'partial') return total + (weeklyPayment - weekStatus.amountPaid);
+                return total;
+            }, 0);
+        });
 
-                let text = '';
-                let subtext = '';
-
-                if (status.status === 'paid' && !status.isAssumedPaid) {
-                    text = 'Abono';
-                    subtext = formatCurrencySimplePDF(status.amountPaid);
-                } else if (status.status === 'paid' && status.isAssumedPaid) {
-                     text = 'Abono';
-                    subtext = formatCurrencySimplePDF(weeklyPayment);
-                } else if (status.status === 'partial' || status.status === 'missed') {
-                    const fallo = weeklyPayment - status.amountPaid;
-                    if(fallo > 0) {
-                        text = 'Falla';
-                        subtext = formatCurrencySimplePDF(fallo);
-                        doc.setFillColor(224, 224, 224);
-                        doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+        const weeklyCollectedPDF = Array.from({ length: maxWeeksToShow }).map((_, i) => {
+            const weekNumber = i + 1;
+            return filteredLoans.reduce((total, loan) => {
+                const loanStartDate = new Date(loan.startDate);
+                const timeDiff = pdfToday.getTime() - loanStartDate.getTime();
+                const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+                const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
+                const weeklyPayment = getWeeklyPaymentAmount(loan);
+        
+                if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
+                    if(!weekStatus.isAssumedPaid) {
+                        return total + weekStatus.amountPaid;
                     }
                 }
+                if (weekStatus.isAssumedPaid) {
+                    return total + weeklyPayment;
+                }
+                return total;
+            }, 0);
+        });
+        
+        // --- Footer Rows ---
+        const totalAbonos = filteredLoans.reduce((sum, loan) => sum + getWeeklyPaymentAmount(loan), 0);
+        
+        const footerRow1 = [
+            { content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold', halign: 'right' } },
+            { content: `TOTALES: ${formatCurrencySimple(totalAbonos)}`, styles: { fontStyle: 'bold', halign: 'right' } },
+        ];
+        const footerRow2 = [{content: 'FALLA', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold', fillColor: '#e0e0e0'}}];
+        const footerRow3 = [{content: 'COBRADO', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold'}}];
 
-                if (text) {
-                    const centerX = data.cell.x + data.cell.width / 2;
-                    const centerY = data.cell.y + data.cell.height / 2;
-                    doc.setFontSize(5);
-                    doc.setTextColor(0, 0, 0);
-                    doc.text(text, centerX, centerY - 2, { align: 'center' });
-                    if(subtext) {
-                        doc.text(subtext, centerX, centerY + 5, { align: 'center' });
+        Array.from({ length: maxWeeksToShow }).forEach((_, i) => {
+            const weeklyTotal = filteredLoans.reduce((total, loan) => {
+                const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+                if(loanPlan && i + 1 <= (loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0))) {
+                    return total + getWeeklyPaymentAmount(loan);
+                }
+                return total;
+            }, 0);
+            footerRow1.push({ content: weeklyTotal > 0 ? formatCurrencySimple(weeklyTotal) : '', styles: { fontStyle: 'bold', halign: 'right' } });
+            footerRow2.push({ content: weeklyFailuresPDF[i] > 0 ? formatCurrencySimplePDF(weeklyFailuresPDF[i]) : '', styles: { fontStyle: 'bold', halign: 'right', fillColor: '#e0e0e0' } });
+            footerRow3.push({ content: weeklyCollectedPDF[i] > 0 ? formatCurrencySimplePDF(weeklyCollectedPDF[i]) : '', styles: { fontStyle: 'bold', halign: 'right' } });
+        });
+        footerRow1.push({ content: '', styles: { fontStyle: 'bold', halign: 'right' } });
+        footerRow2.push({ content: '', colSpan: 1 });
+        footerRow3.push({ content: '', colSpan: 1 });
+        
+        const footerRows = [footerRow1, footerRow2, footerRow3];
+        
+        doc.autoTable({
+            startY: 80,
+            head: [tableHeaders],
+            body: tableData,
+            foot: footerRows,
+            theme: 'grid',
+            styles: {
+                lineWidth: 0.5,
+                lineColor: [0, 0, 0],
+                fontSize: 5.5,
+                cellPadding: 2,
+                valign: 'middle',
+            },
+            headStyles: {
+                fillColor: [220, 220, 220],
+                textColor: [0, 0, 0],
+                fontStyle: 'bold',
+                halign: 'center',
+                valign: 'middle',
+                fontSize: 5,
+            },
+            footStyles: {
+                fillColor: [220, 220, 220],
+                textColor: [0, 0, 0],
+                fontStyle: 'bold',
+                valign: 'middle',
+                fontSize: 7,
+            },
+            columnStyles: {
+            0: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] }, 
+            1: { cellWidth: 35, halign: 'right' }, 
+            ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 30 }])),
+            [maxWeeksToShow + 2]: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] },
+            },
+            didDrawCell: (data) => {
+                const loan = filteredLoans[data.row.index];
+                if (!loan || data.row.section !== 'body') return;
+
+                const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
+                const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+                
+                if (data.column.index === (currentWeekForLoan + 1)) {
+                    doc.setFillColor(227, 242, 253);
+                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                }
+                
+                if (data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
+                    const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+                    const weekNumber = data.column.index - 1;
+                    const hasPenalty = loansWithPenalty[loan.id] || false;
+                    const termInWeeks = loanPlan ? loanPlan.termInWeeks + (hasPenalty ? 1 : 0) : 0;
+                    
+                    if (!loanPlan || weekNumber > termInWeeks) return;
+                    
+                    const weeklyPayment = getWeeklyPaymentAmount(loan);
+                    const status = getWeekPaymentStatus(loan, weekNumber, currentWeekForLoan);
+
+                    let text = '';
+                    let subtext = '';
+
+                    if (status.status === 'paid' && !status.isAssumedPaid) {
+                        text = 'Abono';
+                        subtext = formatCurrencySimplePDF(status.amountPaid);
+                    } else if (status.status === 'paid' && status.isAssumedPaid) {
+                        text = 'Abono';
+                        subtext = formatCurrencySimplePDF(weeklyPayment);
+                    } else if (status.status === 'partial' || status.status === 'missed') {
+                        const fallo = weeklyPayment - status.amountPaid;
+                        if(fallo > 0) {
+                            text = 'Falla';
+                            subtext = formatCurrencySimplePDF(fallo);
+                            doc.setFillColor(224, 224, 224);
+                            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                        }
+                    }
+
+                    if (text) {
+                        const centerX = data.cell.x + data.cell.width / 2;
+                        const centerY = data.cell.y + data.cell.height / 2;
+                        doc.setFontSize(5);
+                        doc.setTextColor(0, 0, 0);
+                        doc.text(text, centerX, centerY - 2, { align: 'center' });
+                        if(subtext) {
+                            doc.text(subtext, centerX, centerY + 5, { align: 'center' });
+                        }
                     }
                 }
             }
-        }
-    });
+        });
 
-    const weekDate = new Date(selectedWeek);
-    const formattedDate = formatDateFns(weekDate, 'dd-MM-yyyy');
-    
-    const fileName = `${plazaName} - ${localidadName} - ${promotoraName} - ${formattedDate}.pdf`;
+        const weekDate = new Date(selectedWeek);
+        const formattedDate = formatDateFns(weekDate, 'dd-MM-yyyy');
+        
+        const fileName = `${plazaName} - ${localidadName} - ${promotoraName} - ${formattedDate}.pdf`;
 
-    doc.save(fileName);
-};
-  
- useEffect(() => {
-    if (dataLoading || filteredLoans.length === 0) {
-      setPageData(prev => ({ ...prev, weeklyFailures: [], weeklyCollected: [], hasAssumedPayments: false, loansWithPenalty: {} }));
-      return;
+        doc.save(fileName);
+    };
+
+    if (dataLoading) {
+        return <Loading />;
     }
 
-    const todayDate = new Date();
-    
-    const firstLoanStartDate = new Date(filteredLoans[0].startDate);
-    const timeDiff = todayDate.getTime() - firstLoanStartDate.getTime();
-    const currentGroupWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+    const handlePlazaChange = (plazaId: string) => {
+        setSelectedPlaza(plazaId);
+        setSelectedLocalidad('');
+        setSelectedPromotora('');
+        setSelectedWeek(null);
+    };
 
-    
-    const calculateData = () => {
-      const newLoansWithPenalty = { ...pageData.loansWithPenalty };
+    const handleLocalidadChange = (localidadId: string) => {
+        setSelectedLocalidad(localidadId);
+        setSelectedPromotora('');
+        setSelectedWeek(null);
+    };
 
-      // Update penalty status first, as it affects other calculations
-      filteredLoans.forEach(loan => {
-          if (newLoansWithPenalty[loan.id]) return; // Already penalized, don't re-calculate
-
-          const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
-          const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
-          let missedWeeksCount = 0;
-          for (let i = 1; i < currentLoanWeek; i++) {
-              // Temporarily use getWeekPaymentStatus without penalty to check for missed weeks
-              const weekStatus = getWeekPaymentStatus(loan, i, currentLoanWeek);
-              if (weekStatus.status === 'missed') {
-                  missedWeeksCount++;
-              }
-          }
-          if (missedWeeksCount >= 2) {
-              newLoansWithPenalty[loan.id] = true;
-          }
-      });
-
-
-      const failures = Array.from({ length: 15 }).map((_, i) => {
-          const weekNumber = i + 1;
-          return filteredLoans.reduce((total, loan) => {
-              const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
-              const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
-              const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
-              const weeklyPayment = getWeeklyPaymentAmount(loan);
-              if (weekStatus.status === 'missed') {
-                  return total + weeklyPayment;
-              }
-              if (weekStatus.status === 'partial') {
-                  return total + (weeklyPayment - weekStatus.amountPaid);
-              }
-              return total;
-          }, 0);
-      });
-
-      const collected = Array.from({ length: 15 }).map((_, i) => {
-          const weekNumber = i + 1;
-          return filteredLoans.reduce((total, loan) => {
-              const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
-              const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
-              const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
-              const weeklyPayment = getWeeklyPaymentAmount(loan);
-              
-              if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
-                  if(!weekStatus.isAssumedPaid) {
-                      return total + weekStatus.amountPaid;
-                  }
-              }
-               if (weekStatus.isAssumedPaid) {
-                  return total + weeklyPayment;
-              }
-              return total;
-          }, 0);
-      });
-      
-      const hasAssumed = filteredLoans.some(loan => {
-          if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') return false;
-          const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-          if (!loanPlan) return false;
-
-          const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
-          const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
-          if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) return false;
-          
-          const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
-          return !paymentExists;
-      });
-      
-      setPageData({
-        currentGroupWeek,
-        weeklyFailures: failures,
-        weeklyCollected: collected,
-        hasAssumedPayments: hasAssumed,
-        loansWithPenalty: newLoansWithPenalty
-      });
-    }
-
-    calculateData();
-  }, [dataLoading, filteredLoans, loanPlans, clients]);
-
-
-
-  if (dataLoading) {
-    return <Loading />;
-  }
-
-  const { currentGroupWeek, weeklyFailures, weeklyCollected, hasAssumedPayments, loansWithPenalty } = pageData;
-
-  const handlePlazaChange = (plazaId: string) => {
-      setSelectedPlaza(plazaId);
-      setSelectedLocalidad('');
-      setSelectedPromotora('');
-      setSelectedWeek(null);
-  };
-
-  const handleLocalidadChange = (localidadId: string) => {
-      setSelectedLocalidad(localidadId);
-      setSelectedPromotora('');
-      setSelectedWeek(null);
-  };
-
-  const handlePromotoraChange = (promotoraId: string) => {
-      setSelectedPromotora(promotoraId);
-      setSelectedWeek(null); // Reset week selection
-  };
+    const handlePromotoraChange = (promotoraId: string) => {
+        setSelectedPromotora(promotoraId);
+        setSelectedWeek(null); // Reset week selection
+    };
 
   return (
     <>
@@ -938,7 +938,7 @@ const handleExportPDF = () => {
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
                                 const weeklyTotal = filteredLoans.reduce((total, loan) => {
                                     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-                                    if(loanPlan && i + 1 <= loanPlan.termInWeeks) {
+                                    if(loanPlan && i + 1 <= (loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0))) {
                                         return total + getWeeklyPaymentAmount(loan);
                                     }
                                     return total;
