@@ -1,4 +1,6 @@
-import { PlusCircle } from 'lucide-react';
+'use client';
+
+import { PlusCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -8,17 +10,24 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { getLoanPlans } from '@/lib/firestore-data';
+import { useRealtimeData } from '@/hooks/use-realtime-data';
 import Link from 'next/link';
+import Loading from '../loading';
 
-export default async function LoanPlansPage() {
-    const loanPlans = await getLoanPlans();
-    const formatCurrency = (amount: number) => {
+export default function LoanPlansPage() {
+  const { data, loading } = useRealtimeData();
+  const { loanPlans = [] } = data || {};
+
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('es-MX', {
       style: 'currency',
       currency: 'MXN',
     }).format(amount);
   };
+
+  if (loading) {
+    return <Loading />;
+  }
   
   return (
     <div className="space-y-6">
@@ -63,6 +72,19 @@ export default async function LoanPlansPage() {
             </CardFooter>
           </Card>
         ))}
+         {loanPlans.length === 0 && (
+          <Card className="md:col-span-2 lg:col-span-3">
+            <CardContent className="flex flex-col items-center justify-center h-48">
+              <p className="text-muted-foreground">No hay planes de préstamo definidos.</p>
+              <Button asChild className="mt-4">
+                <Link href="/dashboard/plans/new">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Crea tu primer plan
+                </Link>
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
   );
