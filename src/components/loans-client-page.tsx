@@ -251,31 +251,34 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           }
           
           const loanStartDate = new Date(loan.startDate);
-          const weekStartDate = new Date(loanStartDate.getTime() + (weekNumber * 7 * 24 * 60 * 60 * 1000));
+          // The first payment is 1 week (7 days) after the start date.
+          const weekDate = new Date(loanStartDate.getTime());
+          weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
+
           
-          const isFuture = new Date() < weekStartDate;
+          const isFuture = new Date() < weekDate;
           if (isFuture) {
-            return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+            return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
           }
           
           const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
           const totalPaidForWeek = paymentForWeek?.amount || 0;
 
           if (weekNumber === currentLoanWeek && !paymentForWeek) {
-              return { status: 'paid' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: true };
+              return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
           }
 
           if (totalPaidForWeek > 0) {
               if (totalPaidForWeek >= weeklyPaymentAmount) {
-                  return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+                  return { status: 'paid' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
               } else {
-                  return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+                  return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
               }
           } else {
               if (weekNumber < currentLoanWeek) {
-                  return { status: 'missed' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+                  return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
               }
-              return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+              return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
           }
         };
 
@@ -461,9 +464,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             if (loanPlan) {
                 const loanGroupStartDate = new Date(loan.startDate);
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
-                const currentVencimiento = new Date(loanGroupStartDate);
                 // The first payment is 1 week after, so the last payment is termInWeeks * 7 days after.
+                const currentVencimiento = new Date(loanGroupStartDate);
                 currentVencimiento.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7));
+
                 if (currentVencimiento > latestVencimientoDate) {
                     latestVencimientoDate = currentVencimiento;
                 }
@@ -503,7 +507,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         for (let i = 0; i < maxWeeksToShow; i++) {
             const weekNumber = i + 1;
-            tableHeaders.push({
+             tableHeaders.push({
                 content: `S${weekNumber}`,
             });
         }
@@ -514,38 +518,16 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             const client = getClient(loan.clientId);
             const weeklyPayment = getWeeklyPaymentAmount(loan);
 
-            const clientInfo = [
-                client?.name || '',
-                `${client?.street || ''}, ${client?.neighborhood || ''}`,
-                client?.phone || '',
-            ].join('\n');
-            
-            let avalInfo = '';
-            if(client?.endorsement) {
-                const match = client.endorsement.match(/(.*) \((.*)\)/);
-                if (match) {
-                    const [, avalName, avalDetails] = match;
-                    const detailsArray = avalDetails.split(',').map(s => s.trim());
-                    const telIndex = detailsArray.findIndex(d => d.toUpperCase().startsWith('TEL:'));
-                    const tel = telIndex > -1 ? detailsArray[telIndex] : '';
-                    const addressParts = telIndex > -1 ? detailsArray.slice(0, telIndex) : detailsArray;
-                    
-                    avalInfo = `${avalName}\n${addressParts.join(', ')}\n${tel}`;
-                } else {
-                    avalInfo = client.endorsement;
-                }
-            }
-            
             const rowData: any[] = [
-                { content: clientInfo },
-                { content: formatCurrencySimple(weeklyPayment) },
+                { content: '' }, // Placeholder for custom rendering
+                { content: formatCurrencySimple(weeklyPayment), styles: { fontSize: 6.5, fontStyle: 'bold' } },
             ];
             
             for (let i = 0; i < maxWeeksToShow; i++) {
                 rowData.push(''); // Placeholder, content will be drawn in didDrawCell
             }
             
-            rowData.push({ content: avalInfo });
+            rowData.push({ content: '' }); // Placeholder for custom rendering
 
             return rowData;
         });
@@ -646,13 +628,53 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             },
             columnStyles: {
                 0: { cellWidth: 100, fontSize: 6.5 },
-                1: { cellWidth: 40, halign: 'right', fontStyle: 'bold', fontSize: 10, textColor: [0, 0, 0] },
+                1: { cellWidth: 40, halign: 'right', fontStyle: 'bold', fontSize: 8, textColor: [0, 0, 0] },
                 ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 'auto' }])),
                 [maxWeeksToShow + 2]: { cellWidth: 100, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
                 const loan = filteredLoans[data.row.index];
                 if (!loan || data.row.section !== 'body') return;
+
+                const client = getClient(loan.clientId);
+
+                if (data.column.index === 0 && client) {
+                    const clientInfo = [
+                        `${client.street || ''}, ${client.neighborhood || ''}`,
+                        client.phone || '',
+                    ];
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor('#000000');
+                    doc.text(client.name || '', data.cell.x + 2, data.cell.y + 10);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor('#71717a'); // muted-foreground
+                    doc.text(clientInfo.join('\n'), data.cell.x + 2, data.cell.y + 20);
+                }
+
+                if (data.column.index === (maxWeeksToShow + 2) && client?.endorsement) {
+                    let avalName = '';
+                    let avalDetailsText = '';
+
+                    const match = client.endorsement.match(/(.*) \((.*)\)/);
+                    if (match) {
+                        avalName = match[1];
+                        const avalDetails = match[2];
+                        const detailsArray = avalDetails.split(',').map(s => s.trim());
+                        const telIndex = detailsArray.findIndex(d => d.toUpperCase().startsWith('TEL:'));
+                        const tel = telIndex > -1 ? detailsArray[telIndex] : '';
+                        const addressParts = telIndex > -1 ? detailsArray.slice(0, telIndex) : detailsArray;
+                        avalDetailsText = `${addressParts.join(', ')}\n${tel}`;
+                    } else {
+                        avalName = client.endorsement;
+                    }
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor('#000000');
+                    doc.text(avalName, data.cell.x + 2, data.cell.y + 10);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor('#71717a'); // muted-foreground
+                    doc.text(avalDetailsText, data.cell.x + 2, data.cell.y + 20);
+                }
+
 
                 const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
                 const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
