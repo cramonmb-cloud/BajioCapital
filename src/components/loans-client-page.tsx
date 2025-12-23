@@ -510,7 +510,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         }
         tableHeaders.push({ content: 'AVAL' });
 
-
         const tableData = filteredLoans.map(loan => {
             const client = getClient(loan.clientId);
             const weeklyPayment = getWeeklyPaymentAmount(loan);
@@ -648,11 +647,18 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     data.cell.text = []; // Clear original text to prevent duplication
 
                     const weekNumber = data.column.index - 1;
+                    
                     const groupStartDate = new Date(selectedWeek!);
+                    const groupStartDay = groupStartDate.getUTCDay(); // 0=Sun, 6=Sat
                     
+                    // Days to add to get to the *next* Saturday.
+                    // If today is Saturday (6), add 7 days. If Sunday (0), add 6, etc.
+                    const daysToAdd = 7 - groupStartDay;
+
                     const firstPaymentSaturday = new Date(groupStartDate.getTime());
-                    firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + 7);
+                    firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + daysToAdd);
                     
+                    // Calculate the date for the current week's column
                     const headerDate = new Date(firstPaymentSaturday.getTime());
                     headerDate.setUTCDate(headerDate.getUTCDate() + (weekNumber - 1) * 7);
 
