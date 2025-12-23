@@ -360,7 +360,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     
         const loanStartDate = new Date(loan.startDate);
         
-        // The first payment is 1 week (7 days) after the start date.
         const weekDate = new Date(loanStartDate.getTime());
         weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
 
@@ -464,9 +463,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             if (loanPlan) {
                 const loanGroupStartDate = new Date(loan.startDate);
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
-                // The first payment is 1 week after, so the last payment is termInWeeks * 7 days after.
                 const currentVencimiento = new Date(loanGroupStartDate);
-                currentVencimiento.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7));
+                currentVencimiento.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks + 1) * 7);
 
                 if (currentVencimiento > latestVencimientoDate) {
                     latestVencimientoDate = currentVencimiento;
@@ -507,8 +505,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         for (let i = 0; i < maxWeeksToShow; i++) {
             const weekNumber = i + 1;
-             tableHeaders.push({
-                content: `S${weekNumber}`,
+            const headerDate = new Date(groupStartDate);
+            headerDate.setUTCDate(headerDate.getUTCDate() + (weekNumber * 7));
+            const formattedDate = headerDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
+            const verticalDate = formattedDate.split('').join('\n');
+            tableHeaders.push({
+                content: `S${weekNumber}\n${verticalDate}`
             });
         }
         tableHeaders.push({ content: 'AVAL' });
