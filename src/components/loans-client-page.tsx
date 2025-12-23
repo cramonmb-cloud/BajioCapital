@@ -437,7 +437,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
         const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 10;
+        const margin = 20;
 
         // Determine the maximum number of weeks from the selected loans' plans
         const maxWeeksToShow = filteredLoans.reduce((max, loan) => {
@@ -615,7 +615,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             styles: {
                 lineWidth: 0.5,
                 lineColor: [0, 0, 0],
-                fontSize: 5.5,
+                fontSize: 6,
                 cellPadding: 1,
                 valign: 'middle',
             },
@@ -625,20 +625,20 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 fontStyle: 'bold',
                 halign: 'center',
                 valign: 'middle',
-                fontSize: 5,
+                fontSize: 5.5,
             },
             footStyles: {
                 fillColor: [220, 220, 220],
                 textColor: [0, 0, 0],
                 fontStyle: 'bold',
                 valign: 'middle',
-                fontSize: 5,
+                fontSize: 6,
             },
             columnStyles: {
-            0: { cellWidth: 60, fontSize: 5, textColor: [0, 0, 0] }, 
-            1: { cellWidth: 28, halign: 'right', fontSize: 5 }, 
-            ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 23 }])),
-            [maxWeeksToShow + 2]: { cellWidth: 60, fontSize: 5, textColor: [0, 0, 0] },
+                0: { cellWidth: 75, fontSize: 6, textColor: [0, 0, 0] }, // CLIENTE
+                1: { cellWidth: 32, halign: 'right', fontSize: 6 }, // ABONA
+                ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 26 }])), // Weeks
+                [maxWeeksToShow + 2]: { cellWidth: 75, fontSize: 6, textColor: [0, 0, 0] }, // AVAL
             },
             didDrawCell: (data) => {
                 const loan = filteredLoans[data.row.index];
@@ -685,11 +685,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     if (text) {
                         const centerX = data.cell.x + data.cell.width / 2;
                         const centerY = data.cell.y + data.cell.height / 2;
-                        doc.setFontSize(4);
+                        doc.setFontSize(5);
                         doc.setTextColor(0, 0, 0);
                         doc.text(text, centerX, centerY - 2, { align: 'center' });
                         if(subtext) {
-                            doc.setFontSize(5);
+                            doc.setFontSize(6);
                             doc.text(subtext, centerX, centerY + 5, { align: 'center' });
                         }
                     }
