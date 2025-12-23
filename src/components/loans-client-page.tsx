@@ -358,31 +358,33 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const loanStartDate = new Date(loan.startDate);
         
         // The first payment is 1 week (7 days) after the start date.
-        const weekStartDate = new Date(loanStartDate.getTime() + (weekNumber * 7 * 24 * 60 * 60 * 1000));
+        const weekDate = new Date(loanStartDate.getTime());
+        weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
+
         
-        const isFuture = new Date() < weekStartDate;
+        const isFuture = new Date() < weekDate;
         if (isFuture) {
-          return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+          return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
         }
         
         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
         const totalPaidForWeek = paymentForWeek?.amount || 0;
     
         if (weekNumber === currentLoanWeek && !paymentForWeek) {
-            return { status: 'paid' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: true };
+            return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
         }
     
         if (totalPaidForWeek > 0) {
             if(totalPaidForWeek >= weeklyPaymentAmount) {
-                return { status: 'paid' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+                return { status: 'paid' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
             } else {
-                return { status: 'partial' as const, date: weekStartDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+                return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
             }
         } else {
             if (weekNumber < currentLoanWeek) {
-                return { status: 'missed' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+                return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
             }
-            return { status: 'pending' as const, date: weekStartDate, amountPaid: 0, isAssumedPaid: false };
+            return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
         }
     };
 
@@ -501,12 +503,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         for (let i = 0; i < maxWeeksToShow; i++) {
             const weekNumber = i + 1;
-            const weekDate = new Date(groupStartDate.getTime());
-            // The first payment is 1 week (7 days) after the start date.
-            weekDate.setUTCDate(groupStartDate.getUTCDate() + (weekNumber * 7));
-
-            tableHeaders.push({ 
-                content: `${formatDateForPDF(weekDate)}\nS${weekNumber}`,
+            tableHeaders.push({
+                content: `S${weekNumber}`,
             });
         }
         tableHeaders.push({ content: 'AVAL' });
