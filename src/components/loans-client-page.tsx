@@ -465,8 +465,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const loanGroupStartDate = new Date(loan.startDate);
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
                 const currentVencimiento = new Date(loanGroupStartDate);
-                // The loan expires one week after the last payment is due
-                currentVencimiento.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks + 1) * 7);
+                // The loan expires ON the last payment day
+                currentVencimiento.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks) * 7);
 
                 if (currentVencimiento > latestVencimientoDate) {
                     latestVencimientoDate = currentVencimiento;
@@ -649,16 +649,14 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const weekNumber = data.column.index - 1;
                     
                     const groupStartDate = new Date(selectedWeek!);
-                    const groupStartDay = groupStartDate.getUTCDay(); // 0=Sun, 6=Sat
+                    const groupStartDayUTC = groupStartDate.getUTCDay(); // 0=Sun, 6=Sat
                     
-                    // The first payment is the next Saturday. A week runs Sun-Sat. 
-                    // Days to next Sat: if today is Sat (6), next is in 7 days. If Sun (0), next is in 6 days.
-                    const daysToNextSaturday = 7 - groupStartDay;
-
+                    // Logic: Find Saturday of the loan start week, then add 7 days.
+                    const daysToSaturday = 6 - groupStartDayUTC;
                     const firstPaymentSaturday = new Date(groupStartDate);
-                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + daysToNextSaturday);
-
-
+                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + daysToSaturday + 7);
+                    
+                    // Now, find the date for the current column's week
                     const headerDate = new Date(firstPaymentSaturday);
                     headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
 
