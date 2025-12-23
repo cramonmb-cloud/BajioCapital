@@ -15,13 +15,20 @@ export type CreateLoanInput = {
 
 export async function createLoanAction(input: CreateLoanInput) {
     const today = new Date();
-    const dayOfWeek = today.getUTCDay(); // Sunday = 0, Saturday = 6
-    // If today is Sunday (0), we want the Saturday of the *previous* week.
-    // For any other day (Mon-Sat), we calculate days until the upcoming Saturday.
-    const daysToAdd = dayOfWeek === 0 ? -1 : 6 - dayOfWeek;
+    today.setUTCHours(0, 0, 0, 0); // Normalize to start of day
     
+    // Get day of week (Sunday is 0, Saturday is 6)
+    const dayOfWeek = today.getUTCDay();
+
+    // Calculate days to subtract to get to the previous or current Saturday.
+    // If today is Sunday (0), subtract 1 to get yesterday's Saturday.
+    // If today is Monday (1), subtract 2 to get Saturday.
+    // ...
+    // If today is Saturday (6), subtract 0.
+    const daysToSubtract = (dayOfWeek + 1) % 7;
+
     const saturday = new Date(today);
-    saturday.setUTCDate(today.getUTCDate() + daysToAdd);
+    saturday.setUTCDate(today.getUTCDate() - daysToSubtract);
     saturday.setUTCHours(0, 0, 0, 0);
 
     let clientId = input.client.id;
