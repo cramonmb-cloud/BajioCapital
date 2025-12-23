@@ -318,8 +318,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             });
         };
 
-        const failures = calculateTotals(15, 'failures');
-        const collected = calculateTotals(15, 'collected');
+        const maxWeeks = 16;
+        const failures = calculateTotals(maxWeeks, 'failures');
+        const collected = calculateTotals(maxWeeks, 'collected');
 
         const hasAssumed = filteredLoans.some(loan => {
             if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') return false;
@@ -431,7 +432,15 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 20;
-        const maxWeeksToShow = 12;
+
+        // Determine the maximum number of weeks from the selected loans' plans
+        const maxWeeksToShow = filteredLoans.reduce((max, loan) => {
+            const plan = loanPlans.find(p => p.id === loan.loanPlanId);
+            const penalty = loansWithPenalty[loan.id] ? 1 : 0;
+            const term = plan ? plan.termInWeeks + penalty : 0;
+            return Math.max(max, term);
+        }, 0);
+
 
         // --- Header ---
         const pdfToday = new Date();
@@ -804,7 +813,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                       <TableHead className="sticky left-0 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
                       <TableHead className="p-2">Abono</TableHead>
                       <TableHead className="p-2">Estado</TableHead>
-                      {Array.from({ length: 15 }, (_, i) => {
+                      {Array.from({ length: 16 }, (_, i) => {
                           const weekNumber = i + 1;
                           const isCurrentWeek = weekNumber === currentGroupWeek;
                           return (
@@ -840,7 +849,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                           <TableCell className="p-2">
                             <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
                           </TableCell>
-                           {Array.from({ length: 15 }).map((_, i) => {
+                           {Array.from({ length: 16 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentLoanWeek;
                                 const isPenaltyWeek = hasPenalty && weekNumber === termInWeeks;
@@ -923,7 +932,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                       )})
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={18} className="text-center h-24 p-2">
+                            <TableCell colSpan={19} className="text-center h-24 p-2">
                                {selectedPromotora ? "No hay préstamos para la semana y promotora seleccionada." : "Selecciona una promotora para comenzar."}
                             </TableCell>
                         </TableRow>
@@ -933,7 +942,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     <TableFooter>
                         <TableRow>
                             <TableCell colSpan={3} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
-                            {Array.from({ length: 15 }).map((_, i) => {
+                            {Array.from({ length: 16 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
                                 const weeklyTotal = filteredLoans.reduce((total, loan) => {
