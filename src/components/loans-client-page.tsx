@@ -452,14 +452,23 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const pdfToday = new Date();
         const firstLoan = filteredLoans[0];
         const { promotoraName, localidadName, plazaName } = getHierarchy(firstLoan.promotoraId);
-        const loanPlan = loanPlans.find(p => p.id === firstLoan.loanPlanId);
+        
         const totalAmount = filteredLoans.reduce((sum, loan) => sum + loan.amount, 0);
 
-        const loanStartDate = new Date(firstLoan.startDate);
-        const vencimientoDate = new Date(loanStartDate);
-        if(loanPlan) {
-            vencimientoDate.setUTCDate(loanStartDate.getUTCDate() + (loanPlan.termInWeeks * 7));
-        }
+        const groupStartDate = new Date(selectedWeek);
+
+        let latestVencimientoDate = new Date(0);
+        filteredLoans.forEach(loan => {
+            const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+            if (loanPlan) {
+                const currentVencimiento = new Date(loan.startDate);
+                const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
+                currentVencimiento.setUTCDate(currentVencimiento.getUTCDate() + (termInWeeks * 7));
+                if (currentVencimiento > latestVencimientoDate) {
+                    latestVencimientoDate = currentVencimiento;
+                }
+            }
+        });
 
 
         doc.setFontSize(8);
@@ -482,7 +491,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         doc.text('Cantidad', rightColumnX, 54);
 
         doc.setFont('helvetica', 'normal');
-        doc.text(loanPlan ? formatDate(vencimientoDate.toISOString()) : 'N/A', rightColumnX + 50, 30);
+        doc.text(latestVencimientoDate > new Date(0) ? formatDate(latestVencimientoDate.toISOString()) : 'N/A', rightColumnX + 50, 30);
         doc.text(plazaName.toUpperCase(), rightColumnX + 50, 42);
         doc.text(formatCurrency(totalAmount), rightColumnX + 50, 54);
 
@@ -493,8 +502,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         ];
         
         for (let i = 0; i < maxWeeksToShow; i++) {
-            const weekDate = new Date(loanStartDate);
-            weekDate.setUTCDate(loanStartDate.getUTCDate() + (i * 7));
+            const weekDate = new Date(groupStartDate);
+            weekDate.setUTCDate(groupStartDate.getUTCDate() + (i * 7));
             tableHeaders.push({ 
                 content: `${formatDateForPDF(weekDate)}\n${i + 1}`,
             });
@@ -647,8 +656,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
                 const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
                 
-                if (data.column.index === (currentWeekForLoan + 1)) {
-                    doc.setFillColor(227, 242, 253);
+                if (data.column.index === 1) { // ABONA column
+                    // This space intentionally left blank to let the main style handle it.
+                } else if (data.column.index === (currentWeekForLoan + 1)) {
+                    doc.setFillColor(227, 242, 253); // light blue
                     doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
                 }
                 
