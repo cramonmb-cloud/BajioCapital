@@ -505,16 +505,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             { content: 'ABONA' },
         ];
         
-        const dateHeaders: { week: number, date: Date }[] = [];
         for (let i = 0; i < maxWeeksToShow; i++) {
-            const weekNumber = i + 1;
-            // The header content is now blank, as we draw it manually in didDrawCell
-            tableHeaders.push({ content: '' });
-
-            // Calculate the correct date for this week's payment
-            const headerDate = new Date(groupStartDate);
-            headerDate.setUTCDate(headerDate.getUTCDate() + (weekNumber * 7));
-            dateHeaders.push({ week: weekNumber, date: headerDate });
+            tableHeaders.push({ content: '' }); // Placeholder for custom drawing
         }
         tableHeaders.push({ content: 'AVAL' });
 
@@ -656,7 +648,15 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     data.cell.text = []; // Clear original text to prevent duplication
 
                     const weekNumber = data.column.index - 1;
-                    const dateHeader = dateHeaders.find(h => h.week === weekNumber);
+                    const groupStartDate = new Date(selectedWeek!);
+                    
+                    const firstPaymentSaturday = new Date(groupStartDate);
+                    firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + 7);
+                    
+                    const headerDate = new Date(firstPaymentSaturday);
+                    headerDate.setUTCDate(headerDate.getUTCDate() + (weekNumber - 1) * 7);
+
+                    const formattedDate = formatDateFns(headerDate, 'dd/MM/yy');
                     
                     // Draw Title (e.g., "S1")
                     doc.setFontSize(9);
@@ -668,14 +668,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     doc.text(title, titleX, data.cell.y + 12);
             
                     // Draw Rotated Date
-                    if (dateHeader) {
-                        const formattedDate = formatDateFns(dateHeader.date, 'dd/MM/yy');
-                        doc.setFontSize(7);
-                        doc.setFont('helvetica', 'normal');
-                        const dateX = data.cell.x + data.cell.width / 2; // Center horizontally
-                        const dateY = data.cell.y + data.cell.height - 5; // Position near the bottom
-                        doc.text(formattedDate, dateX, dateY, { angle: 90, align: 'center' });
-                    }
+                    doc.setFontSize(7);
+                    doc.setFont('helvetica', 'normal');
+                    const dateX = data.cell.x + data.cell.width / 2; 
+                    const dateY = data.cell.y + data.cell.height - 5; 
+                    doc.text(formattedDate, dateX, dateY, { angle: 90, align: 'center' });
                 }
                 
                 const loan = filteredLoans[data.row.index];
