@@ -435,7 +435,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     const handleExportPDF = () => {
         if (filteredLoans.length === 0 || !selectedWeek) return;
 
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 20;
 
@@ -635,10 +635,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 fontSize: 6.5,
             },
             columnStyles: {
-                0: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] }, // CLIENTE
+                0: { cellWidth: 100, fontSize: 6.5, textColor: [0, 0, 0] }, // CLIENTE
                 1: { cellWidth: 40, halign: 'right', fontSize: 6.5 }, // ABONA
-                ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 28 }])), // Weeks
-                [maxWeeksToShow + 2]: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] }, // AVAL
+                ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 32 }])), // Weeks
+                [maxWeeksToShow + 2]: { cellWidth: 100, fontSize: 6.5, textColor: [0, 0, 0] }, // AVAL
             },
             didDrawCell: (data) => {
                 const loan = filteredLoans[data.row.index];
