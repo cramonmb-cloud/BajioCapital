@@ -251,7 +251,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           }
           
           const loanStartDate = new Date(loan.startDate);
-          // The first payment is 1 week (7 days) after the start date.
+          // El primer pago se pide la siguiente semana, por eso el `weekNumber * 7`
           const weekDate = new Date(loanStartDate.getTime());
           weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
 
@@ -508,8 +508,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const dateHeaders: { week: string, date: string }[] = [];
         for (let i = 0; i < maxWeeksToShow; i++) {
             const weekNumber = i + 1;
-            const headerDate = new Date(groupStartDate);
-            headerDate.setUTCDate(headerDate.getUTCDate() + (weekNumber * 7)); // Primer pago es una semana después
+            const firstPaymentSaturday = new Date(groupStartDate);
+            firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + 7);
+            
+            const headerDate = new Date(firstPaymentSaturday);
+            headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (i * 7));
+
             const formattedDate = headerDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
             tableHeaders.push({ content: `S${weekNumber}` });
             dateHeaders.push({ week: `S${weekNumber}`, date: formattedDate });
@@ -521,11 +525,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             const client = getClient(loan.clientId);
             const weeklyPayment = getWeeklyPaymentAmount(loan);
 
-            const clientInfo = client ? [
-                client.name,
-                `${client.street || ''}, ${client.neighborhood || ''}`,
-                client.phone || '',
-            ].filter(Boolean).join('\n') : '';
+            const clientInfo = client ? `${client.name}\n${client.street || ''}, ${client.neighborhood || ''}\n${client.phone || ''}` : '';
 
             let avalInfo = '';
             if (client?.endorsement) {
@@ -638,8 +638,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 fontStyle: 'bold',
                 halign: 'center',
                 valign: 'top',
-                fontSize: 6,
-                cellPadding: { top: 2, right: 2, bottom: 20, left: 2 } // Increase bottom padding
+                minCellHeight: 50,
             },
             footStyles: {
                 fillColor: [220, 220, 220],
@@ -657,12 +656,21 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             didDrawCell: (data) => {
                 // Draw rotated date headers
                 if (data.row.section === 'head' && data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
+                    data.cell.text = ''; // Clear original text
                     const weekNumber = data.column.index - 1;
                     const dateHeader = dateHeaders.find(h => h.week === `S${weekNumber}`);
+                    
+                    // Draw S1, S2, etc.
+                    doc.setFontSize(8);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(0, 0, 0);
+                    doc.text(`S${weekNumber}`, data.cell.x + data.cell.width / 2, data.cell.y + 10, { align: 'center' });
+
+                    // Draw rotated date
                     if (dateHeader) {
-                        doc.setFontSize(6);
-                        doc.setTextColor(0, 0, 0);
-                        doc.text(dateHeader.date, data.cell.x + data.cell.width / 2, data.cell.y + 16, {
+                        doc.setFontSize(7);
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(dateHeader.date, data.cell.x + data.cell.width / 2, data.cell.y + 45, {
                             angle: 90,
                             align: 'center',
                         });
