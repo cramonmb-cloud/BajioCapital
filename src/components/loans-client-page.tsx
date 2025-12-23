@@ -439,7 +439,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 20;
 
-        // Determine the maximum number of weeks from the selected loans' plans
         const maxWeeksToShow = filteredLoans.reduce((max, loan) => {
             const plan = loanPlans.find(p => p.id === loan.loanPlanId);
             const penalty = loansWithPenalty[loan.id] ? 1 : 0;
@@ -450,8 +449,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
         // --- Header ---
         const pdfToday = new Date();
-        const firstLoan = filteredLoans[0];
-        const { promotoraName, localidadName, plazaName } = getHierarchy(firstLoan.promotoraId);
+        const { promotoraName, localidadName, plazaName } = getHierarchy(selectedPromotora);
         
         const totalAmount = filteredLoans.reduce((sum, loan) => sum + loan.amount, 0);
 
@@ -645,7 +643,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             },
             columnStyles: {
                 0: { cellWidth: 100, fontSize: 6.5 },
-                1: { cellWidth: 40, halign: 'right', fontStyle: 'bold', fontSize: 13, textColor: [0, 0, 0] },
+                1: { cellWidth: 40, halign: 'right', fontStyle: 'bold', fontSize: 10, textColor: [0, 0, 0] },
                 ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 'auto' }])),
                 [maxWeeksToShow + 2]: { cellWidth: 100, fontSize: 6.5 },
             },
@@ -656,9 +654,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
                 const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
                 
-                if (data.column.index === 1) { // ABONA column
-                    // This space intentionally left blank to let the main style handle it.
-                } else if (data.column.index === (currentWeekForLoan + 1)) {
+                if (data.column.index === (currentWeekForLoan + 1)) {
                     doc.setFillColor(227, 242, 253); // light blue
                     doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
                 }
