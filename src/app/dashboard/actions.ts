@@ -20,10 +20,11 @@ export async function createLoanAction(input: CreateLoanInput) {
     // Get day of week (Sunday is 0, Saturday is 6)
     const dayOfWeek = today.getUTCDay();
 
-    // Calculate days to subtract to get to the current week's Saturday.
-    // If today is Sunday (0), subtract 1 to get yesterday's Saturday.
-    // If today is Monday (1), subtract 2.
-    // If today is Saturday (6), subtract 0.
+    // Calculate days to subtract to get to the previous Saturday.
+    // If today is Sunday (0), we need to go back 1 day to get to Saturday.
+    // If today is Monday (1), we need to go back 2 days.
+    // If today is Saturday (6), we need to go back 0 days.
+    // The formula is (dayOfWeek + 1) % 7
     const daysToSubtract = (dayOfWeek + 1) % 7;
 
     const saturday = new Date(today);
