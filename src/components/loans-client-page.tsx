@@ -358,9 +358,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     
         const loanStartDate = new Date(loan.startDate);
         
-        const weekStartDate = new Date(loanStartDate);
         // The first payment is 1 week (7 days) after the start date.
-        weekStartDate.setUTCDate(loanStartDate.getUTCDate() + (weekNumber * 7));
+        const weekStartDate = new Date(loanStartDate.getTime() + (weekNumber * 7 * 24 * 60 * 60 * 1000));
         
         const isFuture = new Date() < weekStartDate;
         if (isFuture) {
@@ -502,11 +501,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         ];
         
         for (let i = 0; i < maxWeeksToShow; i++) {
-            const paymentDate = new Date(groupStartDate);
-            // The first payment is on the next Saturday, so we add (i + 1) * 7 days
-            paymentDate.setUTCDate(paymentDate.getUTCDate() + (i + 1) * 7);
+            const weekDate = new Date(groupStartDate.getTime() + ((i + 1) * 7 * 24 * 60 * 60 * 1000));
             tableHeaders.push({ 
-                content: `${formatDateForPDF(paymentDate)}\n${i + 1}`,
+                content: `${formatDateForPDF(weekDate)}\n${i + 1}`,
             });
         }
         tableHeaders.push({ content: 'AVAL' });
