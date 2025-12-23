@@ -385,7 +385,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             }
         } else {
             if (weekNumber < currentLoanWeek) {
-                return { status: 'missed' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
+                return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
             }
             return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
         }
@@ -651,15 +651,22 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const groupStartDate = new Date(selectedWeek!);
                     const groupStartDay = groupStartDate.getUTCDay(); // 0=Sun, 6=Sat
                     
-                    const daysToNextSaturday = (6 - groupStartDay + 7) % 7;
+                    // The first payment is the next Saturday. A week runs Sun-Sat. 
+                    // Days to next Sat: if today is Sat (6), next is in 7 days. If Sun (0), next is in 6 days.
+                    const daysToNextSaturday = 7 - groupStartDay;
+
                     const firstPaymentSaturday = new Date(groupStartDate);
-                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + daysToNextSaturday + 1);
+                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + daysToNextSaturday);
+
 
                     const headerDate = new Date(firstPaymentSaturday);
                     headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
 
                     const pad = (num: number) => num.toString().padStart(2, '0');
-                    const formattedDate = `${pad(headerDate.getUTCDate())}/${pad(headerDate.getUTCMonth() + 1)}/${headerDate.getUTCFullYear().toString().slice(-2)}`;
+                    const day = pad(headerDate.getUTCDate());
+                    const month = pad(headerDate.getUTCMonth() + 1);
+                    const year = headerDate.getUTCFullYear().toString().slice(-2);
+                    const formattedDate = `${day}/${month}/${year}`;
                     
                     doc.setFontSize(9);
                     doc.setFont('helvetica', 'bold');
