@@ -518,8 +518,26 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             const client = getClient(loan.clientId);
             const weeklyPayment = getWeeklyPaymentAmount(loan);
 
+             const clientInfo = client ? [
+                client.name,
+                `${client.street || ''}, ${client.neighborhood || ''}`,
+                client.phone || '',
+            ].filter(Boolean).join('\n') : '';
+
+            let avalInfo = '';
+            if (client?.endorsement) {
+                const match = client.endorsement.match(/(.*) \((.*)\)/);
+                if (match) {
+                    const avalName = match[1];
+                    const avalDetails = match[2];
+                    avalInfo = `${avalName}\n${avalDetails}`;
+                } else {
+                    avalInfo = client.endorsement;
+                }
+            }
+            
             const rowData: any[] = [
-                { content: '' }, // Placeholder for custom rendering
+                { content: clientInfo, styles: { fontSize: 6.5 } },
                 { content: formatCurrencySimple(weeklyPayment), styles: { fontSize: 6.5, fontStyle: 'bold' } },
             ];
             
@@ -527,7 +545,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 rowData.push(''); // Placeholder, content will be drawn in didDrawCell
             }
             
-            rowData.push({ content: '' }); // Placeholder for custom rendering
+            rowData.push({ content: avalInfo, styles: { fontSize: 6.5 } });
 
             return rowData;
         });
@@ -636,52 +654,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const loan = filteredLoans[data.row.index];
                 if (!loan || data.row.section !== 'body') return;
 
-                const client = getClient(loan.clientId);
-
-                if (data.column.index === 0 && client) {
-                    const clientInfo = [
-                        `${client.street || ''}, ${client.neighborhood || ''}`,
-                        client.phone || '',
-                    ];
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor('#000000');
-                    doc.text(client.name || '', data.cell.x + 2, data.cell.y + 10);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor('#71717a'); // muted-foreground
-                    doc.text(clientInfo.join('\n'), data.cell.x + 2, data.cell.y + 20);
-                }
-
-                if (data.column.index === (maxWeeksToShow + 2) && client?.endorsement) {
-                    let avalName = '';
-                    let avalDetailsText = '';
-
-                    const match = client.endorsement.match(/(.*) \((.*)\)/);
-                    if (match) {
-                        avalName = match[1];
-                        const avalDetails = match[2];
-                        const detailsArray = avalDetails.split(',').map(s => s.trim());
-                        const telIndex = detailsArray.findIndex(d => d.toUpperCase().startsWith('TEL:'));
-                        const tel = telIndex > -1 ? detailsArray[telIndex] : '';
-                        const addressParts = telIndex > -1 ? detailsArray.slice(0, telIndex) : detailsArray;
-                        avalDetailsText = `${addressParts.join(', ')}\n${tel}`;
-                    } else {
-                        avalName = client.endorsement;
-                    }
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor('#000000');
-                    doc.text(avalName, data.cell.x + 2, data.cell.y + 10);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor('#71717a'); // muted-foreground
-                    doc.text(avalDetailsText, data.cell.x + 2, data.cell.y + 20);
-                }
-
-
                 const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
                 const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-                
-                if (data.column.index === (currentWeekForLoan + 1)) {
-                    // No blue background for current week
-                }
                 
                 if (data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
                     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
