@@ -435,9 +435,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     const handleExportPDF = () => {
         if (filteredLoans.length === 0 || !selectedWeek) return;
 
-        const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
+        const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 15;
+        const margin = 10;
 
         // Determine the maximum number of weeks from the selected loans' plans
         const maxWeeksToShow = filteredLoans.reduce((max, loan) => {
@@ -632,13 +632,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 textColor: [0, 0, 0],
                 fontStyle: 'bold',
                 valign: 'middle',
-                fontSize: 6,
+                fontSize: 5,
             },
             columnStyles: {
-            0: { cellWidth: 70, fontSize: 6, textColor: [0, 0, 0] }, 
-            1: { cellWidth: 30, halign: 'right', fontSize: 6 }, 
-            ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 28 }])),
-            [maxWeeksToShow + 2]: { cellWidth: 70, fontSize: 6, textColor: [0, 0, 0] },
+            0: { cellWidth: 60, fontSize: 5, textColor: [0, 0, 0] }, 
+            1: { cellWidth: 28, halign: 'right', fontSize: 5 }, 
+            ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 23 }])),
+            [maxWeeksToShow + 2]: { cellWidth: 60, fontSize: 5, textColor: [0, 0, 0] },
             },
             didDrawCell: (data) => {
                 const loan = filteredLoans[data.row.index];
@@ -685,10 +685,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     if (text) {
                         const centerX = data.cell.x + data.cell.width / 2;
                         const centerY = data.cell.y + data.cell.height / 2;
-                        doc.setFontSize(5);
+                        doc.setFontSize(4);
                         doc.setTextColor(0, 0, 0);
                         doc.text(text, centerX, centerY - 2, { align: 'center' });
                         if(subtext) {
+                            doc.setFontSize(5);
                             doc.text(subtext, centerX, centerY + 5, { align: 'center' });
                         }
                     }
@@ -938,7 +939,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                       )})
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={19} className="text-center h-24 p-2">
+                            <TableCell colSpan={20} className="text-center h-24 p-2">
                                {selectedPromotora ? "No hay préstamos para la semana y promotora seleccionada." : "Selecciona una promotora para comenzar."}
                             </TableCell>
                         </TableRow>
