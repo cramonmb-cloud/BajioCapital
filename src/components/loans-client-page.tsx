@@ -252,7 +252,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           
           const loanStartDate = new Date(loan.startDate);
           const weekStartDate = new Date(loanStartDate);
-          weekStartDate.setUTCDate(loanStartDate.getUTCDate() + ((weekNumber - 1) * 7));
+          weekStartDate.setUTCDate(loanStartDate.getUTCDate() + (weekNumber * 7));
           
           const isFuture = new Date() < weekStartDate;
           if (isFuture) {
@@ -359,7 +359,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const loanStartDate = new Date(loan.startDate);
         
         const weekStartDate = new Date(loanStartDate);
-        weekStartDate.setUTCDate(loanStartDate.getUTCDate() + ((weekNumber - 1) * 7));
+        // This is the corrected logic: The first payment (week 1) is 7 days after the start date.
+        weekStartDate.setUTCDate(loanStartDate.getUTCDate() + (weekNumber * 7));
         
         const isFuture = new Date() < weekStartDate;
         if (isFuture) {
@@ -461,6 +462,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const loanGroupStartDate = new Date(loan.startDate);
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
                 const currentVencimiento = new Date(loanGroupStartDate);
+                // The first payment is 1 week after, so the last payment is termInWeeks * 7 days after.
                 currentVencimiento.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7));
                 if (currentVencimiento > latestVencimientoDate) {
                     latestVencimientoDate = currentVencimiento;
@@ -1042,5 +1044,3 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     </>
   );
 }
-
-    
