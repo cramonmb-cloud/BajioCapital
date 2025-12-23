@@ -361,6 +361,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const loanStartDate = new Date(loan.startDate);
         
         const weekDate = new Date(loanStartDate.getTime());
+        // El primer pago se pide la siguiente semana, por eso el `weekNumber * 7`
         weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
 
         
@@ -464,6 +465,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const loanGroupStartDate = new Date(loan.startDate);
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
                 const currentVencimiento = new Date(loanGroupStartDate);
+                // The loan expires one week after the last payment is due
                 currentVencimiento.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks + 1) * 7);
 
                 if (currentVencimiento > latestVencimientoDate) {
@@ -503,15 +505,14 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             { content: 'ABONA' },
         ];
         
+        const dateHeaders: { week: string, date: string }[] = [];
         for (let i = 0; i < maxWeeksToShow; i++) {
             const weekNumber = i + 1;
             const headerDate = new Date(groupStartDate);
-            headerDate.setUTCDate(headerDate.getUTCDate() + (weekNumber * 7));
+            headerDate.setUTCDate(headerDate.getUTCDate() + (weekNumber * 7)); // Primer pago es una semana después
             const formattedDate = headerDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
-            const verticalDate = formattedDate.split('').join('\n');
-            tableHeaders.push({
-                content: `S${weekNumber}\n${verticalDate}`
-            });
+            tableHeaders.push({ content: `S${weekNumber}` });
+            dateHeaders.push({ week: `S${weekNumber}`, date: formattedDate });
         }
         tableHeaders.push({ content: 'AVAL' });
 
@@ -520,7 +521,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             const client = getClient(loan.clientId);
             const weeklyPayment = getWeeklyPaymentAmount(loan);
 
-             const clientInfo = client ? [
+            const clientInfo = client ? [
                 client.name,
                 `${client.street || ''}, ${client.neighborhood || ''}`,
                 client.phone || '',
@@ -636,8 +637,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 textColor: [0, 0, 0],
                 fontStyle: 'bold',
                 halign: 'center',
-                valign: 'middle',
+                valign: 'top',
                 fontSize: 6,
+                cellPadding: { top: 2, right: 2, bottom: 20, left: 2 } // Increase bottom padding
             },
             footStyles: {
                 fillColor: [220, 220, 220],
@@ -653,6 +655,20 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 [maxWeeksToShow + 2]: { cellWidth: 100, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
+                // Draw rotated date headers
+                if (data.row.section === 'head' && data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
+                    const weekNumber = data.column.index - 1;
+                    const dateHeader = dateHeaders.find(h => h.week === `S${weekNumber}`);
+                    if (dateHeader) {
+                        doc.setFontSize(6);
+                        doc.setTextColor(0, 0, 0);
+                        doc.text(dateHeader.date, data.cell.x + data.cell.width / 2, data.cell.y + 16, {
+                            angle: 90,
+                            align: 'center',
+                        });
+                    }
+                }
+                
                 const loan = filteredLoans[data.row.index];
                 if (!loan || data.row.section !== 'body') return;
 
