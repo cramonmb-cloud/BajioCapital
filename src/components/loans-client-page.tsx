@@ -552,7 +552,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
                 const weeklyPayment = getWeeklyPaymentAmount(loan);
                 if (weekStatus.status === 'missed') return total + weeklyPayment;
-                if (weekStatus.status === 'partial') return total + (weeklyPayment - weekStatus.amountPaid);
+                if (weekStatus.status === 'partial') return total + (weeklyPayment - status.amountPaid);
                 return total;
             }, 0);
         });
@@ -636,7 +636,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             },
             columnStyles: {
                 0: { cellWidth: 100, fontSize: 6.5, textColor: [0, 0, 0] }, // CLIENTE
-                1: { cellWidth: 40, halign: 'right', fontSize: 6.5 }, // ABONA
+                1: { cellWidth: 40, halign: 'right', fontStyle: 'bold', fontSize: 13, textColor: [0, 0, 0] }, // ABONA
                 ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 32 }])), // Weeks
                 [maxWeeksToShow + 2]: { cellWidth: 100, fontSize: 6.5, textColor: [0, 0, 0] }, // AVAL
             },
