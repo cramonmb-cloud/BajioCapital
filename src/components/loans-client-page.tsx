@@ -251,8 +251,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           }
           
           const loanStartDate = new Date(loan.startDate);
-          const weekStartDate = new Date(loanStartDate);
-          weekStartDate.setUTCDate(loanStartDate.getUTCDate() + (weekNumber * 7));
+          const weekStartDate = new Date(loanStartDate.getTime() + (weekNumber * 7 * 24 * 60 * 60 * 1000));
           
           const isFuture = new Date() < weekStartDate;
           if (isFuture) {
@@ -501,7 +500,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         ];
         
         for (let i = 0; i < maxWeeksToShow; i++) {
-            const weekDate = new Date(groupStartDate.getTime() + ((i + 1) * 7 * 24 * 60 * 60 * 1000));
+            const weekNumber = i + 1;
+            const weekDate = new Date(groupStartDate.getTime());
+            weekDate.setUTCDate(groupStartDate.getUTCDate() + (weekNumber * 7));
+
             tableHeaders.push({ 
                 content: `${formatDateForPDF(weekDate)}\n${i + 1}`,
             });
