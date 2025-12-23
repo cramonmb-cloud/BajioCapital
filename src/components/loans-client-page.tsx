@@ -530,7 +530,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             
             const rowData: any[] = [
                 { content: clientInfo },
-                { content: formatCurrency(weeklyPayment) },
+                { content: formatCurrencySimple(weeklyPayment) },
             ];
             
             for (let i = 0; i < maxWeeksToShow; i++) {
@@ -615,7 +615,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             styles: {
                 lineWidth: 0.5,
                 lineColor: [0, 0, 0],
-                fontSize: 6,
+                fontSize: 6.5,
                 cellPadding: 1,
                 valign: 'middle',
             },
@@ -625,20 +625,20 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 fontStyle: 'bold',
                 halign: 'center',
                 valign: 'middle',
-                fontSize: 5.5,
+                fontSize: 6,
             },
             footStyles: {
                 fillColor: [220, 220, 220],
                 textColor: [0, 0, 0],
                 fontStyle: 'bold',
                 valign: 'middle',
-                fontSize: 6,
+                fontSize: 6.5,
             },
             columnStyles: {
-                0: { cellWidth: 75, fontSize: 6, textColor: [0, 0, 0] }, // CLIENTE
-                1: { cellWidth: 32, halign: 'right', fontSize: 6 }, // ABONA
-                ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 26 }])), // Weeks
-                [maxWeeksToShow + 2]: { cellWidth: 75, fontSize: 6, textColor: [0, 0, 0] }, // AVAL
+                0: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] }, // CLIENTE
+                1: { cellWidth: 40, halign: 'right', fontSize: 6.5 }, // ABONA
+                ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 28 }])), // Weeks
+                [maxWeeksToShow + 2]: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] }, // AVAL
             },
             didDrawCell: (data) => {
                 const loan = filteredLoans[data.row.index];
