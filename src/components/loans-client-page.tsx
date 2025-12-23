@@ -448,7 +448,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
 
         // --- Header ---
-        const pdfToday = new Date();
         const { promotoraName, localidadName, plazaName } = getHierarchy(selectedPromotora);
         
         const totalAmount = filteredLoans.reduce((sum, loan) => sum + loan.amount, 0);
@@ -459,8 +458,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         filteredLoans.forEach(loan => {
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
             if (loanPlan) {
-                const currentVencimiento = new Date(loan.startDate);
+                const loanGroupStartDate = new Date(loan.startDate);
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
+                const currentVencimiento = new Date(loanGroupStartDate);
                 currentVencimiento.setUTCDate(currentVencimiento.getUTCDate() + (termInWeeks * 7));
                 if (currentVencimiento > latestVencimientoDate) {
                     latestVencimientoDate = currentVencimiento;
@@ -477,7 +477,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         doc.text('Plaza', margin, 66);
         
         doc.setFont('helvetica', 'normal');
-        doc.text(formatDate(pdfToday.toISOString()), margin + 50, 30);
+        doc.text(formatDate(groupStartDate.toISOString()), margin + 50, 30);
         doc.text(promotoraName.toUpperCase(), margin + 50, 42);
         doc.text(localidadName.toUpperCase(), margin + 50, 54);
         doc.text(plazaName.toUpperCase(), margin + 50, 66);
@@ -552,6 +552,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const weeklyFailuresPDF = Array.from({ length: maxWeeksToShow }).map((_, i) => {
             const weekNumber = i + 1;
             return filteredLoans.reduce((total, loan) => {
+                const pdfToday = new Date();
                 const loanStartDate = new Date(loan.startDate);
                 const timeDiff = pdfToday.getTime() - loanStartDate.getTime();
                 const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
@@ -567,6 +568,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const weeklyCollectedPDF = Array.from({ length: maxWeeksToShow }).map((_, i) => {
             const weekNumber = i + 1;
             return filteredLoans.reduce((total, loan) => {
+                 const pdfToday = new Date();
                 const loanStartDate = new Date(loan.startDate);
                 const timeDiff = pdfToday.getTime() - loanStartDate.getTime();
                 const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
