@@ -385,7 +385,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             }
         } else {
             if (weekNumber < currentLoanWeek) {
-                return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
+                return { status: 'missed' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
             }
             return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
         }
@@ -505,18 +505,14 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             { content: 'ABONA' },
         ];
         
-        const dateHeaders: { week: string, date: string }[] = [];
+        const dateHeaders: { week: number, date: Date }[] = [];
         for (let i = 0; i < maxWeeksToShow; i++) {
             const weekNumber = i + 1;
-            const firstPaymentSaturday = new Date(groupStartDate);
-            firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + 7);
-            
-            const headerDate = new Date(firstPaymentSaturday);
-            headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (i * 7));
+            const headerDate = new Date(groupStartDate);
+            headerDate.setUTCDate(headerDate.getUTCDate() + (weekNumber * 7));
 
-            const formattedDate = headerDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
             tableHeaders.push({ content: `S${weekNumber}` });
-            dateHeaders.push({ week: `S${weekNumber}`, date: formattedDate });
+            dateHeaders.push({ week: weekNumber, date: headerDate });
         }
         tableHeaders.push({ content: 'AVAL' });
 
@@ -654,26 +650,27 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 [maxWeeksToShow + 2]: { cellWidth: 100, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
-                // Draw rotated date headers
                 if (data.row.section === 'head' && data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
                     data.cell.text = ''; // Clear original text
-                    const weekNumber = data.column.index - 1;
-                    const dateHeader = dateHeaders.find(h => h.week === `S${weekNumber}`);
                     
-                    // Draw S1, S2, etc.
-                    doc.setFontSize(8);
+                    const weekNumber = data.column.index - 1;
+                    const dateHeader = dateHeaders.find(h => h.week === weekNumber);
+                    
+                    doc.setFontSize(9);
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(0, 0, 0);
-                    doc.text(`S${weekNumber}`, data.cell.x + data.cell.width / 2, data.cell.y + 10, { align: 'center' });
-
-                    // Draw rotated date
+                    const title = `S${weekNumber}`;
+                    const titleWidth = doc.getTextWidth(title);
+                    const titleX = data.cell.x + (data.cell.width - titleWidth) / 2;
+                    doc.text(title, titleX, data.cell.y + 12);
+            
                     if (dateHeader) {
+                        const formattedDate = formatDateFns(dateHeader.date, 'dd/MM/yy');
                         doc.setFontSize(7);
                         doc.setFont('helvetica', 'normal');
-                        doc.text(dateHeader.date, data.cell.x + data.cell.width / 2, data.cell.y + 45, {
-                            angle: 90,
-                            align: 'center',
-                        });
+                        const dateWidth = doc.getTextWidth(formattedDate);
+                        const dateX = data.cell.x + (data.cell.width - dateWidth) / 2;
+                        doc.text(formattedDate, dateX, data.cell.y + 25, { angle: 90 });
                     }
                 }
                 
