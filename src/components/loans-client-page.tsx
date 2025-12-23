@@ -295,6 +295,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             }
         });
 
+        const maxWeeks = filteredLoans.reduce((max, loan) => {
+            const plan = loanPlans.find(p => p.id === loan.loanPlanId);
+            const penalty = newLoansWithPenalty[loan.id] ? 1 : 0;
+            return Math.max(max, plan ? plan.termInWeeks + penalty : 0);
+        }, 0);
+
+
         const calculateTotals = (length: number, type: 'failures' | 'collected') => {
             return Array.from({ length }).map((_, i) => {
                 const weekNumber = i + 1;
@@ -318,7 +325,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             });
         };
 
-        const maxWeeks = 16;
         const failures = calculateTotals(maxWeeks, 'failures');
         const collected = calculateTotals(maxWeeks, 'collected');
 
@@ -429,9 +435,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     const handleExportPDF = () => {
         if (filteredLoans.length === 0 || !selectedWeek) return;
 
-        const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 20;
+        const margin = 15;
 
         // Determine the maximum number of weeks from the selected loans' plans
         const maxWeeksToShow = filteredLoans.reduce((max, loan) => {
@@ -610,7 +616,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 lineWidth: 0.5,
                 lineColor: [0, 0, 0],
                 fontSize: 5.5,
-                cellPadding: 2,
+                cellPadding: 1,
                 valign: 'middle',
             },
             headStyles: {
@@ -626,13 +632,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 textColor: [0, 0, 0],
                 fontStyle: 'bold',
                 valign: 'middle',
-                fontSize: 7,
+                fontSize: 6,
             },
             columnStyles: {
-            0: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] }, 
-            1: { cellWidth: 35, halign: 'right' }, 
-            ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 30 }])),
-            [maxWeeksToShow + 2]: { cellWidth: 80, fontSize: 6.5, textColor: [0, 0, 0] },
+            0: { cellWidth: 70, fontSize: 6, textColor: [0, 0, 0] }, 
+            1: { cellWidth: 30, halign: 'right', fontSize: 6 }, 
+            ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 28 }])),
+            [maxWeeksToShow + 2]: { cellWidth: 70, fontSize: 6, textColor: [0, 0, 0] },
             },
             didDrawCell: (data) => {
                 const loan = filteredLoans[data.row.index];
