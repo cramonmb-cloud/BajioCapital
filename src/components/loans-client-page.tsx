@@ -182,8 +182,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
   };
    const formatDateForPDF = (date: Date) => {
-      const dateUTC = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-      return dateUTC.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' });
+      const dateUTC = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+      return dateUTC.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', timeZone: 'UTC' });
   };
 
   const translateStatus = (status: Loan['status']) => {
@@ -650,13 +650,14 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const weekNumber = data.column.index - 1;
                     const groupStartDate = new Date(selectedWeek!);
                     
-                    const firstPaymentSaturday = new Date(groupStartDate);
+                    const firstPaymentSaturday = new Date(groupStartDate.getTime());
                     firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + 7);
                     
-                    const headerDate = new Date(firstPaymentSaturday);
+                    const headerDate = new Date(firstPaymentSaturday.getTime());
                     headerDate.setUTCDate(headerDate.getUTCDate() + (weekNumber - 1) * 7);
 
-                    const formattedDate = formatDateFns(headerDate, 'dd/MM/yy');
+                    const pad = (num: number) => num.toString().padStart(2, '0');
+                    const formattedDate = `${pad(headerDate.getUTCDate())}/${pad(headerDate.getUTCMonth() + 1)}/${headerDate.getUTCFullYear().toString().slice(-2)}`;
                     
                     // Draw Title (e.g., "S1")
                     doc.setFontSize(9);
