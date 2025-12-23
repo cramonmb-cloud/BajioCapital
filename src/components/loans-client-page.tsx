@@ -385,7 +385,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             }
         } else {
             if (weekNumber < currentLoanWeek) {
-                return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
+                return { status: 'missed' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
             }
             return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
         }
@@ -651,21 +651,16 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const groupStartDate = new Date(selectedWeek!);
                     const groupStartDay = groupStartDate.getUTCDay(); // 0=Sun, 6=Sat
                     
-                    // Days to add to get to the *next* Saturday.
-                    // If today is Saturday (6), add 7 days. If Sunday (0), add 6, etc.
-                    const daysToAdd = 7 - groupStartDay;
+                    const daysToNextSaturday = (6 - groupStartDay + 7) % 7;
+                    const firstPaymentSaturday = new Date(groupStartDate);
+                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + daysToNextSaturday + 1);
 
-                    const firstPaymentSaturday = new Date(groupStartDate.getTime());
-                    firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + daysToAdd);
-                    
-                    // Calculate the date for the current week's column
-                    const headerDate = new Date(firstPaymentSaturday.getTime());
-                    headerDate.setUTCDate(headerDate.getUTCDate() + (weekNumber - 1) * 7);
+                    const headerDate = new Date(firstPaymentSaturday);
+                    headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
 
                     const pad = (num: number) => num.toString().padStart(2, '0');
                     const formattedDate = `${pad(headerDate.getUTCDate())}/${pad(headerDate.getUTCMonth() + 1)}/${headerDate.getUTCFullYear().toString().slice(-2)}`;
                     
-                    // Draw Title (e.g., "S1")
                     doc.setFontSize(9);
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(0, 0, 0);
@@ -674,7 +669,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const titleX = data.cell.x + (data.cell.width - titleWidth) / 2;
                     doc.text(title, titleX, data.cell.y + 12);
             
-                    // Draw Rotated Date
                     doc.setFontSize(7);
                     doc.setFont('helvetica', 'normal');
                     const dateX = data.cell.x + data.cell.width / 2; 
