@@ -461,7 +461,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const loanGroupStartDate = new Date(loan.startDate);
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
                 const currentVencimiento = new Date(loanGroupStartDate);
-                currentVencimiento.setUTCDate(currentVencimiento.getUTCDate() + (termInWeeks * 7));
+                currentVencimiento.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7));
                 if (currentVencimiento > latestVencimientoDate) {
                     latestVencimientoDate = currentVencimiento;
                 }
@@ -501,7 +501,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         for (let i = 0; i < maxWeeksToShow; i++) {
             const weekDate = new Date(groupStartDate);
-            weekDate.setUTCDate(groupStartDate.getUTCDate() + (i * 7));
+            weekDate.setUTCDate(weekDate.getUTCDate() + (i * 7));
             tableHeaders.push({ 
                 content: `${formatDateForPDF(weekDate)}\n${i + 1}`,
             });
