@@ -15,21 +15,19 @@ export type CreateLoanInput = {
 
 export async function createLoanAction(input: CreateLoanInput) {
     const today = new Date();
-    today.setUTCHours(0, 0, 0, 0); // Normalize to start of day
-    
+    today.setUTCHours(0, 0, 0, 0);
+
     // Get day of week (Sunday is 0, Saturday is 6)
     const dayOfWeek = today.getUTCDay();
 
-    // Calculate days to subtract to get to the previous or current Saturday.
+    // Calculate days to subtract to get to the current week's Saturday.
     // If today is Sunday (0), subtract 1 to get yesterday's Saturday.
-    // If today is Monday (1), subtract 2 to get Saturday.
-    // ...
+    // If today is Monday (1), subtract 2.
     // If today is Saturday (6), subtract 0.
     const daysToSubtract = (dayOfWeek + 1) % 7;
 
     const saturday = new Date(today);
     saturday.setUTCDate(today.getUTCDate() - daysToSubtract);
-    saturday.setUTCHours(0, 0, 0, 0);
 
     let clientId = input.client.id;
 
