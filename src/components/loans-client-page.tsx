@@ -251,7 +251,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           }
           
           const loanStartDate = new Date(loan.startDate);
-          // El primer pago se pide la siguiente semana, por eso el `weekNumber * 7`
+          // Payment is expected the following week
           const weekDate = new Date(loanStartDate.getTime());
           weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
 
@@ -360,8 +360,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     
         const loanStartDate = new Date(loan.startDate);
         
+        // Payment is expected the following week
         const weekDate = new Date(loanStartDate.getTime());
-        // El primer pago se pide la siguiente semana, por eso el `weekNumber * 7`
         weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
 
         
@@ -385,7 +385,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             }
         } else {
             if (weekNumber < currentLoanWeek) {
-                return { status: 'missed' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
+                return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
             }
             return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
         }
@@ -508,10 +508,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const dateHeaders: { week: number, date: Date }[] = [];
         for (let i = 0; i < maxWeeksToShow; i++) {
             const weekNumber = i + 1;
+            // The header content is now blank, as we draw it manually in didDrawCell
+            tableHeaders.push({ content: '' });
+
+            // Calculate the correct date for this week's payment
             const headerDate = new Date(groupStartDate);
             headerDate.setUTCDate(headerDate.getUTCDate() + (weekNumber * 7));
-
-            tableHeaders.push({ content: `S${weekNumber}` });
             dateHeaders.push({ week: weekNumber, date: headerDate });
         }
         tableHeaders.push({ content: 'AVAL' });
@@ -520,7 +522,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const tableData = filteredLoans.map(loan => {
             const client = getClient(loan.clientId);
             const weeklyPayment = getWeeklyPaymentAmount(loan);
-
+            
             const clientInfo = client ? `${client.name}\n${client.street || ''}, ${client.neighborhood || ''}\n${client.phone || ''}` : '';
 
             let avalInfo = '';
@@ -651,11 +653,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             },
             didDrawCell: (data) => {
                 if (data.row.section === 'head' && data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
-                    data.cell.text = ''; // Clear original text
-                    
+                    data.cell.text = []; // Clear original text to prevent duplication
+
                     const weekNumber = data.column.index - 1;
                     const dateHeader = dateHeaders.find(h => h.week === weekNumber);
                     
+                    // Draw Title (e.g., "S1")
                     doc.setFontSize(9);
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(0, 0, 0);
@@ -664,13 +667,14 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const titleX = data.cell.x + (data.cell.width - titleWidth) / 2;
                     doc.text(title, titleX, data.cell.y + 12);
             
+                    // Draw Rotated Date
                     if (dateHeader) {
                         const formattedDate = formatDateFns(dateHeader.date, 'dd/MM/yy');
                         doc.setFontSize(7);
                         doc.setFont('helvetica', 'normal');
-                        const dateWidth = doc.getTextWidth(formattedDate);
-                        const dateX = data.cell.x + (data.cell.width - dateWidth) / 2;
-                        doc.text(formattedDate, dateX, data.cell.y + 25, { angle: 90 });
+                        const dateX = data.cell.x + data.cell.width / 2; // Center horizontally
+                        const dateY = data.cell.y + data.cell.height - 5; // Position near the bottom
+                        doc.text(formattedDate, dateX, dateY, { angle: 90, align: 'center' });
                     }
                 }
                 
