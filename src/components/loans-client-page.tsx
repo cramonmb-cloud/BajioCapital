@@ -359,7 +359,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const loanStartDate = new Date(loan.startDate);
         
         const weekStartDate = new Date(loanStartDate);
-        // This is the corrected logic: The first payment (week 1) is 7 days after the start date.
+        // The first payment is 1 week (7 days) after the start date.
         weekStartDate.setUTCDate(loanStartDate.getUTCDate() + (weekNumber * 7));
         
         const isFuture = new Date() < weekStartDate;
@@ -503,7 +503,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         for (let i = 0; i < maxWeeksToShow; i++) {
             const weekDate = new Date(groupStartDate);
-            // This is the corrected logic: start counting from the next week.
+            // First payment is 7 days after the loan start date
             weekDate.setUTCDate(weekDate.getUTCDate() + ((i + 1) * 7));
             tableHeaders.push({ 
                 content: `${formatDateForPDF(weekDate)}\n${i + 1}`,
@@ -660,8 +660,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
                 
                 if (data.column.index === (currentWeekForLoan + 1)) {
-                    doc.setFillColor(227, 242, 253); // light blue
-                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                    // No blue background for current week
                 }
                 
                 if (data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
