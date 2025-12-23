@@ -501,7 +501,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         for (let i = 0; i < maxWeeksToShow; i++) {
             const weekDate = new Date(groupStartDate);
-            weekDate.setUTCDate(weekDate.getUTCDate() + (i * 7));
+            // This is the corrected logic: start counting from the next week.
+            weekDate.setUTCDate(weekDate.getUTCDate() + ((i + 1) * 7));
             tableHeaders.push({ 
                 content: `${formatDateForPDF(weekDate)}\n${i + 1}`,
             });
@@ -728,6 +729,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     const handleLocalidadChange = (localidadId: string) => {
         setSelectedLocalidad(localidadId);
         setSelectedPromotora('');
+        setSelectedWeek(null);
         setSelectedWeek(null);
     };
 
@@ -1040,3 +1042,5 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     </>
   );
 }
+
+    
