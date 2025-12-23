@@ -38,7 +38,7 @@ import { Badge } from '@/components/ui/badge';
 import Link from 'next/link';
 import { CreateLoanDialog } from '@/components/create-loan-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Client, Loan, LoanPlan, Payment, Plaza, Localidad, Promotora } from '@/lib/types';
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import { useRouter } from 'next/navigation';
@@ -502,10 +502,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         for (let i = 0; i < maxWeeksToShow; i++) {
             const weekNumber = i + 1;
             const weekDate = new Date(groupStartDate.getTime());
+            // The first payment is 1 week (7 days) after the start date.
             weekDate.setUTCDate(groupStartDate.getUTCDate() + (weekNumber * 7));
 
             tableHeaders.push({ 
-                content: `${formatDateForPDF(weekDate)}\n${i + 1}`,
+                content: `${formatDateForPDF(weekDate)}\nS${weekNumber}`,
             });
         }
         tableHeaders.push({ content: 'AVAL' });
