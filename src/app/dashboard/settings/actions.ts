@@ -37,7 +37,14 @@ export async function deleteAllDataAction() {
         batch.set(walletRef, { balance: 0 });
         await batch.commit();
 
-        revalidatePath('/dashboard', 'layout');
+        revalidatePath('/dashboard');
+        revalidatePath('/dashboard/wallet');
+        revalidatePath('/dashboard/clients');
+        revalidatePath('/dashboard/loans');
+        revalidatePath('/dashboard/plans');
+        revalidatePath('/dashboard/control');
+        revalidatePath('/dashboard/settings');
+
 
         return { success: true, message: 'Todos los datos han sido eliminados exitosamente.' };
     } catch (error: any) {

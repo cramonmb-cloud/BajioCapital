@@ -386,7 +386,6 @@ export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: 
 
         revalidatePath('/dashboard/loans');
         revalidatePath('/dashboard/wallet');
-        revalidatePath('/dashboard');
         
         return { success: true, message: `Se acumularon ${paymentsAccumulated} pagos por un total de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalAccumulatedAmount)}.` };
     } catch (error: any) {
