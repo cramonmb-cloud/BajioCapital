@@ -41,6 +41,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import type { Plaza, Localidad, Promotora } from '@/lib/types';
 import { savePlazaAction, deletePlazaAction, saveLocalidadAction, deleteLocalidadAction, savePromotoraAction, deletePromotoraAction } from '@/app/dashboard/settings/actions';
+import { useRealtimeData } from '@/hooks/use-realtime-data';
+import { Skeleton } from './ui/skeleton';
 
 const plazaSchema = z.object({
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
@@ -66,11 +68,16 @@ interface PlazaManagementProps {
 
 export function PlazaManagement({ initialPlazas, initialLocalidades, initialPromotoras }: PlazaManagementProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const { data, loading } = useRealtimeData();
   const { toast } = useToast();
   const router = useRouter();
 
-  const getPlazaName = (plazaId: string) => initialPlazas.find(p => p.id === plazaId)?.name || 'N/A';
-  const getLocalidadName = (localidadId: string) => initialLocalidades.find(l => l.id === localidadId)?.name || 'N/A';
+  const plazas = data?.plazas ?? initialPlazas;
+  const localidades = data?.localidades ?? initialLocalidades;
+  const promotoras = data?.promotoras ?? initialPromotoras;
+
+  const getPlazaName = (plazaId: string) => plazas.find(p => p.id === plazaId)?.name || 'N/A';
+  const getLocalidadName = (localidadId: string) => localidades.find(l => l.id === localidadId)?.name || 'N/A';
 
   const plazaForm = useForm<PlazaFormValues>({ resolver: zodResolver(plazaSchema), defaultValues: { name: '' } });
   const localidadForm = useForm<LocalidadFormValues>({ resolver: zodResolver(localidadSchema), defaultValues: { name: '', plazaId: '' } });
@@ -83,7 +90,7 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
       if (result.success) {
         toast({ title: 'Éxito', description: result.message });
         formToReset?.reset();
-        router.refresh();
+        // No need for router.refresh() as real-time updates will handle it
       } else {
         throw new Error(result.message);
       }
@@ -93,6 +100,16 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
       setIsSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Card><CardHeader><Skeleton className="h-6 w-24" /><Skeleton className="h-4 w-48" /></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card>
+            <Card><CardHeader><Skeleton className="h-6 w-24" /><Skeleton className="h-4 w-48" /></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card>
+            <Card><CardHeader><Skeleton className="h-6 w-24" /><Skeleton className="h-4 w-48" /></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card>
+        </div>
+    )
+  }
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -106,7 +123,7 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
           <Form {...plazaForm}>
             <form onSubmit={plazaForm.handleSubmit((v) => handleAction(savePlazaAction(v.name), plazaForm))} className="flex items-end gap-2 mb-4">
               <FormField control={plazaForm.control} name="name" render={({ field }) => (
-                <FormItem className="flex-grow"><FormLabel>Nueva Plaza</FormLabel><FormControl><Input placeholder="Nombre de la plaza" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem className="flex-grow"><FormLabel>Nueva Plaza</FormLabel><FormControl><Input placeholder="Nombre de la plaza" {...field} className="uppercase" /></FormControl><FormMessage /></FormItem>
               )} />
               <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}</Button>
             </form>
@@ -114,7 +131,7 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
           <Table>
             <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
             <TableBody>
-              {initialPlazas.map(p => (<TableRow key={p.id}><TableCell>{p.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleAction(deletePlazaAction(p.id))}><Trash className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}
+              {plazas.map(p => (<TableRow key={p.id}><TableCell>{p.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleAction(deletePlazaAction(p.id))}><Trash className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}
             </TableBody>
           </Table>
         </CardContent>
@@ -130,10 +147,10 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
           <Form {...localidadForm}>
             <form onSubmit={localidadForm.handleSubmit((v) => handleAction(saveLocalidadAction(v), localidadForm))} className="space-y-4 mb-4">
                <FormField control={localidadForm.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Nueva Localidad</FormLabel><FormControl><Input placeholder="Nombre de la localidad" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Nueva Localidad</FormLabel><FormControl><Input placeholder="Nombre de la localidad" {...field} className="uppercase" /></FormControl><FormMessage /></FormItem>
               )} />
                <FormField control={localidadForm.control} name="plazaId" render={({ field }) => (
-                <FormItem><FormLabel>Plaza</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Asignar a plaza" /></SelectTrigger></FormControl><SelectContent>{initialPlazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                <FormItem><FormLabel>Plaza</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Asignar a plaza" /></SelectTrigger></FormControl><SelectContent>{plazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
               )} />
               <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}Añadir Localidad</Button>
             </form>
@@ -141,7 +158,7 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
           <Table>
              <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Plaza</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
             <TableBody>
-                {initialLocalidades.map(l => (<TableRow key={l.id}><TableCell>{l.name}</TableCell><TableCell>{getPlazaName(l.plazaId)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleAction(deleteLocalidadAction(l.id))}><Trash className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}
+                {localidades.map(l => (<TableRow key={l.id}><TableCell>{l.name}</TableCell><TableCell>{getPlazaName(l.plazaId)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleAction(deleteLocalidadAction(l.id))}><Trash className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}
             </TableBody>
           </Table>
         </CardContent>
@@ -157,10 +174,10 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
           <Form {...promotoraForm}>
             <form onSubmit={promotoraForm.handleSubmit((v) => handleAction(savePromotoraAction(v), promotoraForm))} className="space-y-4 mb-4">
                <FormField control={promotoraForm.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Nueva Promotora</FormLabel><FormControl><Input placeholder="Nombre de la promotora" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Nueva Promotora</FormLabel><FormControl><Input placeholder="Nombre de la promotora" {...field} className="uppercase" /></FormControl><FormMessage /></FormItem>
               )} />
                <FormField control={promotoraForm.control} name="localidadId" render={({ field }) => (
-                <FormItem><FormLabel>Localidad</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Asignar a localidad" /></SelectTrigger></FormControl><SelectContent>{initialLocalidades.map(l => <SelectItem key={l.id} value={l.id}>{l.name} ({getPlazaName(l.plazaId)})</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                <FormItem><FormLabel>Localidad</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Asignar a localidad" /></SelectTrigger></FormControl><SelectContent>{localidades.map(l => <SelectItem key={l.id} value={l.id}>{l.name} ({getPlazaName(l.plazaId)})</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
               )} />
               <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}Añadir Promotora</Button>
             </form>
@@ -168,7 +185,7 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
           <Table>
              <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Localidad</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
             <TableBody>
-                {initialPromotoras.map(p => (<TableRow key={p.id}><TableCell>{p.name}</TableCell><TableCell>{getLocalidadName(p.localidadId)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleAction(deletePromotoraAction(p.id))}><Trash className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}
+                {promotoras.map(p => (<TableRow key={p.id}><TableCell>{p.name}</TableCell><TableCell>{getLocalidadName(p.localidadId)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleAction(deletePromotoraAction(p.id))}><Trash className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}
             </TableBody>
           </Table>
         </CardContent>
