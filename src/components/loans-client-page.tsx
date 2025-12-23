@@ -502,11 +502,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         ];
         
         for (let i = 0; i < maxWeeksToShow; i++) {
-            const weekDate = new Date(groupStartDate);
-            // First payment is 7 days after the loan start date
-            weekDate.setUTCDate(weekDate.getUTCDate() + ((i + 1) * 7));
+            const paymentDate = new Date(groupStartDate);
+            // The first payment is on the next Saturday, so we add (i + 1) * 7 days
+            paymentDate.setUTCDate(paymentDate.getUTCDate() + (i + 1) * 7);
             tableHeaders.push({ 
-                content: `${formatDateForPDF(weekDate)}\n${i + 1}`,
+                content: `${formatDateForPDF(paymentDate)}\n${i + 1}`,
             });
         }
         tableHeaders.push({ content: 'AVAL' });
