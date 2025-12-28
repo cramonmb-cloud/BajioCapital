@@ -264,8 +264,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
           const totalPaidForWeek = paymentForWeek?.amount || 0;
 
-          if (weekNumber === currentLoanWeek && !paymentForWeek) {
-              return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
+          if (weekNumber <= currentLoanWeek && !paymentForWeek) {
+            return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
           }
 
           if (totalPaidForWeek > 0) {
@@ -274,10 +274,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
               } else {
                   return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
               }
-          } else {
-              if (weekNumber < currentLoanWeek) {
-                  return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
+          } else { // totalPaidForWeek is 0
+              // This case now only happens if a payment was explicitly registered with 0 amount.
+              if (paymentForWeek) {
+                   return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
               }
+              // If it's a future week and no payment.
               return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
           }
         };
@@ -360,7 +362,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     
         const loanStartDate = new Date(loan.startDate);
         
-        // Payment is expected the following week
         const weekDate = new Date(loanStartDate.getTime());
         weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
 
@@ -371,24 +372,24 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         }
         
         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
-        const totalPaidForWeek = paymentForWeek?.amount || 0;
-    
-        if (weekNumber === currentLoanWeek && !paymentForWeek) {
+        
+        if (weekNumber <= currentLoanWeek && !paymentForWeek) {
             return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
         }
-    
-        if (totalPaidForWeek > 0) {
+        
+        if (paymentForWeek) {
+            const totalPaidForWeek = paymentForWeek.amount;
             if(totalPaidForWeek >= weeklyPaymentAmount) {
                 return { status: 'paid' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
-            } else {
+            } else if (totalPaidForWeek > 0) {
                 return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
-            }
-        } else {
-            if (weekNumber < currentLoanWeek) {
+            } else { // amount is 0 or less
                 return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
             }
-            return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
         }
+    
+        // Default for future weeks
+        return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
     };
 
     const handleRegisterPaymentClick = (loan: Loan, weekNumber: number, weekStatus: ReturnType<typeof getWeekPaymentStatus>) => {
@@ -398,6 +399,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         if (weekStatus.status === 'partial') {
             initialAmount = weeklyPayment - weekStatus.amountPaid;
         } else if (weekStatus.status === 'missed') {
+            initialAmount = weeklyPayment;
+        } else if (weekStatus.status === 'paid' && weekStatus.isAssumedPaid) {
             initialAmount = weeklyPayment;
         } else if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) {
             initialAmount = 0; // Already paid
@@ -465,9 +468,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const loanGroupStartDate = new Date(loan.startDate);
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
                 
-                // Vence date should be the date of the last payment, not after
                 const lastPaymentDay = new Date(loanGroupStartDate);
-                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7));
+                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + ((termInWeeks - 1) * 7));
 
                 if (lastPaymentDay > latestVencimientoDate) {
                     latestVencimientoDate = lastPaymentDay;
@@ -650,15 +652,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const weekNumber = data.column.index - 1;
                     
                     const groupStartDate = new Date(selectedWeek!);
-
-                    // Logic: Find Saturday of the loan start week, then add 7 days to get the first payment Saturday.
-                    const groupStartDayUTC = groupStartDate.getUTCDay(); // 0=Sun, 6=Sat
-                    const daysToFirstPaymentSaturday = 7 + (6 - groupStartDayUTC);
+                    const dayOfWeek = groupStartDate.getUTCDay(); 
+                    const daysUntilNextSaturday = (6 - dayOfWeek + 7) % 7 + 1;
                     
                     const firstPaymentSaturday = new Date(groupStartDate);
-                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + daysToFirstPaymentSaturday);
+                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + daysUntilNextSaturday);
                     
-                    // Now, find the date for the current column's week
                     const headerDate = new Date(firstPaymentSaturday);
                     headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
 
@@ -904,7 +903,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                                 }
                                 
                                 const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
-                                const canRegisterPayment = (loan.status !== 'Paid Off' && loan.status !== 'Pagado desde CV') && (weekStatus.status !== 'pending');
+                                const canRegisterPayment = (loan.status !== 'Paid Off' && loan.status !== 'Pagado desde CV');
 
                                 let statusInfo;
                                 switch(weekStatus.status) {
