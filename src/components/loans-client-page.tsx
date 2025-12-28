@@ -346,7 +346,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     }, [dataLoading, filteredLoans, loanPlans, clients]);
 
 
-    const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number) => {
+    const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number): { status: 'paid' | 'partial' | 'missed' | 'pending'; date: Date; amountPaid: number; isAssumedPaid: boolean; } => {
         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
         if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
         
@@ -464,12 +464,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             if (loanPlan) {
                 const loanGroupStartDate = new Date(loan.startDate);
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
-                const currentVencimiento = new Date(loanGroupStartDate);
-                // The loan expires ON the last payment day
-                currentVencimiento.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks) * 7);
+                
+                // Vence date should be the date of the last payment, not after
+                const lastPaymentDay = new Date(loanGroupStartDate);
+                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7));
 
-                if (currentVencimiento > latestVencimientoDate) {
-                    latestVencimientoDate = currentVencimiento;
+                if (lastPaymentDay > latestVencimientoDate) {
+                    latestVencimientoDate = lastPaymentDay;
                 }
             }
         });
@@ -649,12 +650,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const weekNumber = data.column.index - 1;
                     
                     const groupStartDate = new Date(selectedWeek!);
+
+                    // Logic: Find Saturday of the loan start week, then add 7 days to get the first payment Saturday.
                     const groupStartDayUTC = groupStartDate.getUTCDay(); // 0=Sun, 6=Sat
+                    const daysToFirstPaymentSaturday = 7 + (6 - groupStartDayUTC);
                     
-                    // Logic: Find Saturday of the loan start week, then add 7 days.
-                    const daysToSaturday = 6 - groupStartDayUTC;
                     const firstPaymentSaturday = new Date(groupStartDate);
-                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + daysToSaturday + 7);
+                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + daysToFirstPaymentSaturday);
                     
                     // Now, find the date for the current column's week
                     const headerDate = new Date(firstPaymentSaturday);
