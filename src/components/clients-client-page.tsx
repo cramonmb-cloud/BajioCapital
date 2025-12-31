@@ -49,9 +49,6 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
             <div className="flex items-center justify-between">
                 <div>
                 <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
-                <p className="text-muted-foreground">
-                    Administra tus clientes y su información.
-                </p>
                 </div>
                 <Button disabled>
                 <PlusCircle className="mr-2 h-4 w-4" />
