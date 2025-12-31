@@ -391,10 +391,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
         
-        if (weekNumber <= currentLoanWeek && !paymentForWeek) {
-            return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
-        }
-        
         if (paymentForWeek) {
             const totalPaidForWeek = paymentForWeek.amount;
             if(totalPaidForWeek >= weeklyPaymentAmount) {
@@ -511,7 +507,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
                 
                 const lastPaymentDay = new Date(loanGroupStartDate);
-                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7) - 1);
+                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7));
 
                 if (lastPaymentDay > latestVencimientoDate) {
                     latestVencimientoDate = lastPaymentDay;
@@ -694,12 +690,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const weekNumber = data.column.index - 1;
                     
                     const groupStartDate = new Date(selectedWeek!);
+                    const groupDay = groupStartDate.getUTCDay(); // Sunday = 0, Saturday = 6
                     
-                    const dayOfWeek = groupStartDate.getUTCDay(); // Sunday = 0, Saturday = 6
-                    const daysUntilNextSaturday = (6 - dayOfWeek + 7) % 7 + 1;
-                    
+                    // Days to next Saturday. If it's Saturday, it's 7 days to next Saturday.
+                    const daysToAdd = 7 - groupDay;
+
                     const firstPaymentSaturday = new Date(Date.UTC(groupStartDate.getUTCFullYear(), groupStartDate.getUTCMonth(), groupStartDate.getUTCDate()));
-                    firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + daysUntilNextSaturday);
+                    firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + daysToAdd);
                     
                     const headerDate = new Date(firstPaymentSaturday);
                     headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
@@ -833,7 +830,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         </div>
         <div className="flex items-center gap-2">
             {appUser?.username === 'Cristobal' && (
-                <Button variant="outline" onClick={() => setChangeDateDialogOpen(true)} disabled={filteredLoans.length === 0}>
+                <Button variant="default" onClick={() => setChangeDateDialogOpen(true)} disabled={filteredLoans.length === 0}>
                     <CalendarCog className="mr-2 h-4 w-4" />
                     Cambiar Fecha del Préstamo
                 </Button>
@@ -1151,3 +1148,5 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     </>
   );
 }
+
+    
