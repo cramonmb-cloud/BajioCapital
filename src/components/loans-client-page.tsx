@@ -61,6 +61,7 @@ import { accumulateAssumedPaymentsAction, changeLoansDateAction } from '@/app/da
 import { format as formatDateFns } from 'date-fns';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import Loading from '../app/dashboard/loading';
+import { Checkbox } from './ui/checkbox';
 
 
 interface jsPDFWithAutoTable extends jsPDF {
@@ -105,6 +106,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   const [selectedPromotora, setSelectedPromotora] = useState<string>('');
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
+  const [selectedLoanIds, setSelectedLoanIds] = useState<Set<string>>(new Set());
   const { appUser } = useAuth();
   const [isAccumulating, setIsAccumulating] = useState(false);
   const [isChangingDate, setIsChangingDate] = useState(false);
@@ -140,6 +142,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     return isCorrectWeek && isCorrectPromotora;
   }), [loans, selectedWeek, selectedPromotora]);
 
+  
+  useEffect(() => {
+    // Clear selection when filters change
+    setSelectedLoanIds(new Set());
+  }, [selectedWeek, selectedPromotora]);
 
   useEffect(() => {
     if (!selectedWeek && loanWeeks.length > 0) {
@@ -266,7 +273,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           const termInWeeks = loanPlan.termInWeeks + (penalty ? 1 : 0);
           
           if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
-              return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
+              const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
+              const paidAmount = paymentForWeek ? paymentForWeek.amount : weeklyPaymentAmount; // Assume full payment if paid off
+              return { status: 'paid' as const, date: new Date(), amountPaid: paidAmount, isAssumedPaid: false };
           }
           
           const loanStartDate = new Date(loan.startDate);
@@ -375,7 +384,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
         
         if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
-            return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
+             const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
+             const paidAmount = paymentForWeek ? paymentForWeek.amount : weeklyPaymentAmount; // Assume full payment if paid off
+            return { status: 'paid' as const, date: new Date(), amountPaid: paidAmount, isAssumedPaid: false };
         }
     
         const loanStartDate = new Date(loan.startDate);
@@ -390,6 +401,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         }
         
         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
+
+        if (weekNumber <= currentLoanWeek && !paymentForWeek) {
+            return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
+        }
         
         if (paymentForWeek) {
             const totalPaidForWeek = paymentForWeek.amount;
@@ -454,18 +469,19 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     };
 
     const handleChangeDate = async () => {
-        if (!targetWeek || filteredLoans.length === 0) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Selecciona una semana de destino.' });
+        if (!targetWeek || selectedLoanIds.size === 0) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Selecciona una semana de destino y al menos un préstamo.' });
             return;
         }
         setIsChangingDate(true);
         try {
-            const loanIds = filteredLoans.map(l => l.id);
+            const loanIds = Array.from(selectedLoanIds);
             const result = await changeLoansDateAction(loanIds, targetWeek);
             if (result.success) {
                 toast({ title: 'Éxito', description: result.message });
                 setChangeDateDialogOpen(false);
                 setSelectedWeek(targetWeek); // Switch to the new week view
+                setSelectedLoanIds(new Set()); // Clear selection
             } else {
                 throw new Error(result.message);
             }
@@ -503,11 +519,14 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         filteredLoans.forEach(loan => {
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
             if (loanPlan) {
-                const loanGroupStartDate = new Date(loan.startDate);
+                
+                const loanGroupStartDate = getSaturdayOfWeek(new Date(loan.startDate));
+                loanGroupStartDate.setUTCDate(loanGroupStartDate.getUTCDate() + 7);
+
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
                 
                 const lastPaymentDay = new Date(loanGroupStartDate);
-                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7));
+                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks - 1) * 7);
 
                 if (lastPaymentDay > latestVencimientoDate) {
                     latestVencimientoDate = lastPaymentDay;
@@ -684,28 +703,24 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 [maxWeeksToShow + 2]: { cellWidth: 100, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
+                // This ensures we only custom-draw the header cells for weeks
                 if (data.row.section === 'head' && data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
                     data.cell.text = []; // Clear original text to prevent duplication
 
                     const weekNumber = data.column.index - 1;
                     
                     const groupStartDate = new Date(selectedWeek!);
-                    const groupDay = groupStartDate.getUTCDay(); // Sunday = 0, Saturday = 6
-                    
-                    // Days to next Saturday. If it's Saturday, it's 7 days to next Saturday.
-                    const daysToAdd = 7 - groupDay;
 
-                    const firstPaymentSaturday = new Date(Date.UTC(groupStartDate.getUTCFullYear(), groupStartDate.getUTCMonth(), groupStartDate.getUTCDate()));
-                    firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + daysToAdd);
+                    const firstPaymentSaturday = getSaturdayOfWeek(groupStartDate);
+                    firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + 7);
                     
                     const headerDate = new Date(firstPaymentSaturday);
                     headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
 
-                    const pad = (num: number) => num.toString().padStart(2, '0');
-                    const day = pad(headerDate.getUTCDate());
-                    const month = pad(headerDate.getUTCMonth() + 1);
+                    const day = headerDate.getUTCDate();
+                    const month = headerDate.getUTCMonth() + 1;
                     const year = headerDate.getUTCFullYear().toString().slice(-2);
-                    const formattedDate = `${day}/${month}/${year}`;
+                    const formattedDate = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
                     
                     doc.setFontSize(9);
                     doc.setFont('helvetica', 'bold');
@@ -804,6 +819,25 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         setSelectedWeek(null); // Reset week selection
     };
 
+    const toggleAllLoansSelection = () => {
+        if (selectedLoanIds.size === filteredLoans.length) {
+            setSelectedLoanIds(new Set());
+        } else {
+            setSelectedLoanIds(new Set(filteredLoans.map(loan => loan.id)));
+        }
+    };
+
+    const toggleLoanSelection = (loanId: string) => {
+        const newSelection = new Set(selectedLoanIds);
+        if (newSelection.has(loanId)) {
+            newSelection.delete(loanId);
+        } else {
+            newSelection.add(loanId);
+        }
+        setSelectedLoanIds(newSelection);
+    };
+
+
   return (
     <>
     <div className="space-y-4">
@@ -830,7 +864,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         </div>
         <div className="flex items-center gap-2">
             {appUser?.username === 'Cristobal' && (
-                <Button variant="default" onClick={() => setChangeDateDialogOpen(true)} disabled={filteredLoans.length === 0}>
+                <Button variant="default" onClick={() => setChangeDateDialogOpen(true)} disabled={selectedLoanIds.size === 0}>
                     <CalendarCog className="mr-2 h-4 w-4" />
                     Cambiar Fecha del Préstamo
                 </Button>
@@ -900,7 +934,15 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky left-0 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
+                      <TableHead className="sticky left-0 bg-card z-10 w-auto p-2">
+                        <Checkbox
+                            checked={selectedLoanIds.size > 0 && selectedLoanIds.size === filteredLoans.length}
+                            onCheckedChange={toggleAllLoansSelection}
+                            aria-label="Seleccionar todas las filas"
+                            disabled={filteredLoans.length === 0}
+                         />
+                      </TableHead>
+                      <TableHead className="sticky left-10 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
                       <TableHead className="p-2">Abono</TableHead>
                       <TableHead className="p-2">Estado</TableHead>
                       {Array.from({ length: 16 }, (_, i) => {
@@ -929,8 +971,15 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                         const weeklyPayment = getWeeklyPaymentAmount(loan);
                         
                         return (
-                        <TableRow key={loan.id} className="bg-card">
-                          <TableCell className="font-medium sticky left-0 z-10 w-[200px] p-2 bg-inherit">
+                        <TableRow key={loan.id} className="bg-card" data-state={selectedLoanIds.has(loan.id) && "selected"}>
+                          <TableCell className="sticky left-0 z-10 w-auto p-2 bg-inherit">
+                                <Checkbox
+                                    checked={selectedLoanIds.has(loan.id)}
+                                    onCheckedChange={() => toggleLoanSelection(loan.id)}
+                                    aria-label="Seleccionar fila"
+                                />
+                          </TableCell>
+                          <TableCell className="font-medium sticky left-10 z-10 w-[200px] p-2 bg-inherit">
                             <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
                               {getClientName(loan.clientId)}
                             </Link>
@@ -1022,7 +1071,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                       )})
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={20} className="text-center h-24 p-2">
+                            <TableCell colSpan={21} className="text-center h-24 p-2">
                                {selectedPromotora ? "No hay préstamos para la semana y promotora seleccionada." : "Selecciona una promotora para comenzar."}
                             </TableCell>
                         </TableRow>
@@ -1031,7 +1080,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                   {filteredLoans.length > 0 && weeklyFailures.length > 0 && weeklyCollected.length > 0 && (
                     <TableFooter>
                         <TableRow>
-                            <TableCell colSpan={3} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
+                            <TableCell colSpan={4} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
                             {Array.from({ length: 16 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -1051,7 +1100,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                             <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                          <TableCell colSpan={3} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
+                          <TableCell colSpan={4} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
                             {weeklyFailures.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -1063,7 +1112,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                            <TableCell colSpan={3} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
+                            <TableCell colSpan={4} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -1117,7 +1166,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             <DialogHeader>
                 <DialogTitle>Cambiar Fecha del Grupo de Préstamos</DialogTitle>
                 <DialogDescription>
-                    Selecciona una nueva semana de inicio para los {filteredLoans.length} préstamos actualmente visibles. Esta acción es irreversible.
+                    Selecciona una nueva semana de inicio para los {selectedLoanIds.size} préstamos seleccionados. Esta acción es irreversible.
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4">
@@ -1148,5 +1197,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     </>
   );
 }
+
+    
 
     
