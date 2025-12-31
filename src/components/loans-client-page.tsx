@@ -663,6 +663,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const footerRows = [footerRow1, footerRow2, footerRow3];
         
+        const availableWidth = pageWidth - margin * 2 - 100 - 40 - 100;
+        const weekColumnWidth = availableWidth / maxWeeksToShow;
+
+
         doc.autoTable({
             startY: 80,
             head: [tableHeaders],
@@ -673,7 +677,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 lineWidth: 0.5,
                 lineColor: [0, 0, 0],
                 fontSize: 6.5,
-                cellPadding: 1,
+                cellPadding: { top: 2, right: 1, bottom: 2, left: 1 },
                 valign: 'middle',
             },
             headStyles: {
@@ -694,7 +698,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             columnStyles: {
                 0: { cellWidth: 100, fontSize: 6.5 },
                 1: { cellWidth: 40, halign: 'right', fontStyle: 'bold', fontSize: 8, textColor: [0, 0, 0] },
-                ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: 'auto' }])),
+                ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: weekColumnWidth }])),
                 [maxWeeksToShow + 2]: { cellWidth: 100, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
