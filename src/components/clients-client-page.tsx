@@ -46,16 +46,6 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
-                <div>
-                <h1 className="text-3xl font-bold tracking-tight">Un total de: {initialClients.length} clientes registrados.</h1>
-                </div>
-                <Button disabled>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Registrar Cliente
-                </Button>
-            </div>
-
             <Card>
                 <CardHeader>
                     <CardTitle>Lista de Clientes</CardTitle>
