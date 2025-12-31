@@ -500,12 +500,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 20;
 
-        const maxWeeksToShow = filteredLoans.reduce((max, loan) => {
-            const plan = loanPlans.find(p => p.id === loan.loanPlanId);
-            const penalty = loansWithPenalty[loan.id] ? 1 : 0;
-            const term = plan ? plan.termInWeeks + penalty : 0;
-            return Math.max(max, term);
-        }, 0);
+        const maxWeeksToShow = 16;
 
 
         // --- Header ---
@@ -1207,3 +1202,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     
 
 
+
+
+    
