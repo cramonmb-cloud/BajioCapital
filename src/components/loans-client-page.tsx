@@ -126,6 +126,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
       new Set(loans.filter(l => l.promotoraId === selectedPromotora).map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
     ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
   , [loans, selectedPromotora]);
+  
+  const allLoanWeeksInSystem = useMemo(() =>
+    Array.from(
+      new Set(loans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
+    ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+  , [loans]);
+
 
   const filteredLoans = useMemo(() => loans.filter(loan => {
     const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
@@ -504,7 +511,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
                 
                 const lastPaymentDay = new Date(loanGroupStartDate);
-                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7));
+                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7) - 1);
 
                 if (lastPaymentDay > latestVencimientoDate) {
                     latestVencimientoDate = lastPaymentDay;
@@ -689,7 +696,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const groupStartDate = new Date(selectedWeek!);
                     
                     const dayOfWeek = groupStartDate.getUTCDay(); // Sunday = 0, Saturday = 6
-                    const daysUntilNextSaturday = (6 - dayOfWeek + 7) % 7 + 1; // Days to get to *next* Saturday
+                    const daysUntilNextSaturday = (6 - dayOfWeek + 7) % 7 + 1;
                     
                     const firstPaymentSaturday = new Date(Date.UTC(groupStartDate.getUTCFullYear(), groupStartDate.getUTCMonth(), groupStartDate.getUTCDate()));
                     firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + daysUntilNextSaturday);
@@ -1122,7 +1129,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                         <SelectValue placeholder="Selecciona la nueva semana de destino" />
                     </SelectTrigger>
                     <SelectContent>
-                        {loanWeeks
+                        {allLoanWeeksInSystem
                             .filter(week => week !== selectedWeek)
                             .map(week => (
                                 <SelectItem key={week} value={week}>
