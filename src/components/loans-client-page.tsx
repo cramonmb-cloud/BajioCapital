@@ -709,10 +709,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
                     const weekNumber = data.column.index - 1;
                     
-                    const groupStartDate = new Date(selectedWeek!);
-
-                    const firstPaymentSaturday = getSaturdayOfWeek(groupStartDate);
-                    firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + 7);
+                    const groupStartDate = getSaturdayOfWeek(new Date(selectedWeek!));
+                    
+                    const firstPaymentSaturday = new Date(groupStartDate);
+                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + 7);
                     
                     const headerDate = new Date(firstPaymentSaturday);
                     headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
@@ -934,17 +934,17 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="sticky left-0 bg-card z-10 w-auto p-2">
-                        {appUser?.username === 'Cristobal' && (
-                            <Checkbox
-                                checked={selectedLoanIds.size > 0 && selectedLoanIds.size === filteredLoans.length}
-                                onCheckedChange={toggleAllLoansSelection}
-                                aria-label="Seleccionar todas las filas"
-                                disabled={filteredLoans.length === 0}
-                            />
-                        )}
-                      </TableHead>
-                      <TableHead className="sticky left-10 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
+                      {appUser?.username === 'Cristobal' && (
+                          <TableHead className="sticky left-0 bg-card z-10 w-auto p-2">
+                              <Checkbox
+                                  checked={selectedLoanIds.size > 0 && selectedLoanIds.size === filteredLoans.length}
+                                  onCheckedChange={toggleAllLoansSelection}
+                                  aria-label="Seleccionar todas las filas"
+                                  disabled={filteredLoans.length === 0}
+                              />
+                          </TableHead>
+                      )}
+                      <TableHead className={cn("sticky bg-card z-10 w-[200px] p-2", appUser?.username === 'Cristobal' ? "left-10" : "left-0")}>Cliente</TableHead>
                       <TableHead className="p-2">Abono</TableHead>
                       <TableHead className="p-2">Estado</TableHead>
                       {Array.from({ length: 16 }, (_, i) => {
@@ -974,16 +974,16 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                         
                         return (
                         <TableRow key={loan.id} className="bg-card" data-state={selectedLoanIds.has(loan.id) && "selected"}>
-                          <TableCell className="sticky left-0 z-10 w-auto p-2 bg-inherit">
-                                {appUser?.username === 'Cristobal' && (
-                                    <Checkbox
-                                        checked={selectedLoanIds.has(loan.id)}
-                                        onCheckedChange={() => toggleLoanSelection(loan.id)}
-                                        aria-label="Seleccionar fila"
-                                    />
-                                )}
-                          </TableCell>
-                          <TableCell className="font-medium sticky left-10 z-10 w-[200px] p-2 bg-inherit">
+                          {appUser?.username === 'Cristobal' && (
+                              <TableCell className="sticky left-0 z-10 w-auto p-2 bg-inherit">
+                                  <Checkbox
+                                      checked={selectedLoanIds.has(loan.id)}
+                                      onCheckedChange={() => toggleLoanSelection(loan.id)}
+                                      aria-label="Seleccionar fila"
+                                  />
+                              </TableCell>
+                          )}
+                          <TableCell className={cn("font-medium sticky z-10 w-[200px] p-2 bg-inherit", appUser?.username === 'Cristobal' ? "left-10" : "left-0")}>
                             <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
                               {getClientName(loan.clientId)}
                             </Link>
@@ -1084,7 +1084,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                   {filteredLoans.length > 0 && weeklyFailures.length > 0 && weeklyCollected.length > 0 && (
                     <TableFooter>
                         <TableRow>
-                            <TableCell colSpan={4} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
+                            <TableCell colSpan={appUser?.username === 'Cristobal' ? 5 : 4} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
                             {Array.from({ length: 16 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -1104,7 +1104,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                             <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                          <TableCell colSpan={4} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
+                          <TableCell colSpan={appUser?.username === 'Cristobal' ? 5 : 4} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
                             {weeklyFailures.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -1116,7 +1116,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                            <TableCell colSpan={4} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
+                            <TableCell colSpan={appUser?.username === 'Cristobal' ? 5 : 4} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
