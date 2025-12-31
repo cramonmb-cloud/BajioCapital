@@ -48,7 +48,7 @@ import Link from 'next/link';
 import { CreateLoanDialog } from '@/components/create-loan-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tooltip, TooltipProvider, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import type { Client, Loan, LoanPlan, Payment, Plaza, Localidad, Promotora } from '@/lib/types';
+import type { Client, Loan, LoanPlan, Payment, Plaza, Localidad, Promotora, AppUser } from '@/lib/types';
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import { useRouter } from 'next/navigation';
 import { cn } from '@/lib/utils';
@@ -298,7 +298,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           if (paymentForWeek) {
               const totalPaidForWeek = paymentForWeek.amount;
               if (totalPaidForWeek >= weeklyPaymentAmount) {
-                  return { status: 'paid' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+                  return { status: 'paid' as const, date: new Date(), amountPaid: totalPaidForWeek, isAssumedPaid: false };
               } else {
                   return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
               }
@@ -409,7 +409,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         if (paymentForWeek) {
             const totalPaidForWeek = paymentForWeek.amount;
             if(totalPaidForWeek >= weeklyPaymentAmount) {
-                return { status: 'paid' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+                return { status: 'paid' as const, date: new Date(), amountPaid: totalPaidForWeek, isAssumedPaid: false };
             } else if (totalPaidForWeek > 0) {
                 return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
             } else { // amount is 0 or less
@@ -447,7 +447,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     const handleAccumulatePayments = async () => {
         setIsAccumulating(true);
         try {
-            const result = await accumulateAssumedPaymentsAction(filteredLoans, loanPlans, clients);
+            const result = await accumulateAssumedPaymentsAction(filteredLoans, loanPlans, clients, appUser?.id);
             if (result.success) {
                 toast({
                     title: 'Proceso Completado',
@@ -1205,4 +1205,5 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     
 
     
+
 

@@ -1,21 +1,28 @@
-import { getClients, getWallet, getWalletTransactions } from "@/lib/firestore-data";
+import { getClients, getWallet, getWalletTransactions, getUsers } from "@/lib/firestore-data";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DollarSign, ArrowUpRight, ArrowDownLeft } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import type { AppUser } from "@/lib/types";
 
 export default async function WalletPage() {
-    const [wallet, transactions, clients] = await Promise.all([
+    const [wallet, transactions, clients, users] = await Promise.all([
         getWallet(),
         getWalletTransactions(),
         getClients(),
+        getUsers(),
     ]);
 
     const getClientName = (clientId?: string) => {
         if (!clientId) return 'N/A';
         return clients.find(c => c.id === clientId)?.name || 'Cliente Desconocido';
     }
+
+    const getUserName = (userId?: string) => {
+        if (!userId) return 'Sistema';
+        return users.find(u => u.id === userId)?.username || 'Usuario Desconocido';
+    };
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('es-MX', {
@@ -72,6 +79,7 @@ export default async function WalletPage() {
                                 <TableHead>Fecha</TableHead>
                                 <TableHead>Descripción</TableHead>
                                 <TableHead>Cliente</TableHead>
+                                <TableHead>Usuario</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -101,11 +109,12 @@ export default async function WalletPage() {
                                                 'N/A'
                                             )}
                                         </TableCell>
+                                        <TableCell className="text-muted-foreground">{getUserName(tx.userId)}</TableCell>
                                     </TableRow>
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="h-24 text-center">
+                                    <TableCell colSpan={6} className="h-24 text-center">
                                         No hay movimientos registrados.
                                     </TableCell>
                                 </TableRow>

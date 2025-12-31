@@ -50,6 +50,7 @@ export type WalletTransaction = {
     description: string;
     loanId?: string;
     clientId?: string;
+    userId?: string;
 };
 
 export type Plaza = {

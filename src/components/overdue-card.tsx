@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Phone, User, Calendar, MessageSquare } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
-import type { Client, LoanPlan } from '@/lib/types';
+import type { Client, LoanPlan, AppUser } from '@/lib/types';
+import { useAuth } from '@/hooks/use-auth';
 
 interface OverdueCardProps {
     details: OverdueLoanDetails;
@@ -30,6 +31,7 @@ const getSaturdayOfWeek = (d: Date) => {
 export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardProps) {
     const { client, loan, loanPlan, amountDue, missedPayments } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+    const { appUser } = useAuth();
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);

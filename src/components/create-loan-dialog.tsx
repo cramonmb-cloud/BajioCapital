@@ -41,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Client, Loan, LoanPlan, Promotora, Plaza, Localidad } from '@/lib/types';
+import type { Client, Loan, LoanPlan, Promotora, Plaza, Localidad, AppUser } from '@/lib/types';
 import { PlusCircle, Loader2, AlertTriangle, BadgeDollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createLoanAction, payOffLoanAction } from '@/app/dashboard/actions';
@@ -50,6 +50,7 @@ import { Textarea } from './ui/textarea';
 import { Card, CardContent } from './ui/card';
 import { IdScanner } from './id-scanner';
 import type { IdDataOutput } from '@/ai/flows/extract-id-data-flow';
+import { useAuth } from '@/hooks/use-auth';
 
 const stepOneSchema = z.object({
   promotoraId: z.string().min(1, 'Debes seleccionar una promotora.'),
@@ -118,6 +119,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
 
   const { toast } = useToast();
   const router = useRouter();
+  const { appUser } = useAuth();
 
   const form = useForm<LoanFormValues>({
     resolver: zodResolver(step === 1 ? stepOneSchema : formSchema),
@@ -276,7 +278,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     if (!activeLoanDetails) return;
     setIsPayingOff(true);
     try {
-        const result = await payOffLoanAction(activeLoanDetails.loan.id);
+        const result = await payOffLoanAction(activeLoanDetails.loan.id, appUser?.id);
         if (result.success) {
             toast({
                 title: 'Préstamo Liquidado',

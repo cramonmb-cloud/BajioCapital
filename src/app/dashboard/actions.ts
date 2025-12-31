@@ -1,7 +1,7 @@
 'use server';
 
-import type { Client, Loan, LoanPlan } from '@/lib/types';
-import { collection, doc, addDoc, serverTimestamp, updateDoc, runTransaction, increment, writeBatch } from 'firebase/firestore';
+import type { Client, Loan, LoanPlan, AppUser } from '@/lib/types';
+import { collection, doc, addDoc, serverTimestamp, updateDoc, runTransaction, increment, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { revalidatePath } from 'next/cache';
 import { getLoanPlan, getClient, getLoan } from '@/lib/firestore-data';
@@ -61,7 +61,7 @@ export async function createLoanAction(input: CreateLoanInput) {
 }
 
 
-export async function registerPaymentAction(loanId: string, paymentStartDate: Date, amountPaid: number, startingWeekNumber: number) {
+export async function registerPaymentAction(loanId: string, paymentStartDate: Date, amountPaid: number, startingWeekNumber: number, userId?: string) {
     try {
         await runTransaction(db, async (transaction) => {
             const loanRef = doc(db, 'loans', loanId);
@@ -197,6 +197,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                     description: `Abono de ${client?.name || 'N/A'} para préstamo (${weeksDescription}).`,
                     loanId: loanId,
                     clientId: loan.clientId,
+                    userId: userId || null,
                 });
                 transaction.update(walletRef, { balance: increment(amountPaid) });
             }
@@ -249,7 +250,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
     }
 }
 
-export async function payOffLoanAction(loanId: string) {
+export async function payOffLoanAction(loanId: string, userId?: string) {
     try {
         const result = await runTransaction(db, async (transaction) => {
             const loanRef = doc(db, "loans", loanId);
@@ -298,6 +299,7 @@ export async function payOffLoanAction(loanId: string) {
                 description: `Liquidación de préstamo de ${client?.name || 'N/A'}.`,
                 loanId: loanId,
                 clientId: loan.clientId,
+                userId: userId || null,
             });
             transaction.update(walletRef, { balance: increment(settlementAmount) });
 
@@ -324,7 +326,7 @@ export async function payOffLoanAction(loanId: string) {
 }
 
 
-export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: LoanPlan[], clients: Client[]) {
+export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: LoanPlan[], clients: Client[], userId?: string) {
     const today = new Date();
     const batch = writeBatch(db);
     const walletRef = doc(db, 'wallet', 'main');
@@ -375,6 +377,7 @@ export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: 
                 description: `Abono (acumulado) de ${client?.name || 'N/A'} para préstamo (Semana ${currentLoanWeek}).`,
                 loanId: loan.id,
                 clientId: loan.clientId,
+                userId: userId || null,
             });
 
             totalAccumulatedAmount += weeklyPaymentAmount;
