@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -29,15 +29,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Loan, LoanPlan } from '@/lib/types';
+import type { Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { updateLoanAction } from '@/app/dashboard/actions';
+import { Separator } from './ui/separator';
 
 const formSchema = z.object({
   loanPlanId: z.string().min(1, 'Debes seleccionar un plan.'),
   amount: z.coerce.number().min(1, 'El monto debe ser mayor a 0.'),
   startDate: z.string().min(1, 'Debes seleccionar una fecha de inicio.'),
+  promotoraId: z.string().min(1, 'Debes seleccionar una promotora.'),
 });
 
 type EditLoanFormValues = z.infer<typeof formSchema>;
@@ -48,6 +50,9 @@ interface EditLoanDialogProps {
   loan: Loan;
   loanPlans: LoanPlan[];
   allLoanWeeks: string[];
+  plazas: Plaza[];
+  localidades: Localidad[];
+  promotoras: Promotora[];
 }
 
 export function EditLoanDialog({
@@ -56,9 +61,15 @@ export function EditLoanDialog({
   loan,
   loanPlans,
   allLoanWeeks,
+  plazas,
+  localidades,
+  promotoras,
 }: EditLoanDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
+
+  const [selectedPlaza, setSelectedPlaza] = useState('');
+  const [selectedLocalidad, setSelectedLocalidad] = useState('');
 
   const form = useForm<EditLoanFormValues>({
     resolver: zodResolver(formSchema),
@@ -67,13 +78,48 @@ export function EditLoanDialog({
   useEffect(() => {
     if (loan && isOpen) {
       const saturdayOfLoan = getSaturdayOfWeek(new Date(loan.startDate)).toISOString();
+      const currentPromotora = promotoras.find(p => p.id === loan.promotoraId);
+      const currentLocalidad = localidades.find(l => l.id === currentPromotora?.localidadId);
+      const currentPlaza = plazas.find(p => p.id === currentLocalidad?.plazaId);
+
+      setSelectedPlaza(currentPlaza?.id || '');
+      setSelectedLocalidad(currentLocalidad?.id || '');
+
       form.reset({
         loanPlanId: loan.loanPlanId,
         amount: loan.amount,
         startDate: saturdayOfLoan,
+        promotoraId: loan.promotoraId || '',
       });
     }
-  }, [loan, isOpen, form]);
+  }, [loan, isOpen, form, promotoras, localidades, plazas]);
+
+  const filteredLocalidades = useMemo(() => {
+    if (!selectedPlaza) return [];
+    return localidades.filter(l => l.plazaId === selectedPlaza);
+  }, [selectedPlaza, localidades]);
+
+  const filteredPromotoras = useMemo(() => {
+    if (!selectedLocalidad) return [];
+    return promotoras.filter(p => p.localidadId === selectedLocalidad);
+  }, [selectedLocalidad, promotoras]);
+
+  useEffect(() => {
+    // When filtered localidades change, check if the current selected localidad is still valid
+    if (filteredLocalidades.length > 0 && !filteredLocalidades.find(l => l.id === selectedLocalidad)) {
+        setSelectedLocalidad('');
+        form.setValue('promotoraId', '');
+    }
+  }, [selectedPlaza, filteredLocalidades, selectedLocalidad, form]);
+
+  useEffect(() => {
+    // When filtered promotoras change, check if the current selected promotora is still valid
+    const currentPromotoraId = form.getValues('promotoraId');
+    if (filteredPromotoras.length > 0 && !filteredPromotoras.find(p => p.id === currentPromotoraId)) {
+        form.setValue('promotoraId', '');
+    }
+  }, [selectedLocalidad, filteredPromotoras, form]);
+
 
   const getSaturdayOfWeek = (d: Date) => {
     const date = new Date(d);
@@ -86,7 +132,6 @@ export function EditLoanDialog({
   
   const formatDate = (dateString: string) => {
       const date = new Date(dateString);
-      // Adjust for timezone offset to show the correct local date
       const userTimezoneOffset = date.getTimezoneOffset() * 60000;
       const correctedDate = new Date(date.getTime() + userTimezoneOffset);
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
@@ -119,7 +164,7 @@ export function EditLoanDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>Editar Préstamo</DialogTitle>
           <DialogDescription>
@@ -128,67 +173,131 @@ export function EditLoanDialog({
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField
-              control={form.control}
-              name="loanPlanId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Plan de Préstamo</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+            <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+              <FormField
+                control={form.control}
+                name="loanPlanId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Plan de Préstamo</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un plan" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {loanPlans.map((plan) => (
+                          <SelectItem key={plan.id} value={plan.id}>
+                            {plan.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="amount"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Monto</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona un plan" />
-                      </SelectTrigger>
+                      <Input type="number" {...field} />
                     </FormControl>
-                    <SelectContent>
-                      {loanPlans.map((plan) => (
-                        <SelectItem key={plan.id} value={plan.id}>
-                          {plan.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="amount"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Monto</FormLabel>
-                  <FormControl>
-                    <Input type="number" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="startDate"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fecha de Inicio (Semana)</FormLabel>
-                   <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Selecciona una semana" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {allLoanWeeks.map((week) => (
-                        <SelectItem key={week} value={week}>
-                          {formatDate(week)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="startDate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Fecha de Inicio (Semana)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona una semana" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {allLoanWeeks.map((week) => (
+                          <SelectItem key={week} value={week}>
+                            {formatDate(week)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <Separator />
+              <h3 className="text-md font-medium">Reasignar Préstamo</h3>
+               <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
+                    <FormItem>
+                        <FormLabel>Plaza</FormLabel>
+                        <Select onValueChange={setSelectedPlaza} value={selectedPlaza}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona una plaza" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {plazas.map((plaza) => (
+                                <SelectItem key={plaza.id} value={plaza.id}>
+                                {plaza.name}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                    </FormItem>
+                    <FormItem>
+                        <FormLabel>Localidad</FormLabel>
+                        <Select onValueChange={setSelectedLocalidad} value={selectedLocalidad} disabled={!selectedPlaza}>
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Selecciona una localidad" />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            {filteredLocalidades.map((localidad) => (
+                                <SelectItem key={localidad.id} value={localidad.id}>
+                                {localidad.name}
+                                </SelectItem>
+                            ))}
+                            </SelectContent>
+                        </Select>
+                    </FormItem>
+                    <FormField
+                        control={form.control}
+                        name="promotoraId"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Promotora</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!selectedLocalidad}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Selecciona una promotora" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                {filteredPromotoras.map((promotora) => (
+                                    <SelectItem key={promotora.id} value={promotora.id}>
+                                    {promotora.name}
+                                    </SelectItem>
+                                ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                        />
+                </div>
+            </div>
             <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar

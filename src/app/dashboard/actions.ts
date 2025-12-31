@@ -430,6 +430,7 @@ export type UpdateLoanData = {
     loanPlanId: string;
     amount: number;
     startDate: string;
+    promotoraId: string;
 };
 
 export async function updateLoanAction(loanId: string, data: UpdateLoanData) {
@@ -439,6 +440,7 @@ export async function updateLoanAction(loanId: string, data: UpdateLoanData) {
             loanPlanId: data.loanPlanId,
             amount: data.amount,
             startDate: new Date(data.startDate),
+            promotoraId: data.promotoraId,
         });
 
         revalidatePath('/dashboard/loans');

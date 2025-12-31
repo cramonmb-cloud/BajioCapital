@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { Loan, LoanPlan, AppUser } from '@/lib/types';
+import type { Loan, LoanPlan, AppUser, Plaza, Localidad, Promotora } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import {
   Table,
@@ -33,9 +33,12 @@ interface ClientLoansTableProps {
   loanPlans: LoanPlan[];
   allLoans: Loan[];
   users: AppUser[];
+  plazas: Plaza[];
+  localidades: Localidad[];
+  promotoras: Promotora[];
 }
 
-export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users }: ClientLoansTableProps) {
+export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plazas, localidades, promotoras }: ClientLoansTableProps) {
   const { appUser } = useAuth();
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -136,6 +139,9 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users }: Cl
           loan={selectedLoan}
           loanPlans={loanPlans}
           allLoanWeeks={allLoanWeeks}
+          plazas={plazas}
+          localidades={localidades}
+          promotoras={promotoras}
         />
       )}
     </>

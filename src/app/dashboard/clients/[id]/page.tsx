@@ -1,6 +1,6 @@
 
 import { notFound } from 'next/navigation';
-import { getClient, getLoans, getLoanPlans, getUsers } from '@/lib/firestore-data';
+import { getClient, getLoans, getLoanPlans, getUsers, getPlazas, getLocalidades, getPromotoras } from '@/lib/firestore-data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Mail, Phone, Home, Shield, UserCheck } from 'lucide-react';
@@ -15,11 +15,14 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     notFound();
   }
 
-  const [clientLoans, loanPlans, allLoans, users] = await Promise.all([
+  const [clientLoans, loanPlans, allLoans, users, plazas, localidades, promotoras] = await Promise.all([
       getLoans(params.id),
       getLoanPlans(),
       getLoans(),
       getUsers(),
+      getPlazas(),
+      getLocalidades(),
+      getPromotoras(),
   ]);
 
   const fullAddress = `${client.street}, ${client.neighborhood}, C.P. ${client.postalCode}, ${client.city}`;
@@ -61,6 +64,9 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
                 loanPlans={loanPlans} 
                 allLoans={allLoans}
                 users={users}
+                plazas={plazas}
+                localidades={localidades}
+                promotoras={promotoras}
               />
             </CardContent>
           </Card>
