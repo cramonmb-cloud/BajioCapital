@@ -526,7 +526,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
                 
                 const lastPaymentDay = new Date(loanGroupStartDate);
-                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks - 1) * 7);
+                lastPaymentDay.setUTCDate(lastPaymentDay.getUTCDate() + (termInWeeks - 1) * 7);
 
                 if (lastPaymentDay > latestVencimientoDate) {
                     latestVencimientoDate = lastPaymentDay;
@@ -935,12 +935,14 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                   <TableHeader>
                     <TableRow>
                       <TableHead className="sticky left-0 bg-card z-10 w-auto p-2">
-                        <Checkbox
-                            checked={selectedLoanIds.size > 0 && selectedLoanIds.size === filteredLoans.length}
-                            onCheckedChange={toggleAllLoansSelection}
-                            aria-label="Seleccionar todas las filas"
-                            disabled={filteredLoans.length === 0}
-                         />
+                        {appUser?.username === 'Cristobal' && (
+                            <Checkbox
+                                checked={selectedLoanIds.size > 0 && selectedLoanIds.size === filteredLoans.length}
+                                onCheckedChange={toggleAllLoansSelection}
+                                aria-label="Seleccionar todas las filas"
+                                disabled={filteredLoans.length === 0}
+                            />
+                        )}
                       </TableHead>
                       <TableHead className="sticky left-10 bg-card z-10 w-[200px] p-2">Cliente</TableHead>
                       <TableHead className="p-2">Abono</TableHead>
@@ -973,11 +975,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                         return (
                         <TableRow key={loan.id} className="bg-card" data-state={selectedLoanIds.has(loan.id) && "selected"}>
                           <TableCell className="sticky left-0 z-10 w-auto p-2 bg-inherit">
-                                <Checkbox
-                                    checked={selectedLoanIds.has(loan.id)}
-                                    onCheckedChange={() => toggleLoanSelection(loan.id)}
-                                    aria-label="Seleccionar fila"
-                                />
+                                {appUser?.username === 'Cristobal' && (
+                                    <Checkbox
+                                        checked={selectedLoanIds.has(loan.id)}
+                                        onCheckedChange={() => toggleLoanSelection(loan.id)}
+                                        aria-label="Seleccionar fila"
+                                    />
+                                )}
                           </TableCell>
                           <TableCell className="font-medium sticky left-10 z-10 w-[200px] p-2 bg-inherit">
                             <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
