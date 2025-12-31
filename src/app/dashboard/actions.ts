@@ -414,10 +414,37 @@ export async function changeLoansDateAction(loanIds: string[], newStartDate: str
     await batch.commit();
     
     revalidatePath('/dashboard/loans');
+    revalidatePath('/dashboard/clients');
 
     return { success: true, message: `${loanIds.length} préstamos han sido movidos de fecha exitosamente.` };
   } catch (error: any) {
     console.error('Error changing loan dates:', error);
     return { success: false, message: `Error al cambiar las fechas de los préstamos: ${error.message}` };
   }
+}
+
+export type UpdateLoanData = {
+    loanPlanId: string;
+    amount: number;
+    startDate: string;
+};
+
+export async function updateLoanAction(loanId: string, data: UpdateLoanData) {
+    try {
+        const loanRef = doc(db, 'loans', loanId);
+        await updateDoc(loanRef, {
+            loanPlanId: data.loanPlanId,
+            amount: data.amount,
+            startDate: new Date(data.startDate),
+        });
+
+        revalidatePath('/dashboard/loans');
+        revalidatePath('/dashboard/clients');
+        revalidatePath(`/dashboard/clients/${(await getDoc(loanRef)).data()?.clientId}`);
+
+        return { success: true, message: 'Préstamo actualizado con éxito.' };
+    } catch (error: any) {
+        console.error('Error updating loan:', error);
+        return { success: false, message: `Error al actualizar el préstamo: ${error.message}` };
+    }
 }

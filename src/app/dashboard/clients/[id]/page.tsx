@@ -1,14 +1,11 @@
 
 import { notFound } from 'next/navigation';
-import { getClient, getLoansByClientId, getLoanPlans } from '@/lib/firestore-data';
+import { getClient, getLoans, getLoanPlans, getUsers } from '@/lib/firestore-data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Mail, Phone, Home, Shield, UserCheck, Edit } from 'lucide-react';
-import type { Loan } from '@/lib/types';
-import Link from 'next/link';
+import { Mail, Phone, Home, Shield, UserCheck } from 'lucide-react';
 import { ClientPageActions } from './page-actions';
+import { ClientLoansTable } from './client-loans-table';
 
 
 export default async function ClientDetailPage({ params }: { params: { id: string } }) {
@@ -18,58 +15,13 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
     notFound();
   }
 
-  const [clientLoans, loanPlans] = await Promise.all([
-      getLoansByClientId(client.id),
-      getLoanPlans()
+  const [clientLoans, loanPlans, allLoans, users] = await Promise.all([
+      getLoans(params.id),
+      getLoanPlans(),
+      getLoans(),
+      getUsers(),
   ]);
 
-  const getPlanName = (planId: string) => {
-    return loanPlans.find(p => p.id === planId)?.name || 'N/A';
-  }
-
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('es-MX', {
-      style: 'currency',
-      currency: 'MXN',
-    }).format(amount);
-  };
-
-  const formatDate = (dateString: string) => {
-      const date = new Date(dateString);
-      // Adjust for timezone offset to show the correct local date
-      const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-      const correctedDate = new Date(date.getTime() + userTimezoneOffset);
-      return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
-  };
-
-  const translateStatus = (status: Loan['status']) => {
-    switch (status) {
-      case 'Active':
-        return 'Activo';
-      case 'Overdue':
-        return 'Vencido';
-      case 'Paid Off':
-        return 'Pagado';
-      case 'Pagado desde CV':
-        return 'Pagado desde CV';
-      default:
-        return status;
-    }
-  };
-  
-  const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'purple' => {
-    switch (status) {
-        case 'Overdue':
-            return 'destructive';
-        case 'Paid Off':
-            return 'success';
-        case 'Pagado desde CV':
-            return 'purple';
-        default:
-            return 'default';
-    }
-  };
-  
   const fullAddress = `${client.street}, ${client.neighborhood}, C.P. ${client.postalCode}, ${client.city}`;
   
   let endorsementName = client.endorsement;
@@ -104,33 +56,12 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
               <CardTitle>Préstamos del Cliente</CardTitle>
             </CardHeader>
             <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Monto</TableHead>
-                    <TableHead>Plan</TableHead>
-                    <TableHead>Fecha del Préstamo</TableHead>
-                    <TableHead>Estado</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {clientLoans.length > 0 ? (
-                    clientLoans.map((loan) => (
-                    <TableRow key={loan.id}>
-                      <TableCell>{formatCurrency(loan.amount)}</TableCell>
-                      <TableCell>{getPlanName(loan.loanPlanId)}</TableCell>
-                      <TableCell>{formatDate(loan.startDate)}</TableCell>
-                      <TableCell>
-                        <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
-                      </TableCell>
-                    </TableRow>
-                  ))) : (
-                    <TableRow>
-                        <TableCell colSpan={4} className="text-center">No hay préstamos para este cliente.</TableCell>
-                    </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+              <ClientLoansTable 
+                clientLoans={clientLoans} 
+                loanPlans={loanPlans} 
+                allLoans={allLoans}
+                users={users}
+              />
             </CardContent>
           </Card>
           

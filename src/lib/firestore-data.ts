@@ -35,73 +35,31 @@ export async function getLoan(id: string): Promise<Loan | null> {
 }
 
 
-// Fetch all loans
-export async function getLoans(): Promise<Loan[]> {
-  const loansCol = collection(db, 'loans');
-  const loanSnapshot = await getDocs(loansCol);
-  const loanPlans = await getLoanPlans(); // Fetch plans once
-
-  const loanList = loanSnapshot.docs.map(doc => {
-      const data = doc.data();
-      // Firestore Timestamps to ISO strings
-      const startDate = data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate;
-      const payments = (data.payments || []).map((p: any) => ({
-          ...p,
-          date: p.date instanceof Timestamp ? p.date.toDate().toISOString() : p.date,
-      }));
-      
-      let status = data.status;
-      const loanPlan = loanPlans.find(p => p.id === data.loanPlanId);
-
-      if (status === 'Active' && loanPlan) {
-          const loanStartDate = new Date(startDate);
-          
-          // Calculate total owed based on plan
-          const weeklyPayment = (data.amount / 1000) * loanPlan.weeklyPaymentRate;
-          const totalOwed = weeklyPayment * loanPlan.termInWeeks;
-          const totalPaid = payments.reduce((acc: number, p: { amount: number }) => acc + p.amount, 0);
-          
-          // Calculate when the loan should have ended
-          const endDate = new Date(loanStartDate);
-          endDate.setUTCDate(loanStartDate.getUTCDate() + loanPlan.termInWeeks * 7);
-
-          // If today is past the end date and it's not fully paid, it's overdue
-          if (new Date() > endDate && totalPaid < totalOwed) {
-              status = 'Overdue';
-          }
-      }
-
-      return {
-          id: doc.id,
-          ...data,
-          startDate,
-          payments,
-          status,
-      } as Loan;
-  });
-  return loanList;
-}
-
-
-// Fetch loans for a specific client
-export async function getLoansByClientId(clientId: string): Promise<Loan[]> {
+// Fetch all loans or loans for a specific client
+export async function getLoans(clientId?: string): Promise<Loan[]> {
     const loansCol = collection(db, 'loans');
-    const q = query(loansCol, where("clientId", "==", clientId));
+    const q = clientId ? query(loansCol, where("clientId", "==", clientId)) : query(loansCol);
     const loanSnapshot = await getDocs(q);
-    const loanList = loanSnapshot.docs.map(doc => {
-      const data = doc.data();
-       const startDate = data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate;
-       const payments = Array.isArray(data.payments) ? data.payments : [];
-      return {
-          id: doc.id,
-          ...data,
-          startDate,
-          payments,
-      } as Loan;
-  });
-  return loanList;
-}
 
+    const loanList = loanSnapshot.docs.map(doc => {
+        const data = doc.data();
+        // Firestore Timestamps to ISO strings
+        const startDate = data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate;
+        const payments = (data.payments || []).map((p: any) => ({
+            ...p,
+            date: p.date instanceof Timestamp ? p.date.toDate().toISOString() : p.date,
+        }));
+
+        return {
+            id: doc.id,
+            ...data,
+            startDate,
+            payments,
+        } as Loan;
+    });
+
+    return loanList;
+}
 
 // Fetch all loan plans
 export async function getLoanPlans(): Promise<LoanPlan[]> {
