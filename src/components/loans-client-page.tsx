@@ -1084,7 +1084,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                   {filteredLoans.length > 0 && weeklyFailures.length > 0 && weeklyCollected.length > 0 && (
                     <TableFooter>
                         <TableRow>
-                            <TableCell colSpan={appUser?.username === 'Cristobal' ? 5 : 4} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
+                            <TableCell colSpan={appUser?.username === 'Cristobal' ? 4 : 3} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
                             {Array.from({ length: 16 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -1104,7 +1104,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                             <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                          <TableCell colSpan={appUser?.username === 'Cristobal' ? 5 : 4} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
+                          <TableCell colSpan={appUser?.username === 'Cristobal' ? 4 : 3} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
                             {weeklyFailures.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -1116,7 +1116,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
                         </TableRow>
                         <TableRow className="border-t">
-                            <TableCell colSpan={appUser?.username === 'Cristobal' ? 5 : 4} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
+                            <TableCell colSpan={appUser?.username === 'Cristobal' ? 4 : 3} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -1205,3 +1205,4 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     
 
     
+
