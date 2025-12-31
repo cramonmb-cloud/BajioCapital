@@ -399,3 +399,25 @@ export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: 
         return { success: false, message: `Error al acumular pagos: ${error.message}` };
     }
 }
+
+
+export async function changeLoansDateAction(loanIds: string[], newStartDate: string) {
+  try {
+    const batch = writeBatch(db);
+    const newDate = new Date(newStartDate);
+
+    loanIds.forEach(loanId => {
+      const loanRef = doc(db, 'loans', loanId);
+      batch.update(loanRef, { startDate: newDate });
+    });
+
+    await batch.commit();
+    
+    revalidatePath('/dashboard/loans');
+
+    return { success: true, message: `${loanIds.length} préstamos han sido movidos de fecha exitosamente.` };
+  } catch (error: any) {
+    console.error('Error changing loan dates:', error);
+    return { success: false, message: `Error al cambiar las fechas de los préstamos: ${error.message}` };
+  }
+}

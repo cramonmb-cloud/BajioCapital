@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2 } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2, CalendarCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -20,6 +20,15 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -48,7 +57,7 @@ import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { accumulateAssumedPaymentsAction } from '@/app/dashboard/actions';
+import { accumulateAssumedPaymentsAction, changeLoansDateAction } from '@/app/dashboard/actions';
 import { format as formatDateFns } from 'date-fns';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import Loading from '../app/dashboard/loading';
@@ -98,6 +107,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   const [selectedLoanForPayment, setSelectedLoanForPayment] = useState<Loan | null>(null);
   const { appUser } = useAuth();
   const [isAccumulating, setIsAccumulating] = useState(false);
+  const [isChangingDate, setIsChangingDate] = useState(false);
+  const [changeDateDialogOpen, setChangeDateDialogOpen] = useState(false);
+  const [targetWeek, setTargetWeek] = useState<string>('');
   const { toast } = useToast();
   const [paymentDialogData, setPaymentDialogData] = useState<{
     weekNumber: number;
@@ -262,22 +274,21 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           }
           
           const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
-          const totalPaidForWeek = paymentForWeek?.amount || 0;
-
+          
           if (weekNumber <= currentLoanWeek && !paymentForWeek) {
             return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
           }
 
-          if (totalPaidForWeek > 0) {
+          if (paymentForWeek) {
+              const totalPaidForWeek = paymentForWeek.amount;
               if (totalPaidForWeek >= weeklyPaymentAmount) {
                   return { status: 'paid' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
               } else {
                   return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
               }
-          } else { // totalPaidForWeek is 0
-              // This case now only happens if a payment was explicitly registered with 0 amount.
-              if (paymentForWeek) {
-                   return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
+          } else { // No payment record
+              if (weekNumber <= currentLoanWeek) {
+                   return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
               }
               // If it's a future week and no payment.
               return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
@@ -439,6 +450,30 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         }
     };
 
+    const handleChangeDate = async () => {
+        if (!targetWeek || filteredLoans.length === 0) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Selecciona una semana de destino.' });
+            return;
+        }
+        setIsChangingDate(true);
+        try {
+            const loanIds = filteredLoans.map(l => l.id);
+            const result = await changeLoansDateAction(loanIds, targetWeek);
+            if (result.success) {
+                toast({ title: 'Éxito', description: result.message });
+                setChangeDateDialogOpen(false);
+                setSelectedWeek(targetWeek); // Switch to the new week view
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsChangingDate(false);
+        }
+    };
+
+
     const handleExportPDF = () => {
         if (filteredLoans.length === 0 || !selectedWeek) return;
 
@@ -469,7 +504,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
                 
                 const lastPaymentDay = new Date(loanGroupStartDate);
-                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + ((termInWeeks - 1) * 7));
+                lastPaymentDay.setUTCDate(loanGroupStartDate.getUTCDate() + (termInWeeks * 7));
 
                 if (lastPaymentDay > latestVencimientoDate) {
                     latestVencimientoDate = lastPaymentDay;
@@ -652,11 +687,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const weekNumber = data.column.index - 1;
                     
                     const groupStartDate = new Date(selectedWeek!);
-                    const dayOfWeek = groupStartDate.getUTCDay(); 
-                    const daysUntilNextSaturday = (6 - dayOfWeek + 7) % 7 + 1;
                     
-                    const firstPaymentSaturday = new Date(groupStartDate);
-                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + daysUntilNextSaturday);
+                    const dayOfWeek = groupStartDate.getUTCDay(); // Sunday = 0, Saturday = 6
+                    const daysUntilNextSaturday = (6 - dayOfWeek + 7) % 7 + 1; // Days to get to *next* Saturday
+                    
+                    const firstPaymentSaturday = new Date(Date.UTC(groupStartDate.getUTCFullYear(), groupStartDate.getUTCMonth(), groupStartDate.getUTCDate()));
+                    firstPaymentSaturday.setUTCDate(firstPaymentSaturday.getUTCDate() + daysUntilNextSaturday);
                     
                     const headerDate = new Date(firstPaymentSaturday);
                     headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
@@ -789,6 +825,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           </Select>
         </div>
         <div className="flex items-center gap-2">
+            {appUser?.username === 'Cristobal' && (
+                <Button variant="outline" onClick={() => setChangeDateDialogOpen(true)} disabled={filteredLoans.length === 0}>
+                    <CalendarCog className="mr-2 h-4 w-4" />
+                    Cambiar Fecha del Préstamo
+                </Button>
+            )}
             <Button variant="outline" onClick={handleExportPDF} disabled={filteredLoans.length === 0}>
                 <FileDown className="mr-2 h-4 w-4" />
                 Exportar a PDF
@@ -1065,6 +1107,40 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             }}
         />
     }
+
+    <Dialog open={changeDateDialogOpen} onOpenChange={setChangeDateDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Cambiar Fecha del Grupo de Préstamos</DialogTitle>
+                <DialogDescription>
+                    Selecciona una nueva semana de inicio para los {filteredLoans.length} préstamos actualmente visibles. Esta acción es irreversible.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+                <Select onValueChange={setTargetWeek} value={targetWeek}>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Selecciona la nueva semana de destino" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {loanWeeks
+                            .filter(week => week !== selectedWeek)
+                            .map(week => (
+                                <SelectItem key={week} value={week}>
+                                    {formatDate(week)}
+                                </SelectItem>
+                            ))}
+                    </SelectContent>
+                </Select>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setChangeDateDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={handleChangeDate} disabled={isChangingDate || !targetWeek}>
+                    {isChangingDate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Confirmar Cambio de Fecha
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     </>
   );
 }
