@@ -695,6 +695,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const client = getClient(loan.clientId);
                     let name = '';
                     let details = '';
+                    
+                    let yPos = data.cell.y + 10;
+                    const lineHeight = 10;
 
                     if (data.column.index === 0 && client) {
                         name = client.name;
@@ -712,9 +715,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     if (name) {
                         doc.setFont('helvetica', 'bold');
                         doc.setTextColor(0, 0, 0);
-                        doc.text(name, data.cell.x + 2, data.cell.y + 10); // Adjust Y for padding
+                        doc.text(name, data.cell.x + 2, yPos);
+                        yPos += lineHeight;
+                    }
+                     if (details) {
                         doc.setFont('helvetica', 'normal');
-                        doc.text(details, data.cell.x + 2, data.cell.y + 20);
+                        // No need to set text color again if it's already black
+                        doc.text(details, data.cell.x + 2, yPos);
                     }
                     return; // Prevent other drawing in this cell
                 }
