@@ -663,9 +663,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const footerRows = [footerRow1, footerRow2, footerRow3];
         
-        const clientColWidth = 75;
+        const clientColWidth = 70;
         const abonaColWidth = 30;
-        const avalColWidth = 75;
+        const avalColWidth = 70;
         const availableWidth = pageWidth - margin * 2 - clientColWidth - abonaColWidth - avalColWidth;
         const weekColumnWidth = availableWidth / maxWeeksToShow;
 
@@ -1212,4 +1212,5 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
 
     
+
 
