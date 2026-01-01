@@ -566,8 +566,24 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         tableHeaders.push({ content: 'AVAL' });
 
         const tableData = filteredLoans.map(loan => {
+            const client = getClient(loan.clientId);
+            let clientText = '';
+            if (client) {
+                clientText = `${client.name.toUpperCase()}\n${client.street || ''}, ${client.neighborhood || ''}\n${client.phone || ''}`;
+            }
+
+            let avalText = '';
+            if (client?.endorsement) {
+                 const match = client.endorsement.match(/(.*) \((.*)\)/);
+                if (match) {
+                    avalText = `${match[1].toUpperCase()}\n${match[2]}`;
+                } else {
+                    avalText = client.endorsement.toUpperCase();
+                }
+            }
+
             const rowData: any[] = [
-                { content: '' }, // Placeholder for CLIENTE
+                { content: clientText },
                 { content: formatCurrencySimple(getWeeklyPaymentAmount(loan)), styles: { fontSize: 6.5, fontStyle: 'bold' } },
             ];
             
@@ -575,7 +591,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 rowData.push(''); // Placeholder, content will be drawn in didDrawCell
             }
             
-            rowData.push({ content: '' }); // Placeholder for AVAL
+            rowData.push({ content: avalText });
 
             return rowData;
         });
@@ -663,7 +679,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 lineWidth: 0.5,
                 lineColor: [0, 0, 0],
                 fontSize: 6.5,
-                cellPadding: { top: 8, right: 2, bottom: 8, left: 2 },
+                cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
                 valign: 'middle',
             },
             headStyles: {
@@ -690,42 +706,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             didDrawCell: (data) => {
                 const loan = filteredLoans[data.row.index];
 
-                // Draw Client and Aval info manually
-                if (data.row.section === 'body' && (data.column.index === 0 || data.column.index === maxWeeksToShow + 2) && loan) {
-                    const client = getClient(loan.clientId);
-                    let name = '';
-                    let details = '';
-                    
-                    let yPos = data.cell.y + 10;
-                    const lineHeight = 10;
-
-                    if (data.column.index === 0 && client) {
-                        name = client.name;
-                        details = `${client.street || ''}, ${client.neighborhood || ''}\n${client.phone || ''}`;
-                    } else if (data.column.index === maxWeeksToShow + 2 && client?.endorsement) {
-                        const match = client.endorsement.match(/(.*) \((.*)\)/);
-                        if (match) {
-                            name = match[1];
-                            details = match[2];
-                        } else {
-                            name = client.endorsement;
-                        }
-                    }
-
-                    if (name) {
-                        doc.setFont('helvetica', 'bold');
-                        doc.setTextColor(0, 0, 0);
-                        doc.text(name, data.cell.x + 2, yPos);
-                        yPos += lineHeight;
-                    }
-                     if (details) {
-                        doc.setFont('helvetica', 'normal');
-                        // No need to set text color again if it's already black
-                        doc.text(details, data.cell.x + 2, yPos);
-                    }
-                    return; // Prevent other drawing in this cell
-                }
-                
                 // This ensures we only custom-draw the header cells for weeks
                 if (data.row.section === 'head' && data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
                     data.cell.text = []; // Clear original text to prevent duplication
