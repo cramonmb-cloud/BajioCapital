@@ -663,7 +663,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const footerRows = [footerRow1, footerRow2, footerRow3];
         
-        const availableWidth = pageWidth - margin * 2 - 100 - 40 - 100;
+        const clientColWidth = 95;
+        const abonaColWidth = 40;
+        const avalColWidth = 95;
+        const availableWidth = pageWidth - margin * 2 - clientColWidth - abonaColWidth - avalColWidth;
         const weekColumnWidth = availableWidth / maxWeeksToShow;
 
 
@@ -677,7 +680,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 lineWidth: 0.5,
                 lineColor: [0, 0, 0],
                 fontSize: 6.5,
-                cellPadding: { top: 2, right: 1, bottom: 2, left: 1 },
+                cellPadding: { top: 4, right: 2, bottom: 4, left: 2 },
                 valign: 'middle',
             },
             headStyles: {
@@ -696,10 +699,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 fontSize: 6.5,
             },
             columnStyles: {
-                0: { cellWidth: 100, fontSize: 6.5 },
-                1: { cellWidth: 40, halign: 'right', fontStyle: 'bold', fontSize: 8, textColor: [0, 0, 0] },
+                0: { cellWidth: clientColWidth, fontSize: 6.5 },
+                1: { cellWidth: abonaColWidth, halign: 'right', fontStyle: 'bold', fontSize: 8, textColor: [0, 0, 0] },
                 ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: weekColumnWidth }])),
-                [maxWeeksToShow + 2]: { cellWidth: 100, fontSize: 6.5 },
+                [maxWeeksToShow + 2]: { cellWidth: avalColWidth, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
                 // This ensures we only custom-draw the header cells for weeks
