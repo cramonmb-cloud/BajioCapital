@@ -663,9 +663,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const footerRows = [footerRow1, footerRow2, footerRow3];
         
-        const clientColWidth = 80;
+        const clientColWidth = 75;
         const abonaColWidth = 30;
-        const avalColWidth = 80;
+        const avalColWidth = 75;
         const availableWidth = pageWidth - margin * 2 - clientColWidth - abonaColWidth - avalColWidth;
         const weekColumnWidth = availableWidth / maxWeeksToShow;
 
@@ -680,7 +680,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 lineWidth: 0.5,
                 lineColor: [0, 0, 0],
                 fontSize: 6.5,
-                cellPadding: { top: 4, right: 2, bottom: 4, left: 2 },
+                cellPadding: { top: 6, right: 2, bottom: 6, left: 2 },
                 valign: 'middle',
             },
             headStyles: {
@@ -1212,6 +1212,4 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
 
     
-
-
 
