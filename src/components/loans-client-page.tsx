@@ -566,33 +566,16 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         tableHeaders.push({ content: 'AVAL' });
 
         const tableData = filteredLoans.map(loan => {
-            const client = getClient(loan.clientId);
-            const weeklyPayment = getWeeklyPaymentAmount(loan);
-            
-            const clientInfo = client ? `${client.name}\n${client.street || ''}, ${client.neighborhood || ''}\n${client.phone || ''}` : '';
-
-            let avalInfo = '';
-            if (client?.endorsement) {
-                const match = client.endorsement.match(/(.*) \((.*)\)/);
-                if (match) {
-                    const avalName = match[1];
-                    const avalDetails = match[2];
-                    avalInfo = `${avalName}\n${avalDetails}`;
-                } else {
-                    avalInfo = client.endorsement;
-                }
-            }
-            
             const rowData: any[] = [
-                { content: clientInfo, styles: { fontSize: 6.5 } },
-                { content: formatCurrencySimple(weeklyPayment), styles: { fontSize: 6.5, fontStyle: 'bold' } },
+                { content: '' }, // Placeholder for CLIENTE
+                { content: formatCurrencySimple(getWeeklyPaymentAmount(loan)), styles: { fontSize: 6.5, fontStyle: 'bold' } },
             ];
             
             for (let i = 0; i < maxWeeksToShow; i++) {
                 rowData.push(''); // Placeholder, content will be drawn in didDrawCell
             }
             
-            rowData.push({ content: avalInfo, styles: { fontSize: 6.5 } });
+            rowData.push({ content: '' }); // Placeholder for AVAL
 
             return rowData;
         });
@@ -663,9 +646,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const footerRows = [footerRow1, footerRow2, footerRow3];
         
-        const clientColWidth = 70;
+        const clientColWidth = 60;
         const abonaColWidth = 30;
-        const avalColWidth = 70;
+        const avalColWidth = 60;
         const availableWidth = pageWidth - margin * 2 - clientColWidth - abonaColWidth - avalColWidth;
         const weekColumnWidth = availableWidth / maxWeeksToShow;
 
@@ -680,7 +663,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 lineWidth: 0.5,
                 lineColor: [0, 0, 0],
                 fontSize: 6.5,
-                cellPadding: { top: 6, right: 2, bottom: 6, left: 2 },
+                cellPadding: { top: 8, right: 2, bottom: 8, left: 2 },
                 valign: 'middle',
             },
             headStyles: {
@@ -705,6 +688,37 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 [maxWeeksToShow + 2]: { cellWidth: avalColWidth, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
+                const loan = filteredLoans[data.row.index];
+
+                // Draw Client and Aval info manually
+                if (data.row.section === 'body' && (data.column.index === 0 || data.column.index === maxWeeksToShow + 2) && loan) {
+                    const client = getClient(loan.clientId);
+                    let name = '';
+                    let details = '';
+
+                    if (data.column.index === 0 && client) {
+                        name = client.name;
+                        details = `${client.street || ''}, ${client.neighborhood || ''}\n${client.phone || ''}`;
+                    } else if (data.column.index === maxWeeksToShow + 2 && client?.endorsement) {
+                        const match = client.endorsement.match(/(.*) \((.*)\)/);
+                        if (match) {
+                            name = match[1];
+                            details = match[2];
+                        } else {
+                            name = client.endorsement;
+                        }
+                    }
+
+                    if (name) {
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(0, 0, 0);
+                        doc.text(name, data.cell.x + 2, data.cell.y + 10); // Adjust Y for padding
+                        doc.setFont('helvetica', 'normal');
+                        doc.text(details, data.cell.x + 2, data.cell.y + 20);
+                    }
+                    return; // Prevent other drawing in this cell
+                }
+                
                 // This ensures we only custom-draw the header cells for weeks
                 if (data.row.section === 'head' && data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
                     data.cell.text = []; // Clear original text to prevent duplication
@@ -739,7 +753,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     doc.text(formattedDate, dateX, dateY, { angle: 90, align: 'center' });
                 }
                 
-                const loan = filteredLoans[data.row.index];
                 if (!loan || data.row.section !== 'body') return;
 
                 const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
@@ -1212,5 +1225,4 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
 
     
-
 
