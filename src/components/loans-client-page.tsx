@@ -498,7 +498,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
         const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
-        const topMargin = 40; // New top margin for hole punching
+        const topMargin = 60;
         const margin = 20;
 
         const maxWeeksToShow = 16;
@@ -1207,5 +1207,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
 
     
+
 
 
