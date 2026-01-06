@@ -498,6 +498,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
         const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
+        const topMargin = 40; // New top margin for hole punching
         const margin = 20;
 
         const maxWeeksToShow = 16;
@@ -532,27 +533,27 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
         doc.setFontSize(8);
         doc.setFont('helvetica', 'bold');
-        doc.text('Fecha', margin, 30);
-        doc.text('Promotora', margin, 42);
-        doc.text('Localidad', margin, 54);
-        doc.text('Plaza', margin, 66);
+        doc.text('Fecha', margin, topMargin + 10);
+        doc.text('Promotora', margin, topMargin + 22);
+        doc.text('Localidad', margin, topMargin + 34);
+        doc.text('Plaza', margin, topMargin + 46);
         
         doc.setFont('helvetica', 'normal');
-        doc.text(formatDate(groupStartDate.toISOString()), margin + 50, 30);
-        doc.text(promotoraName.toUpperCase(), margin + 50, 42);
-        doc.text(localidadName.toUpperCase(), margin + 50, 54);
-        doc.text(plazaName.toUpperCase(), margin + 50, 66);
+        doc.text(formatDate(groupStartDate.toISOString()), margin + 50, topMargin + 10);
+        doc.text(promotoraName.toUpperCase(), margin + 50, topMargin + 22);
+        doc.text(localidadName.toUpperCase(), margin + 50, topMargin + 34);
+        doc.text(plazaName.toUpperCase(), margin + 50, topMargin + 46);
 
         const rightColumnX = pageWidth - margin - 100;
         doc.setFont('helvetica', 'bold');
-        doc.text('Vence', rightColumnX, 30);
-        doc.text('Plaza', rightColumnX, 42);
-        doc.text('Cantidad', rightColumnX, 54);
+        doc.text('Vence', rightColumnX, topMargin + 10);
+        doc.text('Plaza', rightColumnX, topMargin + 22);
+        doc.text('Cantidad', rightColumnX, topMargin + 34);
 
         doc.setFont('helvetica', 'normal');
-        doc.text(latestVencimientoDate > new Date(0) ? formatDate(latestVencimientoDate.toISOString()) : 'N/A', rightColumnX + 50, 30);
-        doc.text(plazaName.toUpperCase(), rightColumnX + 50, 42);
-        doc.text(formatCurrency(totalAmount), rightColumnX + 50, 54);
+        doc.text(latestVencimientoDate > new Date(0) ? formatDate(latestVencimientoDate.toISOString()) : 'N/A', rightColumnX + 50, topMargin + 10);
+        doc.text(plazaName.toUpperCase(), rightColumnX + 50, topMargin + 22);
+        doc.text(formatCurrency(totalAmount), rightColumnX + 50, topMargin + 34);
 
         // --- Table ---
         const tableHeaders: any[] = [
@@ -582,18 +583,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 }
             }
 
-            const rowData: any[] = [
-                { content: clientText },
+            return [
+                clientText,
                 { content: formatCurrencySimple(getWeeklyPaymentAmount(loan)), styles: { fontSize: 6.5, fontStyle: 'bold' } },
+                ...Array(maxWeeksToShow).fill(''),
+                avalText,
             ];
-            
-            for (let i = 0; i < maxWeeksToShow; i++) {
-                rowData.push(''); // Placeholder, content will be drawn in didDrawCell
-            }
-            
-            rowData.push({ content: avalText });
-
-            return rowData;
         });
 
         const weeklyFailuresPDF = Array.from({ length: maxWeeksToShow }).map((_, i) => {
@@ -662,15 +657,15 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const footerRows = [footerRow1, footerRow2, footerRow3];
         
-        const clientColWidth = 60;
-        const abonaColWidth = 30;
-        const avalColWidth = 60;
+        const clientColWidth = 80;
+        const abonaColWidth = 28;
+        const avalColWidth = 80;
         const availableWidth = pageWidth - margin * 2 - clientColWidth - abonaColWidth - avalColWidth;
         const weekColumnWidth = availableWidth / maxWeeksToShow;
 
 
         doc.autoTable({
-            startY: 80,
+            startY: topMargin + 60,
             head: [tableHeaders],
             body: tableData,
             foot: footerRows,
@@ -679,7 +674,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 lineWidth: 0.5,
                 lineColor: [0, 0, 0],
                 fontSize: 6.5,
-                cellPadding: { top: 2, right: 2, bottom: 2, left: 2 },
+                cellPadding: { top: 4, right: 2, bottom: 4, left: 2 },
                 valign: 'middle',
             },
             headStyles: {
@@ -1212,4 +1207,5 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
 
     
+
 
