@@ -16,6 +16,7 @@ import { ReportsSection } from './reports-section';
 import { Separator } from './ui/separator';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import Loading from '@/app/dashboard/loading';
+import { generateColorPalette } from '@/lib/utils';
 
 
 interface ControlClientPageProps {
@@ -57,8 +58,6 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
             return loans;
         }
         const fromDate = dateRange.from;
-        // If only 'from' is selected, use it as a single day filter. 
-        // If 'to' is also selected, use the full range.
         const toDate = dateRange.to ? dateRange.to : fromDate;
 
         return loans.filter(loan => {
@@ -68,37 +67,57 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
     }, [loans, dateRange]);
 
 
-    const stats = useMemo(() => {
-        // Calculate "Total Prestado"
-        const totalPrestado = filteredLoans.reduce((acc, loan) => acc + loan.amount, 0);
+    const plazaStats = useMemo(() => {
+        const statsByPlaza: Record<string, { plazaName: string; totalPrestado: number; dineroEnCalle: number; color: string; }> = {};
+        const colorPalette = generateColorPalette(plazas.length);
 
-        // Calculate "Dinero en Calle"
-        const dineroEnCalle = filteredLoans
-            .filter(loan => loan.status === 'Active' || loan.status === 'Overdue')
-            .reduce((totalDue, loan) => {
-                const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-                if (!loanPlan) return totalDue;
-                
-                const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-                
-                const today = new Date();
-                const loanStartDate = new Date(loan.startDate);
-                const timeDiff = today.getTime() - loanStartDate.getTime();
-                const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+        plazas.forEach((plaza, index) => {
+            statsByPlaza[plaza.id] = {
+                plazaName: plaza.name,
+                totalPrestado: 0,
+                dineroEnCalle: 0,
+                color: colorPalette[index],
+            };
+        });
 
-                const loanHasPenalty = hasPenalty(loan, currentLoanWeek, weeklyPayment);
-                const termInWeeks = loanPlan.termInWeeks + (loanHasPenalty ? 1 : 0);
+        filteredLoans.forEach(loan => {
+            const promotora = promotoras.find(p => p.id === loan.promotoraId);
+            const localidad = localidades.find(l => l.id === promotora?.localidadId);
+            if (!localidad) return;
 
-                const totalAmountToBePaid = weeklyPayment * termInWeeks;
-                const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
-                
-                const amountDueForLoan = totalAmountToBePaid - totalPaid;
+            const plazaId = localidad.plazaId;
+            if (statsByPlaza[plazaId]) {
+                // Add to Total Prestado
+                statsByPlaza[plazaId].totalPrestado += loan.amount;
 
-                return totalDue + (amountDueForLoan > 0 ? amountDueForLoan : 0);
-            }, 0);
+                // Calculate and add to Dinero en Calle
+                if (loan.status === 'Active' || loan.status === 'Overdue') {
+                    const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+                    if (!loanPlan) return;
+                    
+                    const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+                    const today = new Date();
+                    const loanStartDate = new Date(loan.startDate);
+                    const timeDiff = today.getTime() - loanStartDate.getTime();
+                    const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+                    const loanHasPenalty = hasPenalty(loan, currentLoanWeek, weeklyPayment);
+                    const termInWeeks = loanPlan.termInWeeks + (loanHasPenalty ? 1 : 0);
 
-            return { totalPrestado, dineroEnCalle };
-    }, [filteredLoans, loanPlans]);
+                    const totalAmountToBePaid = weeklyPayment * termInWeeks;
+                    const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
+                    const amountDueForLoan = totalAmountToBePaid - totalPaid;
+
+                    if (amountDueForLoan > 0) {
+                        statsByPlaza[plazaId].dineroEnCalle += amountDueForLoan;
+                    }
+                }
+            }
+        });
+
+        return Object.values(statsByPlaza);
+
+    }, [filteredLoans, loanPlans, plazas, localidades, promotoras]);
+
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('es-MX', {
@@ -131,35 +150,38 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                     </Button>
                 </div>
             </div>
-             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Total Prestado
-                        </CardTitle>
-                        <Banknote className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(stats.totalPrestado)}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Suma de capital inicial de préstamos en el rango.
-                        </p>
-                    </CardContent>
-                </Card>
-                 <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">
-                            Dinero en Calle
-                        </CardTitle>
-                        <TrendingDown className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(stats.dineroEnCalle)}</div>
-                        <p className="text-xs text-muted-foreground">
-                            Monto pendiente de cobrar de préstamos filtrados.
-                        </p>
-                    </CardContent>
-                </Card>
+             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                 {plazaStats.map(stat => (
+                    <Card key={stat.plazaName} className="col-span-1 grid grid-cols-2 gap-px overflow-hidden rounded-lg">
+                        <div className="p-4" style={{ backgroundColor: `${stat.color}1A`}}>
+                             <CardHeader className="p-0">
+                                <CardTitle className="text-sm font-medium" style={{ color: stat.color }}>
+                                    Total Prestado ({stat.plazaName})
+                                </CardTitle>
+                             </CardHeader>
+                             <CardContent className="p-0 pt-2">
+                                <div className="text-2xl font-bold" style={{ color: stat.color }}>{formatCurrency(stat.totalPrestado)}</div>
+                             </CardContent>
+                        </div>
+                        <div className="p-4" style={{ backgroundColor: `${stat.color}1A`}}>
+                             <CardHeader className="p-0">
+                                <CardTitle className="text-sm font-medium" style={{ color: stat.color }}>
+                                    Dinero en Calle ({stat.plazaName})
+                                </CardTitle>
+                             </CardHeader>
+                             <CardContent className="p-0 pt-2">
+                                <div className="text-2xl font-bold" style={{ color: stat.color }}>{formatCurrency(stat.dineroEnCalle)}</div>
+                             </CardContent>
+                        </div>
+                    </Card>
+                 ))}
+                 {plazaStats.length === 0 && (
+                    <Card className="col-span-full">
+                        <CardContent className="p-6 text-center text-muted-foreground">
+                            No hay plazas definidas o no hay datos de préstamos en el rango de fechas seleccionado.
+                        </CardContent>
+                    </Card>
+                 )}
             </div>
             
             <Separator />
