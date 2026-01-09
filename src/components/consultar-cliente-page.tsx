@@ -171,8 +171,20 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                 
                 {activeLoanDetails ? (
                     <CardContent className="p-6 grid md:grid-cols-2 gap-8">
-                        {/* Loan Details */}
+                        
                         <div className="space-y-4">
+                             <h3 className="font-semibold text-xl flex items-center gap-2"><Wallet className="text-primary"/> Progreso del Pago</h3>
+                             <div className="grid grid-cols-2 gap-4 text-sm">
+                                <div className="space-y-1">
+                                    <p className="text-muted-foreground">Semana Actual</p>
+                                    <p className="font-bold text-3xl">{activeLoanDetails.currentLoanWeek} <span className="text-lg text-muted-foreground">de {activeLoanDetails.termInWeeks}</span></p>
+                                </div>
+                                 <div className="space-y-1">
+                                    <p className="text-muted-foreground">Abono Semanal</p>
+                                    <p className="font-bold text-3xl text-primary">{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
+                                 </div>
+                             </div>
+                            <Separator className="my-4"/>
                             <h3 className="font-semibold text-xl flex items-center gap-2"><FileText className="text-primary"/> Detalles del Préstamo Activo</h3>
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div className="space-y-1">
@@ -192,20 +204,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                                     <p className="font-semibold">{activeLoanDetails.loan.status}</p>
                                 </div>
                             </div>
-                            <Separator className="my-4"/>
-                             <h3 className="font-semibold text-xl flex items-center gap-2"><Wallet className="text-primary"/> Progreso del Pago</h3>
-                             <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div className="space-y-1">
-                                    <p className="text-muted-foreground">Semana Actual</p>
-                                    <p className="font-bold text-3xl">{activeLoanDetails.currentLoanWeek} <span className="text-lg text-muted-foreground">de {activeLoanDetails.termInWeeks}</span></p>
-                                </div>
-                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground">Abono Semanal</p>
-                                    <p className="font-bold text-3xl text-primary">{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
-                                 </div>
-                             </div>
                         </div>
-                        {/* Endorsement Details */}
+                        
                          <div className="space-y-2 border-l md:pl-8">
                              <Collapsible>
                                 <CollapsibleTrigger className="w-full">
