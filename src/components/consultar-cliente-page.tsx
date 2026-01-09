@@ -197,7 +197,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                         <div className="flex items-center gap-2"><Phone className="h-4 w-4" /> {selectedClient.phone}</div>
                         <div className="flex items-center gap-2 col-span-2">
                              {isMobile ? (
-                                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary">
+                                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline" style={{ color: '#005DC7' }}>
                                     <Map className="h-4 w-4" /> {`${selectedClient.street}, ${selectedClient.neighborhood}`}
                                 </a>
                             ) : (
