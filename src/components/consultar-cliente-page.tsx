@@ -5,7 +5,7 @@ import type { Client, Loan, LoanPlan } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown } from 'lucide-react';
+import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from './ui/separator';
 import {
@@ -13,6 +13,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
+import { Button } from './ui/button';
 
 interface ConsultarClientePageProps {
   clients: Client[];
@@ -70,6 +71,10 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
         endorsementName = endorsementMatch[1];
         endorsementDetails = endorsementMatch[2];
     }
+    
+    const totalToPay = weeklyPayment * termInWeeks;
+    const totalPaid = activeLoan.payments.reduce((acc, p) => acc + p.amount, 0);
+    const balance = totalToPay - totalPaid;
 
     return {
       loan: activeLoan,
@@ -78,7 +83,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
       currentLoanWeek,
       endorsementName,
       endorsementDetails,
-      termInWeeks: termInWeeks
+      termInWeeks: termInWeeks,
+      balance: balance > 0 ? balance : 0
     };
   }, [selectedClient, loans, loanPlans]);
   
@@ -91,6 +97,11 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
   const handleClientSelect = (client: Client) => {
     setSearchTerm(client.name);
     setSelectedClient(client);
+  };
+  
+  const clearSearch = () => {
+    setSearchTerm('');
+    setSelectedClient(null);
   };
   
   const formatCurrency = (amount: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
@@ -124,8 +135,18 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                             setSelectedClient(null);
                         }
                     }}
-                    className="pl-10 h-12 text-lg rounded-full shadow-lg focus-visible:ring-primary/50"
+                    className="pl-10 pr-10 h-12 text-lg rounded-full shadow-lg focus-visible:ring-primary/50"
                 />
+                 {searchTerm && (
+                    <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-full"
+                        onClick={clearSearch}
+                    >
+                        <X className="h-5 w-5 text-muted-foreground" />
+                    </Button>
+                )}
             </div>
             {filteredClients.length > 0 && !selectedClient && (
             <Card className="absolute z-10 w-full mt-2 shadow-lg">
@@ -172,7 +193,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                 {activeLoanDetails ? (
                     <CardContent className="p-6 grid md:grid-cols-2 gap-8">
                         
-                        <div className="space-y-4">
+                         <div className="space-y-4">
                              <h3 className="font-semibold text-xl flex items-center gap-2"><Wallet className="text-primary"/> Progreso del Pago</h3>
                              <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div className="space-y-1">
@@ -255,3 +276,5 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
     </div>
   );
 }
+
+    
