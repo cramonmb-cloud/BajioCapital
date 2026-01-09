@@ -5,7 +5,7 @@ import type { Client, Loan, LoanPlan } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X, Map } from 'lucide-react';
+import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X, Map, AlertTriangle } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from './ui/separator';
 import {
@@ -14,6 +14,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import { Button } from './ui/button';
+import { cn } from '@/lib/utils';
 
 interface ConsultarClientePageProps {
   clients: Client[];
@@ -94,7 +95,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
       endorsementName,
       endorsementDetails,
       termInWeeks: termInWeeks,
-      balance: balance > 0 ? balance : 0
+      balance: balance > 0 ? balance : 0,
+      missedWeeks: missedWeeksCount,
     };
   }, [selectedClient, loans, loanPlans]);
   
@@ -214,7 +216,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                         
                          <div className="space-y-4">
                              <h3 className="font-semibold text-xl flex items-center gap-2"><Wallet className="text-primary"/> Progreso del Pago</h3>
-                             <div className="grid grid-cols-2 gap-4 text-sm">
+                             <div className="grid grid-cols-3 gap-4 text-sm">
                                 <div className="space-y-1">
                                     <p className="text-muted-foreground">Semana Actual</p>
                                     <p className="font-bold text-3xl">{activeLoanDetails.currentLoanWeek} <span className="text-lg text-muted-foreground">de {activeLoanDetails.termInWeeks}</span></p>
@@ -222,6 +224,12 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                                  <div className="space-y-1">
                                     <p className="text-muted-foreground">Abono</p>
                                     <p className="font-bold text-3xl" style={{ color: '#005DC7' }}>{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
+                                 </div>
+                                  <div className="space-y-1">
+                                    <p className="text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> Fallos</p>
+                                    <p className={cn("font-bold text-3xl", activeLoanDetails.missedWeeks > 0 ? 'text-red-500' : 'text-blue-500')}>
+                                        {activeLoanDetails.missedWeeks}
+                                    </p>
                                  </div>
                              </div>
                             <Separator className="my-4"/>
