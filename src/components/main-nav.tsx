@@ -20,7 +20,12 @@ const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: 
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings', icon: Settings },
 ];
 
-export function MainNav() {
+interface MainNavProps {
+    isMobile?: boolean;
+    onLinkClick?: () => void;
+}
+
+export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
   const pathname = usePathname();
   const { appUser } = useAuth();
 
@@ -34,6 +39,30 @@ export function MainNav() {
     }
     return appUser.permissions && appUser.permissions[link.id];
   });
+
+  if (isMobile) {
+    return (
+        <>
+            {allowedLinks.map((link) => {
+                const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
+                return (
+                    <Link
+                        key={link.href}
+                        href={link.href}
+                        className={cn(
+                            'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
+                            isActive && 'bg-muted text-primary'
+                        )}
+                        onClick={onLinkClick}
+                    >
+                        <link.icon className="h-4 w-4" />
+                        {link.label}
+                    </Link>
+                );
+            })}
+        </>
+    );
+  }
 
   return (
         <div className="flex items-center gap-2">
