@@ -129,8 +129,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
 
   return (
     <div className="space-y-6">
-        <div>
-            <h1 className="text-3xl font-bold tracking-tight">Consultar Cliente</h1>
+        <div className="text-center">
+            <h1 className="text-3xl font-bold tracking-tight">Consultar Detalle del Cliente</h1>
         </div>
       
         <div className="relative max-w-lg mx-auto">
@@ -289,7 +289,6 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
 
         {!selectedClient && !searchTerm && (
             <div className="text-center mt-8 text-muted-foreground animate-in fade-in-50">
-                <p>Comienza a escribir para buscar un cliente.</p>
             </div>
         )}
     </div>
