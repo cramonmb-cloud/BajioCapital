@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import type { Client, Loan, LoanPlan } from '@/lib/types';
+import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X, Map, AlertTriangle } from 'lucide-react';
+import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X, Map, AlertTriangle, Building, MapPin } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from './ui/separator';
 import {
@@ -20,9 +20,12 @@ interface ConsultarClientePageProps {
   clients: Client[];
   loans: Loan[];
   loanPlans: LoanPlan[];
+  plazas: Plaza[];
+  localidades: Localidad[];
+  promotoras: Promotora[];
 }
 
-export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarClientePageProps) {
+export function ConsultarClientePage({ clients, loans, loanPlans, plazas, localidades, promotoras }: ConsultarClientePageProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isMobile, setIsMobile] = useState(false);
@@ -87,6 +90,10 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
     const totalPaid = activeLoan.payments.reduce((acc, p) => acc + p.amount, 0);
     const balance = totalToPay - totalPaid;
 
+    const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
+    const localidad = localidades.find(l => l.id === promotora?.localidadId);
+    const plaza = plazas.find(p => p.id === localidad?.plazaId);
+
     return {
       loan: activeLoan,
       loanPlan,
@@ -97,8 +104,11 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
       termInWeeks: termInWeeks,
       balance: balance > 0 ? balance : 0,
       missedWeeks: missedWeeksCount,
+      plazaName: plaza?.name || 'N/A',
+      localidadName: localidad?.name || 'N/A',
+      promotoraName: promotora?.name || 'N/A',
     };
-  }, [selectedClient, loans, loanPlans]);
+  }, [selectedClient, loans, loanPlans, plazas, localidades, promotoras]);
   
   useEffect(() => {
     if (filteredClients.length === 1 && searchTerm === filteredClients[0].name) {
@@ -206,6 +216,15 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                                 <><Home className="h-4 w-4" /> {`${selectedClient.street}, ${selectedClient.neighborhood}`}</>
                             )}
                         </div>
+                        {activeLoanDetails && (
+                            <>
+                                <div className="flex items-center gap-2 col-span-2 text-xs">
+                                    <Building className="h-3 w-3" /> {activeLoanDetails.plazaName}
+                                    <MapPin className="h-3 w-3 ml-2" /> {activeLoanDetails.localidadName}
+                                    <User className="h-3 w-3 ml-2" /> {activeLoanDetails.promotoraName}
+                                </div>
+                            </>
+                        )}
                     </div>
                 </CardHeader>
 
