@@ -181,7 +181,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                                 </div>
                                  <div className="space-y-1">
                                     <p className="text-muted-foreground">Abono Semanal</p>
-                                    <p className="font-bold text-3xl text-primary">{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
+                                    <p className="font-bold text-3xl" style={{ color: '#005DC7' }}>{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
                                  </div>
                              </div>
                             <Separator className="my-4"/>
