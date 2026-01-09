@@ -131,9 +131,6 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
     <div className="space-y-6">
         <div>
             <h1 className="text-3xl font-bold tracking-tight">Consultar Cliente</h1>
-            <p className="text-muted-foreground">
-                Busca un cliente para ver los detalles de su préstamo activo.
-            </p>
         </div>
       
         <div className="relative max-w-lg mx-auto">
@@ -223,7 +220,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                                     <p className="font-bold text-3xl">{activeLoanDetails.currentLoanWeek} <span className="text-lg text-muted-foreground">de {activeLoanDetails.termInWeeks}</span></p>
                                 </div>
                                  <div className="space-y-1">
-                                    <p className="text-muted-foreground">Abono Semanal</p>
+                                    <p className="text-muted-foreground">Abono</p>
                                     <p className="font-bold text-3xl" style={{ color: '#005DC7' }}>{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
                                  </div>
                              </div>
