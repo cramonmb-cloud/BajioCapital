@@ -5,7 +5,7 @@ import type { Client, Loan, LoanPlan } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X } from 'lucide-react';
+import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X, Map } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from './ui/separator';
 import {
@@ -24,6 +24,16 @@ interface ConsultarClientePageProps {
 export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarClientePageProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const filteredClients = useMemo(() => {
     if (!searchTerm) {
@@ -113,6 +123,10 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
   };
 
 
+  const fullAddress = selectedClient ? `${selectedClient.street}, ${selectedClient.neighborhood}, ${selectedClient.city}, ${selectedClient.postalCode}` : '';
+  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
+
+
   return (
     <div className="space-y-6">
         <div>
@@ -184,7 +198,15 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                     </div>
                      <div className="text-sm text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
                         <div className="flex items-center gap-2"><Phone className="h-4 w-4" /> {selectedClient.phone}</div>
-                        <div className="flex items-center gap-2 col-span-2"><Home className="h-4 w-4" /> {`${selectedClient.street}, ${selectedClient.neighborhood}`}</div>
+                        <div className="flex items-center gap-2 col-span-2">
+                             {isMobile ? (
+                                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline text-primary">
+                                    <Map className="h-4 w-4" /> {`${selectedClient.street}, ${selectedClient.neighborhood}`}
+                                </a>
+                            ) : (
+                                <><Home className="h-4 w-4" /> {`${selectedClient.street}, ${selectedClient.neighborhood}`}</>
+                            )}
+                        </div>
                     </div>
                 </CardHeader>
 
