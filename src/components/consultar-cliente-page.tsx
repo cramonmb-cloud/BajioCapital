@@ -63,9 +63,6 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
     const totalPaid = activeLoan.payments.reduce((sum, p) => sum + p.amount, 0);
     const remainingAmount = Math.max(0, totalAmountToBePaid - totalPaid);
 
-    const weeksPaid = totalPaid / weeklyPayment;
-    const remainingWeeks = termInWeeks - weeksPaid;
-
     let endorsementName = selectedClient.endorsement;
     let endorsementDetails = '';
     const endorsementMatch = selectedClient.endorsement.match(/(.*) \((.*)\)/);
@@ -78,10 +75,10 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
       loan: activeLoan,
       loanPlan,
       currentLoanWeek,
-      remainingWeeks: Math.ceil(remainingWeeks),
       remainingAmount,
       endorsementName,
       endorsementDetails,
+      termInWeeks: termInWeeks
     };
   }, [selectedClient, loans, loanPlans]);
   
@@ -200,11 +197,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                              <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div className="space-y-1">
                                     <p className="text-muted-foreground">Semana Actual</p>
-                                    <p className="font-bold text-lg">{activeLoanDetails.currentLoanWeek} <span className="text-xs">de {activeLoanDetails.loanPlan.termInWeeks}</span></p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-muted-foreground">Semanas Restantes</p>
-                                    <p className="font-bold text-lg">{activeLoanDetails.remainingWeeks}</p>
+                                    <p className="font-bold text-2xl">{activeLoanDetails.currentLoanWeek} <span className="text-sm">de {activeLoanDetails.termInWeeks}</span></p>
                                 </div>
                                  <div className="space-y-1 col-span-2">
                                     <p className="text-muted-foreground">Saldo para Liquidar</p>
