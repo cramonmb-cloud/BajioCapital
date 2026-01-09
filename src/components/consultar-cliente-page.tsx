@@ -5,9 +5,14 @@ import type { Client, Loan, LoanPlan } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home } from 'lucide-react';
+import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from './ui/separator';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible"
 
 interface ConsultarClientePageProps {
   clients: Client[];
@@ -197,7 +202,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                              <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div className="space-y-1">
                                     <p className="text-muted-foreground">Semana Actual</p>
-                                    <p className="font-bold text-2xl">{activeLoanDetails.currentLoanWeek} <span className="text-sm">de {activeLoanDetails.termInWeeks}</span></p>
+                                    <p className="font-bold text-3xl">{activeLoanDetails.currentLoanWeek} <span className="text-lg text-muted-foreground">de {activeLoanDetails.termInWeeks}</span></p>
                                 </div>
                                  <div className="space-y-1 col-span-2">
                                     <p className="text-muted-foreground">Saldo para Liquidar</p>
@@ -206,22 +211,31 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                              </div>
                         </div>
                         {/* Endorsement Details */}
-                         <div className="space-y-4 border-l md:pl-8">
-                             <h3 className="font-semibold text-xl flex items-center gap-2"><Shield className="text-primary"/> Información del Aval</h3>
-                             <div className="space-y-3 text-sm">
-                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground">Garantía</p>
-                                    <p className="font-semibold">{selectedClient.guarantee}</p>
-                                 </div>
-                                  <div className="space-y-1">
-                                    <p className="text-muted-foreground">Nombre del Aval</p>
-                                    <p className="font-bold text-lg">{activeLoanDetails.endorsementName}</p>
-                                 </div>
-                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground">Contacto y Domicilio</p>
-                                    <p className="font-semibold">{activeLoanDetails.endorsementDetails || 'No especificado'}</p>
-                                 </div>
-                             </div>
+                         <div className="space-y-2 border-l md:pl-8">
+                             <Collapsible>
+                                <CollapsibleTrigger className="w-full">
+                                    <div className="flex items-center justify-between w-full">
+                                        <h3 className="font-semibold text-xl flex items-center gap-2"><Shield className="text-primary"/> Información del Aval</h3>
+                                        <ChevronDown className="h-5 w-5 transition-transform [&[data-state=open]]:rotate-180" />
+                                    </div>
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                    <div className="space-y-3 text-sm mt-4">
+                                        <div className="space-y-1">
+                                            <p className="text-muted-foreground">Garantía</p>
+                                            <p className="font-semibold">{selectedClient.guarantee}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-muted-foreground">Nombre del Aval</p>
+                                            <p className="font-bold text-lg">{activeLoanDetails.endorsementName}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-muted-foreground">Contacto y Domicilio</p>
+                                            <p className="font-semibold">{activeLoanDetails.endorsementDetails || 'No especificado'}</p>
+                                        </div>
+                                    </div>
+                                </CollapsibleContent>
+                            </Collapsible>
                          </div>
                     </CardContent>
                 ) : (
