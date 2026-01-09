@@ -453,3 +453,5 @@ export async function updateLoanAction(loanId: string, data: UpdateLoanData) {
         return { success: false, message: `Error al actualizar el préstamo: ${error.message}` };
     }
 }
+
+    
