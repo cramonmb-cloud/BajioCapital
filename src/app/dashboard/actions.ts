@@ -331,61 +331,65 @@ export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: 
     const batch = writeBatch(db);
     const walletRef = doc(db, 'wallet', 'main');
     let totalAccumulatedAmount = 0;
-    let paymentsAccumulated = 0;
+    let paymentsAccumulatedCount = 0;
 
     for (const loan of loans) {
         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-        if (!loanPlan || loan.status === 'Paid Off') continue;
+        if (!loanPlan || loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') continue;
 
         const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
         const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-
-        if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) continue;
         
-        const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
+        // Corrected logic: Iterate through all past weeks up to the current one
+        for (let weekNumber = 1; weekNumber <= currentLoanWeek; weekNumber++) {
+            if (weekNumber <= 0 || weekNumber > loanPlan.termInWeeks) continue;
 
-        if (!paymentExists) {
-            // This is an "assumed payment" that needs to be registered.
-            const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-            const loanRef = doc(db, 'loans', loan.id);
-            const client = clients.find(c => c.id === loan.clientId);
-            
-            const newPayment = {
-                date: new Date().toISOString(),
-                amount: weeklyPaymentAmount,
-                weekNumber: currentLoanWeek,
-            };
+            const paymentExists = loan.payments.some(p => p.weekNumber === weekNumber);
 
-            const updatedPayments = [...loan.payments, newPayment];
-            
-            // Check if this payment makes the loan paid off
-            const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
-            const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
-            let newStatus = loan.status;
-            if (totalPaid >= totalLoanAmount) {
-                newStatus = loan.status === 'Overdue' ? 'Pagado desde CV' : 'Paid Off';
+            if (!paymentExists) {
+                // This is an "assumed payment" that needs to be registered.
+                const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+                const loanRef = doc(db, 'loans', loan.id);
+                const client = clients.find(c => c.id === loan.clientId);
+                
+                const newPayment = {
+                    date: new Date().toISOString(),
+                    amount: weeklyPaymentAmount,
+                    weekNumber: weekNumber,
+                };
+
+                const updatedPayments = [...loan.payments, newPayment];
+                loan.payments.push(newPayment); // Manually update the loan object for the loop
+
+                // Check if this payment makes the loan paid off
+                const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
+                const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
+                let newStatus = loan.status;
+                if (totalPaid >= totalLoanAmount) {
+                    newStatus = loan.status === 'Overdue' ? 'Pagado desde CV' : 'Paid Off';
+                }
+
+                batch.update(loanRef, { payments: updatedPayments, status: newStatus });
+                
+                // Add to wallet transaction
+                const walletTransactionRef = doc(collection(db, 'walletTransactions'));
+                batch.set(walletTransactionRef, {
+                    type: 'credit',
+                    amount: weeklyPaymentAmount,
+                    date: new Date(),
+                    description: `Abono (acumulado) de ${client?.name || 'N/A'} para préstamo (Semana ${weekNumber}).`,
+                    loanId: loan.id,
+                    clientId: loan.clientId,
+                    userId: userId || null,
+                });
+
+                totalAccumulatedAmount += weeklyPaymentAmount;
+                paymentsAccumulatedCount++;
             }
-
-            batch.update(loanRef, { payments: updatedPayments, status: newStatus });
-            
-            // Add to wallet transaction
-            const walletTransactionRef = doc(collection(db, 'walletTransactions'));
-            batch.set(walletTransactionRef, {
-                type: 'credit',
-                amount: weeklyPaymentAmount,
-                date: new Date(),
-                description: `Abono (acumulado) de ${client?.name || 'N/A'} para préstamo (Semana ${currentLoanWeek}).`,
-                loanId: loan.id,
-                clientId: loan.clientId,
-                userId: userId || null,
-            });
-
-            totalAccumulatedAmount += weeklyPaymentAmount;
-            paymentsAccumulated++;
         }
     }
 
-    if (paymentsAccumulated === 0) {
+    if (paymentsAccumulatedCount === 0) {
         return { success: true, message: 'No había pagos asumidos para acumular.' };
     }
 
@@ -396,7 +400,7 @@ export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: 
         revalidatePath('/dashboard/loans');
         revalidatePath('/dashboard/wallet');
         
-        return { success: true, message: `Se acumularon ${paymentsAccumulated} pagos por un total de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalAccumulatedAmount)}.` };
+        return { success: true, message: `Se acumularon ${paymentsAccumulatedCount} pagos por un total de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalAccumulatedAmount)}.` };
     } catch (error: any) {
         console.error('Error accumulating payments:', error);
         return { success: false, message: `Error al acumular pagos: ${error.message}` };
@@ -453,5 +457,3 @@ export async function updateLoanAction(loanId: string, data: UpdateLoanData) {
         return { success: false, message: `Error al actualizar el préstamo: ${error.message}` };
     }
 }
-
-    
