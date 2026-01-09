@@ -1,5 +1,6 @@
 
 
+'use client';
 import {
   Card,
   CardContent,
@@ -15,7 +16,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { getClients, getLoans, getLoanPlans, getAppConfig } from '@/lib/firestore-data';
+import { useRealtimeData } from '@/hooks/use-realtime-data';
+import { useAuth } from '@/hooks/use-auth';
+import { getAppConfig } from '@/lib/firestore-data';
 import { Users, Landmark, Banknote, ArrowRight, TrendingUp, Receipt, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -23,15 +26,24 @@ import { seedDatabaseAction } from './seed-actions';
 import type { Loan } from '@/lib/types';
 import Image from 'next/image';
 import { ClientesConFallos } from '@/components/clientes-con-fallos';
+import { useEffect, useState } from 'react';
+import Loading from './loading';
 
 
-export default async function DashboardPage() {
-  const [clients, loans, loanPlans, config] = await Promise.all([
-    getClients(),
-    getLoans(),
-    getLoanPlans(),
-    getAppConfig()
-  ]);
+export default function DashboardPage() {
+    const { data, loading: dataLoading } = useRealtimeData();
+    const { appUser, loading: authLoading } = useAuth();
+    const [config, setConfig] = useState<{logoUrl?: string} | null>(null);
+
+    useEffect(() => {
+        getAppConfig().then(setConfig);
+    }, []);
+
+    if (dataLoading || authLoading || !data || !appUser) {
+        return <Loading />;
+    }
+
+    const { clients, loans, loanPlans } = data;
 
   const logoUrl = config?.logoUrl;
 
@@ -111,7 +123,7 @@ export default async function DashboardPage() {
                     <Image 
                         src={logoUrl} 
                         alt="Logo de la aplicación" 
-                        layout="fill"
+                        fill
                         objectFit="contain"
                         className="rounded-lg border"
                     />

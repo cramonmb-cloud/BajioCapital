@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { ScrollArea } from './ui/scroll-area';
+import { useAuth } from '@/hooks/use-auth';
 
 interface ClientesConFallosProps {
   loans: Loan[];
@@ -50,6 +51,7 @@ const ITEMS_PER_PAGE = 5;
 export function ClientesConFallos({ loans, clients, loanPlans }: ClientesConFallosProps) {
     const [currentPage, setCurrentPage] = useState(1);
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const { appUser } = useAuth();
 
     const failuresList: FalloInfo[] = useMemo(() => {
         const getClientName = (clientId: string) => clients.find(c => c.id === clientId)?.name || 'N/A';
@@ -110,6 +112,10 @@ export function ClientesConFallos({ loans, clients, loanPlans }: ClientesConFall
           currency: 'MXN',
         }).format(amount);
     };
+
+    if (appUser?.username !== 'Cristobal') {
+        return null;
+    }
 
     return (
         <Card>
