@@ -64,7 +64,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
     const remainingAmount = Math.max(0, totalAmountToBePaid - totalPaid);
 
     const weeksPaid = totalPaid / weeklyPayment;
-    const remainingWeeks = Math.max(0, termInWeeks - weeksPaid);
+    const remainingWeeks = termInWeeks - weeksPaid;
 
     let endorsementName = selectedClient.endorsement;
     let endorsementDetails = '';
@@ -209,7 +209,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                                  <div className="space-y-1 col-span-2">
                                     <p className="text-muted-foreground">Saldo para Liquidar</p>
                                     <p className="font-bold text-2xl text-primary">{formatCurrency(activeLoanDetails.remainingAmount)}</p>
-                                </div>
+                                 </div>
                              </div>
                         </div>
                         {/* Endorsement Details */}
