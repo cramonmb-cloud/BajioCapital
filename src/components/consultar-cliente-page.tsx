@@ -47,7 +47,6 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
 
     const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
     
-    // Penalty calculation
     const today = new Date();
     const loanStartDate = new Date(activeLoan.startDate);
     const timeDiff = today.getTime() - loanStartDate.getTime();
@@ -64,10 +63,6 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
     const hasPenalty = missedWeeksCount >= 2;
     const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
 
-    const totalAmountToBePaid = weeklyPayment * termInWeeks;
-    const totalPaid = activeLoan.payments.reduce((sum, p) => sum + p.amount, 0);
-    const remainingAmount = Math.max(0, totalAmountToBePaid - totalPaid);
-
     let endorsementName = selectedClient.endorsement;
     let endorsementDetails = '';
     const endorsementMatch = selectedClient.endorsement.match(/(.*) \((.*)\)/);
@@ -79,8 +74,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
     return {
       loan: activeLoan,
       loanPlan,
+      weeklyPayment,
       currentLoanWeek,
-      remainingAmount,
       endorsementName,
       endorsementDetails,
       termInWeeks: termInWeeks
@@ -204,9 +199,9 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                                     <p className="text-muted-foreground">Semana Actual</p>
                                     <p className="font-bold text-3xl">{activeLoanDetails.currentLoanWeek} <span className="text-lg text-muted-foreground">de {activeLoanDetails.termInWeeks}</span></p>
                                 </div>
-                                 <div className="space-y-1 col-span-2">
-                                    <p className="text-muted-foreground">Saldo para Liquidar</p>
-                                    <p className="font-bold text-2xl text-primary">{formatCurrency(activeLoanDetails.remainingAmount)}</p>
+                                 <div className="space-y-1">
+                                    <p className="text-muted-foreground">Abono Semanal</p>
+                                    <p className="font-bold text-3xl text-primary">{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
                                  </div>
                              </div>
                         </div>
