@@ -73,6 +73,7 @@ export type Promotora = {
 export type UserPermissions = {
     dashboard: boolean;
     clients: boolean;
+    consultarCliente: boolean;
     loans: boolean;
     overduePortfolio: boolean;
     wallet: boolean;

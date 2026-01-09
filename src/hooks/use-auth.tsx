@@ -47,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           const defaultAdminPermissions: UserPermissions = {
             dashboard: true,
             clients: true,
+            consultarCliente: true,
             loans: true,
             overduePortfolio: true,
             wallet: true,

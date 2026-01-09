@@ -57,6 +57,7 @@ import { deleteUserAction, saveUserAction } from '@/app/dashboard/settings/actio
 const permissionsSchema = z.object({
   dashboard: z.boolean().default(false),
   clients: z.boolean().default(false),
+  consultarCliente: z.boolean().default(false),
   loans: z.boolean().default(false),
   overduePortfolio: z.boolean().default(false),
   wallet: z.boolean().default(false),
@@ -87,6 +88,7 @@ const DUMMY_DOMAIN = 'credicontrol.app';
 const permissionLabels: { id: keyof UserPermissions; label: string }[] = [
     { id: 'dashboard', label: 'Dashboard' },
     { id: 'clients', label: 'Clientes' },
+    { id: 'consultarCliente', label: 'Consultar Cliente' },
     { id: 'loans', label: 'Préstamos' },
     { id: 'overduePortfolio', label: 'Cartera Vencida'},
     { id: 'wallet', label: 'Cartera' },
@@ -118,6 +120,7 @@ export function UserManagement({ users }: UserManagementProps) {
       permissions: {
         dashboard: true,
         clients: true,
+        consultarCliente: true,
         loans: true,
         overduePortfolio: true,
         wallet: true,

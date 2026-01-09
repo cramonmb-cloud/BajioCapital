@@ -5,12 +5,13 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { UserPermissions } from '@/lib/types';
-import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, FileText, Settings, Activity, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, FileText, Settings, Activity, Search, type LucideIcon } from 'lucide-react';
 import { Button } from './ui/button';
 
 const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: LucideIcon }[] = [
   { href: '/dashboard', label: 'Dashboard', id: 'dashboard', icon: LayoutDashboard },
   { href: '/dashboard/clients', label: 'Clientes', id: 'clients', icon: Users },
+  { href: '/dashboard/consultar-cliente', label: 'Consultar', id: 'consultarCliente', icon: Search },
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans', icon: Landmark },
   { href: '/dashboard/overdue-portfolio', label: 'Cartera Vencida', id: 'overduePortfolio', icon: FileWarning },
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet', icon: Wallet },
