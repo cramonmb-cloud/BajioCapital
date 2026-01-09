@@ -1198,5 +1198,3 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     </>
   );
 }
-
-    
