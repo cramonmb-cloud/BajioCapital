@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { getClients, getLoans, getLoanPlans, getAppConfig } from '@/lib/firestore-data';
-import { Users, Landmark, Banknote, ArrowRight, Database, TrendingUp, Receipt } from 'lucide-react';
+import { Users, Landmark, Banknote, ArrowRight, TrendingUp, Receipt, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { seedDatabaseAction } from './seed-actions';
@@ -95,6 +95,51 @@ export default async function DashboardPage() {
       }
     });
   });
+
+  // Logic for "Clientes con Fallos"
+  const clientsWithFailures = loans
+    .filter(loan => loan.status === 'Active' || loan.status === 'Overdue')
+    .reduce((acc, loan) => {
+        const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+        if (!loanPlan) return acc;
+
+        const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+        const today = new Date();
+        const loanStartDate = new Date(loan.startDate);
+        const timeDiff = today.getTime() - loanStartDate.getTime();
+        const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+
+        let totalFailures = 0;
+        let totalFailureAmount = 0;
+
+        for (let i = 1; i < currentLoanWeek; i++) {
+            const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
+            const paidAmount = paymentForWeek?.amount || 0;
+            
+            if (paidAmount < weeklyPayment) {
+                totalFailures += 1;
+                totalFailureAmount += (weeklyPayment - paidAmount);
+            }
+        }
+        
+        if (totalFailures > 0) {
+            if (!acc[loan.clientId]) {
+                acc[loan.clientId] = {
+                    clientId: loan.clientId,
+                    clientName: getClientName(loan.clientId),
+                    totalFailures: 0,
+                    totalFailureAmount: 0,
+                };
+            }
+            acc[loan.clientId].totalFailures += totalFailures;
+            acc[loan.clientId].totalFailureAmount += totalFailureAmount;
+        }
+
+        return acc;
+    }, {} as Record<string, { clientId: string, clientName: string, totalFailures: number, totalFailureAmount: number }>);
+    
+    const failuresList = Object.values(clientsWithFailures);
+
 
   return (
     <div className="space-y-6">
@@ -188,6 +233,53 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Clientes con Fallos</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cliente</TableHead>
+                <TableHead className="text-center">Semanas con Fallo</TableHead>
+                <TableHead>Monto del Fallo</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {failuresList.length > 0 ? (
+                failuresList.map((item) => (
+                  <TableRow key={item.clientId}>
+                    <TableCell className="font-medium">{item.clientName}</TableCell>
+                    <TableCell className="text-center">
+                        <Badge variant="destructive" className="gap-1">
+                            <AlertTriangle className="h-3 w-3"/> 
+                            {item.totalFailures}
+                        </Badge>
+                    </TableCell>
+                    <TableCell className="text-destructive">{formatCurrency(item.totalFailureAmount)}</TableCell>
+                    <TableCell className="text-right">
+                       <Button asChild variant="ghost" size="icon">
+                        <Link href={`/dashboard/clients/${item.clientId}`}>
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center">
+                    No hay clientes con fallos en sus pagos.
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
