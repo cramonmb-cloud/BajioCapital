@@ -178,7 +178,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
                             <AvatarFallback className="text-3xl">{selectedClient.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <CardTitle className="text-3xl">{selectedClient.name}</CardTitle>
+                            <CardTitle className="text-2xl">{selectedClient.name}</CardTitle>
                             <CardDescription>ID de Cliente: {selectedClient.id}</CardDescription>
                         </div>
                     </div>
@@ -276,5 +276,3 @@ export function ConsultarClientePage({ clients, loans, loanPlans }: ConsultarCli
     </div>
   );
 }
-
-    
