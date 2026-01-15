@@ -89,8 +89,17 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const weeklyPayment = getWeeklyPaymentAmount(loan);
             let remainingAmountToDistribute = amountPaid;
             
-            const allPayments = [...loan.payments];
-            const weeksPaidInTx: number[] = [];
+            // Overwrite logic: Remove any existing payment for the starting week
+            const allPayments = loan.payments.filter(p => p.weekNumber !== startingWeekNumber);
+            
+            // Add the new payment for the starting week. This handles overwrites and new payments.
+            allPayments.push({
+                date: new Date().toISOString(),
+                amount: amountPaid,
+                weekNumber: startingWeekNumber
+            });
+            
+            const weeksPaidInTx: number[] = [startingWeekNumber];
             
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
@@ -100,6 +109,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             // Determine if penalty should apply based on missed payments *before* this transaction
             let missedWeeksForPenalty = 0;
              for (let i = 1; i < currentLoanWeek; i++) {
+                // Use original payments to check past status to avoid influence from the current operation
                 const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
                 const paidForWeek = paymentForWeek?.amount || 0;
                 if (paidForWeek < weeklyPayment) {
@@ -109,99 +119,10 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const hasPenalty = missedWeeksForPenalty >= 2;
             const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
 
-            // --- Distribution Logic ---
-            
-            // Handle case where payment is explicitly 0 to register a failure
-            if (amountPaid === 0) {
-                 let paymentForStartingWeek = allPayments.find(p => p.weekNumber === startingWeekNumber);
-                 if (paymentForStartingWeek) {
-                     // If a partial payment exists, we don't overwrite it with a zero payment,
-                     // as that would lose data. The failure is already implicit.
-                     // If amountPaid is 0, we only add a new record if one doesn't exist.
-                 } else {
-                     allPayments.push({ date: new Date().toISOString(), amount: 0, weekNumber: startingWeekNumber });
-                 }
-            }
-
-
-            // 1. Apply payment to the starting week if it's not fully paid
-            if (remainingAmountToDistribute > 0) {
-                 let paymentForStartingWeek = allPayments.find(p => p.weekNumber === startingWeekNumber);
-                 const paidForStartingWeek = paymentForStartingWeek?.amount || 0;
-                 if (paidForStartingWeek < weeklyPayment) {
-                     const amountNeeded = weeklyPayment - paidForStartingWeek;
-                     const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
-                     if (paymentForStartingWeek) {
-                         paymentForStartingWeek.amount += amountToApply;
-                     } else {
-                         allPayments.push({ date: new Date().toISOString(), amount: amountToApply, weekNumber: startingWeekNumber });
-                     }
-                     remainingAmountToDistribute -= amountToApply;
-                     if (!weeksPaidInTx.includes(startingWeekNumber)) {
-                        weeksPaidInTx.push(startingWeekNumber);
-                     }
-                 }
-            }
-            
-            // 2. Apply remaining amount to past dues, backwards from the week *before* the starting one
-            if (remainingAmountToDistribute > 0) {
-                for (let week = startingWeekNumber - 1; week >= 1; week--) {
-                    if (remainingAmountToDistribute <= 0) break;
-
-                    let paymentForWeek = allPayments.find(p => p.weekNumber === week);
-                    const paidForWeek = paymentForWeek?.amount || 0;
-
-                    if (paidForWeek < weeklyPayment) {
-                        const amountNeeded = weeklyPayment - paidForWeek;
-                        const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
-                        if (paymentForWeek) {
-                            paymentForWeek.amount += amountToApply;
-                        } else {
-                            allPayments.push({ date: new Date().toISOString(), amount: amountToApply, weekNumber: week });
-                        }
-                        remainingAmountToDistribute -= amountToApply;
-                         if (!weeksPaidInTx.includes(week)) {
-                            weeksPaidInTx.push(week);
-                        }
-                    }
-                }
-            }
-
-            // 3. Apply any final remaining amount forwards from the week *after* the starting one
-            if (remainingAmountToDistribute > 0) {
-                let weekToPay = startingWeekNumber + 1;
-                while (remainingAmountToDistribute > 0 && weekToPay <= termInWeeks) {
-                    let paymentForWeek = allPayments.find(p => p.weekNumber === weekToPay);
-                    const paidForWeek = paymentForWeek?.amount || 0;
-
-                     if (paidForWeek < weeklyPayment) {
-                        const amountNeeded = weeklyPayment - paidForWeek;
-                        const amountToApply = Math.min(remainingAmountToDistribute, amountNeeded);
-                        if (paymentForWeek) {
-                            paymentForWeek.amount += amountToApply;
-                        } else {
-                             allPayments.push({ date: new Date().toISOString(), amount: amountToApply, weekNumber: weekToPay });
-                        }
-                        remainingAmountToDistribute -= amountToApply;
-                         if (!weeksPaidInTx.includes(weekToPay)) {
-                            weeksPaidInTx.push(weekToPay);
-                        }
-                    }
-                    weekToPay++;
-                }
-            }
-
             // --- Wallet and Transaction Logic ---
             if (amountPaid > 0) {
                 const walletTransactionRef = doc(collection(db, 'walletTransactions'));
-                let weeksDescription = '';
-                if (weeksPaidInTx.length > 1) {
-                    weeksDescription = `Semanas ${weeksPaidInTx.sort((a,b)=> a-b).join(', ')}`;
-                } else if (weeksPaidInTx.length === 1) {
-                    weeksDescription = `Semana ${weeksPaidInTx[0]}`;
-                } else {
-                     weeksDescription = `Abono general`;
-                }
+                let weeksDescription = `Semana ${startingWeekNumber}`;
 
                 transaction.set(walletTransactionRef, {
                     type: 'credit',
@@ -212,8 +133,18 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                     clientId: loan.clientId,
                     userId: userId || null,
                 });
-                transaction.update(walletRef, { balance: increment(amountPaid) });
+                // Note: We don't increment the wallet directly. The total difference will be calculated at the end.
             }
+            
+            // Recalculate wallet adjustment at the end of the transaction
+            const originalTotalPaid = loan.payments.reduce((acc, p) => acc + p.amount, 0);
+            const newTotalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
+            const walletAdjustment = newTotalPaid - originalTotalPaid;
+            
+            if (walletAdjustment !== 0) {
+                 transaction.update(walletRef, { balance: increment(walletAdjustment) });
+            }
+
             // --- End Wallet Logic ---
 
             const totalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
