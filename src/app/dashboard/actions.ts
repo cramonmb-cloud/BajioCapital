@@ -110,6 +110,19 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
 
             // --- Distribution Logic ---
+            
+            // Handle case where payment is explicitly 0 to register a failure
+            if (amountPaid === 0) {
+                 let paymentForStartingWeek = allPayments.find(p => p.weekNumber === startingWeekNumber);
+                 if (paymentForStartingWeek) {
+                     // If a partial payment exists, we don't overwrite it with a zero payment,
+                     // as that would lose data. The failure is already implicit.
+                     // If amountPaid is 0, we only add a new record if one doesn't exist.
+                 } else {
+                     allPayments.push({ date: new Date().toISOString(), amount: 0, weekNumber: startingWeekNumber });
+                 }
+            }
+
 
             // 1. Apply payment to the starting week if it's not fully paid
             if (remainingAmountToDistribute > 0) {
@@ -242,7 +255,12 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
         revalidatePath('/dashboard/wallet');
         revalidatePath('/dashboard');
         revalidatePath('/dashboard/overdue-portfolio');
-        return { success: true, message: 'Pago registrado con éxito y añadido a la cartera.' };
+        
+        const message = amountPaid > 0 
+            ? 'Pago registrado con éxito y añadido a la cartera.'
+            : 'Fallo registrado con éxito.';
+            
+        return { success: true, message: message };
 
     } catch (error: any) {
         console.error('Error registering payment:', error);
