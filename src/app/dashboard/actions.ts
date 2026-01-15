@@ -215,20 +215,19 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 const updatedCurrentTimeDiff = today.getTime() - loanStartDate.getTime();
                 const updatedCurrentLoanWeek = Math.max(1, Math.floor(updatedCurrentTimeDiff / (1000 * 3600 * 24 * 7)) + 1);
 
-                let isUpToDate = true;
+                let missedWeeksCount = 0;
                 for (let i = 1; i < updatedCurrentLoanWeek; i++) {
                     const paymentForWeek = allPayments.find(p => p.weekNumber === i);
                     const paidForWeek = paymentForWeek?.amount || 0;
                     if (paidForWeek < weeklyPayment) {
-                        isUpToDate = false;
-                        break;
+                        missedWeeksCount++;
                     }
                 }
 
-                if (isUpToDate) {
-                    newStatus = 'Active';
-                } else {
+                if (missedWeeksCount >= 2) {
                     newStatus = 'Overdue';
+                } else {
+                    newStatus = 'Active';
                 }
             }
 
@@ -242,6 +241,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
         revalidatePath('/dashboard/loans');
         revalidatePath('/dashboard/wallet');
         revalidatePath('/dashboard');
+        revalidatePath('/dashboard/overdue-portfolio');
         return { success: true, message: 'Pago registrado con éxito y añadido a la cartera.' };
 
     } catch (error: any) {
