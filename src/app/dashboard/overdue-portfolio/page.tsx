@@ -1,4 +1,3 @@
-
 import { getClients, getLoanPlans, getLoans } from '@/lib/firestore-data';
 import type { Client, Loan, LoanPlan } from '@/lib/types';
 import { OverduePortfolioClientPage } from '@/components/overdue-portfolio-client-page';
@@ -11,12 +10,14 @@ export type OverdueLoanDetails = {
     missedPayments: number;
 };
 
-// Helper function to check if a loan has a penalty
+// Helper function to check if a loan has a penalty (only counting explicit failures)
 const hasPenalty = (loan: Loan, currentLoanWeek: number, weeklyPayment: number) => {
     let missedWeeksCount = 0;
     for (let i = 1; i < currentLoanWeek; i++) {
         const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
-        const paidForWeek = paymentForWeek?.amount || 0;
+        if (!paymentForWeek) continue; // Skip assumed payments
+
+        const paidForWeek = paymentForWeek.amount;
         if (paidForWeek < weeklyPayment) {
             missedWeeksCount++;
         }
@@ -56,12 +57,14 @@ export default async function OverduePortfolioPage() {
             const loanHasPenalty = hasPenalty(loan, currentLoanWeek, weeklyPayment);
             const termInWeeks = loanPlan.termInWeeks + (loanHasPenalty ? 1 : 0);
             
-            // Calculate amount due and missed payments
-            for(let i = 1; i < currentLoanWeek; i++) { // Iterate up to the week before the current one
+            // Calculate amount due and missed payments ONLY from explicit records
+            for(let i = 1; i < currentLoanWeek; i++) { 
                 if (i > termInWeeks) break;
 
                 const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
-                const paidForWeek = paymentForWeek?.amount || 0;
+                if (!paymentForWeek) continue; // SKIP assumed payments (not a registered failure)
+
+                const paidForWeek = paymentForWeek.amount;
 
                 if (paidForWeek < weeklyPayment) {
                     calculatedAmountDue += (weeklyPayment - paidForWeek);
@@ -89,7 +92,7 @@ export default async function OverduePortfolioPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Cartera Vencida</h1>
                 <p className="text-muted-foreground">
-                    Clientes con préstamos que tienen 2 o más pagos fallidos.
+                    Clientes con préstamos que tienen 2 o más pagos fallidos registrados.
                 </p>
             </div>
             <OverduePortfolioClientPage 

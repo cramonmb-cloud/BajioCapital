@@ -70,7 +70,9 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     let missedWeeksCount = 0;
     for (let i = 1; i < currentLoanWeek; i++) {
         const paymentForWeek = activeLoan.payments.find(p => p.weekNumber === i);
-        const paidForWeek = paymentForWeek?.amount || 0;
+        if (!paymentForWeek) continue; // Skip assumed payments (only registered records count as failure)
+
+        const paidForWeek = paymentForWeek.amount;
         if (paidForWeek < weeklyPayment) {
             missedWeeksCount++;
         }

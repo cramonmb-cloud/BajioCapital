@@ -123,11 +123,13 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
 
             const totalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
             
-            // Re-calculate penalties for status
+            // Re-calculate penalties for status - ONLY count weeks with explicit records
             let missedWeeksCount = 0;
             for (let i = 1; i < currentLoanWeek; i++) {
                 const paymentForWeek = allPayments.find(p => p.weekNumber === i);
-                const paidForWeek = paymentForWeek?.amount || 0;
+                if (!paymentForWeek) continue; // Skip assumed payments
+
+                const paidForWeek = paymentForWeek.amount;
                 if (paidForWeek < weeklyPayment) {
                     missedWeeksCount++;
                 }

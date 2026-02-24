@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -73,7 +72,9 @@ export function ClientesConFallos({ loans, clients, loanPlans }: ClientesConFall
 
                 for (let i = 1; i < currentLoanWeek; i++) {
                     const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
-                    const paidAmount = paymentForWeek?.amount || 0;
+                    if (!paymentForWeek) continue; // Skip assumed payments (only registered records count as failure)
+
+                    const paidAmount = paymentForWeek.amount;
                     
                     if (paidAmount < weeklyPayment) {
                         totalFailures += 1;
@@ -125,11 +126,11 @@ export function ClientesConFallos({ loans, clients, loanPlans }: ClientesConFall
                 <DialogTrigger asChild>
                     <Button variant="outline" size="sm" disabled={failuresList.length === 0}>Mostrar Todo</Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-3xl">
+                <DialogContent className="sm:max-w-[600px]">
                     <DialogHeader>
-                    <DialogTitle>Todos los Clientes con Fallos</DialogTitle>
+                    <DialogTitle>Todos los Clientes con Fallos Registrados</DialogTitle>
                     <DialogDescription>
-                        Lista completa de clientes con pagos atrasados o incompletos.
+                        Lista completa de clientes con pagos registrados incompletos o en ceros.
                     </DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="max-h-[60vh]">
@@ -202,7 +203,7 @@ export function ClientesConFallos({ loans, clients, loanPlans }: ClientesConFall
                     ) : (
                         <TableRow>
                         <TableCell colSpan={4} className="text-center">
-                            No hay clientes con fallos en sus pagos.
+                            No hay clientes con fallos registrados.
                         </TableCell>
                         </TableRow>
                     )}
