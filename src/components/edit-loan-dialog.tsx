@@ -117,15 +117,24 @@ export function EditLoanDialog({
     }
   }, [loan, isOpen, form, promotoras, localidades, plazas]);
 
+  // Sorting for selections
+  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
+  
   const filteredLocalidades = useMemo(() => {
     if (!selectedPlaza) return [];
-    return localidades.filter(l => l.plazaId === selectedPlaza);
+    return localidades
+      .filter(l => l.plazaId === selectedPlaza)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [selectedPlaza, localidades]);
 
   const filteredPromotoras = useMemo(() => {
     if (!selectedLocalidad) return [];
-    return promotoras.filter(p => p.localidadId === selectedLocalidad);
+    return promotoras
+      .filter(p => p.localidadId === selectedLocalidad)
+      .sort((a, b) => a.name.localeCompare(b.name));
   }, [selectedLocalidad, promotoras]);
+
+  const sortedLoanPlans = useMemo(() => [...loanPlans].sort((a, b) => a.name.localeCompare(b.name)), [loanPlans]);
 
   useEffect(() => {
     if (filteredLocalidades.length > 0 && !filteredLocalidades.find(l => l.id === selectedLocalidad)) {
@@ -215,7 +224,7 @@ export function EditLoanDialog({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {loanPlans.map((plan) => (
+                        {sortedLoanPlans.map((plan) => (
                           <SelectItem key={plan.id} value={plan.id}>
                             {plan.name}
                           </SelectItem>
@@ -275,7 +284,7 @@ export function EditLoanDialog({
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                            {plazas.map((plaza) => (
+                            {sortedPlazas.map((plaza) => (
                                 <SelectItem key={plaza.id} value={plaza.id}>
                                 {plaza.name}
                                 </SelectItem>

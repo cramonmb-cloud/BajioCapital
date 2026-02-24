@@ -25,18 +25,27 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
+  // Alphabetical sorting for selections
+  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
+
   const filteredLocalidades = useMemo(() => {
-    if (selectedPlaza === 'all') return localidades;
-    return localidades.filter(l => l.plazaId === selectedPlaza);
+    let result = selectedPlaza === 'all' ? localidades : localidades.filter(l => l.plazaId === selectedPlaza);
+    return [...result].sort((a, b) => a.name.localeCompare(b.name));
   }, [selectedPlaza, localidades]);
 
   const filteredPromotoras = useMemo(() => {
+    let result;
     if (selectedLocalidad === 'all') {
-       if (selectedPlaza === 'all') return promotoras;
-       const plazaLocalidadIds = localidades.filter(l => l.plazaId === selectedPlaza).map(l => l.id);
-       return promotoras.filter(p => plazaLocalidadIds.includes(p.localidadId));
+       if (selectedPlaza === 'all') {
+         result = promotoras;
+       } else {
+         const plazaLocalidadIds = localidades.filter(l => l.plazaId === selectedPlaza).map(l => l.id);
+         result = promotoras.filter(p => plazaLocalidadIds.includes(p.localidadId));
+       }
+    } else {
+      result = promotoras.filter(p => p.localidadId === selectedLocalidad);
     }
-    return promotoras.filter(p => p.localidadId === selectedLocalidad);
+    return [...result].sort((a, b) => a.name.localeCompare(b.name));
   }, [selectedLocalidad, selectedPlaza, promotoras, localidades]);
 
   const handleExportToExcel = () => {
@@ -183,7 +192,7 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas</SelectItem>
-                {plazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                {sortedPlazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -143,6 +143,12 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     },
   });
 
+  // Alphabetical sorting for selections
+  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
+  const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => a.name.localeCompare(b.name)), [localidades, selectedPlaza]);
+  const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => a.name.localeCompare(b.name)), [promotoras, selectedLocalidad]);
+  const sortedLoanPlans = useMemo(() => [...loanPlans].sort((a, b) => a.name.localeCompare(b.name)), [loanPlans]);
+
   useEffect(() => {
     if (initialSelection) {
       setSelectedPlaza(initialSelection.plazaId);
@@ -171,9 +177,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     }
   }, [initialSelection, open, form]);
 
-
-  const filteredLocalidades = localidades.filter(l => l.plazaId === selectedPlaza);
-  const filteredPromotoras = promotoras.filter(p => p.localidadId === selectedLocalidad);
 
   const getHierarchy = (promotoraId?: string) => {
     const promotora = promotoras.find(p => p.id === promotoraId);
@@ -457,7 +460,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                            {plazas.map((plaza) => (
+                            {sortedPlazas.map((plaza) => (
                                 <SelectItem key={plaza.id} value={plaza.id}>
                                 {plaza.name}
                                 </SelectItem>
@@ -521,7 +524,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                            {loanPlans.map((plan) => (
+                            {sortedLoanPlans.map((plan) => (
                                 <SelectItem key={plan.id} value={plan.id}>
                                 {plan.name}
                                 </SelectItem>

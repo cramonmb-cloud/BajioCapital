@@ -120,8 +120,22 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   } | null>(null);
   const router = useRouter();
 
-  const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza), [localidades, selectedPlaza]);
-  const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad), [promotoras, selectedLocalidad]);
+  // Sort Plaza, Localidad and Promotora alphabetically
+  const sortedPlazas = useMemo(() => 
+    [...plazas].sort((a, b) => a.name.localeCompare(b.name)), 
+  [plazas]);
+
+  const filteredLocalidades = useMemo(() => 
+    localidades
+      .filter(l => l.plazaId === selectedPlaza)
+      .sort((a, b) => a.name.localeCompare(b.name)), 
+  [localidades, selectedPlaza]);
+
+  const filteredPromotoras = useMemo(() => 
+    promotoras
+      .filter(p => p.localidadId === selectedLocalidad)
+      .sort((a, b) => a.name.localeCompare(b.name)), 
+  [promotoras, selectedLocalidad]);
   
   const loanWeeks = useMemo(() => 
     Array.from(
@@ -265,11 +279,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const newLoansWithPenalty: Record<string, boolean> = {};
 
         // Helper function for payment status calculation that can be reused
-        const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number, penalty: boolean) => {
+        const getWeekPaymentStatusInternal = (loan: Loan, weekNumber: number, currentLoanWeek: number, penalty: boolean) => {
           const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
           if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
           
-          const weeklyPaymentAmount = getWeeklyPaymentAmount(loan);
+          const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
           const termInWeeks = loanPlan.termInWeeks + (penalty ? 1 : 0);
           
           if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
@@ -291,6 +305,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           
           const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
           
+          // CRITICAL FIX: Empty weeks (no record) are "assumed paid" but DON'T count as failure
           if (weekNumber <= currentLoanWeek && !paymentForWeek) {
             return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
           }
@@ -315,9 +330,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
             const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
             let missedWeeksCount = 0;
+            // ONLY count weeks with EXPLICIT failures
             for (let i = 1; i < currentLoanWeek; i++) {
-                const weekStatus = getWeekPaymentStatus(loan, i, currentLoanWeek, false);
-                if (weekStatus.status === 'missed' || weekStatus.status === 'partial') {
+                const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
+                if (!paymentForWeek) continue; // Skip assumed
+
+                const weeklyPayment = getWeeklyPaymentAmount(loan);
+                if (paymentForWeek.amount < weeklyPayment) {
                     missedWeeksCount++;
                 }
             }
@@ -339,12 +358,16 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 return filteredLoans.reduce((total, loan) => {
                     const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
                     const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
-                    const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek, newLoansWithPenalty[loan.id] || false);
+                    
+                    const weekStatus = getWeekPaymentStatusInternal(loan, weekNumber, currentLoanWeek, newLoansWithPenalty[loan.id] || false);
                     const weeklyPayment = getWeeklyPaymentAmount(loan);
 
                     if (type === 'failures') {
-                        if (weekStatus.status === 'missed') return total + weeklyPayment;
-                        if (weekStatus.status === 'partial') return total + (weeklyPayment - weekStatus.amountPaid);
+                        // Only count as failure if there's an actual record with less amount
+                        const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
+                        if (paymentForWeek && paymentForWeek.amount < weeklyPayment) {
+                            return total + (weeklyPayment - paymentForWeek.amount);
+                        }
                     } else { // collected
                         if (weekStatus.status === 'paid' || weekStatus.status === 'partial') {
                            if (!weekStatus.isAssumedPaid) return total + weekStatus.amountPaid;
@@ -402,6 +425,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
 
+        // CRITICAL FIX: Empty weeks (no record) are "assumed paid" in the view but DON'T count as failure
         if (weekNumber <= currentLoanWeek && !paymentForWeek) {
             return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
         }
@@ -432,7 +456,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         } else if (weekStatus.status === 'paid' && weekStatus.isAssumedPaid) {
             initialAmount = weeklyPayment;
         } else if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) {
-            initialAmount = 0; // Already paid
+            initialAmount = weekStatus.amountPaid; // Current paid amount for editing
         }
 
         setSelectedLoanForPayment(loan);
@@ -594,15 +618,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const weeklyFailuresPDF = Array.from({ length: maxWeeksToShow }).map((_, i) => {
             const weekNumber = i + 1;
             return filteredLoans.reduce((total, loan) => {
-                const pdfToday = new Date();
-                const loanStartDate = new Date(loan.startDate);
-                const timeDiff = pdfToday.getTime() - loanStartDate.getTime();
-                const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-
-                const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
                 const weeklyPayment = getWeeklyPaymentAmount(loan);
-                if (weekStatus.status === 'missed') return total + weeklyPayment;
-                if (weekStatus.status === 'partial') return total + (weeklyPayment - weekStatus.amountPaid);
+                const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
+                if (paymentForWeek && paymentForWeek.amount < weeklyPayment) {
+                    return total + (weeklyPayment - paymentForWeek.amount);
+                }
                 return total;
             }, 0);
         });
@@ -808,7 +828,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         setSelectedLocalidad(localidadId);
         setSelectedPromotora('');
         setSelectedWeek(null);
-        setSelectedWeek(null);
     };
 
     const handlePromotoraChange = (promotoraId: string) => {
@@ -843,7 +862,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           <Select value={selectedPlaza} onValueChange={handlePlazaChange}>
               <SelectTrigger className="w-[180px]"><SelectValue placeholder="Selecciona Plaza" /></SelectTrigger>
               <SelectContent>
-                  {plazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                  {sortedPlazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
           </Select>
           <Select value={selectedLocalidad} onValueChange={handleLocalidadChange} disabled={!selectedPlaza}>
@@ -991,7 +1010,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                           </TableCell>
                            {Array.from({ length: 16 }).map((_, i) => {
                                 const weekNumber = i + 1;
-                                const isCurrentWeek = weekNumber === currentLoanWeek;
+                                const isCurrentWeek = weekNumber === currentGroupWeek;
                                 const isPenaltyWeek = hasPenalty && weekNumber === termInWeeks;
 
                                 if (weekNumber > termInWeeks) {
@@ -1046,7 +1065,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                                                 <p>Estado: {statusInfo.text}</p>
                                                 {statusInfo.paid && <p>{statusInfo.paid}</p>}
                                                 {statusInfo.pending && <p className="text-destructive">{statusInfo.pending}</p>}
-                                                {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar abono</p> : loan.status === 'Paid Off' || loan.status === 'Pagado desde CV' ? <p className="text-xs text-muted-foreground">Préstamo liquidado</p> : <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
+                                                {canRegisterPayment ? <p className="text-xs text-primary">Clic para registrar o editar abono</p> : loan.status === 'Paid Off' || loan.status === 'Pagado desde CV' ? <p className="text-xs text-muted-foreground">Préstamo liquidado</p> : <p className="text-xs text-muted-foreground">No se puede registrar pago.</p>}
                                             </TooltipContent>
                                         </Tooltip>
                                     </TableCell>
