@@ -10,7 +10,7 @@ import {
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { DatePicker } from '@/components/ui/date-picker';
-import { Banknote, TrendingDown, X } from 'lucide-react';
+import { Banknote, TrendingDown, X, Calculator, Landmark } from 'lucide-react';
 import type { DateRange } from 'react-day-picker';
 import { ReportsSection } from './reports-section';
 import { Separator } from './ui/separator';
@@ -27,12 +27,14 @@ interface ControlClientPageProps {
     initialPromotoras: Promotora[];
 }
 
-// This function calculates if a loan has a penalty
+// This function calculates if a loan has a penalty (only counting explicit failures)
 const hasPenalty = (loan: Loan, currentLoanWeek: number, weeklyPayment: number) => {
     let missedWeeksCount = 0;
     for (let i = 1; i < currentLoanWeek; i++) {
         const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
-        const paidForWeek = paymentForWeek?.amount || 0;
+        if (!paymentForWeek) continue; // SKIP assumed payments
+
+        const paidForWeek = paymentForWeek.amount;
         if (paidForWeek < weeklyPayment) {
             missedWeeksCount++;
         }
@@ -67,7 +69,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
     }, [loans, dateRange]);
 
 
-    const plazaStats = useMemo(() => {
+    const stats = useMemo(() => {
         const statsByPlaza: Record<string, { plazaName: string; totalPrestado: number; dineroEnCalle: number; color: string; }> = {};
         const colorPalette = generateColorPalette(plazas.length);
 
@@ -80,41 +82,54 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
             };
         });
 
+        let globalTotalPrestado = 0;
+        let globalDineroEnCalle = 0;
+
         filteredLoans.forEach(loan => {
+            // ONLY consider Active or Overdue loans for these metrics
+            if (loan.status !== 'Active' && loan.status !== 'Overdue') return;
+
             const promotora = promotoras.find(p => p.id === loan.promotoraId);
             const localidad = localidades.find(l => l.id === promotora?.localidadId);
             if (!localidad) return;
 
             const plazaId = localidad.plazaId;
+            const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+            if (!loanPlan) return;
+
+            // Logic check: Total Prestado is the original amount
+            const amountLoaned = loan.amount;
+
+            // Logic check: Dinero en Calle calculation
+            const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+            const today = new Date();
+            const loanStartDate = new Date(loan.startDate);
+            const timeDiff = today.getTime() - loanStartDate.getTime();
+            const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+            
+            const loanHasPenalty = hasPenalty(loan, currentLoanWeek, weeklyPayment);
+            const termInWeeks = loanPlan.termInWeeks + (loanHasPenalty ? 1 : 0);
+
+            const totalAmountToBePaid = weeklyPayment * termInWeeks;
+            const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
+            const balanceRemaining = totalAmountToBePaid - totalPaid;
+
             if (statsByPlaza[plazaId]) {
-                // Add to Total Prestado
-                statsByPlaza[plazaId].totalPrestado += loan.amount;
-
-                // Calculate and add to Dinero en Calle
-                if (loan.status === 'Active' || loan.status === 'Overdue') {
-                    const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-                    if (!loanPlan) return;
-                    
-                    const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-                    const today = new Date();
-                    const loanStartDate = new Date(loan.startDate);
-                    const timeDiff = today.getTime() - loanStartDate.getTime();
-                    const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
-                    const loanHasPenalty = hasPenalty(loan, currentLoanWeek, weeklyPayment);
-                    const termInWeeks = loanPlan.termInWeeks + (loanHasPenalty ? 1 : 0);
-
-                    const totalAmountToBePaid = weeklyPayment * termInWeeks;
-                    const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
-                    const amountDueForLoan = totalAmountToBePaid - totalPaid;
-
-                    if (amountDueForLoan > 0) {
-                        statsByPlaza[plazaId].dineroEnCalle += amountDueForLoan;
-                    }
-                }
+                statsByPlaza[plazaId].totalPrestado += amountLoaned;
+                statsByPlaza[plazaId].dineroEnCalle += (balanceRemaining > 0 ? balanceRemaining : 0);
             }
+
+            globalTotalPrestado += amountLoaned;
+            globalDineroEnCalle += (balanceRemaining > 0 ? balanceRemaining : 0);
         });
 
-        return Object.values(statsByPlaza);
+        return {
+            byPlaza: Object.values(statsByPlaza),
+            global: {
+                totalPrestado: globalTotalPrestado,
+                dineroEnCalle: globalDineroEnCalle
+            }
+        };
 
     }, [filteredLoans, loanPlans, plazas, localidades, promotoras]);
 
@@ -136,8 +151,9 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-end gap-4">
-                 <div className="flex items-center gap-2">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <h1 className="text-3xl font-bold tracking-tight">Control de Cartera</h1>
+                <div className="flex items-center gap-2">
                     <DatePicker date={dateRange} onDateChange={setDateRange} />
                     <Button 
                         variant="ghost" 
@@ -150,35 +166,62 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                     </Button>
                 </div>
             </div>
+
+            {/* Global Totals */}
+            <div className="grid gap-4 md:grid-cols-2">
+                <Card className="bg-primary/5 border-primary/20">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Total Prestado (Global Activo)</CardTitle>
+                        <Landmark className="h-4 w-4 text-primary" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold">{formatCurrency(stats.global.totalPrestado)}</div>
+                        <p className="text-xs text-muted-foreground mt-1">Capital original en préstamos vigentes.</p>
+                    </CardContent>
+                </Card>
+                <Card className="bg-green-500/5 border-green-500/20">
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">Dinero en Calle (Global Pendiente)</CardTitle>
+                        <Calculator className="h-4 w-4 text-green-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-3xl font-bold text-green-600">{formatCurrency(stats.global.dineroEnCalle)}</div>
+                        <p className="text-xs text-muted-foreground mt-1">Suma de abonos restantes por cobrar (incluye intereses).</p>
+                    </CardContent>
+                </Card>
+            </div>
+            
+            <Separator />
+
              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                 {plazaStats.map(stat => (
-                    <Card key={stat.plazaName} className="col-span-1 grid grid-cols-2 gap-px overflow-hidden rounded-lg">
+                 {stats.byPlaza.map(stat => (
+                    <Card key={stat.plazaName} className="col-span-1 grid grid-cols-2 gap-px overflow-hidden rounded-lg border-2">
                         <div className="p-4" style={{ backgroundColor: `${stat.color}1A`}}>
                              <CardHeader className="p-0">
-                                <CardTitle className="text-sm font-medium" style={{ color: stat.color }}>
-                                    Total Prestado ({stat.plazaName})
+                                <CardTitle className="text-xs font-semibold uppercase tracking-wider" style={{ color: stat.color }}>
+                                    Cap. Activo ({stat.plazaName})
                                 </CardTitle>
                              </CardHeader>
                              <CardContent className="p-0 pt-2">
-                                <div className="text-2xl font-bold" style={{ color: stat.color }}>{formatCurrency(stat.totalPrestado)}</div>
+                                <div className="text-xl font-bold" style={{ color: stat.color }}>{formatCurrency(stat.totalPrestado)}</div>
                              </CardContent>
                         </div>
                         <div className="p-4" style={{ backgroundColor: `${stat.color}1A`}}>
                              <CardHeader className="p-0">
-                                <CardTitle className="text-sm font-medium" style={{ color: stat.color }}>
-                                    Dinero en Calle ({stat.plazaName})
+                                <CardTitle className="text-xs font-semibold uppercase tracking-wider" style={{ color: stat.color }}>
+                                    En Calle ({stat.plazaName})
                                 </CardTitle>
                              </CardHeader>
                              <CardContent className="p-0 pt-2">
-                                <div className="text-2xl font-bold" style={{ color: stat.color }}>{formatCurrency(stat.dineroEnCalle)}</div>
+                                <div className="text-xl font-bold" style={{ color: stat.color }}>{formatCurrency(stat.dineroEnCalle)}</div>
                              </CardContent>
                         </div>
                     </Card>
                  ))}
-                 {plazaStats.length === 0 && (
+                 {stats.byPlaza.length === 0 && (
                     <Card className="col-span-full">
                         <CardContent className="p-6 text-center text-muted-foreground">
-                            No hay plazas definidas o no hay datos de préstamos en el rango de fechas seleccionado.
+                            No hay plazas definidas o no hay datos de préstamos activos en el rango de fechas seleccionado.
                         </CardContent>
                     </Card>
                  )}
