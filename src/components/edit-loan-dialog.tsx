@@ -14,6 +14,17 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import {
   Form,
   FormControl,
   FormField,
@@ -30,10 +41,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Trash2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { updateLoanAction } from '@/app/dashboard/actions';
+import { updateLoanAction, deleteLoanAction } from '@/app/dashboard/actions';
 import { Separator } from './ui/separator';
+import { useAuth } from '@/hooks/use-auth';
 
 const formSchema = z.object({
   loanPlanId: z.string().min(1, 'Debes seleccionar un plan.'),
@@ -66,7 +78,9 @@ export function EditLoanDialog({
   promotoras,
 }: EditLoanDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
+  const { appUser } = useAuth();
 
   const [selectedPlaza, setSelectedPlaza] = useState('');
   const [selectedLocalidad, setSelectedLocalidad] = useState('');
@@ -77,6 +91,15 @@ export function EditLoanDialog({
 
   useEffect(() => {
     if (loan && isOpen) {
+      const getSaturdayOfWeek = (d: Date) => {
+        const date = new Date(d);
+        date.setUTCHours(0, 0, 0, 0);
+        const day = date.getUTCDay();
+        const diff = day === 0 ? -1 : 6 - day;
+        date.setUTCDate(date.getUTCDate() + diff);
+        return date;
+      };
+
       const saturdayOfLoan = getSaturdayOfWeek(new Date(loan.startDate)).toISOString();
       const currentPromotora = promotoras.find(p => p.id === loan.promotoraId);
       const currentLocalidad = localidades.find(l => l.id === currentPromotora?.localidadId);
@@ -105,7 +128,6 @@ export function EditLoanDialog({
   }, [selectedLocalidad, promotoras]);
 
   useEffect(() => {
-    // When filtered localidades change, check if the current selected localidad is still valid
     if (filteredLocalidades.length > 0 && !filteredLocalidades.find(l => l.id === selectedLocalidad)) {
         setSelectedLocalidad('');
         form.setValue('promotoraId', '');
@@ -113,23 +135,12 @@ export function EditLoanDialog({
   }, [selectedPlaza, filteredLocalidades, selectedLocalidad, form]);
 
   useEffect(() => {
-    // When filtered promotoras change, check if the current selected promotora is still valid
     const currentPromotoraId = form.getValues('promotoraId');
     if (filteredPromotoras.length > 0 && !filteredPromotoras.find(p => p.id === currentPromotoraId)) {
         form.setValue('promotoraId', '');
     }
   }, [selectedLocalidad, filteredPromotoras, form]);
 
-
-  const getSaturdayOfWeek = (d: Date) => {
-    const date = new Date(d);
-    date.setUTCHours(0, 0, 0, 0);
-    const day = date.getUTCDay();
-    const diff = day === 0 ? -1 : 6 - day;
-    date.setUTCDate(date.getUTCDate() + diff);
-    return date;
-  };
-  
   const formatDate = (dateString: string) => {
       const date = new Date(dateString);
       const userTimezoneOffset = date.getTimezoneOffset() * 60000;
@@ -159,6 +170,23 @@ export function EditLoanDialog({
       });
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+        const result = await deleteLoanAction(loan.id);
+        if (result.success) {
+            toast({ title: 'Préstamo Eliminado', description: result.message });
+            onOpenChange(false);
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error: any) {
+        toast({ variant: 'destructive', title: 'Error', description: error.message });
+    } finally {
+        setIsDeleting(false);
     }
   };
 
@@ -297,12 +325,43 @@ export function EditLoanDialog({
                         )}
                         />
                 </div>
+
+                {appUser?.username === 'Cristobal' && (
+                    <div className="mt-6 rounded-lg border border-destructive/50 p-4 bg-destructive/5">
+                        <h4 className="text-sm font-semibold text-destructive mb-1">Zona de Peligro</h4>
+                        <p className="text-xs text-muted-foreground mb-3">
+                            Eliminar este préstamo revertirá los abonos de la cartera y borrará todo su historial financiero.
+                        </p>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button type="button" variant="destructive" size="sm" className="w-full">
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Eliminar Préstamo
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Esta acción eliminará el préstamo permanentemente y restará los abonos ya registrados del saldo de la cartera. Esta acción no se puede deshacer.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-white">
+                                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sí, eliminar préstamo"}
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+                )}
             </div>
             <DialogFooter className="pt-4">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" disabled={isSubmitting || isDeleting}>
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Guardar Cambios
               </Button>
