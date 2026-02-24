@@ -249,77 +249,98 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
 }
 
 
-export async function accumulateAssumedPaymentsAction(loans: Loan[], loanPlans: LoanPlan[], clients: Client[], userId?: string) {
-    const today = new Date();
-    const batch = writeBatch(db);
-    const walletRef = doc(db, 'wallet', 'main');
-    let totalAccumulatedAmount = 0;
-    let paymentsAccumulatedCount = 0;
-
-    for (const loan of loans) {
-        const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-        if (!loanPlan || loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') continue;
-
-        const timeDiff = today.getTime() - new Date(loan.startDate).getTime();
-        const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-        
-        for (let weekNumber = 1; weekNumber <= currentLoanWeek; weekNumber++) {
-            if (weekNumber <= 0 || weekNumber > loanPlan.termInWeeks) continue;
-
-            const paymentExists = loan.payments.some(p => p.weekNumber === weekNumber);
-
-            if (!paymentExists) {
-                const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-                const loanRef = doc(db, 'loans', loan.id);
-                const client = clients.find(c => c.id === loan.clientId);
-                
-                const newPayment = {
-                    date: new Date().toISOString(),
-                    amount: weeklyPaymentAmount,
-                    weekNumber: weekNumber,
-                };
-
-                const updatedPayments = [...loan.payments, newPayment];
-                loan.payments.push(newPayment);
-
-                const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
-                const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
-                let newStatus = loan.status;
-                if (totalPaid >= totalLoanAmount) {
-                    newStatus = loan.status === 'Overdue' ? 'Pagado desde CV' : 'Paid Off';
-                }
-
-                batch.update(loanRef, { payments: updatedPayments, status: newStatus });
-                
-                const walletTransactionRef = doc(collection(db, 'walletTransactions'));
-                batch.set(walletTransactionRef, {
-                    type: 'credit',
-                    amount: weeklyPaymentAmount,
-                    date: new Date(),
-                    description: `Abono (acumulado) de ${client?.name || 'N/A'} para préstamo (Semana ${weekNumber}).`,
-                    loanId: loan.id,
-                    clientId: loan.clientId,
-                    userId: userId || null,
-                });
-
-                totalAccumulatedAmount += weeklyPaymentAmount;
-                paymentsAccumulatedCount++;
-            }
-        }
-    }
-
-    if (paymentsAccumulatedCount === 0) {
-        return { success: true, message: 'No había pagos asumidos para acumular.' };
+export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?: string) {
+    if (!loanIds || loanIds.length === 0) {
+        return { success: false, message: 'No hay préstamos seleccionados.' };
     }
 
     try {
+        const batch = writeBatch(db);
+        const walletRef = doc(db, 'wallet', 'main');
+        
+        // Fetch fresh data on the server to avoid payload limits
+        const [loansSnap, plansSnap, clientsSnap] = await Promise.all([
+            getDocs(query(collection(db, 'loans'), where('__name__', 'in', loanIds.slice(0, 30)))), // Firestore limit for 'in' is 30
+            getDocs(collection(db, 'loanPlans')),
+            getDocs(collection(db, 'clients'))
+        ]);
+
+        const loanPlans = plansSnap.docs.map(d => ({ id: d.id, ...d.data() } as LoanPlan));
+        const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Client));
+        const loans = loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as Loan));
+
+        const today = new Date();
+        let totalAccumulatedAmount = 0;
+        let paymentsAccumulatedCount = 0;
+
+        for (const loan of loans) {
+            const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+            if (!loanPlan || loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') continue;
+
+            const loanStartDate = loan.startDate instanceof Date ? loan.startDate : new Date(loan.startDate);
+            const timeDiff = today.getTime() - loanStartDate.getTime();
+            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            
+            for (let weekNumber = 1; weekNumber <= currentLoanWeek; weekNumber++) {
+                if (weekNumber <= 0 || weekNumber > loanPlan.termInWeeks) continue;
+
+                const paymentExists = (loan.payments || []).some(p => p.weekNumber === weekNumber);
+
+                if (!paymentExists) {
+                    const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+                    const client = clients.find(c => c.id === loan.clientId);
+                    
+                    const newPayment = {
+                        date: new Date().toISOString(),
+                        amount: weeklyPaymentAmount,
+                        weekNumber: weekNumber,
+                    };
+
+                    const updatedPayments = [...(loan.payments || []), newPayment];
+                    // Update the local object for the next week iteration
+                    loan.payments = updatedPayments;
+
+                    const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
+                    const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
+                    let newStatus = loan.status;
+                    if (totalPaid >= totalLoanAmount) {
+                        newStatus = loan.status === 'Overdue' ? 'Pagado desde CV' : 'Paid Off';
+                    }
+
+                    batch.update(doc(db, 'loans', loan.id), { payments: updatedPayments, status: newStatus });
+                    
+                    const walletTransactionRef = doc(collection(db, 'walletTransactions'));
+                    batch.set(walletTransactionRef, {
+                        type: 'credit',
+                        amount: weeklyPaymentAmount,
+                        date: new Date(),
+                        description: `Abono (acumulado) de ${client?.name || 'N/A'} para préstamo (Semana ${weekNumber}).`,
+                        loanId: loan.id,
+                        clientId: loan.clientId,
+                        userId: userId || null,
+                    });
+
+                    totalAccumulatedAmount += weeklyPaymentAmount;
+                    paymentsAccumulatedCount++;
+                }
+            }
+        }
+
+        if (paymentsAccumulatedCount === 0) {
+            return { success: true, message: 'No había pagos asumidos para acumular.' };
+        }
+
         batch.update(walletRef, { balance: increment(totalAccumulatedAmount) });
         await batch.commit();
 
         revalidatePath('/dashboard/loans');
         revalidatePath('/dashboard/wallet');
+        revalidatePath('/dashboard');
         
-        return { success: true, message: `Se acumularon ${paymentsAccumulatedCount} pagos por un total de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalAccumulatedAmount)}.` };
+        return { 
+            success: true, 
+            message: `Se acumularon ${paymentsAccumulatedCount} pagos por un total de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalAccumulatedAmount)}.` 
+        };
     } catch (error: any) {
         console.error('Error accumulating payments:', error);
         return { success: false, message: `Error al acumular pagos: ${error.message}` };

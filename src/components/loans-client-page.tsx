@@ -469,17 +469,19 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     };
 
     const handleAccumulatePayments = async () => {
+        if (filteredLoans.length === 0) return;
+        
         setIsAccumulating(true);
         try {
-            const result = await accumulateAssumedPaymentsAction(filteredLoans, loanPlans, clients, appUser?.id);
-            if (result.success) {
+            const loanIds = filteredLoans.map(l => l.id);
+            const result = await accumulateAssumedPaymentsAction(loanIds, appUser?.id);
+            if (result && result.success) {
                 toast({
                     title: 'Proceso Completado',
                     description: result.message,
                 });
-                // router.refresh() is not needed, real-time updates will handle it
             } else {
-                throw new Error(result.message);
+                throw new Error(result?.message || 'Ocurrió un error inesperado al acumular pagos.');
             }
         } catch (error: any) {
             toast({
