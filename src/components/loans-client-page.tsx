@@ -389,7 +389,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
             const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
             if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) return false;
-            const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
+            const paymentExists = (loan.payments || []).some(p => p.weekNumber === currentLoanWeek);
             return !paymentExists;
         });
 
@@ -710,7 +710,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 fontStyle: 'bold',
                 halign: 'center',
                 valign: 'top',
-                minCellHeight: 50,
+                minCellHeight: 65, // Increased height for better centering
             },
             footStyles: {
                 fillColor: [220, 220, 220],
@@ -758,9 +758,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             
                     doc.setFontSize(7);
                     doc.setFont('helvetica', 'normal');
-                    // Center vertically within the head cell (height 50) below the title
-                    const dateCenterY = data.cell.y + (data.cell.height + 15) / 2; 
-                    doc.text(formattedDate, centerX, dateCenterY, { angle: 90, align: 'center' });
+                    // Put the center of the vertical date in the center horizontal of the column
+                    // and lower in the header cell
+                    doc.text(formattedDate, centerX, data.cell.y + 42, { angle: 90, align: 'center' });
                 }
                 
                 if (!loan || data.row.section !== 'body') return;
