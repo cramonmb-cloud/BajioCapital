@@ -584,6 +584,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         // --- Table ---
         const tableHeaders: any[] = [
             { content: 'CLIENTE' },
+            { content: 'PRESTAMO' },
             { content: 'ABONA' },
         ];
         
@@ -611,6 +612,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
             return [
                 clientText,
+                { content: formatCurrencySimple(loan.amount), styles: { fontSize: 6.5 } },
                 { content: formatCurrencySimple(getWeeklyPaymentAmount(loan)), styles: { fontSize: 6.5, fontStyle: 'bold' } },
                 ...Array(maxWeeksToShow).fill(''),
                 avalText,
@@ -656,10 +658,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const footerRow1 = [
             { content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold', halign: 'right' } },
+            { content: ``, styles: {} }, // Empty cell for PRESTAMO column alignment
             { content: `TOTALES: ${formatCurrencySimple(totalAbonos)}`, styles: { fontStyle: 'bold', halign: 'right' } },
         ];
-        const footerRow2 = [{content: 'FALLA', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold', fillColor: '#e0e0e0'}}];
-        const footerRow3 = [{content: 'COBRADO', colSpan: 2, styles: {halign: 'right', fontStyle: 'bold'}}];
+        const footerRow2 = [{content: 'FALLA', colSpan: 3, styles: {halign: 'right', fontStyle: 'bold', fillColor: '#e0e0e0'}}];
+        const footerRow3 = [{content: 'COBRADO', colSpan: 3, styles: {halign: 'right', fontStyle: 'bold'}}];
 
         Array.from({ length: maxWeeksToShow }).forEach((_, i) => {
             const weeklyTotal = filteredLoans.reduce((total, loan) => {
@@ -680,9 +683,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const footerRows = [footerRow1, footerRow2, footerRow3];
         
         const clientColWidth = 80;
+        const prestamoColWidth = 35;
         const abonaColWidth = 28;
         const avalColWidth = 80;
-        const availableWidth = pageWidth - margin * 2 - clientColWidth - abonaColWidth - avalColWidth;
+        const availableWidth = pageWidth - margin * 2 - clientColWidth - prestamoColWidth - abonaColWidth - avalColWidth;
         const weekColumnWidth = availableWidth / maxWeeksToShow;
 
 
@@ -716,18 +720,19 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             },
             columnStyles: {
                 0: { cellWidth: clientColWidth, fontSize: 6.5 },
-                1: { cellWidth: abonaColWidth, halign: 'right', fontStyle: 'bold', fontSize: 8, textColor: [0, 0, 0] },
-                ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 2, { cellWidth: weekColumnWidth }])),
-                [maxWeeksToShow + 2]: { cellWidth: avalColWidth, fontSize: 6.5 },
+                1: { cellWidth: prestamoColWidth, halign: 'right', fontSize: 6.5 },
+                2: { cellWidth: abonaColWidth, halign: 'right', fontStyle: 'bold', fontSize: 8, textColor: [0, 0, 0] },
+                ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 3, { cellWidth: weekColumnWidth }])),
+                [maxWeeksToShow + 3]: { cellWidth: avalColWidth, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
                 const loan = filteredLoans[data.row.index];
 
                 // This ensures we only custom-draw the header cells for weeks
-                if (data.row.section === 'head' && data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
+                if (data.row.section === 'head' && data.column.index >= 3 && data.column.index < (3 + maxWeeksToShow)) {
                     data.cell.text = []; // Clear original text to prevent duplication
 
-                    const weekNumber = data.column.index - 1;
+                    const weekNumber = data.column.index - 2;
                     
                     const groupStartDate = getSaturdayOfWeek(new Date(selectedWeek!));
                     
@@ -762,9 +767,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
                 const currentWeekForLoan = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
                 
-                if (data.column.index >= 2 && data.column.index < (2 + maxWeeksToShow)) {
+                if (data.column.index >= 3 && data.column.index < (3 + maxWeeksToShow)) {
                     const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-                    const weekNumber = data.column.index - 1;
+                    const weekNumber = data.column.index - 2;
                     const hasPenalty = loansWithPenalty[loan.id] || false;
                     const termInWeeks = loanPlan ? loanPlan.termInWeeks + (hasPenalty ? 1 : 0) : 0;
                     
