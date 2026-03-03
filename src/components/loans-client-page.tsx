@@ -748,19 +748,19 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const year = headerDate.getUTCFullYear().toString().slice(-2);
                     const formattedDate = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
                     
+                    const centerX = data.cell.x + data.cell.width / 2;
+
                     doc.setFontSize(9);
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(0, 0, 0);
                     const title = `S${weekNumber}`;
-                    const titleWidth = doc.getTextWidth(title);
-                    const titleX = data.cell.x + (data.cell.width - titleWidth) / 2;
-                    doc.text(title, titleX, data.cell.y + 12);
+                    doc.text(title, centerX, data.cell.y + 15, { align: 'center' });
             
                     doc.setFontSize(7);
                     doc.setFont('helvetica', 'normal');
-                    const dateX = data.cell.x + data.cell.width / 2; 
-                    const dateY = data.cell.y + data.cell.height - 5; 
-                    doc.text(formattedDate, dateX, dateY, { angle: 90, align: 'center' });
+                    // Center vertically within the head cell (height 50) below the title
+                    const dateCenterY = data.cell.y + (data.cell.height + 15) / 2; 
+                    doc.text(formattedDate, centerX, dateCenterY, { angle: 90, align: 'center' });
                 }
                 
                 if (!loan || data.row.section !== 'body') return;
