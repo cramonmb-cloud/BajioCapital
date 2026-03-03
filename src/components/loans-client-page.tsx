@@ -720,7 +720,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             },
             columnStyles: {
                 0: { cellWidth: clientColWidth, fontSize: 6.5 },
-                1: { cellWidth: prestamoColWidth, halign: 'right', fontSize: 6.5 },
+                1: { cellWidth: prestamoColWidth, halign: 'right', fontSize: 6.5, textColor: [0, 0, 0] },
                 2: { cellWidth: abonaColWidth, halign: 'right', fontStyle: 'bold', fontSize: 8, textColor: [0, 0, 0] },
                 ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 3, { cellWidth: weekColumnWidth }])),
                 [maxWeeksToShow + 3]: { cellWidth: avalColWidth, fontSize: 6.5 },
