@@ -389,7 +389,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
             const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
             if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) return false;
-            const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
+            const paymentExists = loan.payments.some(p => p.weekNumber === currentWeek);
             return !paymentExists;
         });
 
@@ -525,7 +525,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
         const topMargin = 60;
-        const margin = 20;
+        const margin = 30; // Increased margin for better framing
 
         const maxWeeksToShow = 16;
 
@@ -612,8 +612,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
             return [
                 clientText,
-                { content: formatCurrencySimple(loan.amount), styles: { fontSize: 6.5 } },
-                { content: formatCurrencySimple(getWeeklyPaymentAmount(loan)), styles: { fontSize: 6.5, fontStyle: 'bold' } },
+                { content: formatCurrencySimple(loan.amount), styles: { fontSize: 6.5, textColor: [0, 0, 0] } },
+                { content: formatCurrencySimple(getWeeklyPaymentAmount(loan)), styles: { fontSize: 6.5, fontStyle: 'bold', textColor: [0, 0, 0] } },
                 ...Array(maxWeeksToShow).fill(''),
                 avalText,
             ];
@@ -682,10 +682,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const footerRows = [footerRow1, footerRow2, footerRow3];
         
-        const clientColWidth = 80;
-        const prestamoColWidth = 35;
-        const abonaColWidth = 28;
-        const avalColWidth = 80;
+        const clientColWidth = 100; // Increased
+        const prestamoColWidth = 40; // Increased
+        const abonaColWidth = 35; // Increased
+        const avalColWidth = 100; // Increased for better spacing
         const availableWidth = pageWidth - margin * 2 - clientColWidth - prestamoColWidth - abonaColWidth - avalColWidth;
         const weekColumnWidth = availableWidth / maxWeeksToShow;
 
@@ -696,11 +696,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             body: tableData,
             foot: footerRows,
             theme: 'grid',
+            margin: { left: margin, right: margin }, // Explicit table margins
             styles: {
                 lineWidth: 0.5,
                 lineColor: [0, 0, 0],
                 fontSize: 6.5,
-                cellPadding: { top: 4, right: 2, bottom: 4, left: 2 },
+                cellPadding: { top: 4, right: 4, bottom: 4, left: 4 }, // Increased padding
                 valign: 'middle',
             },
             headStyles: {
@@ -720,8 +721,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             },
             columnStyles: {
                 0: { cellWidth: clientColWidth, fontSize: 6.5 },
-                1: { cellWidth: prestamoColWidth, halign: 'right', fontSize: 6.5, textColor: [0, 0, 0] },
-                2: { cellWidth: abonaColWidth, halign: 'right', fontStyle: 'bold', fontSize: 8, textColor: [0, 0, 0] },
+                1: { cellWidth: prestamoColWidth, halign: 'right', fontSize: 6.5 },
+                2: { cellWidth: abonaColWidth, halign: 'right', fontStyle: 'bold', fontSize: 8 },
                 ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 3, { cellWidth: weekColumnWidth }])),
                 [maxWeeksToShow + 3]: { cellWidth: avalColWidth, fontSize: 6.5 },
             },
