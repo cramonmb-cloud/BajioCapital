@@ -389,7 +389,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
             const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
             if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) return false;
-            const paymentExists = loan.payments.some(p => p.weekNumber === currentWeek);
+            const paymentExists = loan.payments.some(p => p.weekNumber === currentLoanWeek);
             return !paymentExists;
         });
 
