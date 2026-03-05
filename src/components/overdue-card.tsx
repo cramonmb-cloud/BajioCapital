@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Phone, User, Calendar, MessageSquare } from 'lucide-react';
+import { Phone, User, Calendar, MessageSquare, Building, MapPin } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import type { Client, LoanPlan, AppUser } from '@/lib/types';
@@ -29,7 +29,7 @@ const getSaturdayOfWeek = (d: Date) => {
 
 
 export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardProps) {
-    const { client, loan, loanPlan, amountDue, missedPayments } = details;
+    const { client, loan, loanPlan, amountDue, missedPayments, hierarchy } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const { appUser } = useAuth();
 
@@ -47,7 +47,7 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
 
     const handleWhatsApp = () => {
         if (client.phone) {
-            const message = `Hola ${client.name}, te contactamos de CrediControl para recordarte sobre tu préstamo.`;
+            const message = `Hola ${client.name}, te contactamos de CrediControl para recordarte sobre tu préstamo pendiente de pago.`;
             window.open(`https://wa.me/${client.phone}?text=${encodeURIComponent(message)}`, '_blank');
         }
     };
@@ -67,49 +67,56 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
 
     return (
         <>
-            <Card>
+            <Card className="overflow-hidden">
+                <div className="bg-muted px-4 py-2 border-b flex justify-between items-center">
+                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        <Building className="h-3 w-3" /> {hierarchy.plazaName}
+                    </div>
+                    <Badge variant="destructive" className="text-[10px] h-5">Vencido</Badge>
+                </div>
                 <CardContent className="p-4 space-y-3">
-                    <div className="flex justify-between items-start">
-                        <div>
-                            <h3 className="font-bold text-lg">{client.name}</h3>
-                            <p className="text-xs text-muted-foreground">{client.street}</p>
+                    <div>
+                        <h3 className="font-bold text-lg leading-tight">{client.name}</h3>
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
+                            <MapPin className="h-3 w-3" /> {hierarchy.localidadName} • <User className="h-3 w-3" /> {hierarchy.promotoraName}
                         </div>
-                        <Badge variant="destructive">Vencido</Badge>
                     </div>
 
-                    <div className="text-sm space-y-1 text-muted-foreground">
-                        <div className="flex items-center gap-2">
-                            <Phone className="h-3 w-3" />
-                            <span>{client.phone || 'No disponible'}</span>
+                    <div className="text-sm space-y-1 text-muted-foreground bg-secondary/30 p-2 rounded-md">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <Phone className="h-3 w-3" />
+                                <span>{client.phone || 'S/N'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                                <Calendar className="h-3 w-3" />
+                                <span>Inició: {formatDate(loanWeekDate.toISOString())}</span>
+                            </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                            <User className="h-3 w-3" />
-                            <span>Aval: {avalName}</span>
-                        </div>
-                         <div className="flex items-center gap-2 pt-1">
-                            <Calendar className="h-3 w-3" />
-                            <span>Semana del Prestamo: {formatDate(loanWeekDate.toISOString())}</span>
+                        <div className="flex items-center gap-2 truncate">
+                            <User className="h-3 w-3 flex-shrink-0" />
+                            <span className="truncate">Aval: {avalName}</span>
                         </div>
                     </div>
                     
-                    <div className="flex justify-between items-end pt-2">
+                    <div className="flex justify-between items-end pt-1">
                         <div>
-                            <p className="text-xs text-muted-foreground">Préstamo</p>
-                            <p className="font-semibold">{formatCurrency(loan.amount)}</p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Préstamo</p>
+                            <p className="font-semibold text-sm">{formatCurrency(loan.amount)}</p>
                         </div>
-                        <div>
-                            <p className="text-xs text-muted-foreground">Adeudo</p>
-                            <p className="font-bold text-destructive">{formatCurrency(amountDue)}</p>
+                        <div className="text-right">
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Adeudo Pendiente</p>
+                            <p className="font-bold text-xl text-destructive">{formatCurrency(amountDue)}</p>
                         </div>
                     </div>
 
-                    <div className="border-t pt-3 space-y-2">
+                    <div className="border-t pt-3">
                          <div className="grid grid-cols-2 gap-2">
-                             <Button variant="outline" size="sm" onClick={handleWhatsApp}>
-                                <MessageSquare className="mr-1 h-3 w-3" />
+                             <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-9">
+                                <MessageSquare className="mr-1 h-4 w-4" />
                                 WhatsApp
                             </Button>
-                            <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="col-span-1">
+                            <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="h-9">
                                 ${' '}Abonar
                             </Button>
                         </div>

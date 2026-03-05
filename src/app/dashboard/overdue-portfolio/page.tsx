@@ -1,5 +1,5 @@
-import { getClients, getLoanPlans, getLoans } from '@/lib/firestore-data';
-import type { Client, Loan, LoanPlan } from '@/lib/types';
+import { getClients, getLoanPlans, getLoans, getPlazas, getLocalidades, getPromotoras } from '@/lib/firestore-data';
+import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { OverduePortfolioClientPage } from '@/components/overdue-portfolio-client-page';
 
 export type OverdueLoanDetails = {
@@ -8,6 +8,11 @@ export type OverdueLoanDetails = {
     loanPlan: LoanPlan;
     amountDue: number;
     missedPayments: number;
+    hierarchy: {
+        plazaName: string;
+        localidadName: string;
+        promotoraName: string;
+    };
 };
 
 // Helper function to check if a loan has a penalty (only counting explicit failures)
@@ -27,10 +32,13 @@ const hasPenalty = (loan: Loan, currentLoanWeek: number, weeklyPayment: number) 
 
 
 export default async function OverduePortfolioPage() {
-    const [loans, clients, loanPlans] = await Promise.all([
+    const [loans, clients, loanPlans, plazas, localidades, promotoras] = await Promise.all([
         getLoans(),
         getClients(),
         getLoanPlans(),
+        getPlazas(),
+        getLocalidades(),
+        getPromotoras(),
     ]);
 
     const overdueLoansDetails: OverdueLoanDetails[] = loans
@@ -39,6 +47,9 @@ export default async function OverduePortfolioPage() {
         .map(loan => {
             const client = clients.find(c => c.id === loan.clientId);
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+            const promotora = promotoras.find(p => p.id === loan.promotoraId);
+            const localidad = localidades.find(l => l.id === promotora?.localidadId);
+            const plaza = plazas.find(p => p.id === localidad?.plazaId);
 
             if (!client || !loanPlan) {
                 return null;
@@ -80,6 +91,11 @@ export default async function OverduePortfolioPage() {
                     loanPlan,
                     amountDue: calculatedAmountDue,
                     missedPayments: missedPaymentsCount,
+                    hierarchy: {
+                        plazaName: plaza?.name || 'N/A',
+                        localidadName: localidad?.name || 'N/A',
+                        promotoraName: promotora?.name || 'N/A',
+                    }
                 };
             }
             
@@ -90,7 +106,7 @@ export default async function OverduePortfolioPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Cartera Vencida</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
                 <p className="text-muted-foreground">
                     Clientes con préstamos que tienen 2 o más pagos fallidos registrados.
                 </p>

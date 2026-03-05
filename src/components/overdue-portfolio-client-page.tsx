@@ -17,7 +17,10 @@ export function OverduePortfolioClientPage({ initialOverdueLoans, clients, loanP
 
     const filteredLoans = initialOverdueLoans.filter(details =>
         details.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        details.client.street.toLowerCase().includes(searchTerm.toLowerCase())
+        details.client.street.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        details.hierarchy.plazaName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        details.hierarchy.localidadName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        details.hierarchy.promotoraName.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const totalDue = filteredLoans.reduce((acc, details) => acc + details.amountDue, 0);
@@ -40,10 +43,10 @@ export function OverduePortfolioClientPage({ initialOverdueLoans, clients, loanP
             </div>
 
             <div className="bg-card p-4 rounded-lg border">
-                <h2 className="text-lg font-semibold mb-2">Clientes de Cartera Vencida</h2>
+                <h2 className="text-lg font-semibold mb-2">Lista de Pagos Pendientes</h2>
                 <div className="mb-4">
                      <Input
-                        placeholder="Buscar por nombre o dirección..."
+                        placeholder="Buscar por nombre, dirección, plaza o promotora..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         className="max-w-sm"
@@ -61,7 +64,7 @@ export function OverduePortfolioClientPage({ initialOverdueLoans, clients, loanP
                         ))
                     ) : (
                         <p className="text-muted-foreground md:col-span-2 xl:col-span-3 text-center">
-                            No hay clientes vencidos que coincidan con la búsqueda.
+                            No hay clientes con pagos pendientes que coincidan con la búsqueda.
                         </p>
                     )}
                 </div>

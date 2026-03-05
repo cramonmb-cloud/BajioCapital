@@ -19,7 +19,7 @@ const allLinks = [
   { href: '/dashboard', label: 'Dashboard', id: 'dashboard' },
   { href: '/dashboard/clients', label: 'Clientes', id: 'clients' },
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans' },
-  { href: '/dashboard/overdue-portfolio', label: 'Cartera Vencida', id: 'overduePortfolio'},
+  { href: '/dashboard/overdue-portfolio', label: 'Pagos Pendientes', id: 'overduePortfolio'},
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet' },
   { href: '/dashboard/control', label: 'Control', id: 'control' },
   { href: '/dashboard/plans', label: 'Planes', id: 'plans' },
