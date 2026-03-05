@@ -73,7 +73,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor }: O
                     <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider" style={{ color: plazaColor }}>
                         <Building className="h-3 w-3" /> {hierarchy.plazaName}
                     </div>
-                    <Badge variant="destructive" className="text-[10px] h-5 font-bold">FALLO REGISTRADO</Badge>
+                    <Badge variant="destructive" className="text-[10px] h-5 font-bold">CON FALLA</Badge>
                 </div>
                 <CardContent className="p-4 space-y-3">
                     <div>
