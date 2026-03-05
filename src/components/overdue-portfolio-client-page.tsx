@@ -75,12 +75,14 @@ export function OverduePortfolioClientPage({
     // Apply filtering
     const filteredLoans = useMemo(() => {
         return initialOverdueLoans.filter(details => {
+            const term = searchTerm.toLowerCase();
             const matchesSearch = searchTerm === '' || 
-                details.client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                details.client.street.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                details.hierarchy.plazaName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                details.hierarchy.localidadName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                details.hierarchy.promotoraName.toLowerCase().includes(searchTerm.toLowerCase());
+                details.client.name.toLowerCase().includes(term) ||
+                details.client.street.toLowerCase().includes(term) ||
+                details.client.phone.includes(term) || // Búsqueda por teléfono
+                details.hierarchy.plazaName.toLowerCase().includes(term) ||
+                details.hierarchy.localidadName.toLowerCase().includes(term) ||
+                details.hierarchy.promotoraName.toLowerCase().includes(term);
 
             const matchesPlaza = selectedPlaza === 'all' || details.hierarchy.plazaId === selectedPlaza;
             const matchesLocalidad = selectedLocalidad === 'all' || details.hierarchy.localidadId === selectedLocalidad;
@@ -121,7 +123,7 @@ export function OverduePortfolioClientPage({
                     <div className="flex-1 w-full space-y-1">
                         <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Buscar Cliente</label>
                         <Input
-                            placeholder="Nombre o dirección..."
+                            placeholder="Nombre, dirección o teléfono..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="w-full"
