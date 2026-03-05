@@ -14,6 +14,7 @@ interface OverdueCardProps {
     details: OverdueLoanDetails;
     allClients: Client[];
     allLoanPlans: LoanPlan[];
+    plazaColor: string;
 }
 
 // Helper to get the Saturday of the week for a given date
@@ -28,7 +29,7 @@ const getSaturdayOfWeek = (d: Date) => {
 };
 
 
-export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardProps) {
+export function OverdueCard({ details, allClients, allLoanPlans, plazaColor }: OverdueCardProps) {
     const { client, loan, loanPlan, amountDue, missedPayments, hierarchy } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const { appUser } = useAuth();
@@ -67,17 +68,17 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
 
     return (
         <>
-            <Card className="overflow-hidden">
-                <div className="bg-muted px-4 py-2 border-b flex justify-between items-center">
-                    <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            <Card className="overflow-hidden border-t-4" style={{ borderTopColor: plazaColor }}>
+                <div className="px-4 py-2 border-b flex justify-between items-center" style={{ backgroundColor: `${plazaColor}10` }}>
+                    <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider" style={{ color: plazaColor }}>
                         <Building className="h-3 w-3" /> {hierarchy.plazaName}
                     </div>
-                    <Badge variant="destructive" className="text-[10px] h-5">Vencido</Badge>
+                    <Badge variant="destructive" className="text-[10px] h-5 font-bold">FALLO REGISTRADO</Badge>
                 </div>
                 <CardContent className="p-4 space-y-3">
                     <div>
-                        <h3 className="font-bold text-lg leading-tight">{client.name}</h3>
-                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1">
+                        <h3 className="font-bold text-lg leading-tight uppercase">{client.name}</h3>
+                        <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1 uppercase font-semibold">
                             <MapPin className="h-3 w-3" /> {hierarchy.localidadName} • <User className="h-3 w-3" /> {hierarchy.promotoraName}
                         </div>
                     </div>
@@ -95,29 +96,29 @@ export function OverdueCard({ details, allClients, allLoanPlans }: OverdueCardPr
                         </div>
                         <div className="flex items-center gap-2 truncate">
                             <User className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate">Aval: {avalName}</span>
+                            <span className="truncate uppercase">Aval: {avalName}</span>
                         </div>
                     </div>
                     
                     <div className="flex justify-between items-end pt-1">
                         <div>
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Préstamo</p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Monto Original</p>
                             <p className="font-semibold text-sm">{formatCurrency(loan.amount)}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Adeudo Pendiente</p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Deuda Pendiente</p>
                             <p className="font-bold text-xl text-destructive">{formatCurrency(amountDue)}</p>
                         </div>
                     </div>
 
                     <div className="border-t pt-3">
                          <div className="grid grid-cols-2 gap-2">
-                             <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-9">
+                             <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-9 font-bold">
                                 <MessageSquare className="mr-1 h-4 w-4" />
                                 WhatsApp
                             </Button>
-                            <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="h-9">
-                                ${' '}Abonar
+                            <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="h-9 font-bold">
+                                $ ABONAR
                             </Button>
                         </div>
                     </div>

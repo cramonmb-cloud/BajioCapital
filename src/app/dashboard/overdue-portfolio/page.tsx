@@ -9,8 +9,11 @@ export type OverdueLoanDetails = {
     amountDue: number;
     missedPayments: number;
     hierarchy: {
+        plazaId: string;
         plazaName: string;
+        localidadId: string;
         localidadName: string;
+        promotoraId: string;
         promotoraName: string;
     };
 };
@@ -92,8 +95,11 @@ export default async function OverduePortfolioPage() {
                     amountDue: calculatedAmountDue,
                     missedPayments: missedPaymentsCount,
                     hierarchy: {
+                        plazaId: plaza?.id || 'N/A',
                         plazaName: plaza?.name || 'N/A',
+                        localidadId: localidad?.id || 'N/A',
                         localidadName: localidad?.name || 'N/A',
+                        promotoraId: promotora?.id || 'N/A',
                         promotoraName: promotora?.name || 'N/A',
                     }
                 };
@@ -115,6 +121,9 @@ export default async function OverduePortfolioPage() {
                 initialOverdueLoans={overdueLoansDetails}
                 clients={clients}
                 loanPlans={loanPlans}
+                plazas={plazas}
+                localidades={localidades}
+                promotoras={promotoras}
             />
         </div>
     );
