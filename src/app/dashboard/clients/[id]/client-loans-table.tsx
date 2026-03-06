@@ -56,6 +56,19 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
 
   const canEdit = useMemo(() => appUser?.username === 'Cristobal', [appUser]);
   
+  // Sort loans: Active/Overdue first, then by startDate descending
+  const sortedLoans = useMemo(() => {
+    return [...clientLoans].sort((a, b) => {
+      const isAActive = a.status === 'Active' || a.status === 'Overdue';
+      const isBActive = b.status === 'Active' || b.status === 'Overdue';
+      
+      if (isAActive && !isBActive) return -1;
+      if (!isAActive && isBActive) return 1;
+      
+      return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+    });
+  }, [clientLoans]);
+
   const allLoanWeeks = useMemo(() => 
     Array.from(
       new Set(allLoans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
@@ -186,8 +199,8 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
           </TableRow>
         </TableHeader>
         <TableBody>
-          {clientLoans.length > 0 ? (
-            clientLoans.map((loan) => {
+          {sortedLoans.length > 0 ? (
+            sortedLoans.map((loan) => {
               const isPaid = loan.status === 'Paid Off' || loan.status === 'Pagado desde CV';
               return (
                 <TableRow 
