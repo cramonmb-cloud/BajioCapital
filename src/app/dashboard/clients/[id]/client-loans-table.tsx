@@ -10,6 +10,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 
 // Helper to get the Saturday of the week for a given date
@@ -115,7 +117,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
 
       const weeklyPayment = (loanForDetails.amount / 1000) * plan.weeklyPaymentRate;
       
-      // Calculate missed weeks for penalty
+      // Calculate missed weeks for penalty (only registered failures count)
       let missedWeeksCount = 0;
       const today = new Date();
       const startDate = new Date(loanForDetails.startDate);
@@ -136,15 +138,16 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
           
           const payment = loanForDetails.payments.find(p => p.weekNumber === i);
           const received = payment?.amount || 0;
-          const saldo = Math.max(0, weeklyPayment - received);
+          const isRegistered = !!payment;
+          const saldo = isRegistered ? Math.max(0, weeklyPayment - received) : 0;
 
           rows.push({
               num: i,
               vencimiento: dueDate.toLocaleDateString('es-MX'),
               importeAbono: weeklyPayment,
-              importeRecibido: payment ? received : null,
+              importeRecibido: isRegistered ? received : null,
               saldo: saldo,
-              fechaAbono: payment ? formatDate(payment.date) : ''
+              fechaAbono: isRegistered ? formatDate(payment.date) : ''
           });
       }
       return rows;
@@ -152,7 +155,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
 
   const totalAbono = loanDetailsData.reduce((acc, r) => acc + r.importeAbono, 0);
   const totalRecibido = loanDetailsData.reduce((acc, r) => acc + (r.importeRecibido || 0), 0);
-  const totalSaldo = totalAbono - totalRecibido;
+  const totalSaldo = loanDetailsData.reduce((acc, r) => acc + r.saldo, 0);
 
   return (
     <>
@@ -229,8 +232,8 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
                                     <TableCell className={cn("border-r border-blue-100 text-right py-1 font-semibold", row.importeRecibido !== null ? "bg-green-100 text-green-800" : "")}>
                                         {row.importeRecibido !== null ? formatCurrency(row.importeRecibido) : ''}
                                     </TableCell>
-                                    <TableCell className="border-r border-blue-100 text-right py-1 font-semibold text-blue-800">
-                                        {formatCurrency(row.saldo)}
+                                    <TableCell className={cn("border-r border-blue-100 text-right py-1 font-semibold", row.saldo > 0 ? "text-red-600 bg-red-50" : "text-blue-800")}>
+                                        {row.importeRecibido !== null ? formatCurrency(row.saldo) : ''}
                                     </TableCell>
                                     <TableCell className="text-center py-1 text-xs text-muted-foreground">{row.fechaAbono}</TableCell>
                                 </TableRow>
@@ -241,7 +244,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
                                 <TableCell colSpan={2} className="text-right font-bold text-blue-900">TOTALES</TableCell>
                                 <TableCell className="text-right font-bold text-blue-900">{formatCurrency(totalAbono)}</TableCell>
                                 <TableCell className="text-right font-bold text-blue-900 bg-green-50">{formatCurrency(totalRecibido)}</TableCell>
-                                <TableCell className="text-right font-bold text-blue-900">{formatCurrency(totalSaldo)}</TableCell>
+                                <TableCell className="text-right font-bold text-blue-900 bg-red-50">{formatCurrency(totalSaldo)}</TableCell>
                                 <TableCell></TableCell>
                             </TableRow>
                         </TableFooter>
