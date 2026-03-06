@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -226,50 +225,52 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
       </Table>
 
       <Dialog open={isDetailsDialogOpen} onOpenChange={setIsDetailsDialogOpen}>
-          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
-              <DialogHeader className="p-6 pb-2">
+          <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden">
+              <DialogHeader className="p-6 pb-2 shrink-0">
                   <DialogTitle className="text-center border-b pb-2">Detalle de los abonos del prestamo</DialogTitle>
               </DialogHeader>
-              <ScrollArea className="flex-1 px-6">
-                  <div className="py-4">
-                    <Table className="border border-blue-200">
-                        <TableHeader className="bg-blue-100">
-                            <TableRow className="hover:bg-blue-100 border-blue-200">
-                                <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-center">Num Abono</TableHead>
-                                <TableHead className="text-blue-900 font-bold border-r border-blue-200">Fecha Vencimiento</TableHead>
-                                <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Abono</TableHead>
-                                <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Recibido</TableHead>
-                                <TableHead className="text-blue-900 font-bold text-center">Fecha Abono</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {loanDetailsData.map((row) => (
-                                <TableRow key={row.num} className="border-blue-100 hover:bg-blue-50/50">
-                                    <TableCell className="border-r border-blue-100 text-center py-1">{row.num}</TableCell>
-                                    <TableCell className="border-r border-blue-100 py-1">{row.vencimiento}</TableCell>
-                                    <TableCell className="border-r border-blue-100 text-right py-1">{formatCurrency(row.importeAbono)}</TableCell>
-                                    <TableCell className={cn("border-r border-blue-100 text-right py-1 font-semibold", row.importeRecibido !== null ? "bg-green-100 text-green-800" : "")}>
-                                        <div className="flex items-center justify-end gap-2">
-                                            {row.importeRecibido !== null ? formatCurrency(row.importeRecibido) : ''}
-                                            {row.note === 'AD' && <Badge variant="secondary" className="bg-blue-200 text-blue-800 text-[10px] h-4">AD</Badge>}
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="text-center py-1 text-xs text-muted-foreground">{row.fechaAbono}</TableCell>
+              <div className="flex-1 min-h-0">
+                <ScrollArea className="h-full px-6">
+                    <div className="py-4">
+                        <Table className="border border-blue-200">
+                            <TableHeader className="bg-blue-100 sticky top-0 z-10">
+                                <TableRow className="hover:bg-blue-100 border-blue-200">
+                                    <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-center">Num Abono</TableHead>
+                                    <TableHead className="text-blue-900 font-bold border-r border-blue-200">Fecha Vencimiento</TableHead>
+                                    <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Abono</TableHead>
+                                    <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Recibido</TableHead>
+                                    <TableHead className="text-blue-900 font-bold text-center">Fecha Abono</TableHead>
                                 </TableRow>
-                            ))}
-                        </TableBody>
-                        <TableFooter className="bg-white border-t-2 border-blue-300">
-                            <TableRow>
-                                <TableCell colSpan={2} className="text-right font-bold text-blue-900">TOTALES</TableCell>
-                                <TableCell className="text-right font-bold text-blue-900">{formatCurrency(totalAbono)}</TableCell>
-                                <TableCell className="text-right font-bold text-blue-900 bg-green-50">{formatCurrency(totalRecibido)}</TableCell>
-                                <TableCell></TableCell>
-                            </TableRow>
-                        </TableFooter>
-                    </Table>
-                  </div>
-              </ScrollArea>
-              <div className="p-4 border-t flex justify-end">
+                            </TableHeader>
+                            <TableBody>
+                                {loanDetailsData.map((row) => (
+                                    <TableRow key={row.num} className="border-blue-100 hover:bg-blue-50/50">
+                                        <TableCell className="border-r border-blue-100 text-center py-1">{row.num}</TableCell>
+                                        <TableCell className="border-r border-blue-100 py-1">{row.vencimiento}</TableCell>
+                                        <TableCell className="border-r border-blue-100 text-right py-1">{formatCurrency(row.importeAbono)}</TableCell>
+                                        <TableCell className={cn("border-r border-blue-100 text-right py-1 font-semibold", row.importeRecibido !== null ? "bg-green-100 text-green-800" : "")}>
+                                            <div className="flex items-center justify-end gap-2">
+                                                {row.importeRecibido !== null ? formatCurrency(row.importeRecibido) : ''}
+                                                {row.note === 'AD' && <Badge variant="secondary" className="bg-blue-200 text-blue-800 text-[10px] h-4">AD</Badge>}
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="text-center py-1 text-xs text-muted-foreground">{row.fechaAbono}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                            <TableFooter className="bg-white border-t-2 border-blue-300">
+                                <TableRow>
+                                    <TableCell colSpan={2} className="text-right font-bold text-blue-900">TOTALES</TableCell>
+                                    <TableCell className="text-right font-bold text-blue-900">{formatCurrency(totalAbono)}</TableCell>
+                                    <TableCell className="text-right font-bold text-blue-900 bg-green-50">{formatCurrency(totalRecibido)}</TableCell>
+                                    <TableCell></TableCell>
+                                </TableRow>
+                            </TableFooter>
+                        </Table>
+                    </div>
+                </ScrollArea>
+              </div>
+              <div className="p-4 border-t flex justify-end shrink-0">
                   <Button variant="secondary" onClick={() => setIsDetailsDialogOpen(false)}>Cerrar</Button>
               </div>
           </DialogContent>
