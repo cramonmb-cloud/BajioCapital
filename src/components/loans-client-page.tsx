@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2, CalendarCog } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2, CalendarCog, BadgeDollarSign } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -30,6 +30,16 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -57,7 +67,7 @@ import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { accumulateAssumedPaymentsAction, changeLoansDateAction } from '@/app/dashboard/actions';
+import { accumulateAssumedPaymentsAction, changeLoansDateAction, payOffLoanAction } from '@/app/dashboard/actions';
 import { format as formatDateFns } from 'date-fns';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import Loading from '../app/dashboard/loading';
@@ -110,6 +120,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   const { appUser } = useAuth();
   const [isAccumulating, setIsAccumulating] = useState(false);
   const [isChangingDate, setIsChangingDate] = useState(false);
+  const [isPayingOff, setIsPayingOff] = useState(false);
+  const [loanToPayOff, setLoanToPayOff] = useState<Loan | null>(null);
   const [changeDateDialogOpen, setChangeDateDialogOpen] = useState(false);
   const [targetWeek, setTargetWeek] = useState<string>('');
   const { toast } = useToast();
@@ -517,6 +529,31 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             toast({ variant: 'destructive', title: 'Error', description: error.message });
         } finally {
             setIsChangingDate(false);
+        }
+    };
+
+    const handlePayOffLoan = async () => {
+        if (!loanToPayOff) return;
+        setIsPayingOff(true);
+        try {
+            const result = await payOffLoanAction(loanToPayOff.id, appUser?.id);
+            if (result.success) {
+                toast({
+                    title: 'Préstamo Liquidado',
+                    description: result.message,
+                });
+                setLoanToPayOff(null);
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error al Liquidar',
+                description: error.message,
+            });
+        } finally {
+            setIsPayingOff(false);
         }
     };
 
@@ -1094,6 +1131,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                                  <DropdownMenuItem asChild>
                                     <Link href={`/dashboard/clients/${loan.clientId}`}>Ver Detalles del Cliente</Link>
                                 </DropdownMenuItem>
+                                {appUser?.username === 'Cristobal' && (
+                                    <DropdownMenuItem onClick={() => setLoanToPayOff(loan)} className="text-blue-600 font-semibold">
+                                        <BadgeDollarSign className="mr-2 h-4 w-4" />
+                                        Liquidar Préstamo
+                                    </DropdownMenuItem>
+                                )}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
@@ -1224,6 +1267,24 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             </DialogFooter>
         </DialogContent>
     </Dialog>
+
+    <AlertDialog open={!!loanToPayOff} onOpenChange={(open) => !open && setLoanToPayOff(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>¿Liquidar préstamo completamente?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Esta acción registrará el abono total restante para {loanToPayOff ? getClientName(loanToPayOff.clientId) : ''} y cambiará el estado a **Pagado**. El dinero se sumará al saldo de la cartera.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handlePayOffLoan} disabled={isPayingOff} className="bg-blue-600 hover:bg-blue-700">
+                    {isPayingOff ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeDollarSign className="mr-2 h-4 w-4" />}
+                    Confirmar Liquidación
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
