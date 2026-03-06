@@ -153,7 +153,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   const filteredLoans = useMemo(() => loans.filter(loan => {
     const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
     const isCorrectPromotora = selectedPromotora ? loan.promotoraId === selectedPromotora : false;
-    return isCorrectWeek && isCorrectPromotora;
+    // ARCHIVE LOGIC: Hide paid loans from the main weekly view
+    const isNotPaid = loan.status !== 'Paid Off' && loan.status !== 'Pagado desde CV';
+    return isCorrectWeek && isCorrectPromotora && isNotPaid;
   }), [loans, selectedWeek, selectedPromotora]);
 
   
