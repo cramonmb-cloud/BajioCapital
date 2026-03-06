@@ -80,12 +80,10 @@ interface jsPDFWithAutoTable extends jsPDF {
 
 
 // Helper to get the Saturday of the week for a given date
-// A week runs from Sunday to Saturday. Any day in that range belongs to that Saturday's week.
 const getSaturdayOfWeek = (d: Date) => {
   const date = new Date(d);
   date.setUTCHours(0, 0, 0, 0); // Normalize time
   const day = date.getUTCDay(); // Sunday = 0, Saturday = 6
-  // If it's Sunday, we want the previous saturday. Otherwise, find the upcoming one.
   const diff = day === 0 ? -1 : 6 - day;
   date.setUTCDate(date.getUTCDate() + diff);
   return date;
@@ -165,14 +163,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   const filteredLoans = useMemo(() => loans.filter(loan => {
     const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
     const isCorrectPromotora = selectedPromotora ? loan.promotoraId === selectedPromotora : false;
-    // ARCHIVE LOGIC: Hide paid loans from the main weekly view
     const isNotPaid = loan.status !== 'Paid Off' && loan.status !== 'Pagado desde CV';
     return isCorrectWeek && isCorrectPromotora && isNotPaid;
   }), [loans, selectedWeek, selectedPromotora]);
 
   
   useEffect(() => {
-    // Clear selection when filters change
     setSelectedLoanIds(new Set());
   }, [selectedWeek, selectedPromotora]);
 
@@ -230,14 +226,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
   const formatDate = (dateString: string) => {
       const date = new Date(dateString);
-      // Adjust for timezone offset to show the correct local date
       const userTimezoneOffset = date.getTimezoneOffset() * 60000;
       const correctedDate = new Date(date.getTime() + userTimezoneOffset);
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
-  };
-   const formatDateForPDF = (date: Date) => {
-      const dateUTC = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-      return dateUTC.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', timeZone: 'UTC' });
   };
 
   const translateStatus = (status: Loan['status']) => {
@@ -292,7 +283,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const newLoansWithPenalty: Record<string, boolean> = {};
 
-        // Helper function for payment status calculation that can be reused
+        // Consolidating logic into a shared helper would be ideal, but for consistency within the useMemo:
         const getWeekPaymentStatusInternal = (loan: Loan, weekNumber: number, currentLoanWeek: number, penalty: boolean) => {
           const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
           if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
@@ -302,28 +293,17 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           
           if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
               const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
-              const paidAmount = paymentForWeek ? paymentForWeek.amount : weeklyPaymentAmount; // Assume full payment if paid off
+              const paidAmount = paymentForWeek ? paymentForWeek.amount : weeklyPaymentAmount;
               return { status: 'paid' as const, date: new Date(), amountPaid: paidAmount, isAssumedPaid: false };
           }
           
           const loanStartDate = new Date(loan.startDate);
-          // Payment is expected the following week
           const weekDate = new Date(loanStartDate.getTime());
           weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
 
-          
-          const isFuture = new Date() < weekDate;
-          if (isFuture) {
-            return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
-          }
-          
           const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
           
-          // CRITICAL FIX: Empty weeks (no record) are "assumed paid" but DON'T count as failure
-          if (weekNumber <= currentLoanWeek && !paymentForWeek) {
-            return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
-          }
-
+          // PRIORITY: If a record exists, use it regardless of current date
           if (paymentForWeek) {
               const totalPaidForWeek = paymentForWeek.amount;
               if (totalPaidForWeek >= weeklyPaymentAmount) {
@@ -331,23 +311,28 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
               } else {
                   return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
               }
-          } else { // No payment record
-              if (weekNumber <= currentLoanWeek) {
-                   return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
-              }
-              // If it's a future week and no payment.
-              return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
           }
+
+          const isFuture = new Date() < weekDate;
+          if (isFuture) {
+            return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
+          }
+          
+          // If no record and it's past/current, it's assumed paid
+          if (weekNumber <= currentLoanWeek) {
+            return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
+          }
+
+          return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
         };
 
         filteredLoans.forEach(loan => {
             const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
             const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
             let missedWeeksCount = 0;
-            // ONLY count weeks with EXPLICIT failures
             for (let i = 1; i < currentLoanWeek; i++) {
                 const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
-                if (!paymentForWeek) continue; // Skip assumed
+                if (!paymentForWeek) continue;
 
                 const weeklyPayment = getWeeklyPaymentAmount(loan);
                 if (paymentForWeek.amount < weeklyPayment) {
@@ -377,7 +362,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const weeklyPayment = getWeeklyPaymentAmount(loan);
 
                     if (type === 'failures') {
-                        // Only count as failure if there's an actual record with less amount
                         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
                         if (paymentForWeek && paymentForWeek.amount < weeklyPayment) {
                             return total + (weeklyPayment - paymentForWeek.amount);
@@ -422,40 +406,38 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
              const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
-             const paidAmount = paymentForWeek ? paymentForWeek.amount : weeklyPaymentAmount; // Assume full payment if paid off
+             const paidAmount = paymentForWeek ? paymentForWeek.amount : weeklyPaymentAmount;
             return { status: 'paid' as const, date: new Date(), amountPaid: paidAmount, isAssumedPaid: false };
         }
     
         const loanStartDate = new Date(loan.startDate);
-        
         const weekDate = new Date(loanStartDate.getTime());
         weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
 
-        
-        const isFuture = new Date() < weekDate;
-        if (isFuture) {
-          return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
-        }
-        
         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
-
-        // CRITICAL FIX: Empty weeks (no record) are "assumed paid" in the view but DON'T count as failure
-        if (weekNumber <= currentLoanWeek && !paymentForWeek) {
-            return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
-        }
         
+        // PRIORITY: Check for explicit record first
         if (paymentForWeek) {
             const totalPaidForWeek = paymentForWeek.amount;
             if(totalPaidForWeek >= weeklyPaymentAmount) {
                 return { status: 'paid' as const, date: new Date(), amountPaid: totalPaidForWeek, isAssumedPaid: false };
             } else if (totalPaidForWeek > 0) {
                 return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
-            } else { // amount is 0 or less
+            } else { // amount is 0
                 return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
             }
         }
-    
-        // Default for future weeks
+
+        const isFuture = new Date() < weekDate;
+        if (isFuture) {
+          return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
+        }
+        
+        // If no record and it's past/current, it's assumed paid
+        if (weekNumber <= currentLoanWeek) {
+            return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
+        }
+        
         return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
     };
 
@@ -470,7 +452,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         } else if (weekStatus.status === 'paid' && weekStatus.isAssumedPaid) {
             initialAmount = weeklyPayment;
         } else if (weekStatus.status === 'paid' && !weekStatus.isAssumedPaid) {
-            initialAmount = weekStatus.amountPaid; // Current paid amount for editing
+            initialAmount = weekStatus.amountPaid;
         }
 
         setSelectedLoanForPayment(loan);
@@ -520,8 +502,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             if (result.success) {
                 toast({ title: 'Éxito', description: result.message });
                 setChangeDateDialogOpen(false);
-                setSelectedWeek(targetWeek); // Switch to the new week view
-                setSelectedLoanIds(new Set()); // Clear selection
+                setSelectedWeek(targetWeek);
+                setSelectedLoanIds(new Set());
             } else {
                 throw new Error(result.message);
             }
@@ -564,12 +546,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
         const pageWidth = doc.internal.pageSize.getWidth();
         const topMargin = 60;
-        const margin = 30; // Increased margin for better framing
+        const margin = 30;
 
         const maxWeeksToShow = 16;
 
-
-        // --- Header ---
         const { promotoraName, localidadName, plazaName } = getHierarchy(selectedPromotora);
         
         const totalAmount = filteredLoans.reduce((sum, loan) => sum + loan.amount, 0);
@@ -580,15 +560,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         filteredLoans.forEach(loan => {
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
             if (loanPlan) {
-                
                 const loanGroupStartDate = getSaturdayOfWeek(new Date(loan.startDate));
                 loanGroupStartDate.setUTCDate(loanGroupStartDate.getUTCDate() + 7);
-
                 const termInWeeks = loanPlan.termInWeeks + (loansWithPenalty[loan.id] ? 1 : 0);
-                
                 const lastPaymentDay = new Date(loanGroupStartDate);
                 lastPaymentDay.setUTCDate(lastPaymentDay.getUTCDate() + (termInWeeks - 1) * 7);
-
                 if (lastPaymentDay > latestVencimientoDate) {
                     latestVencimientoDate = lastPaymentDay;
                 }
@@ -620,7 +596,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         doc.text(plazaName.toUpperCase(), rightColumnX + 50, topMargin + 22);
         doc.text(formatCurrency(totalAmount), rightColumnX + 50, topMargin + 34);
 
-        // --- Table ---
         const tableHeaders: any[] = [
             { content: 'CLIENTE' },
             { content: 'PRESTAMO' },
@@ -628,7 +603,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         ];
         
         for (let i = 0; i < maxWeeksToShow; i++) {
-            tableHeaders.push({ content: '' }); // Placeholder for custom drawing
+            tableHeaders.push({ content: '' });
         }
         tableHeaders.push({ content: 'AVAL' });
 
@@ -692,12 +667,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             }, 0);
         });
         
-        // --- Footer Rows ---
         const totalAbonos = filteredLoans.reduce((sum, loan) => sum + getWeeklyPaymentAmount(loan), 0);
         
         const footerRow1 = [
             { content: `TOT. CLIENTES: ${filteredLoans.length}`, styles: { fontStyle: 'bold', halign: 'right' } },
-            { content: ``, styles: {} }, // Empty cell for PRESTAMO column alignment
+            { content: ``, styles: {} },
             { content: `TOTALES: ${formatCurrencySimple(totalAbonos)}`, styles: { fontStyle: 'bold', halign: 'right' } },
         ];
         const footerRow2 = [{content: 'FALLA', colSpan: 3, styles: {halign: 'right', fontStyle: 'bold', fillColor: '#e0e0e0'}}];
@@ -721,10 +695,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const footerRows = [footerRow1, footerRow2, footerRow3];
         
-        const clientColWidth = 100; // Increased
-        const prestamoColWidth = 40; // Increased
-        const abonaColWidth = 35; // Increased
-        const avalColWidth = 100; // Increased for better spacing
+        const clientColWidth = 100;
+        const prestamoColWidth = 40;
+        const abonaColWidth = 35;
+        const avalColWidth = 100;
         const availableWidth = pageWidth - margin * 2 - clientColWidth - prestamoColWidth - abonaColWidth - avalColWidth;
         const weekColumnWidth = availableWidth / maxWeeksToShow;
 
@@ -735,12 +709,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             body: tableData,
             foot: footerRows,
             theme: 'grid',
-            margin: { left: margin, right: margin }, // Explicit table margins
+            margin: { left: margin, right: margin },
             styles: {
                 lineWidth: 0.5,
                 lineColor: [0, 0, 0],
                 fontSize: 6.5,
-                cellPadding: { top: 4, right: 4, bottom: 4, left: 4 }, // Increased padding
+                cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
                 valign: 'middle',
             },
             headStyles: {
@@ -749,7 +723,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 fontStyle: 'bold',
                 halign: 'center',
                 valign: 'top',
-                minCellHeight: 65, // Increased height for better centering
+                minCellHeight: 65,
             },
             footStyles: {
                 fillColor: [220, 220, 220],
@@ -768,17 +742,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             didDrawCell: (data) => {
                 const loan = filteredLoans[data.row.index];
 
-                // This ensures we only custom-draw the header cells for weeks
                 if (data.row.section === 'head' && data.column.index >= 3 && data.column.index < (3 + maxWeeksToShow)) {
-                    data.cell.text = []; // Clear original text to prevent duplication
+                    data.cell.text = [];
 
                     const weekNumber = data.column.index - 2;
-                    
                     const groupStartDate = getSaturdayOfWeek(new Date(selectedWeek!));
-                    
                     const firstPaymentSaturday = new Date(groupStartDate);
                     firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + 7);
-                    
                     const headerDate = new Date(firstPaymentSaturday);
                     headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
 
@@ -786,7 +756,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const month = headerDate.getUTCMonth() + 1;
                     const year = headerDate.getUTCFullYear().toString().slice(-2);
                     const formattedDate = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
-                    
                     const centerX = data.cell.x + data.cell.width / 2;
 
                     doc.setFontSize(9);
@@ -797,8 +766,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             
                     doc.setFontSize(7);
                     doc.setFont('helvetica', 'normal');
-                    // Put the center of the vertical date in the center horizontal of the column
-                    // and lower in the header cell
                     doc.text(formattedDate, centerX, data.cell.y + 42, { angle: 90, align: 'center' });
                 }
                 
@@ -854,9 +821,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
         const weekDate = new Date(selectedWeek);
         const formattedDate = formatDateFns(weekDate, 'dd-MM-yyyy');
-        
         const fileName = `${plazaName} - ${localidadName} - ${promotoraName} - ${formattedDate}.pdf`;
-
         doc.save(fileName);
     };
 
@@ -879,7 +844,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
     const handlePromotoraChange = (promotoraId: string) => {
         setSelectedPromotora(promotoraId);
-        setSelectedWeek(null); // Reset week selection
+        setSelectedWeek(null);
     };
 
     const toggleAllLoansSelection = () => {
@@ -978,7 +943,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             </CardContent>
         </Card>
 
-        {/* Loans Table */}
         <Card>
           <CardHeader className="flex flex-row justify-between items-start p-4">
             <div>
@@ -1229,7 +1193,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             weekDate={paymentDialogData.weekDate}
             initialAmount={paymentDialogData.initialAmount}
             onPaymentRegistered={() => {
-                // No need to call router.refresh(), real-time updates handle it.
             }}
         />
     }
