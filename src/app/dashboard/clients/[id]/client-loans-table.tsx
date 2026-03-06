@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -122,14 +123,22 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
       const today = new Date();
       const startDate = new Date(loanForDetails.startDate);
       const timeDiff = today.getTime() - startDate.getTime();
-      const currentWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+      const currentWeekAtOpening = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
 
-      for(let i = 1; i < currentWeek; i++) {
+      for(let i = 1; i < currentWeekAtOpening; i++) {
           const p = loanForDetails.payments.find(p => p.weekNumber === i);
           if (p && p.amount < weeklyPayment) missedWeeksCount++;
       }
       
       const termInWeeks = plan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
+      const isLiquidated = loanForDetails.status === 'Paid Off' || loanForDetails.status === 'Pagado desde CV';
+      
+      // Find the last week that had a real payment
+      const normalPayments = loanForDetails.payments.filter(p => p.weekNumber > 0);
+      const lastNormalWeek = normalPayments.length > 0 
+        ? Math.max(...normalPayments.map(p => p.weekNumber)) 
+        : 0;
+
       const rows = [];
 
       for(let i = 1; i <= termInWeeks; i++) {
@@ -137,17 +146,26 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
           dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
           
           const payment = loanForDetails.payments.find(p => p.weekNumber === i);
-          const received = payment?.amount || 0;
           const isRegistered = !!payment;
-          const saldo = isRegistered ? Math.max(0, weeklyPayment - received) : 0;
+          
+          let received: number | null = isRegistered ? payment.amount : null;
+          let note = '';
+          let dateStr = isRegistered ? formatDate(payment.date) : '';
+
+          // If liquidated and this is a future week beyond the last actual payment
+          if (!isRegistered && isLiquidated && i > lastNormalWeek) {
+              received = weeklyPayment;
+              note = 'AD';
+              dateStr = 'LIQUIDADO';
+          }
 
           rows.push({
               num: i,
               vencimiento: dueDate.toLocaleDateString('es-MX'),
               importeAbono: weeklyPayment,
-              importeRecibido: isRegistered ? received : null,
-              saldo: saldo,
-              fechaAbono: isRegistered ? formatDate(payment.date) : ''
+              importeRecibido: received,
+              fechaAbono: dateStr,
+              note: note
           });
       }
       return rows;
@@ -155,7 +173,6 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
 
   const totalAbono = loanDetailsData.reduce((acc, r) => acc + r.importeAbono, 0);
   const totalRecibido = loanDetailsData.reduce((acc, r) => acc + (r.importeRecibido || 0), 0);
-  const totalSaldo = loanDetailsData.reduce((acc, r) => acc + r.saldo, 0);
 
   return (
     <>
@@ -171,32 +188,35 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
         </TableHeader>
         <TableBody>
           {clientLoans.length > 0 ? (
-            clientLoans.map((loan) => (
-              <TableRow 
-                key={loan.id} 
-                className="cursor-pointer hover:bg-muted/50" 
-                onClick={() => handleRowClick(loan)}
-              >
-                <TableCell className="font-semibold">{formatCurrency(loan.amount)}</TableCell>
-                <TableCell>{getPlanName(loan.loanPlanId)}</TableCell>
-                <TableCell>{formatDate(loan.startDate)}</TableCell>
-                <TableCell>
-                  <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
-                </TableCell>
-                <TableCell className="text-right flex justify-end gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => handleRowClick(loan)}>
-                        <ListTodo className="h-4 w-4 mr-1" />
-                        Abonos
-                    </Button>
-                    {canEdit && (
-                        <Button variant="ghost" size="icon" onClick={(e) => handleEditClick(e, loan)}>
-                        <Edit className="h-4 w-4" />
-                        <span className="sr-only">Editar Préstamo</span>
-                        </Button>
-                    )}
-                </TableCell>
-              </TableRow>
-            ))
+            clientLoans.map((loan) => {
+              const isPaid = loan.status === 'Paid Off' || loan.status === 'Pagado desde CV';
+              return (
+                <TableRow 
+                  key={loan.id} 
+                  className="cursor-pointer hover:bg-muted/50" 
+                  onClick={() => handleRowClick(loan)}
+                >
+                  <TableCell className="font-semibold">{formatCurrency(loan.amount)}</TableCell>
+                  <TableCell>{getPlanName(loan.loanPlanId)}</TableCell>
+                  <TableCell>{formatDate(loan.startDate)}</TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right flex justify-end gap-2">
+                      <Button variant="ghost" size="sm" onClick={() => handleRowClick(loan)}>
+                          <ListTodo className="h-4 w-4 mr-1" />
+                          Abonos
+                      </Button>
+                      {canEdit && !isPaid && (
+                          <Button variant="ghost" size="icon" onClick={(e) => handleEditClick(e, loan)}>
+                          <Edit className="h-4 w-4" />
+                          <span className="sr-only">Editar Préstamo</span>
+                          </Button>
+                      )}
+                  </TableCell>
+                </TableRow>
+              )
+            })
           ) : (
             <TableRow>
               <TableCell colSpan={5} className="text-center">No hay préstamos para este cliente.</TableCell>
@@ -219,7 +239,6 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
                                 <TableHead className="text-blue-900 font-bold border-r border-blue-200">Fecha Vencimiento</TableHead>
                                 <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Abono</TableHead>
                                 <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Recibido</TableHead>
-                                <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Saldo</TableHead>
                                 <TableHead className="text-blue-900 font-bold text-center">Fecha Abono</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -230,10 +249,10 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
                                     <TableCell className="border-r border-blue-100 py-1">{row.vencimiento}</TableCell>
                                     <TableCell className="border-r border-blue-100 text-right py-1">{formatCurrency(row.importeAbono)}</TableCell>
                                     <TableCell className={cn("border-r border-blue-100 text-right py-1 font-semibold", row.importeRecibido !== null ? "bg-green-100 text-green-800" : "")}>
-                                        {row.importeRecibido !== null ? formatCurrency(row.importeRecibido) : ''}
-                                    </TableCell>
-                                    <TableCell className={cn("border-r border-blue-100 text-right py-1 font-semibold", row.saldo > 0 ? "text-red-600 bg-red-50" : "text-blue-800")}>
-                                        {row.importeRecibido !== null ? formatCurrency(row.saldo) : ''}
+                                        <div className="flex items-center justify-end gap-2">
+                                            {row.importeRecibido !== null ? formatCurrency(row.importeRecibido) : ''}
+                                            {row.note === 'AD' && <Badge variant="secondary" className="bg-blue-200 text-blue-800 text-[10px] h-4">AD</Badge>}
+                                        </div>
                                     </TableCell>
                                     <TableCell className="text-center py-1 text-xs text-muted-foreground">{row.fechaAbono}</TableCell>
                                 </TableRow>
@@ -244,7 +263,6 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
                                 <TableCell colSpan={2} className="text-right font-bold text-blue-900">TOTALES</TableCell>
                                 <TableCell className="text-right font-bold text-blue-900">{formatCurrency(totalAbono)}</TableCell>
                                 <TableCell className="text-right font-bold text-blue-900 bg-green-50">{formatCurrency(totalRecibido)}</TableCell>
-                                <TableCell className="text-right font-bold text-blue-900 bg-red-50">{formatCurrency(totalSaldo)}</TableCell>
                                 <TableCell></TableCell>
                             </TableRow>
                         </TableFooter>
