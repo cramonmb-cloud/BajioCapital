@@ -97,8 +97,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
             if (!loanPlan) return;
 
-            // Revised logic for meaningful comparison:
-            // "Cap. Activo" should represent the REMAINING principal to be recovered.
+            // "Capital Pendiente" represents the REMAINING principal to be recovered.
             // "En Calle" represents the total REMAINING balance (principal + interest).
             
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
