@@ -97,10 +97,10 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
             if (!loanPlan) return;
 
-            // Logic check: Total Prestado is the original amount
-            const amountLoaned = loan.amount;
-
-            // Logic check: Dinero en Calle calculation
+            // Revised logic for meaningful comparison:
+            // "Cap. Activo" should represent the REMAINING principal to be recovered.
+            // "En Calle" represents the total REMAINING balance (principal + interest).
+            
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
@@ -112,14 +112,21 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
 
             const totalAmountToBePaid = weeklyPayment * termInWeeks;
             const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
+            
+            // Calculate how much of the paid amount is "Capital" vs "Interest"
+            // based on the ratio of the original loan to the total expected payout.
+            const principalRatio = totalAmountToBePaid > 0 ? (loan.amount / totalAmountToBePaid) : 0;
+            const capitalRecuperado = totalPaid * principalRatio;
+            const capitalPendiente = loan.amount - capitalRecuperado;
+            
             const balanceRemaining = totalAmountToBePaid - totalPaid;
 
             if (statsByPlaza[plazaId]) {
-                statsByPlaza[plazaId].totalPrestado += amountLoaned;
+                statsByPlaza[plazaId].totalPrestado += (capitalPendiente > 0 ? capitalPendiente : 0);
                 statsByPlaza[plazaId].dineroEnCalle += (balanceRemaining > 0 ? balanceRemaining : 0);
             }
 
-            globalTotalPrestado += amountLoaned;
+            globalTotalPrestado += (capitalPendiente > 0 ? capitalPendiente : 0);
             globalDineroEnCalle += (balanceRemaining > 0 ? balanceRemaining : 0);
         });
 
@@ -171,17 +178,17 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
             <div className="grid gap-4 md:grid-cols-2">
                 <Card className="bg-primary/5 border-primary/20">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Total Prestado (Global Activo)</CardTitle>
+                        <CardTitle className="text-sm font-medium">Capital Pendiente (Global)</CardTitle>
                         <Landmark className="h-4 w-4 text-primary" />
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold">{formatCurrency(stats.global.totalPrestado)}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Capital original en préstamos vigentes.</p>
+                        <p className="text-xs text-muted-foreground mt-1">Capital que falta por recuperar de los préstamos vigentes.</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-green-500/5 border-green-500/20">
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-sm font-medium">Dinero en Calle (Global Pendiente)</CardTitle>
+                        <CardTitle className="text-sm font-medium">Dinero en Calle (Global)</CardTitle>
                         <Calculator className="h-4 w-4 text-green-600" />
                     </CardHeader>
                     <CardContent>
@@ -198,8 +205,8 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                     <Card key={stat.plazaName} className="col-span-1 grid grid-cols-2 gap-px overflow-hidden rounded-lg border-2">
                         <div className="p-4" style={{ backgroundColor: `${stat.color}1A`}}>
                              <CardHeader className="p-0">
-                                <CardTitle className="text-xs font-semibold uppercase tracking-wider" style={{ color: stat.color }}>
-                                    Cap. Activo ({stat.plazaName})
+                                <CardTitle className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: stat.color }}>
+                                    Cap. Pendiente ({stat.plazaName})
                                 </CardTitle>
                              </CardHeader>
                              <CardContent className="p-0 pt-2">
@@ -208,7 +215,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                         </div>
                         <div className="p-4" style={{ backgroundColor: `${stat.color}1A`}}>
                              <CardHeader className="p-0">
-                                <CardTitle className="text-xs font-semibold uppercase tracking-wider" style={{ color: stat.color }}>
+                                <CardTitle className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: stat.color }}>
                                     En Calle ({stat.plazaName})
                                 </CardTitle>
                              </CardHeader>
