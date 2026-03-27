@@ -46,8 +46,8 @@ import { PlusCircle, Loader2, AlertTriangle, BadgeDollarSign } from 'lucide-reac
 import { useToast } from '@/hooks/use-toast';
 import { createLoanAction, payOffLoanAction } from '@/app/dashboard/actions';
 import { useRouter } from 'next/navigation';
-import { Textarea } from './ui/textarea';
-import { Card, CardContent } from './ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Card, CardContent } from '@/components/ui/card';
 import { IdScanner } from './id-scanner';
 import type { IdDataOutput } from '@/ai/flows/extract-id-data-flow';
 import { useAuth } from '@/hooks/use-auth';
@@ -213,7 +213,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     form.setValue('postalCode', client.postalCode);
     form.setValue('city', client.city);
     form.setValue('guarantee', client.guarantee);
-    // Aval data is not stored in the client object, so it's not pre-filled.
     setSelectedClient(client);
     setMatchingClients([]);
     
@@ -225,13 +224,28 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         const loanPlan = loanPlans.find(p => p.id === activeLoan.loanPlanId);
         if (loanPlan) {
             const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
-            const totalLoanAmount = weeklyPayment * loanPlan.termInWeeks;
+            
+            // Re-calculate penalties to match system logic
+            let missedWeeksCount = 0;
+            const today = new Date();
+            const loanStartDate = new Date(activeLoan.startDate);
+            const timeDiff = today.getTime() - loanStartDate.getTime();
+            const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+
+            for (let i = 1; i < currentLoanWeek; i++) {
+                const p = activeLoan.payments.find(p => p.weekNumber === i);
+                if (p && p.amount < weeklyPayment) missedWeeksCount++;
+            }
+
+            const hasPenalty = missedWeeksCount >= 2;
+            const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
+            
+            const totalLoanAmount = weeklyPayment * termInWeeks;
             const totalPaid = activeLoan.payments.reduce((acc, p) => acc + p.amount, 0);
             const settlementAmount = totalLoanAmount - totalPaid;
 
-            // Simplified weeks remaining calculation
-            const weeksPaid = totalPaid / weeklyPayment;
-            const weeksRemaining = Math.max(0, loanPlan.termInWeeks - weeksPaid);
+            // Weeks remaining based on actual balance
+            const weeksRemaining = Math.max(0, settlementAmount / weeklyPayment);
             
             const hierarchy = getHierarchy(activeLoan.promotoraId);
 
@@ -312,14 +326,11 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                 values.endorsementPostalCode?.toUpperCase(),
                 values.endorsementCity?.toUpperCase(),
                 values.endorsementPhone ? `Tel: ${values.endorsementPhone.toUpperCase()}` : ''
-            ].filter(Boolean); // filter out empty strings
+            ].filter(Boolean);
 
             const endorsementAddress = endorsementAddressParts.join(', ');
-
             const endorsementValue = values.endorsement?.toUpperCase();
-            
             const fullEndorsement = endorsementValue && endorsementAddress ? `${endorsementValue} (${endorsementAddress})` : endorsementValue || '';
-
 
             const clientData: Omit<Client, 'id' | 'avatarUrl'> & { id?: string } = selectedClient ?
                 {
@@ -361,7 +372,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     title: 'Préstamo Creado',
                     description: `El préstamo para ${values.clientName} ha sido creado exitosamente.`,
                 });
-
                 setOpen(false);
             } else {
                 throw new Error(result.message || 'Error desconocido');
@@ -424,7 +434,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         if (data.postalCode) form.setValue('postalCode', data.postalCode);
         if (data.city) form.setValue('city', data.city);
 
-        // Since this is for a new client, we clear any selected client
         setSelectedClient(null);
         setActiveLoanDetails(null);
     };
