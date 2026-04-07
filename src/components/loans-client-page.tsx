@@ -283,7 +283,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const newLoansWithPenalty: Record<string, boolean> = {};
 
-        // Consolidating logic into a shared helper would be ideal, but for consistency within the useMemo:
         const getWeekPaymentStatusInternal = (loan: Loan, weekNumber: number, currentLoanWeek: number, penalty: boolean) => {
           const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
           if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
@@ -303,7 +302,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
           const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
           
-          // PRIORITY: If a record exists, use it regardless of current date
           if (paymentForWeek) {
               const totalPaidForWeek = paymentForWeek.amount;
               if (totalPaidForWeek >= weeklyPaymentAmount) {
@@ -318,7 +316,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
           }
           
-          // If no record and it's past/current, it's assumed paid
           if (weekNumber <= currentLoanWeek) {
             return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
           }
@@ -416,7 +413,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
         
-        // PRIORITY: Check for explicit record first
         if (paymentForWeek) {
             const totalPaidForWeek = paymentForWeek.amount;
             if(totalPaidForWeek >= weeklyPaymentAmount) {
@@ -433,7 +429,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
         }
         
-        // If no record and it's past/current, it's assumed paid
         if (weekNumber <= currentLoanWeek) {
             return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
         }
@@ -608,7 +603,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             [
                 { content: 'CLIENTE', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
                 { content: 'PRESTAMO', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
-                { content: '', styles: { minCellHeight: 65 } }, // Espacio para ABONA rotado
+                { content: '', styles: { minCellHeight: 65 } }, 
                 ...Array.from({ length: maxWeeksToShow }).map(() => ({ 
                     content: '', 
                     styles: { minCellHeight: 65 } 
@@ -749,39 +744,37 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 [maxWeeksToShow + 3]: { cellWidth: avalColWidth, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
-                // Dibujar ABONA vertical en la columna 2, fila 2 de la cabecera
-                if (data.row.section === 'head' && data.row.index === 1 && data.column.index === 2) {
+                if (data.row.section === 'head' && data.row.index === 1) {
                     const centerX = data.cell.x + data.cell.width / 2;
                     const centerY = data.cell.y + data.cell.height / 2;
-                    doc.setFontSize(8);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(0, 0, 0);
-                    // Se añade un pequeño offset en X para centrar el cuerpo del texto vertical en el ancho de la columna
-                    doc.text('ABONA', centerX + 3, centerY, { angle: 90, align: 'center' });
-                }
 
-                // Dibujar fechas en la segunda fila del encabezado (index 1 de head) para las semanas
-                if (data.row.section === 'head' && data.row.index === 1 && data.column.index >= 3 && data.column.index < (3 + maxWeeksToShow)) {
-                    const weekNumber = data.column.index - 2;
-                    const groupStartDate = getSaturdayOfWeek(new Date(selectedWeek!));
-                    const firstPaymentSaturday = new Date(groupStartDate);
-                    firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + 7);
-                    const headerDate = new Date(firstPaymentSaturday);
-                    headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
+                    // Dibujar ABONA vertical centrado en la columna 2
+                    if (data.column.index === 2) {
+                        doc.setFontSize(8);
+                        doc.setFont('helvetica', 'bold');
+                        doc.setTextColor(0, 0, 0);
+                        doc.text('ABONA', centerX, centerY, { angle: 90, align: 'center', baseline: 'middle' });
+                    }
 
-                    const day = headerDate.getUTCDate();
-                    const month = headerDate.getUTCMonth() + 1;
-                    const year = headerDate.getUTCFullYear().toString().slice(-2);
-                    const formattedDate = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
-                    
-                    const centerX = data.cell.x + data.cell.width / 2;
-                    const centerY = data.cell.y + data.cell.height / 2;
-            
-                    doc.setFontSize(7.5);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(0, 0, 0);
-                    // Se añade un pequeño offset en X para centrar la fecha vertical en el ancho de la columna
-                    doc.text(formattedDate, centerX + 3, centerY, { angle: 90, align: 'center' });
+                    // Dibujar fechas en la fila 2 de la cabecera (debajo de cada S#)
+                    if (data.column.index >= 3 && data.column.index < (3 + maxWeeksToShow)) {
+                        const weekNumber = data.column.index - 2;
+                        const groupStartDate = getSaturdayOfWeek(new Date(selectedWeek!));
+                        const firstPaymentSaturday = new Date(groupStartDate);
+                        firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + 7);
+                        const headerDate = new Date(firstPaymentSaturday);
+                        headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
+
+                        const day = headerDate.getUTCDate();
+                        const month = headerDate.getUTCMonth() + 1;
+                        const year = headerDate.getUTCFullYear().toString().slice(-2);
+                        const formattedDate = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+                        
+                        doc.setFontSize(7.5);
+                        doc.setFont('helvetica', 'normal');
+                        doc.setTextColor(0, 0, 0);
+                        doc.text(formattedDate, centerX, centerY, { angle: 90, align: 'center', baseline: 'middle' });
+                    }
                 }
                 
                 const loan = filteredLoans[data.row.index];
