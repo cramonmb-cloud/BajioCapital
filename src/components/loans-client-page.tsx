@@ -722,8 +722,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 textColor: [0, 0, 0],
                 fontStyle: 'bold',
                 halign: 'center',
-                valign: 'top',
-                minCellHeight: 75,
+                valign: 'middle',
+                minCellHeight: 90,
             },
             footStyles: {
                 fillColor: [220, 220, 220],
@@ -743,6 +743,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 const loan = filteredLoans[data.row.index];
 
                 if (data.row.section === 'head' && data.column.index >= 3 && data.column.index < (3 + maxWeeksToShow)) {
+                    // Limpiamos el texto por defecto para dibujar manualmente
                     data.cell.text = [];
 
                     const weekNumber = data.column.index - 2;
@@ -756,17 +757,22 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const month = headerDate.getUTCMonth() + 1;
                     const year = headerDate.getUTCFullYear().toString().slice(-2);
                     const formattedDate = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
+                    
                     const centerX = data.cell.x + data.cell.width / 2;
-
-                    doc.setFontSize(9);
+                    
+                    // Dibujar el número de semana arriba
+                    doc.setFontSize(10);
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(0, 0, 0);
                     const title = `S${weekNumber}`;
-                    doc.text(title, centerX, data.cell.y + 15, { align: 'center' });
+                    doc.text(title, centerX, data.cell.y + 18, { align: 'center' });
             
-                    doc.setFontSize(7);
+                    // Dibujar la fecha rotada y centrada verticalmente en el espacio restante
+                    doc.setFontSize(7.5);
                     doc.setFont('helvetica', 'normal');
-                    doc.text(formattedDate, centerX, data.cell.y + 48, { angle: 90, align: 'center' });
+                    // Calculamos el centro vertical del área de la fecha (entre el título y el fondo de la celda)
+                    // Altura total es 90. Título ocupa hasta los 25 aprox. El centro del resto está alrededor de 60.
+                    doc.text(formattedDate, centerX, data.cell.y + 60, { angle: 90, align: 'center' });
                 }
                 
                 if (!loan || data.row.section !== 'body') return;
