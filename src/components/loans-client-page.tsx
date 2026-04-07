@@ -597,15 +597,23 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         doc.text(formatCurrency(totalAmount), rightColumnX + 50, topMargin + 34);
 
         const tableHeaders: any[] = [
-            { content: 'CLIENTE' },
-            { content: 'PRESTAMO' },
-            { content: 'ABONA' },
+            [
+                { content: 'CLIENTE', rowSpan: 2, styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
+                { content: 'PRESTAMO', rowSpan: 2, styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
+                { content: 'ABONA', rowSpan: 2, styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
+                ...Array.from({ length: maxWeeksToShow }).map((_, i) => ({ 
+                    content: `S${i + 1}`, 
+                    styles: { halign: 'center', valign: 'middle', fontSize: 9, minCellHeight: 25 } 
+                })),
+                { content: 'AVAL', rowSpan: 2, styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
+            ],
+            [
+                ...Array.from({ length: maxWeeksToShow }).map(() => ({ 
+                    content: '', 
+                    styles: { minCellHeight: 65 } 
+                }))
+            ]
         ];
-        
-        for (let i = 0; i < maxWeeksToShow; i++) {
-            tableHeaders.push({ content: '' });
-        }
-        tableHeaders.push({ content: 'AVAL' });
 
         const tableData = filteredLoans.map(loan => {
             const client = getClient(loan.clientId);
@@ -705,7 +713,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
         doc.autoTable({
             startY: topMargin + 60,
-            head: [tableHeaders],
+            head: tableHeaders,
             body: tableData,
             foot: footerRows,
             theme: 'grid',
@@ -723,7 +731,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 fontStyle: 'bold',
                 halign: 'center',
                 valign: 'middle',
-                minCellHeight: 90,
             },
             footStyles: {
                 fillColor: [220, 220, 220],
@@ -742,10 +749,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             didDrawCell: (data) => {
                 const loan = filteredLoans[data.row.index];
 
-                if (data.row.section === 'head' && data.column.index >= 3 && data.column.index < (3 + maxWeeksToShow)) {
-                    // Limpiamos el texto por defecto para dibujar manualmente
-                    data.cell.text = [];
-
+                // Dibujar fechas en la segunda fila del encabezado (index 1 de head)
+                if (data.row.section === 'head' && data.row.index === 1 && data.column.index >= 3 && data.column.index < (3 + maxWeeksToShow)) {
                     const weekNumber = data.column.index - 2;
                     const groupStartDate = getSaturdayOfWeek(new Date(selectedWeek!));
                     const firstPaymentSaturday = new Date(groupStartDate);
@@ -759,20 +764,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     const formattedDate = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
                     
                     const centerX = data.cell.x + data.cell.width / 2;
-                    
-                    // Dibujar el número de semana arriba
-                    doc.setFontSize(10);
-                    doc.setFont('helvetica', 'bold');
-                    doc.setTextColor(0, 0, 0);
-                    const title = `S${weekNumber}`;
-                    doc.text(title, centerX, data.cell.y + 18, { align: 'center' });
+                    const centerY = data.cell.y + data.cell.height / 2;
             
-                    // Dibujar la fecha rotada y centrada verticalmente en el espacio restante
                     doc.setFontSize(7.5);
                     doc.setFont('helvetica', 'normal');
-                    // Calculamos el centro vertical del área de la fecha (entre el título y el fondo de la celda)
-                    // Altura total es 90. Título ocupa hasta los 25 aprox. El centro del resto está alrededor de 60.
-                    doc.text(formattedDate, centerX, data.cell.y + 60, { angle: 90, align: 'center' });
+                    doc.setTextColor(0, 0, 0);
+                    // Dibujar la fecha rotada y centrada verticalmente en el centro de la celda de la segunda fila
+                    doc.text(formattedDate, centerX, centerY, { angle: 90, align: 'center' });
                 }
                 
                 if (!loan || data.row.section !== 'body') return;
