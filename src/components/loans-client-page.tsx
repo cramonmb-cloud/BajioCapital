@@ -756,7 +756,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     doc.setFontSize(8);
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(0, 0, 0);
-                    doc.text('ABONA', centerX, centerY, { angle: 90, align: 'center' });
+                    // Se añade un pequeño offset en X para centrar el cuerpo del texto vertical en el ancho de la columna
+                    doc.text('ABONA', centerX + 3, centerY, { angle: 90, align: 'center' });
                 }
 
                 // Dibujar fechas en la segunda fila del encabezado (index 1 de head) para las semanas
@@ -779,8 +780,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     doc.setFontSize(7.5);
                     doc.setFont('helvetica', 'normal');
                     doc.setTextColor(0, 0, 0);
-                    // Dibujar la fecha rotada y centrada
-                    doc.text(formattedDate, centerX, centerY, { angle: 90, align: 'center' });
+                    // Se añade un pequeño offset en X para centrar la fecha vertical en el ancho de la columna
+                    doc.text(formattedDate, centerX + 3, centerY, { angle: 90, align: 'center' });
                 }
                 
                 const loan = filteredLoans[data.row.index];
