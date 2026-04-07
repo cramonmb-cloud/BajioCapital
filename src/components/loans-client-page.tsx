@@ -584,22 +584,38 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         doc.text(plazaName.toUpperCase(), rightColumnX + 50, topMargin + 22);
         doc.text(formatCurrency(totalAmount), rightColumnX + 50, topMargin + 34);
 
+        // Pre-calculating weekly header texts (Stacked vertically)
+        const weekDatesHeader = Array.from({ length: maxWeeksToShow }).map((_, i) => {
+            const weekNumber = i + 1;
+            const groupStartDate = getSaturdayOfWeek(new Date(selectedWeek!));
+            const firstPaymentSaturday = new Date(groupStartDate);
+            firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + 7);
+            const headerDate = new Date(firstPaymentSaturday);
+            headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
+
+            const day = String(headerDate.getUTCDate()).padStart(2, '0');
+            const month = String(headerDate.getUTCMonth() + 1).padStart(2, '0');
+            const year = headerDate.getUTCFullYear().toString().slice(-2);
+            
+            return `${day}\n${month}\n${year}`;
+        });
+
         const tableHeaders: any[] = [
             [
                 { content: '', colSpan: 3, styles: { fillColor: [220, 220, 220] } },
                 ...Array.from({ length: maxWeeksToShow }).map((_, i) => ({ 
                     content: `S${i + 1}`, 
-                    styles: { halign: 'center', valign: 'middle', fontSize: 9, minCellHeight: 25 } 
+                    styles: { halign: 'center', valign: 'middle', fontSize: 9, minCellHeight: 20 } 
                 })),
                 { content: '', colSpan: 1, styles: { fillColor: [220, 220, 220] } },
             ],
             [
                 { content: 'CLIENTE', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
                 { content: 'PRESTAMO', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
-                { content: '', styles: { minCellHeight: 80, halign: 'center' } }, 
-                ...Array.from({ length: maxWeeksToShow }).map(() => ({ 
-                    content: '', 
-                    styles: { minCellHeight: 80, halign: 'center' } 
+                { content: 'A\nB\nO\nN\nA', styles: { valign: 'middle', halign: 'center', fontSize: 7, fontStyle: 'bold' } }, 
+                ...weekDatesHeader.map(dateStr => ({ 
+                    content: dateStr, 
+                    styles: { minCellHeight: 50, halign: 'center', valign: 'middle', fontSize: 7, textColor: [0, 0, 0] } 
                 })),
                 { content: 'AVAL', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
             ]
@@ -737,39 +753,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 [maxWeeksToShow + 3]: { cellWidth: avalColWidth, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
-                if (data.row.section === 'head' && data.row.index === 1) {
-                    const centerX = data.cell.x + (data.cell.width / 2);
-                    const centerY = data.cell.y + (data.cell.height / 2);
-
-                    // Dibujar ABONA vertical centrado en la columna 2
-                    if (data.column.index === 2) {
-                        doc.setFontSize(8);
-                        doc.setFont('helvetica', 'bold');
-                        doc.setTextColor(0, 0, 0);
-                        doc.text('ABONA', centerX, centerY, { angle: 90, align: 'center', baseline: 'middle' });
-                    }
-
-                    // Dibujar fechas en la fila 2 de la cabecera (debajo de cada S#)
-                    if (data.column.index >= 3 && data.column.index < (3 + maxWeeksToShow)) {
-                        const weekNumber = data.column.index - 2;
-                        const groupStartDate = getSaturdayOfWeek(new Date(selectedWeek!));
-                        const firstPaymentSaturday = new Date(groupStartDate);
-                        firstPaymentSaturday.setUTCDate(groupStartDate.getUTCDate() + 7);
-                        const headerDate = new Date(firstPaymentSaturday);
-                        headerDate.setUTCDate(firstPaymentSaturday.getUTCDate() + (weekNumber - 1) * 7);
-
-                        const day = headerDate.getUTCDate();
-                        const month = headerDate.getUTCMonth() + 1;
-                        const year = headerDate.getUTCFullYear().toString().slice(-2);
-                        const formattedDate = `${String(day).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`;
-                        
-                        doc.setFontSize(7.5);
-                        doc.setFont('helvetica', 'normal');
-                        doc.setTextColor(0, 0, 0);
-                        doc.text(formattedDate, centerX, centerY, { angle: 90, align: 'center', baseline: 'middle' });
-                    }
-                }
-                
                 const loan = filteredLoans[data.row.index];
                 if (!loan || data.row.section !== 'body') return;
 
