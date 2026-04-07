@@ -311,11 +311,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
               }
           }
 
-          const isFuture = new Date() < weekDate;
-          if (isFuture) {
-            return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
-          }
-          
           if (weekNumber <= currentLoanWeek) {
             return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
           }
@@ -401,16 +396,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const hasPenalty = loansWithPenalty[loan.id] || false;
         const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
         
-        if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
-             const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
-             const paidAmount = paymentForWeek ? paymentForWeek.amount : weeklyPaymentAmount;
-            return { status: 'paid' as const, date: new Date(), amountPaid: paidAmount, isAssumedPaid: false };
-        }
-    
-        const loanStartDate = new Date(loan.startDate);
-        const weekDate = new Date(loanStartDate.getTime());
-        weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
-
         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
         
         if (paymentForWeek) {
@@ -418,11 +403,19 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             if(totalPaidForWeek >= weeklyPaymentAmount) {
                 return { status: 'paid' as const, date: new Date(), amountPaid: totalPaidForWeek, isAssumedPaid: false };
             } else if (totalPaidForWeek > 0) {
-                return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+                return { status: 'partial' as const, date: new Date(), amountPaid: totalPaidForWeek, isAssumedPaid: false };
             } else { // amount is 0
-                return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
+                return { status: 'missed' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
             }
         }
+
+        if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
+            return { status: 'paid' as const, date: new Date(), amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
+        }
+    
+        const loanStartDate = new Date(loan.startDate);
+        const weekDate = new Date(loanStartDate.getTime());
+        weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
 
         const isFuture = new Date() < weekDate;
         if (isFuture) {
@@ -603,10 +596,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             [
                 { content: 'CLIENTE', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
                 { content: 'PRESTAMO', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
-                { content: '', styles: { minCellHeight: 65 } }, 
+                { content: '', styles: { minCellHeight: 80, halign: 'center' } }, 
                 ...Array.from({ length: maxWeeksToShow }).map(() => ({ 
                     content: '', 
-                    styles: { minCellHeight: 65 } 
+                    styles: { minCellHeight: 80, halign: 'center' } 
                 })),
                 { content: 'AVAL', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
             ]
@@ -739,14 +732,14 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             columnStyles: {
                 0: { cellWidth: clientColWidth, fontSize: 6.5 },
                 1: { cellWidth: prestamoColWidth, halign: 'right', fontSize: 6.5 },
-                2: { cellWidth: abonaColWidth, halign: 'right', fontStyle: 'bold', fontSize: 8 },
-                ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 3, { cellWidth: weekColumnWidth }])),
+                2: { cellWidth: abonaColWidth, fontSize: 8, halign: 'center' },
+                ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 3, { cellWidth: weekColumnWidth, halign: 'center' }])),
                 [maxWeeksToShow + 3]: { cellWidth: avalColWidth, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
                 if (data.row.section === 'head' && data.row.index === 1) {
-                    const centerX = data.cell.x + data.cell.width / 2;
-                    const centerY = data.cell.y + data.cell.height / 2;
+                    const centerX = data.cell.x + (data.cell.width / 2);
+                    const centerY = data.cell.y + (data.cell.height / 2);
 
                     // Dibujar ABONA vertical centrado en la columna 2
                     if (data.column.index === 2) {
