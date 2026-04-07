@@ -41,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import type { Client, Loan, LoanPlan, Promotora, Plaza, Localidad, AppUser } from '@/lib/types';
+import type { Client, Loan, LoanPlan, Promotora, Plaza, Localidad } from '@/lib/types';
 import { PlusCircle, Loader2, AlertTriangle, BadgeDollarSign } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createLoanAction, payOffLoanAction } from '@/app/dashboard/actions';
@@ -143,7 +143,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     },
   });
 
-  // Alphabetical sorting for selections
   const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
   const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => a.name.localeCompare(b.name)), [localidades, selectedPlaza]);
   const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => a.name.localeCompare(b.name)), [promotoras, selectedLocalidad]);
@@ -156,7 +155,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
       form.setValue('promotoraId', initialSelection.promotoraId);
     }
      if (open) {
-      // Reset form when dialog opens and there's a pre-selection
       if(initialSelection) {
         setSelectedPlaza(initialSelection.plazaId);
         setSelectedLocalidad(initialSelection.localidadId);
@@ -166,7 +164,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         });
       }
     } else {
-        // Reset everything when dialog closes
         form.reset();
         setStep(1);
         setMatchingClients([]);
@@ -225,13 +222,14 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         if (loanPlan) {
             const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
             
-            // Re-calculate penalties to match system logic
-            let missedWeeksCount = 0;
+            // Re-calculate current loan state matching the weekly sheet logic
             const today = new Date();
             const loanStartDate = new Date(activeLoan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
 
+            // Count registered failures for penalty detection
+            let missedWeeksCount = 0;
             for (let i = 1; i < currentLoanWeek; i++) {
                 const p = activeLoan.payments.find(p => p.weekNumber === i);
                 if (p && p.amount < weeklyPayment) missedWeeksCount++;
@@ -240,18 +238,31 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             const hasPenalty = missedWeeksCount >= 2;
             const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
             
-            const totalLoanAmount = weeklyPayment * termInWeeks;
-            const totalPaid = activeLoan.payments.reduce((acc, p) => acc + p.amount, 0);
-            const settlementAmount = totalLoanAmount - totalPaid;
+            // Calculate effective balance using "Assumed Payments" logic
+            // Weeks without records in the past are considered PAID.
+            let effectivePaid = 0;
+            for (let i = 1; i <= termInWeeks; i++) {
+                const p = activeLoan.payments.find(pay => pay.weekNumber === i);
+                if (p) {
+                    effectivePaid += p.amount;
+                } else if (i < currentLoanWeek) {
+                    // Assumed paid for past weeks with no records
+                    effectivePaid += weeklyPayment;
+                }
+            }
 
-            // Weeks remaining based on actual balance
-            const weeksRemaining = Math.max(0, settlementAmount / weeklyPayment);
+            const totalLoanAmount = weeklyPayment * termInWeeks;
+            const settlementAmount = Math.max(0, totalLoanAmount - effectivePaid);
+
+            // Weeks remaining = Future weeks + Past weeks with registered failures
+            const futureWeeksCount = Math.max(0, termInWeeks - currentLoanWeek + 1);
+            const weeksRemaining = futureWeeksCount + missedWeeksCount;
             
             const hierarchy = getHierarchy(activeLoan.promotoraId);
 
             setActiveLoanDetails({
                 loan: activeLoan,
-                settlementAmount: settlementAmount > 0 ? settlementAmount : 0,
+                settlementAmount: settlementAmount,
                 weeksRemaining: Math.ceil(weeksRemaining),
                 hierarchy: hierarchy
             });
@@ -273,7 +284,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             return;
         }
         if (!selectedClient) {
-            // If it's a new client, ensure the fields are empty
             form.setValue('phone', '');
             form.setValue('street', '');
             form.setValue('neighborhood', '');
@@ -301,8 +311,8 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                 title: 'Préstamo Liquidado',
                 description: 'El préstamo ha sido liquidado. Ahora puede crear uno nuevo.'
             });
-            setActiveLoanDetails(null); // Clear the warning
-            router.refresh(); // Refresh data to reflect the change
+            setActiveLoanDetails(null);
+            router.refresh();
         } else {
             throw new Error(result.message);
         }
