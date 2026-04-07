@@ -598,20 +598,22 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
         const tableHeaders: any[] = [
             [
-                { content: 'CLIENTE', rowSpan: 2, styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
-                { content: 'PRESTAMO', rowSpan: 2, styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
-                { content: 'ABONA', rowSpan: 2, styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
+                { content: '', colSpan: 3, styles: { fillColor: [220, 220, 220] } },
                 ...Array.from({ length: maxWeeksToShow }).map((_, i) => ({ 
                     content: `S${i + 1}`, 
                     styles: { halign: 'center', valign: 'middle', fontSize: 9, minCellHeight: 25 } 
                 })),
-                { content: 'AVAL', rowSpan: 2, styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
+                { content: '', colSpan: 1, styles: { fillColor: [220, 220, 220] } },
             ],
             [
+                { content: 'CLIENTE', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
+                { content: 'PRESTAMO', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
+                { content: '', styles: { minCellHeight: 65 } }, // Espacio para ABONA rotado
                 ...Array.from({ length: maxWeeksToShow }).map(() => ({ 
                     content: '', 
                     styles: { minCellHeight: 65 } 
-                }))
+                })),
+                { content: 'AVAL', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
             ]
         ];
 
@@ -747,9 +749,17 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 [maxWeeksToShow + 3]: { cellWidth: avalColWidth, fontSize: 6.5 },
             },
             didDrawCell: (data) => {
-                const loan = filteredLoans[data.row.index];
+                // Dibujar ABONA vertical en la columna 2, fila 2 de la cabecera
+                if (data.row.section === 'head' && data.row.index === 1 && data.column.index === 2) {
+                    const centerX = data.cell.x + data.cell.width / 2;
+                    const centerY = data.cell.y + data.cell.height / 2;
+                    doc.setFontSize(8);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(0, 0, 0);
+                    doc.text('ABONA', centerX, centerY, { angle: 90, align: 'center' });
+                }
 
-                // Dibujar fechas en la segunda fila del encabezado (index 1 de head)
+                // Dibujar fechas en la segunda fila del encabezado (index 1 de head) para las semanas
                 if (data.row.section === 'head' && data.row.index === 1 && data.column.index >= 3 && data.column.index < (3 + maxWeeksToShow)) {
                     const weekNumber = data.column.index - 2;
                     const groupStartDate = getSaturdayOfWeek(new Date(selectedWeek!));
@@ -769,10 +779,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     doc.setFontSize(7.5);
                     doc.setFont('helvetica', 'normal');
                     doc.setTextColor(0, 0, 0);
-                    // Dibujar la fecha rotada y centrada verticalmente en el centro de la celda de la segunda fila
+                    // Dibujar la fecha rotada y centrada
                     doc.text(formattedDate, centerX, centerY, { angle: 90, align: 'center' });
                 }
                 
+                const loan = filteredLoans[data.row.index];
                 if (!loan || data.row.section !== 'body') return;
 
                 const timeDiff = new Date().getTime() - new Date(loan.startDate).getTime();
