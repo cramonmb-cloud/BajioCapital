@@ -723,7 +723,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 fontStyle: 'bold',
                 halign: 'center',
                 valign: 'top',
-                minCellHeight: 65,
+                minCellHeight: 75,
             },
             footStyles: {
                 fillColor: [220, 220, 220],
@@ -766,7 +766,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             
                     doc.setFontSize(7);
                     doc.setFont('helvetica', 'normal');
-                    doc.text(formattedDate, centerX, data.cell.y + 42, { angle: 90, align: 'center' });
+                    doc.text(formattedDate, centerX, data.cell.y + 48, { angle: 90, align: 'center' });
                 }
                 
                 if (!loan || data.row.section !== 'body') return;
