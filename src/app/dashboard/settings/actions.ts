@@ -1,9 +1,9 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc, increment } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
-import type { Plaza, Localidad, Promotora, AppUser, AppConfig } from '@/lib/types';
+import type { Plaza, Localidad, Promotora, AppUser, AppConfig, Loan, LoanPlan, Client } from '@/lib/types';
 
 async function deleteCollection(collectionPath: string) {
     const collectionRef = collection(db, collectionPath);
@@ -50,6 +50,113 @@ export async function deleteAllDataAction() {
     } catch (error: any) {
         console.error('Error deleting all data:', error);
         return { success: false, message: `Error al eliminar los datos: ${error.message}` };
+    }
+}
+
+// Global Payment Accumulation
+export async function accumulateAllSystemPaymentsAction(userId?: string) {
+    try {
+        const [loansSnap, plansSnap, clientsSnap] = await Promise.all([
+            getDocs(collection(db, 'loans')),
+            getDocs(collection(db, 'loanPlans')),
+            getDocs(collection(db, 'clients'))
+        ]);
+
+        const loanPlans = plansSnap.docs.map(d => ({ id: d.id, ...d.data() } as LoanPlan));
+        const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Client));
+        const loans = loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as Loan));
+
+        const activeLoans = loans.filter(l => l.status !== 'Paid Off' && l.status !== 'Pagado desde CV');
+        
+        if (activeLoans.length === 0) {
+            return { success: true, message: 'No hay préstamos activos para procesar.' };
+        }
+
+        const today = new Date();
+        let totalAccumulatedAmount = 0;
+        let paymentsAccumulatedCount = 0;
+        
+        let batch = writeBatch(db);
+        let batchCount = 0;
+
+        for (const loan of activeLoans) {
+            const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
+            if (!loanPlan) continue;
+
+            const loanStartDate = new Date(loan.startDate);
+            const timeDiff = today.getTime() - loanStartDate.getTime();
+            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            
+            const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+            const client = clients.find(c => c.id === loan.clientId);
+            
+            let updatedPayments = [...(loan.payments || [])];
+            let loanChanged = false;
+
+            for (let weekNumber = 1; weekNumber <= currentLoanWeek; weekNumber++) {
+                if (weekNumber <= 0 || weekNumber > loanPlan.termInWeeks) continue;
+
+                const paymentExists = updatedPayments.some(p => p.weekNumber === weekNumber);
+
+                if (!paymentExists) {
+                    updatedPayments.push({
+                        date: new Date().toISOString(),
+                        amount: weeklyPaymentAmount,
+                        weekNumber: weekNumber,
+                    });
+                    
+                    const walletTransactionRef = doc(collection(db, 'walletTransactions'));
+                    batch.set(walletTransactionRef, {
+                        type: 'credit',
+                        amount: weeklyPaymentAmount,
+                        date: new Date(),
+                        description: `Abono (sincronización masiva) de ${client?.name || 'N/A'} - Semana ${weekNumber}.`,
+                        loanId: loan.id,
+                        clientId: loan.clientId,
+                        userId: userId || null,
+                    });
+
+                    totalAccumulatedAmount += weeklyPaymentAmount;
+                    paymentsAccumulatedCount++;
+                    batchCount++;
+                    loanChanged = true;
+                }
+            }
+
+            if (loanChanged) {
+                const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
+                const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
+                let newStatus = loan.status;
+                if (totalPaid >= totalLoanAmount) {
+                    newStatus = loan.status === 'Overdue' ? 'Pagado desde CV' : 'Paid Off';
+                }
+
+                batch.update(doc(db, 'loans', loan.id), { payments: updatedPayments, status: newStatus });
+                batchCount++;
+            }
+
+            if (batchCount >= 450) {
+                await batch.commit();
+                batch = writeBatch(db);
+                batchCount = 0;
+            }
+        }
+
+        if (paymentsAccumulatedCount > 0) {
+            const walletRef = doc(db, 'wallet', 'main');
+            batch.update(walletRef, { balance: increment(totalAccumulatedAmount) });
+            await batch.commit();
+        }
+
+        revalidatePath('/dashboard', 'layout');
+        
+        return { 
+            success: true, 
+            message: `Se sincronizaron ${paymentsAccumulatedCount} abonos pendientes por un total de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalAccumulatedAmount)}.` 
+        };
+    } catch (error: any) {
+        console.error('Error in global accumulation:', error);
+        return { success: false, message: `Error al sincronizar abonos: ${error.message}` };
     }
 }
 

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from "react";
@@ -24,7 +23,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -34,13 +33,14 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Trash2, Loader2, Database, Image as ImageIcon, Pencil } from "lucide-react";
+import { Trash2, Loader2, Database, Image as ImageIcon, Pencil, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAllDataAction, saveLogoAction, saveAppNameAction } from "@/app/dashboard/settings/actions";
+import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction } from "@/app/dashboard/settings/actions";
 import { seedDatabaseAction } from "@/app/dashboard/seed-actions";
 import { useRouter } from "next/navigation";
 import type { AppConfig } from "@/lib/types";
 import { Separator } from "./ui/separator";
+import { useAuth } from "@/hooks/use-auth";
 
 const appNameSchema = z.object({
   appName: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
@@ -60,8 +60,10 @@ export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSeeding, setIsSeeding] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isAccumulating, setIsAccumulating] = useState(false);
     const { toast } = useToast();
     const router = useRouter();
+    const { appUser } = useAuth();
 
     const appNameForm = useForm<AppNameFormValues>({
         resolver: zodResolver(appNameSchema),
@@ -122,6 +124,30 @@ export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
             });
         } finally {
             setIsDeleting(false);
+        }
+    };
+
+    const handleAccumulateAll = async () => {
+        setIsAccumulating(true);
+        try {
+            const result = await accumulateAllSystemPaymentsAction(appUser?.id);
+            if (result.success) {
+                toast({
+                    title: "Sincronización Exitosa",
+                    description: result.message,
+                });
+                router.refresh();
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: "Error en Sincronización",
+                description: error.message || "No se pudieron acumular los pagos.",
+            });
+        } finally {
+            setIsAccumulating(false);
         }
     };
 
@@ -230,6 +256,47 @@ export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
                                 </Button>
                         </form>
                     </Form>
+                </CardContent>
+            </Card>
+
+            <Card>
+                <CardHeader>
+                    <CardTitle>Mantenimiento de Cobranza</CardTitle>
+                    <CardDescription>
+                        Herramientas para sincronizar los registros financieros de todos los préstamos.
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 border rounded-lg">
+                        <div>
+                            <h3 className="font-semibold">Acumular todos los pagos asumidos</h3>
+                            <p className="text-sm text-muted-foreground">
+                                Registra formalmente todos los abonos de semanas pasadas que no tienen registro. Esto actualizará el saldo de la cartera y el historial de transacciones.
+                            </p>
+                        </div>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="secondary" disabled={isAccumulating}>
+                                    <History className="mr-2 h-4 w-4" />
+                                    Sincronizar Todo
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>¿Iniciar sincronización masiva?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Esta acción recorrerá TODOS los préstamos activos y registrará pagos para cada semana pasada que no tenga registro. El dinero se sumará a la Cartera Global. Esta operación no se puede deshacer.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleAccumulateAll} className="bg-blue-600 hover:bg-blue-700">
+                                        Continuar
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
                 </CardContent>
             </Card>
 
