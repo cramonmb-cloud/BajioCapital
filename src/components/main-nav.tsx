@@ -13,7 +13,7 @@ const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: 
   { href: '/dashboard/clients', label: 'Clientes', id: 'clients', icon: Users },
   { href: '/dashboard/consultar-cliente', label: 'Consultar', id: 'consultarCliente', icon: Search },
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans', icon: Landmark },
-  { href: '/dashboard/overdue-portfolio', label: 'Pagos Pendientes', id: 'overduePortfolio', icon: FileWarning },
+  { href: '/dashboard/overdue-portfolio', label: 'Cartera Vencida', id: 'overduePortfolio', icon: FileWarning },
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet', icon: Wallet },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity },
   { href: '/dashboard/plans', label: 'Planes', id: 'plans', icon: FileText },

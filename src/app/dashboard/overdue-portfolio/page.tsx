@@ -18,22 +18,6 @@ export type OverdueLoanDetails = {
     };
 };
 
-// Helper function to check if a loan has a penalty (only counting explicit failures)
-const hasPenalty = (loan: Loan, currentLoanWeek: number, weeklyPayment: number) => {
-    let missedWeeksCount = 0;
-    for (let i = 1; i < currentLoanWeek; i++) {
-        const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
-        if (!paymentForWeek) continue; // Skip assumed payments
-
-        const paidForWeek = paymentForWeek.amount;
-        if (paidForWeek < weeklyPayment) {
-            missedWeeksCount++;
-        }
-    }
-    return missedWeeksCount >= 2;
-};
-
-
 export default async function OverduePortfolioPage() {
     const [loans, clients, loanPlans, plazas, localidades, promotoras] = await Promise.all([
         getLoans(),
@@ -45,8 +29,7 @@ export default async function OverduePortfolioPage() {
     ]);
 
     const overdueLoansDetails: OverdueLoanDetails[] = loans
-        // Check all active and overdue loans to see if they meet the criteria for being overdue now.
-        .filter(loan => loan.status === 'Active' || loan.status === 'Overdue')
+        .filter(loan => loan.status !== 'Paid Off' && loan.status !== 'Pagado desde CV')
         .map(loan => {
             const client = clients.find(c => c.id === loan.clientId);
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
@@ -54,45 +37,34 @@ export default async function OverduePortfolioPage() {
             const localidad = localidades.find(l => l.id === promotora?.localidadId);
             const plaza = plazas.find(p => p.id === localidad?.plazaId);
 
-            if (!client || !loanPlan) {
-                return null;
-            }
+            if (!client || !loanPlan) return null;
 
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-            
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
-            let calculatedAmountDue = 0;
             let missedPaymentsCount = 0;
-            
-            const loanHasPenalty = hasPenalty(loan, currentLoanWeek, weeklyPayment);
-            const termInWeeks = loanPlan.termInWeeks + (loanHasPenalty ? 1 : 0);
-            
-            // Calculate amount due and missed payments ONLY from explicit records
-            for(let i = 1; i < currentLoanWeek; i++) { 
-                if (i > termInWeeks) break;
-
-                const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
-                if (!paymentForWeek) continue; // SKIP assumed payments (not a registered failure)
-
-                const paidForWeek = paymentForWeek.amount;
-
-                if (paidForWeek < weeklyPayment) {
-                    calculatedAmountDue += (weeklyPayment - paidForWeek);
-                    missedPaymentsCount++;
-                }
+            for (let i = 1; i < currentLoanWeek; i++) {
+                const p = loan.payments.find(pay => pay.weekNumber === i);
+                if (p && p.amount < weeklyPayment) missedPaymentsCount++;
             }
 
-            // Only return the loan if it actually has missed payments according to our logic
-            if (missedPaymentsCount >= 2) {
+            const termInWeeks = loanPlan.termInWeeks + (missedPaymentsCount >= 2 ? 1 : 0);
+            const isExpired = currentLoanWeek > termInWeeks;
+
+            const totalToPay = weeklyPayment * termInWeeks;
+            const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
+            const balance = totalToPay - totalPaid;
+
+            // Only move to "Cartera Vencida" if it's past maturity and unpaid
+            if (isExpired && balance > 0) {
                 return {
                     loan,
                     client,
                     loanPlan,
-                    amountDue: calculatedAmountDue,
+                    amountDue: balance,
                     missedPayments: missedPaymentsCount,
                     hierarchy: {
                         plazaId: plaza?.id || 'N/A',
@@ -105,16 +77,16 @@ export default async function OverduePortfolioPage() {
                 };
             }
             
-            return null; // This loan is not considered overdue right now
+            return null;
         })
-        .filter((details): details is OverdueLoanDetails => details !== null && details.amountDue > 0);
+        .filter((details): details is OverdueLoanDetails => details !== null);
 
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Cartera Vencida</h1>
                 <p className="text-muted-foreground">
-                    Clientes con préstamos que tienen 2 o más pagos fallidos registrados.
+                    Préstamos que han superado su fecha de vencimiento y aún tienen saldo pendiente.
                 </p>
             </div>
             <OverduePortfolioClientPage 

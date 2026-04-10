@@ -130,42 +130,55 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   } | null>(null);
   const router = useRouter();
 
-  // Sort Plaza, Localidad and Promotora alphabetically
-  const sortedPlazas = useMemo(() => 
-    [...plazas].sort((a, b) => a.name.localeCompare(b.name)), 
-  [plazas]);
-
-  const filteredLocalidades = useMemo(() => 
-    localidades
-      .filter(l => l.plazaId === selectedPlaza)
-      .sort((a, b) => a.name.localeCompare(b.name)), 
-  [localidades, selectedPlaza]);
-
-  const filteredPromotoras = useMemo(() => 
-    promotoras
-      .filter(p => p.localidadId === selectedLocalidad)
-      .sort((a, b) => a.name.localeCompare(b.name)), 
-  [promotoras, selectedLocalidad]);
+  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
+  const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => a.name.localeCompare(b.name)), [localidades, selectedPlaza]);
+  const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => a.name.localeCompare(b.name)), [promotoras, selectedLocalidad]);
   
+  // Logic to determine if a loan is ACTIVE (Not expired and not paid)
+  const isLoanActive = (loan: Loan) => {
+    if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') return false;
+    
+    const plan = loanPlans.find(p => p.id === loan.loanPlanId);
+    if (!plan) return false;
+
+    const today = new Date();
+    const loanStartDate = new Date(loan.startDate);
+    const timeDiff = today.getTime() - loanStartDate.getTime();
+    const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+
+    const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
+    let missedWeeksCount = 0;
+    for (let i = 1; i < currentLoanWeek; i++) {
+        const p = loan.payments.find(pay => pay.weekNumber === i);
+        if (p && p.amount < weeklyPayment) missedWeeksCount++;
+    }
+
+    const term = plan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
+    return currentLoanWeek <= term;
+  };
+
   const loanWeeks = useMemo(() => 
     Array.from(
-      new Set(loans.filter(l => l.promotoraId === selectedPromotora).map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
+      new Set(
+        loans
+          .filter(l => l.promotoraId === selectedPromotora && isLoanActive(l))
+          .map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString())
+      )
     ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
-  , [loans, selectedPromotora]);
+  , [loans, selectedPromotora, loanPlans]);
   
   const allLoanWeeksInSystem = useMemo(() =>
     Array.from(
-      new Set(loans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
+      new Set(loans.filter(isLoanActive).map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
     ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
-  , [loans]);
+  , [loans, loanPlans]);
 
 
   const filteredLoans = useMemo(() => loans.filter(loan => {
     const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
     const isCorrectPromotora = selectedPromotora ? loan.promotoraId === selectedPromotora : false;
-    const isNotPaid = loan.status !== 'Paid Off' && loan.status !== 'Pagado desde CV';
-    return isCorrectWeek && isCorrectPromotora && isNotPaid;
-  }), [loans, selectedWeek, selectedPromotora]);
+    return isCorrectWeek && isCorrectPromotora && isLoanActive(loan);
+  }), [loans, selectedWeek, selectedPromotora, loanPlans]);
 
   
   useEffect(() => {
@@ -905,7 +918,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
       <div className="grid gap-4 md:grid-cols-[200px_1fr]">
         <Card>
             <CardHeader className="p-2 pt-4">
-                <CardTitle className="text-base">Semanas</CardTitle>
+                <CardTitle className="text-base">Semanas Activas</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
                 <div className="space-y-1 px-2 pb-2">
@@ -921,7 +934,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                         </Button>
                     ))}
                     {selectedPromotora && loanWeeks.length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center p-4">No hay préstamos para esta promotora.</p>
+                        <p className="text-sm text-muted-foreground text-center p-4">No hay préstamos activos para esta promotora.</p>
                     )}
                     {!selectedPromotora && <p className="text-sm text-muted-foreground text-center p-4">Selecciona una promotora para ver las semanas.</p>}
                 </div>
@@ -1094,7 +1107,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                     ) : (
                         <TableRow>
                             <TableCell colSpan={21} className="text-center h-24 p-2">
-                               {selectedPromotora ? "No hay préstamos para la semana y promotora seleccionada." : "Selecciona una promotora para comenzar."}
+                               {selectedPromotora ? "No hay préstamos activos para la semana y promotora seleccionada." : "Selecciona una promotora para comenzar."}
                             </TableCell>
                         </TableRow>
                     )}

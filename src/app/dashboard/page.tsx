@@ -1,5 +1,3 @@
-
-
 'use client';
 import {
   Card,
@@ -51,7 +49,26 @@ export default function DashboardPage() {
   const activeLoans = loans.filter((loan) => loan.status === 'Active' || loan.status === 'Overdue').length;
   const totalLoaned = loans.reduce((acc, loan) => acc + loan.amount, 0);
 
-  const overdueLoans = loans.filter((loan) => loan.status === 'Overdue');
+  const overdueLoans = loans.filter((loan) => {
+      if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') return false;
+      const plan = loanPlans.find(p => p.id === loan.loanPlanId);
+      if (!plan) return false;
+
+      const today = new Date();
+      const loanStartDate = new Date(loan.startDate);
+      const timeDiff = today.getTime() - loanStartDate.getTime();
+      const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+
+      const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
+      let missedWeeksCount = 0;
+      for (let i = 1; i < currentLoanWeek; i++) {
+          const p = loan.payments.find(pay => pay.weekNumber === i);
+          if (p && p.amount < weeklyPayment) missedWeeksCount++;
+      }
+
+      const term = plan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
+      return currentLoanWeek > term;
+  });
 
   const getClientName = (clientId: string) => {
     return clients.find(c => c.id === clientId)?.name || 'N/A';
@@ -113,7 +130,6 @@ export default function DashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        {/* Title removed to save space */}
       </div>
 
       {logoUrl && (
@@ -207,7 +223,7 @@ export default function DashboardPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Préstamos Vencidos</CardTitle>
+          <CardTitle>Préstamos en Cartera Vencida</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -228,7 +244,7 @@ export default function DashboardPage() {
                     <TableCell>{formatCurrency(loan.amount)}</TableCell>
                     <TableCell>{getPlanName(loan.loanPlanId)}</TableCell>
                     <TableCell>
-                      <Badge variant="destructive">{translateStatus(loan.status)}</Badge>
+                      <Badge variant="destructive">Vencido</Badge>
                     </TableCell>
                     <TableCell className="text-right">
                        <Button asChild variant="ghost" size="icon">
@@ -242,7 +258,7 @@ export default function DashboardPage() {
               ) : (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center">
-                    No hay préstamos vencidos.
+                    No hay préstamos en cartera vencida.
                   </TableCell>
                 </TableRow>
               )}
