@@ -46,26 +46,29 @@ export default async function OverduePortfolioPage() {
             const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
             let missedPaymentsCount = 0;
+            let totalFailureAmount = 0;
+            
+            // Iterate through past weeks to find registered failures
             for (let i = 1; i < currentLoanWeek; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
-                if (p && p.amount < weeklyPayment) missedPaymentsCount++;
+                // Only registered records with amount < weeklyPayment count as failure
+                if (p && p.amount < weeklyPayment) {
+                    missedPaymentsCount++;
+                    totalFailureAmount += (weeklyPayment - p.amount);
+                }
             }
 
             const termInWeeks = loanPlan.termInWeeks + (missedPaymentsCount >= 2 ? 1 : 0);
             const isExpired = currentLoanWeek > termInWeeks;
 
-            const totalToPay = weeklyPayment * termInWeeks;
-            const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
-            const balance = totalToPay - totalPaid;
-
-            // 'Pagos Pendientes': Active loans WITH registered failures (missedPayments > 0) 
-            // but that have NOT yet reached maturity (isExpired is false)
-            if (!isExpired && missedPaymentsCount > 0) {
+            // 'Pagos Pendientes': Active loans (NOT expired) WITH 2 or more registered failures.
+            // The amountDue shown is specifically the sum of the missing amounts from those failures.
+            if (!isExpired && missedPaymentsCount >= 2) {
                 return {
                     loan,
                     client,
                     loanPlan,
-                    amountDue: balance,
+                    amountDue: totalFailureAmount,
                     missedPayments: missedPaymentsCount,
                     hierarchy: {
                         plazaId: plaza?.id || 'N/A',
@@ -87,7 +90,7 @@ export default async function OverduePortfolioPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
                 <p className="text-muted-foreground">
-                    Préstamos vigentes que tienen atrasos o pagos incompletos registrados.
+                    Préstamos vigentes que tienen 2 o más fallos registrados. El saldo mostrado es la suma de los abonos incompletos.
                 </p>
             </div>
             <OverduePortfolioClientPage 
