@@ -80,7 +80,7 @@ export function PlanForm({ plan }: PlanFormProps) {
                 title: plan ? 'Plan actualizado' : 'Plan creado',
                 description: result.message,
             });
-            router.push('/dashboard/plans');
+            // Recargar la página de ajustes para ver los cambios
             router.refresh();
         } else {
             throw new Error(result.message);
@@ -107,7 +107,6 @@ export function PlanForm({ plan }: PlanFormProps) {
           title: 'Plan eliminado',
           description: `El plan "${plan.name}" ha sido eliminado correctamente.`,
         });
-        router.push('/dashboard/plans');
         router.refresh();
       } else {
         throw new Error(result.message);
@@ -126,14 +125,14 @@ export function PlanForm({ plan }: PlanFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-        <Card>
-          <CardContent className="space-y-4 pt-6">
+        <Card className="border-0 shadow-none">
+          <CardContent className="space-y-4 pt-0">
             <FormField
               control={form.control}
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Nombre del Plan</FormLabel>
+                  <FormLabel className="font-bold uppercase text-xs">Nombre del Plan</FormLabel>
                   <FormControl>
                     <Input placeholder="Ej: Plan Semanal Básico" {...field} className="uppercase" />
                   </FormControl>
@@ -146,7 +145,7 @@ export function PlanForm({ plan }: PlanFormProps) {
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Descripción</FormLabel>
+                  <FormLabel className="font-bold uppercase text-xs">Descripción</FormLabel>
                   <FormControl>
                     <Textarea
                       placeholder="Ej: Abonos fijos semanales durante 12 semanas"
@@ -164,11 +163,11 @@ export function PlanForm({ plan }: PlanFormProps) {
                 name="weeklyPaymentRate"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Abono Semanal (por cada $1,000)</FormLabel>
+                    <FormLabel className="font-bold uppercase text-xs">Abono (POR CADA $1,000)</FormLabel>
                     <FormControl>
                         <Input type="number" placeholder="110" {...field} />
                     </FormControl>
-                    <FormDescription>
+                    <FormDescription className="text-[10px]">
                         Tasa de pago semanal por cada $1,000 prestados.
                     </FormDescription>
                     <FormMessage />
@@ -180,11 +179,11 @@ export function PlanForm({ plan }: PlanFormProps) {
                 name="termInWeeks"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Plazo (en semanas)</FormLabel>
+                    <FormLabel className="font-bold uppercase text-xs">Plazo (SEMANAS)</FormLabel>
                     <FormControl>
                         <Input type="number" placeholder="12" {...field} />
                     </FormControl>
-                     <FormDescription>
+                     <FormDescription className="text-[10px]">
                         El número total de semanas para el plan.
                     </FormDescription>
                     <FormMessage />
@@ -193,12 +192,12 @@ export function PlanForm({ plan }: PlanFormProps) {
                 />
             </div>
           </CardContent>
-          <CardFooter className="flex justify-between">
+          <CardFooter className="flex justify-between border-t pt-6 px-0">
             <div>
               {plan && (
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="destructive" type="button">
+                    <Button variant="destructive" type="button" size="sm">
                       <Trash className="mr-2 h-4 w-4" />
                       Eliminar Plan
                     </Button>
@@ -207,23 +206,23 @@ export function PlanForm({ plan }: PlanFormProps) {
                     <AlertDialogHeader>
                       <AlertDialogTitle>¿Estás seguro?</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Esta acción no se puede deshacer. Esto eliminará permanentemente el plan de préstamo.
+                        Esta acción no se puede deshacer. Esto eliminará permanentemente el plan de préstamo y podría afectar reportes históricos.
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                       <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-                        {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Continuar
+                      <AlertDialogAction onClick={handleDelete} disabled={isDeleting} className="bg-destructive text-white hover:bg-destructive/90">
+                        {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash className="mr-2 h-4 w-4" />}
+                        Confirmar Eliminación
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
               )}
             </div>
-            <Button type="submit" disabled={isSaving}>
-              {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {plan ? 'Guardar Cambios' : 'Crear Plan'}
+            <Button type="submit" disabled={isSaving} className="px-10 font-bold">
+              {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {plan ? 'Actualizar Plan' : 'Crear Plan Financiero'}
             </Button>
           </CardFooter>
         </Card>

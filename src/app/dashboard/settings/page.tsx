@@ -1,17 +1,19 @@
-import { getPlazas, getLocalidades, getPromotoras, getUsers, getAppConfig } from "@/lib/firestore-data";
+import { getPlazas, getLocalidades, getPromotoras, getUsers, getAppConfig, getLoanPlans } from "@/lib/firestore-data";
 import { UserManagement } from "@/components/user-management";
 import { PlazaManagement } from "@/components/plaza-management";
 import { SettingsClientPage } from "@/components/settings-client-page";
+import { PlanManagement } from "@/components/plan-management";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, MapPin, Settings as SettingsIcon, Wrench } from "lucide-react";
+import { Users, MapPin, Settings as SettingsIcon, Wrench, FileText } from "lucide-react";
 
 export default async function SettingsPage() {
-    const [plazas, localidades, promotoras, users, config] = await Promise.all([
+    const [plazas, localidades, promotoras, users, config, loanPlans] = await Promise.all([
         getPlazas(),
         getLocalidades(),
         getPromotoras(),
         getUsers(),
         getAppConfig(),
+        getLoanPlans(),
     ]);
     
     return (
@@ -19,7 +21,7 @@ export default async function SettingsPage() {
             <div className="flex flex-col gap-2 border-b pb-6">
                 <h1 className="text-4xl font-extrabold tracking-tight">Ajustes del Sistema</h1>
                 <p className="text-lg text-muted-foreground">
-                    Administra la identidad corporativa, el personal, la estructura operativa y el mantenimiento de la plataforma.
+                    Administra la identidad corporativa, el personal, la estructura operativa y los planes financieros.
                 </p>
             </div>
 
@@ -33,6 +35,10 @@ export default async function SettingsPage() {
                         <TabsTrigger value="zones" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
                             <MapPin className="h-4 w-4" />
                             <span className="hidden sm:inline">Zonas y Rutas</span>
+                        </TabsTrigger>
+                        <TabsTrigger value="plans" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                            <FileText className="h-4 w-4" />
+                            <span className="hidden sm:inline">Planes</span>
                         </TabsTrigger>
                         <TabsTrigger value="system" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
                             <SettingsIcon className="h-4 w-4" />
@@ -58,6 +64,12 @@ export default async function SettingsPage() {
                             initialLocalidades={localidades} 
                             initialPromotoras={promotoras} 
                         />
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="plans" className="mt-0 focus-visible:outline-none">
+                    <div className="animate-in fade-in-50 duration-500">
+                        <PlanManagement initialLoanPlans={loanPlans} />
                     </div>
                 </TabsContent>
 

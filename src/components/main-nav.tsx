@@ -17,7 +17,6 @@ const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: 
   { href: '/dashboard/cartera-vencida', label: 'Cartera Vencida', id: 'carteraVencida', icon: History },
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet', icon: Wallet },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity },
-  { href: '/dashboard/plans', label: 'Planes', id: 'plans', icon: FileText },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings', icon: Settings },
 ];
 
@@ -45,7 +44,8 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
     return cn(
         baseClass,
         id === 'overduePortfolio' && 'text-orange-500',
-        id === 'carteraVencida' && 'text-red-600'
+        id === 'carteraVencida' && 'text-red-600',
+        id === 'control' && 'text-blue-600'
     );
   };
 

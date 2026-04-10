@@ -23,7 +23,6 @@ const allLinks = [
   { href: '/dashboard/cartera-vencida', label: 'Cartera Vencida', id: 'carteraVencida'},
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet' },
   { href: '/dashboard/control', label: 'Control', id: 'control' },
-  { href: '/dashboard/plans', label: 'Planes', id: 'plans' },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings' },
 ] as const;
 
