@@ -65,12 +65,12 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const today = new Date();
     const loanStartDate = new Date(activeLoan.startDate);
     const timeDiff = today.getTime() - loanStartDate.getTime();
-    const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+    const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
     
     let missedWeeksCount = 0;
-    for (let i = 1; i < currentLoanWeek; i++) {
+    for (let i = 1; i < rawCurrentLoanWeek; i++) {
         const paymentForWeek = activeLoan.payments.find(p => p.weekNumber === i);
-        if (!paymentForWeek) continue; // Skip assumed payments (only registered records count as failure)
+        if (!paymentForWeek) continue; // Solo fallos registrados cuentan
 
         const paidForWeek = paymentForWeek.amount;
         if (paidForWeek < weeklyPayment) {
@@ -79,6 +79,9 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     }
     const hasPenalty = missedWeeksCount >= 2;
     const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
+
+    // No mostrar mas semanas de las que tiene el prestamo
+    const currentLoanWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
 
     let endorsementName = selectedClient.endorsement;
     let endorsementDetails = '';
@@ -90,7 +93,19 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     
     const totalToPay = weeklyPayment * termInWeeks;
     const totalPaid = activeLoan.payments.reduce((acc, p) => acc + p.amount, 0);
-    const balance = totalToPay - totalPaid;
+    
+    // Logica de pagos asumidos para calculo de saldo real
+    let effectivePaid = 0;
+    for (let i = 1; i <= termInWeeks; i++) {
+        const p = activeLoan.payments.find(pay => pay.weekNumber === i);
+        if (p) {
+            effectivePaid += p.amount;
+        } else if (i < rawCurrentLoanWeek) {
+            // Asumido pagado si paso la fecha y no hay registro de fallo
+            effectivePaid += weeklyPayment;
+        }
+    }
+    const balance = totalToPay - effectivePaid;
 
     const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
     const localidad = localidades.find(l => l.id === promotora?.localidadId);
@@ -270,13 +285,13 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                 </div>
                                  <div className="space-y-1">
                                     <p className="text-muted-foreground">Estado</p>
-                                    <p className="font-semibold">{activeLoanDetails.loan.status}</p>
+                                    <p className="font-semibold">{activeLoanDetails.loan.status === 'Overdue' ? 'VENCIDO' : 'ACTIVO'}</p>
                                 </div>
                             </div>
                         </div>
                         
                          <div className="space-y-2 border-l md:pl-8">
-                             <Collapsible>
+                             <Collapsible defaultOpen={true}>
                                 <CollapsibleTrigger className="w-full">
                                     <div className="flex items-center justify-between w-full">
                                         <h3 className="font-semibold text-xl flex items-center gap-2"><Shield className="text-primary"/> Información del Aval</h3>
@@ -304,7 +319,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                     </CardContent>
                 ) : (
                     <CardContent className="p-6 text-center">
-                        <p className="text-muted-foreground">Este cliente no tiene ningún préstamo activo o vencido.</p>
+                        <p className="text-muted-foreground">Este cliente no tiene ningún préstamo activo o vencido actualmente.</p>
                     </CardContent>
                 )}
             </Card>

@@ -85,16 +85,24 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
 
             const loanStartDate = new Date(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
             const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
             const client = clients.find(c => c.id === loan.clientId);
             
+            // Penalty check
+            let missedWeeksCount = 0;
+            for (let i = 1; i < rawCurrentLoanWeek; i++) {
+                const p = loan.payments.find(pay => pay.weekNumber === i);
+                if (p && p.amount < weeklyPaymentAmount) missedWeeksCount++;
+            }
+            const termInWeeks = loanPlan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
+
             let updatedPayments = [...(loan.payments || [])];
             let loanChanged = false;
 
-            for (let weekNumber = 1; weekNumber <= currentLoanWeek; weekNumber++) {
-                if (weekNumber <= 0 || weekNumber > loanPlan.termInWeeks) continue;
+            for (let weekNumber = 1; weekNumber <= rawCurrentLoanWeek; weekNumber++) {
+                if (weekNumber <= 0 || weekNumber > termInWeeks) continue;
 
                 const paymentExists = updatedPayments.some(p => p.weekNumber === weekNumber);
 
@@ -124,11 +132,18 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
             }
 
             if (loanChanged) {
-                const totalPaid = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
-                const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
+                // Closing logic
+                let effectivePaid = 0;
+                for (let i = 1; i <= termInWeeks; i++) {
+                    const p = updatedPayments.find(pay => pay.weekNumber === i);
+                    if (p) effectivePaid += p.amount;
+                    else if (i < rawCurrentLoanWeek) effectivePaid += weeklyPaymentAmount;
+                }
+
+                const totalLoanAmount = weeklyPaymentAmount * termInWeeks;
                 let newStatus = loan.status;
-                if (totalPaid >= totalLoanAmount) {
-                    newStatus = loan.status === 'Overdue' ? 'Pagado desde CV' : 'Paid Off';
+                if (effectivePaid >= totalLoanAmount) {
+                    newStatus = (loan.status === 'Overdue' || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
                 }
 
                 batch.update(doc(db, 'loans', loan.id), { payments: updatedPayments, status: newStatus });
@@ -152,7 +167,7 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
         
         return { 
             success: true, 
-            message: `Se sincronizaron ${paymentsAccumulatedCount} abonos pendientes por un total de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalAccumulatedAmount)}.` 
+            message: `Se sincronizaron ${paymentsAccumulatedCount} abonos por un total de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalAccumulatedAmount)}.` 
         };
     } catch (error: any) {
         console.error('Error in global accumulation:', error);
