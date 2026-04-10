@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import Loading from './loading';
 import type { UserPermissions } from '@/lib/types';
 import { getAppConfig } from '@/lib/firestore-data';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet';
 
 
 const allLinks = [
@@ -97,6 +97,10 @@ export default function DashboardLayout({
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="flex flex-col">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>{appName}</SheetTitle>
+                  <SheetDescription>Menú de navegación principal para dispositivos móviles.</SheetDescription>
+                </SheetHeader>
                 <nav className="grid gap-2 text-lg font-medium">
                   <Link
                     href="/dashboard"
