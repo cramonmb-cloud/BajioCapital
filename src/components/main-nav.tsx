@@ -41,6 +41,14 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
     return appUser.permissions && appUser.permissions[link.id];
   });
 
+  const getIconClass = (id: string, baseClass: string) => {
+    return cn(
+        baseClass,
+        id === 'overduePortfolio' && 'text-orange-500',
+        id === 'carteraVencida' && 'text-red-600'
+    );
+  };
+
   if (isMobile) {
     return (
         <>
@@ -56,7 +64,7 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
                         )}
                         onClick={onLinkClick}
                     >
-                        <link.icon className="h-4 w-4" />
+                        <link.icon className={getIconClass(link.id, "h-4 w-4")} />
                         {link.label}
                     </Link>
                 );
@@ -78,7 +86,7 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
                         aria-label={link.label}
                     >
                         <Link href={link.href}>
-                            <link.icon className="h-7 w-7" />
+                            <link.icon className={getIconClass(link.id, "h-7 w-7")} />
                             <span className="text-xs">{link.label}</span>
                         </Link>
                     </Button>
