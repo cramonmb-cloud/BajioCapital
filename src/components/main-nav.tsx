@@ -39,20 +39,20 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
     return appUser.permissions && appUser.permissions[link.id];
   });
 
-  const getIconClass = (id: string, baseClass: string, isActive: boolean) => {
+  const getIconClass = (id: string, isActive: boolean) => {
     return cn(
-        baseClass,
-        !isActive && 'text-muted-foreground/70',
-        id === 'overduePortfolio' && (isActive ? 'text-orange-500' : 'group-hover:text-orange-500'),
-        id === 'carteraVencida' && (isActive ? 'text-red-600' : 'group-hover:text-red-600'),
-        id === 'control' && (isActive ? 'text-blue-600' : 'group-hover:text-blue-600'),
-        isActive && id !== 'overduePortfolio' && id !== 'carteraVencida' && id !== 'control' && 'text-primary'
+        "h-4 w-4 transition-all duration-300 transform",
+        isActive ? "scale-110" : "group-hover:scale-110 opacity-70 group-hover:opacity-100",
+        id === 'overduePortfolio' && (isActive ? 'text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.4)]' : 'group-hover:text-orange-500'),
+        id === 'carteraVencida' && (isActive ? 'text-red-600 drop-shadow-[0_0_8px_rgba(220,38,38,0.4)]' : 'group-hover:text-red-600'),
+        id === 'control' && (isActive ? 'text-blue-600 drop-shadow-[0_0_8px_rgba(37,99,235,0.4)]' : 'group-hover:text-blue-600'),
+        isActive && id !== 'overduePortfolio' && id !== 'carteraVencida' && id !== 'control' && 'text-primary drop-shadow-[0_0_8px_rgba(var(--primary),0.4)]'
     );
   };
 
   if (isMobile) {
     return (
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5 px-2">
             {allowedLinks.map((link) => {
                 const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
                 return (
@@ -60,14 +60,14 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
                         key={link.href}
                         href={link.href}
                         className={cn(
-                            'group flex items-center gap-3 rounded-xl px-4 py-3 text-base font-medium transition-all duration-200',
+                            'group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 active:scale-95',
                             isActive 
-                                ? 'bg-primary/10 text-primary' 
+                                ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20' 
                                 : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                         )}
                         onClick={onLinkClick}
                     >
-                        <link.icon className={getIconClass(link.id, "h-5 w-5 transition-colors", isActive)} />
+                        <link.icon className={getIconClass(link.id, isActive)} />
                         {link.label}
                     </Link>
                 );
@@ -77,7 +77,7 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
   }
 
   return (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center bg-muted/40 p-1 rounded-full border border-border/50 backdrop-blur-sm shadow-inner">
             {allowedLinks.map((link) => {
                 const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
                 return (
@@ -85,14 +85,22 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
                         key={link.href}
                         href={link.href}
                         className={cn(
-                            'group flex items-center gap-2 rounded-full px-3 py-2 text-sm font-medium transition-all duration-200',
+                            'group flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-300 relative overflow-hidden',
                             isActive 
-                                ? 'bg-primary/10 text-primary' 
-                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                                ? 'bg-background text-foreground shadow-sm ring-1 ring-border/50 translate-y-[-1px]' 
+                                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                         )}
                     >
-                        <link.icon className={getIconClass(link.id, "h-4 w-4 transition-colors", isActive)} />
-                        <span>{link.label}</span>
+                        <link.icon className={getIconClass(link.id, isActive)} />
+                        <span className={cn(
+                            "transition-all duration-300",
+                            isActive ? "opacity-100" : "opacity-80 group-hover:opacity-100"
+                        )}>
+                            {link.label}
+                        </span>
+                        {isActive && (
+                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary animate-pulse" />
+                        )}
                     </Link>
                 );
             })}
