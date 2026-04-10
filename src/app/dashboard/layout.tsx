@@ -13,14 +13,15 @@ import Loading from './loading';
 import type { UserPermissions } from '@/lib/types';
 import { getAppConfig } from '@/lib/firestore-data';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet';
+import { cn } from '@/lib/utils';
 
 
 const allLinks = [
   { href: '/dashboard', label: 'Dashboard', id: 'dashboard' },
   { href: '/dashboard/clients', label: 'Clientes', id: 'clients' },
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans' },
-  { href: '/dashboard/overdue-portfolio', label: 'Pagos Pendientes', id: 'overduePortfolio'},
-  { href: '/dashboard/cartera-vencida', label: 'Cartera Vencida', id: 'carteraVencida'},
+  { href: '/dashboard/overdue-portfolio', label: 'Pendientes', id: 'overduePortfolio'},
+  { href: '/dashboard/cartera-vencida', label: 'Vencida', id: 'carteraVencida'},
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet' },
   { href: '/dashboard/control', label: 'Control', id: 'control' },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings' },
@@ -87,29 +88,22 @@ export default function DashboardLayout({
   }
   
   return (
-    <div className="flex min-h-screen w-full flex-col">
-      <header className="sticky top-0 flex h-auto items-center gap-4 border-b bg-background px-4 md:px-6 py-2">
+    <div className="flex min-h-screen w-full flex-col bg-background/50">
+      <header className="sticky top-0 z-50 flex h-16 items-center gap-4 border-b bg-background/80 backdrop-blur-md px-4 md:px-6">
          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="outline" size="icon" className="shrink-0 md:hidden">
+                <Button variant="ghost" size="icon" className="shrink-0 md:hidden">
                   <Menu className="h-5 w-5" />
                   <span className="sr-only">Toggle navigation menu</span>
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="flex flex-col">
-                <SheetHeader className="sr-only">
-                  <SheetTitle>{appName}</SheetTitle>
-                  <SheetDescription>Menú de navegación principal para dispositivos móviles.</SheetDescription>
+              <SheetContent side="left" className="flex flex-col w-[300px] p-0">
+                <SheetHeader className="p-6 border-b text-left">
+                  <Logo logoUrl={logoUrl} appName={appName} className="mb-0" />
+                  <SheetTitle className="sr-only">{appName}</SheetTitle>
+                  <SheetDescription className="sr-only">Menú de navegación principal</SheetDescription>
                 </SheetHeader>
-                <nav className="grid gap-2 text-lg font-medium">
-                  <Link
-                    href="/dashboard"
-                    className="flex items-center gap-2 text-lg font-semibold mb-4"
-                     onClick={() => setMobileMenuOpen(false)}
-                  >
-                    <Logo logoUrl={logoUrl} appName={appName} />
-                    <span className="sr-only">{appName}</span>
-                  </Link>
+                <nav className="flex-1 overflow-y-auto p-4">
                   <MainNav isMobile={true} onLinkClick={() => setMobileMenuOpen(false)} />
                 </nav>
               </SheetContent>
@@ -117,24 +111,26 @@ export default function DashboardLayout({
 
         <Link
             href="/dashboard"
-            className="hidden items-center gap-2 text-lg font-semibold md:text-base mr-4 md:flex"
+            className="hidden items-center gap-2 text-lg font-bold md:flex mr-6"
           >
-            <Logo logoUrl={logoUrl} appName={appName} />
-            <span className="sr-only">{appName}</span>
+            <Logo logoUrl={logoUrl} appName={appName} size="sm" />
         </Link>
         <div className="flex-1 hidden md:block">
           <MainNav />
         </div>
        
-        <div className="flex w-full items-center gap-4 md:ml-auto md:w-auto md:flex-initial justify-end">
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <Bell className="h-4 w-4" />
+        <div className="flex items-center gap-2 ml-auto">
+          <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:text-foreground">
+            <Bell className="h-5 w-5" />
             <span className="sr-only">Toggle notifications</span>
           </Button>
+          <div className="h-8 w-[1px] bg-border mx-1" />
           <UserNav />
         </div>
       </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-4">{children}</main>
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-8 md:p-8 max-w-[1600px] mx-auto w-full">
+        {children}
+      </main>
     </div>
   );
 }

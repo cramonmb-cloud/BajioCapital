@@ -11,7 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 
 export function UserNav() {
@@ -20,7 +20,6 @@ export function UserNav() {
   const handleSignOut = async () => {
     try {
       await signOut();
-      // Redirect or show a message on successful sign out
     } catch (error) {
       console.error('Error signing out:', error);
     }
@@ -35,33 +34,37 @@ export function UserNav() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
+        <Button variant="ghost" className="relative flex items-center gap-2 rounded-full pl-1 pr-2 h-9 hover:bg-muted">
+          <Avatar className="h-7 w-7 border">
             <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/40/40`} alt={user?.email || ''} />
-            <AvatarFallback>
-              <User />
+            <AvatarFallback className="bg-primary/10 text-primary text-[10px]">
+              <User className="h-3 w-3" />
             </AvatarFallback>
           </Avatar>
+          <span className="hidden sm:inline-block text-xs font-semibold text-muted-foreground">
+            {getUsernameFromEmail(user?.email)}
+          </span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Usuario</p>
+            <p className="text-sm font-bold leading-none uppercase">Sesión Activa</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {getUsernameFromEmail(user?.email)}
+              {user?.email}
             </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuGroup>
-          <DropdownMenuItem disabled>
+          <DropdownMenuItem disabled className="opacity-50">
             <User className="mr-2 h-4 w-4" />
-            <span>Perfil</span>
+            <span>Ver Perfil</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut}>
+        <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:bg-destructive/10 focus:text-destructive cursor-pointer">
           <LogOut className="mr-2 h-4 w-4" />
           <span>Cerrar sesión</span>
         </DropdownMenuItem>
