@@ -23,7 +23,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger,
-} from "@/components/ui/dialog";
+} from "@/components/ui/alert-dialog";
 import {
   Form,
   FormControl,
