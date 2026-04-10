@@ -17,7 +17,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -45,15 +44,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Users, Trash, Edit, ShieldCheck, Lock } from 'lucide-react';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import type { AppUser, UserPermissions } from '@/lib/types';
 import { deleteUserAction, saveUserAction } from '@/app/dashboard/settings/actions';
 import { Badge } from './ui/badge';
+import { cn } from '@/lib/utils';
 
 const permissionsSchema = z.object({
   dashboard: z.boolean().default(false),
@@ -84,21 +83,20 @@ const editUserFormSchema = z.object({
 type AddUserFormValues = z.infer<typeof addUserFormSchema>;
 type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 
-
 const DUMMY_DOMAIN = 'credicontrol.app';
 
-const permissionLabels: { id: keyof UserPermissions; label: string }[] = [
-    { id: 'dashboard', label: 'Dashboard' },
-    { id: 'clients', label: 'Clientes' },
-    { id: 'consultarCliente', label: 'Consultar Cliente' },
-    { id: 'loans', label: 'Préstamos' },
-    { id: 'overduePortfolio', label: 'Pagos Pendientes'},
-    { id: 'carteraVencida', label: 'Cartera Vencida'},
-    { id: 'wallet', label: 'Cartera' },
-    { id: 'control', label: 'Control' },
-    { id: 'plans', label: 'Planes' },
-    { id: 'settings', label: 'Ajustes' },
-    { id: 'editClients', label: 'Editar Clientes' },
+const permissionLabels: { id: keyof UserPermissions; label: string; description: string }[] = [
+    { id: 'dashboard', label: 'Dashboard', description: 'Vista general de métricas' },
+    { id: 'clients', label: 'Clientes', description: 'Listado y registro de clientes' },
+    { id: 'consultarCliente', label: 'Consultar Cliente', description: 'Búsqueda rápida de perfiles' },
+    { id: 'loans', label: 'Préstamos', description: 'Hojas de cobranza semanal' },
+    { id: 'overduePortfolio', label: 'Pagos Pendientes', description: 'Clientes con fallos vigentes' },
+    { id: 'carteraVencida', label: 'Cartera Vencida', description: 'Cuentas incobrables post-vencimiento' },
+    { id: 'wallet', label: 'Cartera', description: 'Flujo de caja y movimientos' },
+    { id: 'control', label: 'Control', description: 'Capital en calle y proyecciones' },
+    { id: 'plans', label: 'Planes', description: 'Creación de tipos de préstamo' },
+    { id: 'settings', label: 'Ajustes', description: 'Configuraciones críticas del sistema' },
+    { id: 'editClients', label: 'Editar Clientes', description: 'Modificar datos de clientes existentes' },
 ];
 
 interface UserManagementProps {
@@ -149,48 +147,16 @@ export function UserManagement({ users }: UserManagementProps) {
     }
   }, [selectedUser, editUserForm]);
 
-
   const onAddUserSubmit = async (values: AddUserFormValues) => {
     setIsSaving(true);
     const email = `${values.username.toLowerCase()}@${DUMMY_DOMAIN}`;
     try {
-        const userCredential = await signUp(email, values.password, values.role, values.username, values.permissions);
-        
-        toast({
-            title: 'Usuario Creado',
-            description: `El usuario "${values.username}" ha sido registrado.`,
-        });
-        
+        await signUp(email, values.password, values.role, values.username, values.permissions);
+        toast({ title: 'Usuario Creado', description: `El usuario "${values.username}" ha sido registrado.` });
         addUserForm.reset();
         router.refresh(); 
     } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
-             try {
-                const tempUid = `sync-needed-${values.username}`;
-                await saveUserAction(tempUid, { username: values.username, role: values.role, permissions: values.permissions });
-                
-                toast({
-                    title: 'Usuario Sincronizado',
-                    description: `El usuario "${values.username}" ya existía y ha sido añadido a la lista.`,
-                });
-
-                addUserForm.reset();
-                router.refresh();
-
-            } catch (syncError: any) {
-                 toast({
-                    variant: 'destructive',
-                    title: 'Error de Sincronización',
-                    description: `El usuario ya existe, pero ocurrió un error al intentar sincronizarlo: ${syncError.message}`,
-                });
-            }
-        } else {
-             toast({
-                variant: 'destructive',
-                title: 'Error al Crear Usuario',
-                description: error.message,
-            });
-        }
+        toast({ variant: 'destructive', title: 'Error', description: error.message });
     } finally {
       setIsSaving(false);
     }
@@ -199,23 +165,18 @@ export function UserManagement({ users }: UserManagementProps) {
   const onEditUserSubmit = async (values: EditUserFormValues) => {
     if (!selectedUser) return;
     setIsEditing(true);
-
     try {
-        const userDataToUpdate = {
-            username: selectedUser.username,
-            role: values.role,
-            permissions: values.permissions,
-        };
+        const userDataToUpdate = { username: selectedUser.username, role: values.role, permissions: values.permissions };
         const result = await saveUserAction(selectedUser.id, userDataToUpdate);
         if (result.success) {
-            toast({ title: 'Usuario Actualizado', description: `Los datos de "${selectedUser.username}" han sido actualizados.`});
+            toast({ title: 'Éxito', description: 'Usuario actualizado correctamente.'});
             setEditDialogOpen(false);
             router.refresh();
         } else {
             throw new Error(result.message);
         }
     } catch (error: any) {
-        toast({ variant: 'destructive', title: 'Error al Actualizar', description: error.message });
+        toast({ variant: 'destructive', title: 'Error', description: error.message });
     } finally {
         setIsEditing(false);
     }
@@ -225,7 +186,7 @@ export function UserManagement({ users }: UserManagementProps) {
      try {
         const result = await deleteUserAction(userId);
         if (result.success) {
-            toast({ title: 'Éxito', description: 'Usuario eliminado de la lista.' });
+            toast({ title: 'Éxito', description: 'Usuario eliminado.' });
             router.refresh();
         } else {
             throw new Error(result.message);
@@ -240,34 +201,32 @@ export function UserManagement({ users }: UserManagementProps) {
     setEditDialogOpen(true);
   };
 
-  const translateRole = (role: 'admin' | 'supervisor') => {
-    return role === 'admin' ? 'Administrador' : 'Supervisor';
-  };
-
   return (
-    <div className="grid gap-6">
-        <Card className="border-t-4 border-t-primary">
-            <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <ShieldCheck className="h-5 w-5 text-primary" />
-                    Registrar Nuevo Usuario
-                </CardTitle>
-                <CardDescription>
-                    Crea cuentas para supervisores y asigna permisos específicos.
-                </CardDescription>
+    <div className="grid gap-8">
+        <Card className="shadow-lg border-primary/10 overflow-hidden">
+            <CardHeader className="bg-primary/5 pb-8">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary rounded-lg">
+                        <UserPlus className="h-6 w-6 text-primary-foreground" />
+                    </div>
+                    <div>
+                        <CardTitle className="text-2xl font-bold">Registro de Personal</CardTitle>
+                        <CardDescription>Crea cuentas para supervisores y define sus niveles de acceso.</CardDescription>
+                    </div>
+                </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="pt-8">
                 <Form {...addUserForm}>
-                    <form onSubmit={addUserForm.handleSubmit(onAddUserSubmit)} className="space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
+                    <form onSubmit={addUserForm.handleSubmit(onAddUserSubmit)} className="space-y-8">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <FormField
                                 control={addUserForm.control}
                                 name="username"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Usuario</FormLabel>
+                                    <FormLabel className="font-bold">Nombre de Usuario</FormLabel>
                                     <FormControl>
-                                    <Input placeholder="Ej: JUAN_P" {...field} className="uppercase" />
+                                        <Input placeholder="Ej: CRISTOBAL_M" {...field} className="uppercase bg-muted/30 focus:bg-background transition-all" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -278,9 +237,9 @@ export function UserManagement({ users }: UserManagementProps) {
                                 name="password"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Contraseña Inicial</FormLabel>
+                                    <FormLabel className="font-bold">Contraseña</FormLabel>
                                     <FormControl>
-                                    <Input type="password" placeholder="Min. 6 caracteres" {...field} />
+                                        <Input type="password" placeholder="Mínimo 6 caracteres" {...field} className="bg-muted/30 focus:bg-background transition-all" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -291,16 +250,16 @@ export function UserManagement({ users }: UserManagementProps) {
                                 name="role"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Rol de Sistema</FormLabel>
+                                    <FormLabel className="font-bold">Rol Operativo</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
                                         <FormControl>
-                                            <SelectTrigger>
-                                            <SelectValue placeholder="Seleccionar" />
+                                            <SelectTrigger className="bg-muted/30 focus:bg-background transition-all">
+                                                <SelectValue placeholder="Seleccionar rol" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="admin">Administrador</SelectItem>
-                                            <SelectItem value="supervisor">Supervisor</SelectItem>
+                                            <SelectItem value="admin">Administrador (Acceso Total)</SelectItem>
+                                            <SelectItem value="supervisor">Supervisor (Accesos Limitados)</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -309,26 +268,33 @@ export function UserManagement({ users }: UserManagementProps) {
                             />
                         </div>
 
-                        <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                                <Lock className="h-4 w-4 text-muted-foreground" />
-                                <h4 className="text-sm font-bold uppercase tracking-tight">Permisos de Acceso</h4>
+                        <div className="space-y-4">
+                            <div className="flex items-center gap-2 border-b pb-2">
+                                <Lock className="h-4 w-4 text-primary" />
+                                <h4 className="text-sm font-bold uppercase tracking-wider">Permisos de Acceso al Módulo</h4>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                 {permissionLabels.map((item) => (
                                 <FormField
                                     key={item.id}
                                     control={addUserForm.control}
                                     name={`permissions.${item.id}`}
                                     render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0 rounded-lg border p-3 hover:bg-muted/50 transition-colors">
+                                    <FormItem className={cn(
+                                        "flex flex-row items-start space-x-3 space-y-0 rounded-xl border p-4 hover:border-primary/50 transition-all cursor-pointer",
+                                        field.value ? "bg-primary/5 border-primary/20" : "bg-background"
+                                    )}>
                                         <FormControl>
-                                        <Checkbox
-                                            checked={field.value}
-                                            onCheckedChange={field.onChange}
-                                        />
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                                className="mt-1"
+                                            />
                                         </FormControl>
-                                        <FormLabel className="font-normal cursor-pointer">{item.label}</FormLabel>
+                                        <div className="space-y-1 leading-none">
+                                            <FormLabel className="text-sm font-bold cursor-pointer">{item.label}</FormLabel>
+                                            <p className="text-xs text-muted-foreground">{item.description}</p>
+                                        </div>
                                     </FormItem>
                                     )}
                                 />
@@ -336,10 +302,10 @@ export function UserManagement({ users }: UserManagementProps) {
                             </div>
                         </div>
 
-                        <div className="flex justify-end pt-2">
-                            <Button type="submit" disabled={isSaving}>
-                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                                Registrar Usuario
+                        <div className="flex justify-end pt-4">
+                            <Button type="submit" size="lg" disabled={isSaving} className="px-8 font-bold">
+                                {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
+                                Registrar Personal
                             </Button>
                         </div>
                     </form>
@@ -347,80 +313,80 @@ export function UserManagement({ users }: UserManagementProps) {
             </CardContent>
         </Card>
         
-        <Card>
-            <CardHeader className="pb-3">
-                <CardTitle className="text-lg">Personal Activo</CardTitle>
-                <CardDescription>Listado de usuarios registrados y sus niveles de acceso.</CardDescription>
+        <Card className="shadow-lg border-primary/10 overflow-hidden">
+            <CardHeader className="border-b bg-muted/30">
+                <CardTitle className="text-lg font-bold flex items-center gap-2">
+                    <Users className="h-5 w-5 text-muted-foreground" />
+                    Directorio de Personal Activo
+                </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
                 <Table>
                     <TableHeader className="bg-muted/50">
                         <TableRow>
-                            <TableHead className="pl-6">Usuario</TableHead>
-                            <TableHead>Rol</TableHead>
-                            <TableHead className="hidden md:table-cell">Permisos</TableHead>
-                            <TableHead className="text-right pr-6">Acciones</TableHead>
+                            <TableHead className="pl-8 py-4 font-bold">Usuario</TableHead>
+                            <TableHead className="font-bold">Rol de Acceso</TableHead>
+                            <TableHead className="hidden md:table-cell font-bold">Privilegios</TableHead>
+                            <TableHead className="text-right pr-8 font-bold">Gestión</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {users.map(user => (
-                            <TableRow key={user.id}>
-                                <TableCell className="font-medium pl-6 uppercase">{user.username}</TableCell>
+                            <TableRow key={user.id} className="hover:bg-muted/20">
+                                <TableCell className="pl-8 font-medium py-4 uppercase">{user.username}</TableCell>
                                 <TableCell>
-                                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                                        {translateRole(user.role)}
+                                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="font-bold px-3">
+                                        {user.role === 'admin' ? 'ADMINISTRADOR' : 'SUPERVISOR'}
                                     </Badge>
                                 </TableCell>
-                                <TableCell className="text-xs text-muted-foreground max-w-[300px] truncate hidden md:table-cell">
-                                   {user.role === 'admin' ? 'ACCESO TOTAL' : user.permissions ? Object.entries(user.permissions)
-                                        .filter(([, value]) => value)
-                                        .map(([key]) => permissionLabels.find(p => p.id === key)?.label || key)
-                                        .join(', ') : 'SIN PERMISOS'}
+                                <TableCell className="text-xs text-muted-foreground max-w-[400px] hidden md:table-cell">
+                                   {user.role === 'admin' ? 
+                                        <span className="text-primary font-bold">ACCESO TOTAL AL SISTEMA</span> : 
+                                        user.permissions ? Object.entries(user.permissions)
+                                            .filter(([, value]) => value)
+                                            .map(([key]) => permissionLabels.find(p => p.id === key)?.label || key)
+                                            .join(', ') : 'SIN ACCESOS DEFINIDOS'}
                                 </TableCell>
-                                <TableCell className="text-right pr-6">
-                                    <div className="flex justify-end gap-1">
-                                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(user)}>
-                                            <Edit className="h-4 w-4 text-blue-600"/>
+                                <TableCell className="text-right pr-8">
+                                    <div className="flex justify-end gap-2">
+                                        <Button variant="outline" size="icon" onClick={() => openEditDialog(user)} className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                                            <Edit className="h-4 w-4"/>
                                         </Button>
-                                        <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)}>
-                                            <Trash className="h-4 w-4 text-destructive"/>
+                                        <Button variant="outline" size="icon" onClick={() => handleDeleteUser(user.id)} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive transition-colors">
+                                            <Trash className="h-4 w-4"/>
                                         </Button>
                                     </div>
                                 </TableCell>
                             </TableRow>
                         ))}
-                         {users.length === 0 && (
-                            <TableRow>
-                                <TableCell colSpan={4} className="text-center h-24">No hay usuarios registrados.</TableCell>
-                            </TableRow>
-                        )}
                     </TableBody>
                 </Table>
             </CardContent>
         </Card>
 
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-3xl rounded-2xl">
                 <Form {...editUserForm}>
-                    <form onSubmit={editUserForm.handleSubmit(onEditUserSubmit)} className="space-y-6">
-                        <DialogHeader>
-                            <DialogTitle className="uppercase">Editar Usuario: {selectedUser?.username}</DialogTitle>
-                            <DialogDescription>
-                                Modifica el rol y las áreas permitidas de navegación.
-                            </DialogDescription>
+                    <form onSubmit={editUserForm.handleSubmit(onEditUserSubmit)} className="space-y-8">
+                        <DialogHeader className="border-b pb-4">
+                            <DialogTitle className="text-2xl font-bold uppercase flex items-center gap-2">
+                                <ShieldCheck className="h-6 w-6 text-primary" />
+                                Gestionar: {selectedUser?.username}
+                            </DialogTitle>
+                            <DialogDescription>Ajusta el rol y los privilegios de navegación para este usuario.</DialogDescription>
                         </DialogHeader>
                         
-                        <div className="space-y-6 py-2">
+                        <div className="space-y-8 py-2">
                             <FormField
                                 control={editUserForm.control}
                                 name="role"
                                 render={({ field }) => (
-                                <FormItem className="max-w-[200px]">
-                                    <FormLabel>Rol de Sistema</FormLabel>
+                                <FormItem className="max-w-[250px]">
+                                    <FormLabel className="font-bold">Rol de Sistema</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl>
                                             <SelectTrigger>
-                                            <SelectValue placeholder="Seleccionar" />
+                                                <SelectValue placeholder="Seleccionar rol" />
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
@@ -428,28 +394,30 @@ export function UserManagement({ users }: UserManagementProps) {
                                             <SelectItem value="supervisor">Supervisor</SelectItem>
                                         </SelectContent>
                                     </Select>
-                                    <FormMessage />
                                 </FormItem>
                                 )}
                             />
                             
-                            <div className="space-y-3">
-                                <h4 className="text-sm font-bold uppercase tracking-tight">Permisos de Acceso</h4>
-                                <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-4">
+                                <h4 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                                    <Lock className="h-4 w-4" />
+                                    Actualizar Permisos
+                                </h4>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                     {permissionLabels.map((item) => (
                                     <FormField
                                         key={item.id}
                                         control={editUserForm.control}
                                         name={`permissions.${item.id}`}
                                         render={({ field }) => (
-                                        <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-3 hover:bg-muted/50">
+                                        <FormItem className={cn(
+                                            "flex flex-row items-center space-x-3 space-y-0 rounded-xl border p-3 hover:bg-muted/50 transition-all",
+                                            field.value ? "bg-primary/5 border-primary/20" : "bg-background"
+                                        )}>
                                             <FormControl>
-                                            <Checkbox
-                                                checked={field.value}
-                                                onCheckedChange={field.onChange}
-                                            />
+                                                <Checkbox checked={field.value} onCheckedChange={field.onChange} />
                                             </FormControl>
-                                            <FormLabel className="font-normal cursor-pointer">{item.label}</FormLabel>
+                                            <FormLabel className="text-sm font-medium cursor-pointer">{item.label}</FormLabel>
                                         </FormItem>
                                         )}
                                     />
@@ -458,10 +426,10 @@ export function UserManagement({ users }: UserManagementProps) {
                             </div>
                         </div>
 
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
-                            <Button type="submit" disabled={isEditing}>
-                                {isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        <DialogFooter className="border-t pt-6 gap-2">
+                            <Button type="button" variant="ghost" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={isEditing} className="px-10 font-bold">
+                                {isEditing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Guardar Cambios
                             </Button>
                         </DialogFooter>

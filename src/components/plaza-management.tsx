@@ -36,24 +36,23 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { PlusCircle, Trash, Loader2, Building, MapPin, User } from 'lucide-react';
+import { PlusCircle, Trash, Loader2, Building, MapPin, User, Route } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
 import type { Plaza, Localidad, Promotora } from '@/lib/types';
 import { savePlazaAction, deletePlazaAction, saveLocalidadAction, deleteLocalidadAction, savePromotoraAction, deletePromotoraAction } from '@/app/dashboard/settings/actions';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import { Skeleton } from './ui/skeleton';
 
 const plazaSchema = z.object({
-  name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
+  name: z.string().min(3, 'Mínimo 3 caracteres.'),
 });
 const localidadSchema = z.object({
-  name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
-  plazaId: z.string().min(1, 'Debes seleccionar una plaza.'),
+  name: z.string().min(3, 'Mínimo 3 caracteres.'),
+  plazaId: z.string().min(1, 'Selecciona una plaza.'),
 });
 const promotoraSchema = z.object({
-  name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
-  localidadId: z.string().min(1, 'Debes seleccionar una localidad.'),
+  name: z.string().min(3, 'Mínimo 3 caracteres.'),
+  localidadId: z.string().min(1, 'Selecciona una localidad.'),
 });
 
 type PlazaFormValues = z.infer<typeof plazaSchema>;
@@ -70,14 +69,10 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
   const [isSaving, setIsSaving] = useState(false);
   const { data, loading } = useRealtimeData();
   const { toast } = useToast();
-  const router = useRouter();
 
   const plazas = data?.plazas ?? initialPlazas;
   const localidades = data?.localidades ?? initialLocalidades;
   const promotoras = data?.promotoras ?? initialPromotoras;
-
-  const getPlazaName = (plazaId: string) => plazas.find(p => p.id === plazaId)?.name || 'N/A';
-  const getLocalidadName = (localidadId: string) => localidades.find(l => l.id === localidadId)?.name || 'N/A';
 
   const plazaForm = useForm<PlazaFormValues>({ resolver: zodResolver(plazaSchema), defaultValues: { name: '' } });
   const localidadForm = useForm<LocalidadFormValues>({ resolver: zodResolver(localidadSchema), defaultValues: { name: '', plazaId: '' } });
@@ -88,9 +83,8 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
     try {
       const result = await action;
       if (result.success) {
-        toast({ title: 'Éxito', description: result.message });
+        toast({ title: 'Completado', description: result.message });
         formToReset?.reset();
-        // No need for router.refresh() as real-time updates will handle it
       } else {
         throw new Error(result.message);
       }
@@ -104,90 +98,172 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
   if (loading) {
     return (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <Card><CardHeader><Skeleton className="h-6 w-24" /><Skeleton className="h-4 w-48" /></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card>
-            <Card><CardHeader><Skeleton className="h-6 w-24" /><Skeleton className="h-4 w-48" /></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card>
-            <Card><CardHeader><Skeleton className="h-6 w-24" /><Skeleton className="h-4 w-48" /></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card>
+            {[1, 2, 3].map(i => (
+                <Card key={i}><CardHeader><Skeleton className="h-6 w-24 mb-2" /><Skeleton className="h-4 w-48" /></CardHeader><CardContent><Skeleton className="h-40 w-full" /></CardContent></Card>
+            ))}
         </div>
     )
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+    <div className="grid gap-8 lg:grid-cols-3">
       {/* Plazas */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><Building /> Plazas</CardTitle>
-          <CardDescription>Gestiona las plazas.</CardDescription>
+      <Card className="shadow-md border-primary/10">
+        <CardHeader className="bg-primary/5 border-b mb-6">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <Building className="h-5 w-5 text-primary" /> Plazas
+          </CardTitle>
+          <CardDescription>Sedes regionales de operación.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <Form {...plazaForm}>
-            <form onSubmit={plazaForm.handleSubmit((v) => handleAction(savePlazaAction(v.name), plazaForm))} className="flex items-end gap-2 mb-4">
+            <form onSubmit={plazaForm.handleSubmit((v) => handleAction(savePlazaAction(v.name), plazaForm))} className="space-y-3">
               <FormField control={plazaForm.control} name="name" render={({ field }) => (
-                <FormItem className="flex-grow"><FormLabel>Nueva Plaza</FormLabel><FormControl><Input placeholder="Nombre de la plaza" {...field} className="uppercase" /></FormControl><FormMessage /></FormItem>
+                <FormItem>
+                    <FormLabel className="text-xs font-bold uppercase">Nombre de Plaza</FormLabel>
+                    <div className="flex gap-2">
+                        <FormControl><Input placeholder="EJ: MATRIZ" {...field} className="uppercase h-9" /></FormControl>
+                        <Button type="submit" size="sm" disabled={isSaving} className="h-9 px-3">
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                    <FormMessage />
+                </FormItem>
               )} />
-              <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}</Button>
             </form>
           </Form>
-          <Table>
-            <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
-            <TableBody>
-              {plazas.map(p => (<TableRow key={p.id}><TableCell>{p.name}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleAction(deletePlazaAction(p.id))}><Trash className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}
-            </TableBody>
-          </Table>
+          <div className="rounded-md border">
+            <Table>
+                <TableBody>
+                {plazas.map(p => (
+                    <TableRow key={p.id} className="h-10">
+                        <TableCell className="font-medium uppercase py-2">{p.name}</TableCell>
+                        <TableCell className="text-right py-2">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleAction(deletePlazaAction(p.id))}>
+                                <Trash className="h-4 w-4" />
+                            </Button>
+                        </TableCell>
+                    </TableRow>
+                ))}
+                </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
       
       {/* Localidades */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><MapPin /> Localidades</CardTitle>
-          <CardDescription>Gestiona las localidades por plaza.</CardDescription>
+      <Card className="shadow-md border-primary/10">
+        <CardHeader className="bg-primary/5 border-b mb-6">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <MapPin className="h-5 w-5 text-primary" /> Localidades
+          </CardTitle>
+          <CardDescription>Zonas específicas dentro de cada plaza.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <Form {...localidadForm}>
-            <form onSubmit={localidadForm.handleSubmit((v) => handleAction(saveLocalidadAction(v), localidadForm))} className="space-y-4 mb-4">
+            <form onSubmit={localidadForm.handleSubmit((v) => handleAction(saveLocalidadAction(v), localidadForm))} className="space-y-4">
                <FormField control={localidadForm.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Nueva Localidad</FormLabel><FormControl><Input placeholder="Nombre de la localidad" {...field} className="uppercase" /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel className="text-xs font-bold uppercase">Nombre Localidad</FormLabel><FormControl><Input placeholder="ZONA CENTRO" {...field} className="uppercase h-9" /></FormControl><FormMessage /></FormItem>
               )} />
                <FormField control={localidadForm.control} name="plazaId" render={({ field }) => (
-                <FormItem><FormLabel>Plaza</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Asignar a plaza" /></SelectTrigger></FormControl><SelectContent>{plazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                <FormItem>
+                    <FormLabel className="text-xs font-bold uppercase">Asignar a Plaza</FormLabel>
+                    <div className="flex gap-2">
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger className="h-9"><SelectValue placeholder="Plaza..." /></SelectTrigger></FormControl>
+                            <SelectContent>{plazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+                        </Select>
+                        <Button type="submit" size="sm" disabled={isSaving} className="h-9 px-3">
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                    <FormMessage />
+                </FormItem>
               )} />
-              <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}Añadir Localidad</Button>
             </form>
           </Form>
-          <Table>
-             <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Plaza</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
-            <TableBody>
-                {localidades.map(l => (<TableRow key={l.id}><TableCell>{l.name}</TableCell><TableCell>{getPlazaName(l.plazaId)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleAction(deleteLocalidadAction(l.id))}><Trash className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}
-            </TableBody>
-          </Table>
+          <div className="rounded-md border">
+            <Table>
+                <TableBody>
+                    {localidades.map(l => (
+                        <TableRow key={l.id} className="h-10">
+                            <TableCell className="py-2">
+                                <div className="flex flex-col">
+                                    <span className="font-medium uppercase">{l.name}</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase">{plazas.find(p => p.id === l.plazaId)?.name}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell className="text-right py-2">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleAction(deleteLocalidadAction(l.id))}>
+                                    <Trash className="h-4 w-4" />
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
       {/* Promotoras */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><User /> Promotoras</CardTitle>
-          <CardDescription>Gestiona las promotoras por localidad.</CardDescription>
+      <Card className="shadow-md border-primary/10">
+        <CardHeader className="bg-primary/5 border-b mb-6">
+          <CardTitle className="flex items-center gap-2 text-lg">
+            <User className="h-5 w-5 text-primary" /> Promotoras
+          </CardTitle>
+          <CardDescription>Personal encargado de las rutas.</CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
           <Form {...promotoraForm}>
-            <form onSubmit={promotoraForm.handleSubmit((v) => handleAction(savePromotoraAction(v), promotoraForm))} className="space-y-4 mb-4">
+            <form onSubmit={promotoraForm.handleSubmit((v) => handleAction(savePromotoraAction(v), promotoraForm))} className="space-y-4">
                <FormField control={promotoraForm.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel>Nueva Promotora</FormLabel><FormControl><Input placeholder="Nombre de la promotora" {...field} className="uppercase" /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel className="text-xs font-bold uppercase">Nombre Promotora</FormLabel><FormControl><Input placeholder="EJ: MARIA G." {...field} className="uppercase h-9" /></FormControl><FormMessage /></FormItem>
               )} />
                <FormField control={promotoraForm.control} name="localidadId" render={({ field }) => (
-                <FormItem><FormLabel>Localidad</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Asignar a localidad" /></SelectTrigger></FormControl><SelectContent>{localidades.map(l => <SelectItem key={l.id} value={l.id}>{l.name} ({getPlazaName(l.plazaId)})</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                <FormItem>
+                    <FormLabel className="text-xs font-bold uppercase">Asignar a Localidad</FormLabel>
+                    <div className="flex gap-2">
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger className="h-9"><SelectValue placeholder="Localidad..." /></SelectTrigger></FormControl>
+                            <SelectContent>
+                                {localidades.map(l => (
+                                    <SelectItem key={l.id} value={l.id}>
+                                        {l.name} ({plazas.find(p => p.id === l.plazaId)?.name})
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <Button type="submit" size="sm" disabled={isSaving} className="h-9 px-3">
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                        </Button>
+                    </div>
+                    <FormMessage />
+                </FormItem>
               )} />
-              <Button type="submit" disabled={isSaving}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}Añadir Promotora</Button>
             </form>
           </Form>
-          <Table>
-             <TableHeader><TableRow><TableHead>Nombre</TableHead><TableHead>Localidad</TableHead><TableHead className="text-right">Acción</TableHead></TableRow></TableHeader>
-            <TableBody>
-                {promotoras.map(p => (<TableRow key={p.id}><TableCell>{p.name}</TableCell><TableCell>{getLocalidadName(p.localidadId)}</TableCell><TableCell className="text-right"><Button variant="ghost" size="icon" onClick={() => handleAction(deletePromotoraAction(p.id))}><Trash className="h-4 w-4 text-destructive" /></Button></TableCell></TableRow>))}
-            </TableBody>
-          </Table>
+          <div className="rounded-md border">
+            <Table>
+                <TableBody>
+                    {promotoras.map(p => (
+                        <TableRow key={p.id} className="h-10">
+                            <TableCell className="py-2">
+                                <div className="flex flex-col">
+                                    <span className="font-medium uppercase">{p.name}</span>
+                                    <span className="text-[10px] text-muted-foreground uppercase">{localidades.find(l => l.id === p.localidadId)?.name}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell className="text-right py-2">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleAction(deletePromotoraAction(p.id))}>
+                                    <Trash className="h-4 w-4" />
+                                </Button>
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>
