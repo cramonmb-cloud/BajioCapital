@@ -1,10 +1,20 @@
+
 'use server';
 
 import type { Client, Loan, LoanPlan, AppUser } from '@/lib/types';
-import { collection, doc, addDoc, serverTimestamp, updateDoc, runTransaction, increment, writeBatch, getDoc, getDocs, query, where, deleteDoc } from 'firebase/firestore';
+import { collection, doc, addDoc, serverTimestamp, updateDoc, runTransaction, increment, writeBatch, getDoc, getDocs, query, where, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { revalidatePath } from 'next/cache';
 import { getLoanPlan, getClient, getLoan } from '@/lib/firestore-data';
+
+// Helper to handle Firestore dates consistently in server actions
+const parseFirestoreDate = (date: any): Date => {
+    if (!date) return new Date();
+    if (date instanceof Timestamp) return date.toDate();
+    if (typeof date === 'string') return new Date(date);
+    if (date instanceof Date) return date;
+    return new Date();
+};
 
 export type CreateLoanInput = {
     promotoraId: string;
@@ -79,10 +89,16 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
             
+            // Clean up payments converting any existing Timestamps to ensure filtering works
+            const currentPayments = (loan.payments || []).map(p => ({
+                ...p,
+                date: parseFirestoreDate(p.date).toISOString()
+            }));
+
             // Overwrite logic: Remove any existing payment for the starting week
-            const allPayments = loan.payments.filter(p => p.weekNumber !== startingWeekNumber);
+            const allPayments = currentPayments.filter(p => p.weekNumber !== startingWeekNumber);
             
-            // Add the new payment for the starting week. This handles overwrites and new payments.
+            // Add the new payment for the starting week.
             allPayments.push({
                 date: new Date().toISOString(),
                 amount: amountPaid,
@@ -90,12 +106,12 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             });
             
             const today = new Date();
-            const loanStartDate = new Date(loan.startDate);
+            const loanStartDate = parseFirestoreDate(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
 
             // --- Wallet and Transaction Logic ---
-            const originalTotalPaid = loan.payments.reduce((acc, p) => acc + p.amount, 0);
+            const originalTotalPaid = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const newTotalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
             const walletAdjustment = newTotalPaid - originalTotalPaid;
 
@@ -194,19 +210,24 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             
             // Recalculate term with penalty
             const today = new Date();
-            const loanStartDate = new Date(loan.startDate);
+            const loanStartDate = parseFirestoreDate(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
             let missedWeeksCount = 0;
+            const currentPayments = (loan.payments || []).map(p => ({
+                ...p,
+                date: parseFirestoreDate(p.date).toISOString()
+            }));
+
             for (let i = 1; i < rawCurrentLoanWeek; i++) {
-                const p = loan.payments.find(p => p.weekNumber === i);
+                const p = currentPayments.find(p => p.weekNumber === i);
                 if (p && p.amount < weeklyPayment) missedWeeksCount++;
             }
             const termInWeeks = loanPlan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
             
             const totalLoanAmount = weeklyPayment * termInWeeks;
-            const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
+            const totalPaid = currentPayments.reduce((sum, p) => sum + p.amount, 0);
             const settlementAmount = totalLoanAmount - totalPaid;
 
             const finalStatus: Loan['status'] = (wasOverdue || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
@@ -216,7 +237,7 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
                 return { success: true, message: "Este préstamo ya estaba liquidado." };
             }
 
-            const newPayments = [...loan.payments, {
+            const newPayments = [...currentPayments, {
                 date: new Date().toISOString(),
                 amount: settlementAmount,
                 weekNumber: -1, // Liquidacion
@@ -266,6 +287,7 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
         const batch = writeBatch(db);
         const walletRef = doc(db, 'wallet', 'main');
         
+        // Fetch fresh data from Firestore to avoid Timestamp issues
         const [loansSnap, plansSnap, clientsSnap] = await Promise.all([
             getDocs(query(collection(db, 'loans'), where('__name__', 'in', loanIds.slice(0, 30)))),
             getDocs(collection(db, 'loanPlans')),
@@ -274,7 +296,7 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
 
         const loanPlans = plansSnap.docs.map(d => ({ id: d.id, ...d.data() } as LoanPlan));
         const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Client));
-        const loans = loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as Loan));
+        const loans = loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
         const today = new Date();
         let totalAccumulatedAmount = 0;
@@ -284,26 +306,33 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
             if (!loanPlan || loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') continue;
 
-            const loanStartDate = new Date(loan.startDate);
+            const loanStartDate = parseFirestoreDate(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
             // Detect penalty
             let missedWeeksCount = 0;
             const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+            
+            const currentPayments = (loan.payments || []).map((p: any) => ({
+                ...p,
+                date: parseFirestoreDate(p.date).toISOString()
+            }));
+
             for (let i = 1; i < rawCurrentLoanWeek; i++) {
-                const p = loan.payments.find(p => p.weekNumber === i);
+                const p = currentPayments.find((pay: any) => pay.weekNumber === i);
                 if (p && p.amount < weeklyPaymentAmount) missedWeeksCount++;
             }
             const termInWeeks = loanPlan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
 
-            let updatedPayments = [...(loan.payments || [])];
+            let updatedPayments = [...currentPayments];
             let loanChanged = false;
 
-            for (let weekNumber = 1; weekNumber <= rawCurrentLoanWeek; weekNumber++) {
-                if (weekNumber <= 0 || weekNumber > termInWeeks) continue;
+            // Go through all weeks up to the current one (capped at term)
+            for (let weekNumber = 1; weekNumber <= Math.min(rawCurrentLoanWeek, termInWeeks); weekNumber++) {
+                if (weekNumber <= 0) continue;
 
-                const paymentExists = updatedPayments.some(p => p.weekNumber === weekNumber);
+                const paymentExists = updatedPayments.some((p: any) => p.weekNumber === weekNumber);
 
                 if (!paymentExists) {
                     const client = clients.find(c => c.id === loan.clientId);
@@ -337,7 +366,7 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
                 // Determine closing status
                 let effectivePaid = 0;
                 for (let i = 1; i <= termInWeeks; i++) {
-                    const p = updatedPayments.find(pay => pay.weekNumber === i);
+                    const p = updatedPayments.find((pay: any) => pay.weekNumber === i);
                     if (p) effectivePaid += p.amount;
                     else if (i < rawCurrentLoanWeek) effectivePaid += weeklyPaymentAmount;
                 }

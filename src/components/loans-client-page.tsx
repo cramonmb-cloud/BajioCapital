@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -385,15 +386,31 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const failures = calculateTotals(maxWeeks, 'failures');
         const collected = calculateTotals(maxWeeks, 'collected');
 
+        // REVISED logic: check ANY week from 1 to current (capped at term) that lacks a record
         const hasAssumed = filteredLoans.some(loan => {
             if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') return false;
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
             if (!loanPlan) return false;
+            
             const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
-            const currentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
-            if (currentLoanWeek <= 0 || currentLoanWeek > loanPlan.termInWeeks) return false;
-            const paymentExists = (loan.payments || []).some(p => p.weekNumber === currentLoanWeek);
-            return !paymentExists;
+            const rawCurrentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            
+            // Penalty check for term
+            let missedCount = 0;
+            const wp = getWeeklyPaymentAmount(loan);
+            for (let i = 1; i < rawCurrentLoanWeek; i++) {
+                const p = loan.payments.find(pay => pay.weekNumber === i);
+                if (p && p.amount < wp) missedCount++;
+            }
+            const term = loanPlan.termInWeeks + (missedCount >= 2 ? 1 : 0);
+            const currentWeek = Math.min(rawCurrentLoanWeek, term);
+
+            // Check weeks 1 to currentWeek for any missing payment
+            for (let w = 1; w <= currentWeek; w++) {
+                const exists = (loan.payments || []).some(p => p.weekNumber === w);
+                if (!exists) return true;
+            }
+            return false;
         });
 
         return { currentGroupWeek, weeklyFailures: failures, weeklyCollected: collected, hasAssumedPayments: hasAssumed, loansWithPenalty: newLoansWithPenalty };
@@ -597,7 +614,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         doc.text(plazaName.toUpperCase(), rightColumnX + 50, topMargin + 22);
         doc.text(formatCurrency(totalAmount), rightColumnX + 50, topMargin + 34);
 
-        // Pre-calculating weekly header texts (Stacked vertically)
+        // Pre-calculating weekly header texts
         const weekDatesHeader = Array.from({ length: maxWeeksToShow }).map((_, i) => {
             const weekNumber = i + 1;
             const groupStartDate = getSaturdayOfWeek(new Date(selectedWeek!));

@@ -1,9 +1,19 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc, increment } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc, increment, Timestamp } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import type { Plaza, Localidad, Promotora, AppUser, AppConfig, Loan, LoanPlan, Client } from '@/lib/types';
+
+// Helper to handle Firestore dates consistently in server actions
+const parseFirestoreDate = (date: any): Date => {
+    if (!date) return new Date();
+    if (date instanceof Timestamp) return date.toDate();
+    if (typeof date === 'string') return new Date(date);
+    if (date instanceof Date) return date;
+    return new Date();
+};
 
 async function deleteCollection(collectionPath: string) {
     const collectionRef = collection(db, collectionPath);
@@ -64,8 +74,9 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
 
         const loanPlans = plansSnap.docs.map(d => ({ id: d.id, ...d.data() } as LoanPlan));
         const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Client));
-        const loans = loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as Loan));
+        const loans = loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
+        // Note: Filter correctly including those that should be closed
         const activeLoans = loans.filter(l => l.status !== 'Paid Off' && l.status !== 'Pagado desde CV');
         
         if (activeLoans.length === 0) {
@@ -83,7 +94,7 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
             if (!loanPlan) continue;
 
-            const loanStartDate = new Date(loan.startDate);
+            const loanStartDate = parseFirestoreDate(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
@@ -92,19 +103,25 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
             
             // Penalty check
             let missedWeeksCount = 0;
+            const currentPayments = (loan.payments || []).map((p: any) => ({
+                ...p,
+                date: parseFirestoreDate(p.date).toISOString()
+            }));
+
             for (let i = 1; i < rawCurrentLoanWeek; i++) {
-                const p = loan.payments.find(pay => pay.weekNumber === i);
+                const p = currentPayments.find((pay: any) => pay.weekNumber === i);
                 if (p && p.amount < weeklyPaymentAmount) missedWeeksCount++;
             }
             const termInWeeks = loanPlan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
 
-            let updatedPayments = [...(loan.payments || [])];
+            let updatedPayments = [...currentPayments];
             let loanChanged = false;
 
-            for (let weekNumber = 1; weekNumber <= rawCurrentLoanWeek; weekNumber++) {
-                if (weekNumber <= 0 || weekNumber > termInWeeks) continue;
+            // Check every past week up to current (capped at term)
+            for (let weekNumber = 1; weekNumber <= Math.min(rawCurrentLoanWeek, termInWeeks); weekNumber++) {
+                if (weekNumber <= 0) continue;
 
-                const paymentExists = updatedPayments.some(p => p.weekNumber === weekNumber);
+                const paymentExists = updatedPayments.some((p: any) => p.weekNumber === weekNumber);
 
                 if (!paymentExists) {
                     updatedPayments.push({
@@ -135,7 +152,7 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
                 // Closing logic
                 let effectivePaid = 0;
                 for (let i = 1; i <= termInWeeks; i++) {
-                    const p = updatedPayments.find(pay => pay.weekNumber === i);
+                    const p = updatedPayments.find((pay: any) => pay.weekNumber === i);
                     if (p) effectivePaid += p.amount;
                     else if (i < rawCurrentLoanWeek) effectivePaid += weeklyPaymentAmount;
                 }
