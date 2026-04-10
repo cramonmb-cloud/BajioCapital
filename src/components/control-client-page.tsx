@@ -27,18 +27,18 @@ interface ControlClientPageProps {
     initialPromotoras: Promotora[];
 }
 
-// This function calculates if a loan has a penalty (only counting explicit failures)
-const hasPenalty = (loan: Loan, currentLoanWeek: number, weeklyPayment: number) => {
+// Función centralizada para detectar penalización
+const checkPenalty = (loan: Loan, loanPlan: LoanPlan) => {
+    const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
     let missedWeeksCount = 0;
-    for (let i = 1; i < currentLoanWeek; i++) {
-        const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
-        if (!paymentForWeek) continue; // SKIP assumed payments
-
-        const paidForWeek = paymentForWeek.amount;
-        if (paidForWeek < weeklyPayment) {
+    
+    // Solo contamos fallos registrados explícitamente
+    loan.payments.forEach(p => {
+        if (p.weekNumber > 0 && p.amount < weeklyPayment) {
             missedWeeksCount++;
         }
-    }
+    });
+    
     return missedWeeksCount >= 2;
 };
 
@@ -86,8 +86,8 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
         let globalDineroEnCalle = 0;
 
         filteredLoans.forEach(loan => {
-            // ONLY consider Active or Overdue loans for these metrics
-            if (loan.status !== 'Active' && loan.status !== 'Overdue') return;
+            // Solo préstamos que no estén liquidados
+            if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') return;
 
             const promotora = promotoras.find(p => p.id === loan.promotoraId);
             const localidad = localidades.find(l => l.id === promotora?.localidadId);
@@ -97,36 +97,47 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
             if (!loanPlan) return;
 
-            // "Capital Pendiente" represents the REMAINING principal to be recovered.
-            // "En Calle" represents the total REMAINING balance (principal + interest).
-            
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+            const hasPenalty = checkPenalty(loan, loanPlan);
+            const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
+
+            const totalExpected = weeklyPayment * termInWeeks;
+            const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
+            
+            // Lógica de "Abonos Asumidos" para no inflar la deuda en el control de cartera
+            // Si no se ha corrido la sincronización, los pagos asumidos cuentan como "cobrados" para fines de métricas de capital
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
-            
-            const loanHasPenalty = hasPenalty(loan, currentLoanWeek, weeklyPayment);
-            const termInWeeks = loanPlan.termInWeeks + (loanHasPenalty ? 1 : 0);
+            const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            const currentWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
 
-            const totalAmountToBePaid = weeklyPayment * termInWeeks;
-            const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
-            
-            // Calculate how much of the paid amount is "Capital" vs "Interest"
-            // based on the ratio of the original loan to the total expected payout.
-            const principalRatio = totalAmountToBePaid > 0 ? (loan.amount / totalAmountToBePaid) : 0;
-            const capitalRecuperado = totalPaid * principalRatio;
-            const capitalPendiente = loan.amount - capitalRecuperado;
-            
-            const balanceRemaining = totalAmountToBePaid - totalPaid;
-
-            if (statsByPlaza[plazaId]) {
-                statsByPlaza[plazaId].totalPrestado += (capitalPendiente > 0 ? capitalPendiente : 0);
-                statsByPlaza[plazaId].dineroEnCalle += (balanceRemaining > 0 ? balanceRemaining : 0);
+            let effectivePaid = 0;
+            for (let i = 1; i <= termInWeeks; i++) {
+                const p = loan.payments.find(pay => pay.weekNumber === i);
+                if (p) {
+                    effectivePaid += p.amount;
+                } else if (i < currentWeek) {
+                    // Semanas pasadas sin registro se consideran cobradas (asumidas)
+                    effectivePaid += weeklyPayment;
+                }
             }
 
-            globalTotalPrestado += (capitalPendiente > 0 ? capitalPendiente : 0);
-            globalDineroEnCalle += (balanceRemaining > 0 ? balanceRemaining : 0);
+            // Dinero en Calle Real (lo que realmente falta por cobrar según registros + futuro)
+            const balanceRemaining = Math.max(0, totalExpected - effectivePaid);
+            
+            // Capital Pendiente (proporcional)
+            const principalRatio = totalExpected > 0 ? (loan.amount / totalExpected) : 0;
+            const capitalRecuperado = effectivePaid * principalRatio;
+            const capitalPendiente = Math.max(0, loan.amount - capitalRecuperado);
+
+            if (statsByPlaza[plazaId]) {
+                statsByPlaza[plazaId].totalPrestado += capitalPendiente;
+                statsByPlaza[plazaId].dineroEnCalle += balanceRemaining;
+            }
+
+            globalTotalPrestado += capitalPendiente;
+            globalDineroEnCalle += balanceRemaining;
         });
 
         return {
@@ -182,7 +193,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold">{formatCurrency(stats.global.totalPrestado)}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Capital que falta por recuperar de los préstamos vigentes.</p>
+                        <p className="text-xs text-muted-foreground mt-1">Capital neto que falta por recuperar (estimación proporcional).</p>
                     </CardContent>
                 </Card>
                 <Card className="bg-green-500/5 border-green-500/20">
@@ -192,7 +203,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-green-600">{formatCurrency(stats.global.dineroEnCalle)}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Suma de abonos restantes por cobrar (incluye intereses).</p>
+                        <p className="text-xs text-muted-foreground mt-1">Saldo total pendiente de cobro (Capital + Interés).</p>
                     </CardContent>
                 </Card>
             </div>
@@ -227,7 +238,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                  {stats.byPlaza.length === 0 && (
                     <Card className="col-span-full">
                         <CardContent className="p-6 text-center text-muted-foreground">
-                            No hay plazas definidas o no hay datos de préstamos activos en el rango de fechas seleccionado.
+                            No hay plazas definidas o no hay datos de préstamos activos.
                         </CardContent>
                     </Card>
                  )}
