@@ -33,7 +33,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Trash2, Loader2, Database, Image as ImageIcon, Pencil, History } from "lucide-react";
+import { Trash2, Loader2, Database, Image as ImageIcon, Pencil, History, ShieldAlert, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction } from "@/app/dashboard/settings/actions";
 import { seedDatabaseAction } from "@/app/dashboard/seed-actions";
@@ -54,9 +54,10 @@ type LogoFormValues = z.infer<typeof logoFormSchema>;
 
 interface SettingsClientPageProps {
     initialConfig: AppConfig | null;
+    mode?: 'system' | 'maintenance';
 }
 
-export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
+export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsClientPageProps) {
     const [isDeleting, setIsDeleting] = useState(false);
     const [isSeeding, setIsSeeding] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
@@ -195,103 +196,136 @@ export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
         }
     };
 
+    if (mode === 'system') {
+        return (
+            <div className="grid gap-6">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Pencil className="h-5 w-5 text-primary" />
+                            Identidad Visual
+                        </CardTitle>
+                        <CardDescription>
+                            Define cómo se ve tu aplicación para todos los usuarios.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <Form {...appNameForm}>
+                            <form onSubmit={appNameForm.handleSubmit(onSaveAppNameSubmit)} className="space-y-4">
+                                <FormField
+                                    control={appNameForm.control}
+                                    name="appName"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Nombre de la Aplicación</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Ej: Mi Negocio de Préstamos" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <Button type="submit" disabled={isSaving}>
+                                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Actualizar Nombre
+                                </Button>
+                            </form>
+                        </Form>
+                        
+                        <Separator />
+
+                        <Form {...logoForm}>
+                            <form onSubmit={logoForm.handleSubmit(onSaveLogoSubmit)} className="space-y-4">
+                                <FormField
+                                    control={logoForm.control}
+                                    name="logoUrl"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>URL del Logotipo (PNG/JPG)</FormLabel>
+                                            <FormControl>
+                                                <div className="flex items-center gap-2">
+                                                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                                                    <Input placeholder="https://tu-servidor.com/logo.png" {...field} />
+                                                </div>
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <Button type="submit" disabled={isSaving}>
+                                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Actualizar Logo
+                                </Button>
+                            </form>
+                        </Form>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-amber-500" />
+                            Asistente de Configuración
+                        </CardTitle>
+                        <CardDescription>
+                            Herramientas para iniciar rápidamente con datos de prueba.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="flex items-center justify-between p-4 border rounded-lg bg-amber-50/50 dark:bg-amber-950/10 border-amber-200 dark:border-amber-900">
+                            <div className="space-y-1">
+                                <p className="font-medium">Cargar Datos de Demostración</p>
+                                <p className="text-sm text-muted-foreground">Poblará el sistema con clientes, préstamos y planes de ejemplo.</p>
+                            </div>
+                            <Button variant="outline" onClick={handleSeedDatabase} disabled={isSeeding}>
+                                {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
+                                Cargar Ejemplo
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+        );
+    }
+
     return (
-        <div className="space-y-6">
-             <Card>
-                <CardHeader>
-                    <CardTitle>Personalización</CardTitle>
-                    <CardDescription>
-                       Ajusta la apariencia y el nombre de tu aplicación.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                    <Form {...appNameForm}>
-                        <form onSubmit={appNameForm.handleSubmit(onSaveAppNameSubmit)} className="space-y-4">
-                             <FormField
-                                control={appNameForm.control}
-                                name="appName"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Nombre de la Aplicación</FormLabel>
-                                        <FormControl>
-                                            <div className="flex items-center gap-2">
-                                                <Pencil className="h-5 w-5 text-muted-foreground" />
-                                                <Input placeholder="Mi App de Préstamos" {...field} />
-                                            </div>
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                                />
-                                <Button type="submit" disabled={isSaving}>
-                                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Guardar Nombre
-                                </Button>
-                        </form>
-                    </Form>
-                    
-                    <Separator />
-
-                    <Form {...logoForm}>
-                        <form onSubmit={logoForm.handleSubmit(onSaveLogoSubmit)} className="space-y-4">
-                             <FormField
-                                control={logoForm.control}
-                                name="logoUrl"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>URL del Logo</FormLabel>
-                                        <FormControl>
-                                            <div className="flex items-center gap-2">
-                                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
-                                                <Input placeholder="https://ejemplo.com/logo.png" {...field} />
-                                            </div>
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                                />
-                                <Button type="submit" disabled={isSaving}>
-                                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Guardar Logo
-                                </Button>
-                        </form>
-                    </Form>
-                </CardContent>
-            </Card>
-
+        <div className="grid gap-6">
             <Card>
                 <CardHeader>
-                    <CardTitle>Mantenimiento de Cobranza</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-blue-600">
+                        <History className="h-5 w-5" />
+                        Procesos Contables
+                    </CardTitle>
                     <CardDescription>
-                        Herramientas para sincronizar los registros financieros de todos los préstamos.
+                        Herramientas para la integridad de los datos financieros.
                     </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 border rounded-lg">
-                        <div>
-                            <h3 className="font-semibold">Acumular todos los pagos asumidos</h3>
-                            <p className="text-sm text-muted-foreground">
-                                Registra formalmente todos los abonos de semanas pasadas que no tienen registro. Esto actualizará el saldo de la cartera y el historial de transacciones.
+                <CardContent>
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 border rounded-lg bg-blue-50/50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900">
+                        <div className="space-y-1">
+                            <h3 className="font-semibold">Sincronización de Pagos Asumidos</h3>
+                            <p className="text-sm text-muted-foreground max-w-xl">
+                                Convierte formalmente todos los abonos de semanas anteriores que no tienen registro en pagos pagados. Esto formaliza tu cartera y actualiza el saldo real.
                             </p>
                         </div>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button variant="secondary" disabled={isAccumulating}>
+                                <Button variant="default" className="bg-blue-600 hover:bg-blue-700" disabled={isAccumulating}>
                                     <History className="mr-2 h-4 w-4" />
-                                    Sincronizar Todo
+                                    Ejecutar Sincronización
                                 </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent>
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>¿Iniciar sincronización masiva?</AlertDialogTitle>
+                                    <AlertDialogTitle>¿Confirmar sincronización masiva?</AlertDialogTitle>
                                     <AlertDialogDescription>
-                                        Esta acción recorrerá TODOS los préstamos activos y registrará pagos para cada semana pasada que no tenga registro. El dinero se sumará a la Cartera Global. Esta operación no se puede deshacer.
+                                        Esta acción registrará pagos para todas las semanas vencidas sin registro en el sistema. El dinero se sumará a la Cartera Global. Esta operación es irreversible.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
                                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
                                     <AlertDialogAction onClick={handleAccumulateAll} className="bg-blue-600 hover:bg-blue-700">
-                                        Continuar
+                                        Confirmar y Ejecutar
                                     </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
@@ -300,50 +334,36 @@ export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle>Datos de Ejemplo</CardTitle>
+            <Card className="border-destructive/50">
+                <CardHeader className="bg-destructive/5">
+                    <CardTitle className="flex items-center gap-2 text-destructive">
+                        <ShieldAlert className="h-5 w-5" />
+                        Acciones de Emergencia
+                    </CardTitle>
                     <CardDescription>
-                        Carga un conjunto de datos de ejemplo para probar la aplicación. Esta acción es útil para demostraciones.
+                        Herramientas destructivas para el reinicio total del sistema.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                    <form action={handleSeedDatabase}>
-                        <Button variant="outline" type="submit" disabled={isSeeding}>
-                            {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
-                            {isSeeding ? 'Cargando...' : 'Cargar Datos de Ejemplo'}
-                        </Button>
-                    </form>
-                </CardContent>
-            </Card>
-
-             <Card className="border-destructive">
-                <CardHeader>
-                    <CardTitle>Zona de Peligro</CardTitle>
-                    <CardDescription>
-                        Estas acciones son destructivas y no se pueden deshacer.
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="flex items-center justify-between rounded-lg border border-destructive/50 p-4">
-                        <div>
-                            <h3 className="font-semibold">Eliminar todos los datos</h3>
+                <CardContent className="pt-6">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-4 border border-destructive/20 rounded-lg">
+                        <div className="space-y-1">
+                            <h3 className="font-semibold">Reinicio de Base de Datos</h3>
                             <p className="text-sm text-muted-foreground">
-                                Esto borrará permanentemente todos los clientes, préstamos, planes y transacciones.
+                                Borra permanentemente todos los clientes, préstamos, transacciones, rutas y configuraciones.
                             </p>
                         </div>
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="destructive">
                                 <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar todos los datos
+                                Borrar Todo el Sistema
                             </Button>
                           </AlertDialogTrigger>
                           <AlertDialogContent>
                             <AlertDialogHeader>
-                              <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
+                              <AlertDialogTitle className="text-destructive">¿Estás ABSOLUTAMENTE seguro?</AlertDialogTitle>
                               <AlertDialogDescription>
-                                Esta acción no se puede deshacer. Esto eliminará permanentemente todos los datos de la aplicación.
+                                Esta acción eliminará permanentemente TODOS los datos de la aplicación. No hay forma de recuperar la información una vez procesada.
                               </AlertDialogDescription>
                             </AlertDialogHeader>
                             <AlertDialogFooter>
@@ -354,7 +374,7 @@ export function SettingsClientPage({ initialConfig }: SettingsClientPageProps) {
                                 className="bg-destructive hover:bg-destructive/90"
                               >
                                 {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Sí, eliminar todo
+                                Sí, eliminar permanentemente
                               </AlertDialogAction>
                             </AlertDialogFooter>
                           </AlertDialogContent>
