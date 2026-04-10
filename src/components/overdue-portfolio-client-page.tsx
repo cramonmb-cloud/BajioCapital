@@ -40,6 +40,9 @@ export function OverduePortfolioClientPage({
     const [selectedLocalidad, setSelectedLocalidad] = useState('all');
     const [selectedPromotora, setSelectedPromotora] = useState('all');
 
+    const isOverduePortfolio = title === "Pagos Pendientes";
+    const globalDebtLabel = isOverduePortfolio ? "Acumulado de Fallos (Filtro)" : "Deuda Pendiente (Filtro)";
+
     // Generate colors for plazas
     const plazaColors = useMemo(() => {
         const sortedPlazas = [...plazas].sort((a, b) => a.name.localeCompare(b.name));
@@ -108,7 +111,7 @@ export function OverduePortfolioClientPage({
         <div className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <div className="bg-destructive/80 text-white p-4 rounded-lg shadow-sm border border-destructive">
-                    <div className="text-xs font-bold uppercase tracking-wider opacity-80">Deuda Pendiente (Filtro)</div>
+                    <div className="text-xs font-bold uppercase tracking-wider opacity-80">{globalDebtLabel}</div>
                     <div className="text-2xl font-bold">
                         {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalDue)}
                     </div>
@@ -175,6 +178,7 @@ export function OverduePortfolioClientPage({
                                 allClients={clients}
                                 allLoanPlans={loanPlans}
                                 plazaColor={plazaColors[details.hierarchy.plazaId] || '#666'}
+                                isOverduePortfolio={isOverduePortfolio}
                            />
                         ))
                     ) : (

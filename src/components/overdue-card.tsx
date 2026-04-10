@@ -32,6 +32,7 @@ interface OverdueCardProps {
     allClients: Client[];
     allLoanPlans: LoanPlan[];
     plazaColor: string;
+    isOverduePortfolio?: boolean;
 }
 
 // Helper to get the Saturday of the week for a given date
@@ -44,7 +45,7 @@ const getSaturdayOfWeek = (d: Date) => {
   return date;
 };
 
-export function OverdueCard({ details, allClients, allLoanPlans, plazaColor }: OverdueCardProps) {
+export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isOverduePortfolio }: OverdueCardProps) {
     const { client, loan, loanPlan, amountDue, missedPayments, hierarchy } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -107,6 +108,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor }: O
     const fullAddress = `${client.street}, ${client.neighborhood}, ${client.city}, ${client.postalCode}`;
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
 
+    const debtLabel = isOverduePortfolio ? "Acumulado de Fallos" : "Saldo Pendiente";
+
     return (
         <>
             <Card className="overflow-hidden border-t-4 transition-all hover:shadow-md" style={{ borderTopColor: plazaColor }}>
@@ -147,7 +150,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor }: O
                             <p className="font-semibold text-sm">{formatCurrency(loan.amount)}</p>
                         </div>
                         <div className="text-right">
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold">Deuda Pendiente</p>
+                            <p className="text-[10px] text-muted-foreground uppercase font-bold">{debtLabel}</p>
                             <p className="font-bold text-xl text-destructive">{formatCurrency(amountDue)}</p>
                         </div>
                     </div>
