@@ -60,6 +60,7 @@ const permissionsSchema = z.object({
   consultarCliente: z.boolean().default(false),
   loans: z.boolean().default(false),
   overduePortfolio: z.boolean().default(false),
+  carteraVencida: z.boolean().default(false),
   wallet: z.boolean().default(false),
   plans: z.boolean().default(false),
   settings: z.boolean().default(false),
@@ -90,7 +91,8 @@ const permissionLabels: { id: keyof UserPermissions; label: string }[] = [
     { id: 'clients', label: 'Clientes' },
     { id: 'consultarCliente', label: 'Consultar Cliente' },
     { id: 'loans', label: 'Préstamos' },
-    { id: 'overduePortfolio', label: 'Cartera Vencida'},
+    { id: 'overduePortfolio', label: 'Pagos Pendientes'},
+    { id: 'carteraVencida', label: 'Cartera Vencida'},
     { id: 'wallet', label: 'Cartera' },
     { id: 'control', label: 'Control' },
     { id: 'plans', label: 'Planes' },
@@ -123,6 +125,7 @@ export function UserManagement({ users }: UserManagementProps) {
         consultarCliente: true,
         loans: true,
         overduePortfolio: true,
+        carteraVencida: true,
         wallet: true,
         plans: false,
         settings: false,
@@ -162,9 +165,6 @@ export function UserManagement({ users }: UserManagementProps) {
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
              try {
-                // If user exists in Auth but not DB, we can't get their UID here easily.
-                // We'll save it with a placeholder UID to make it appear in the list.
-                // This is a workaround for synchronization.
                 const tempUid = `sync-needed-${values.username}`;
                 await saveUserAction(tempUid, { username: values.username, role: values.role, permissions: values.permissions });
                 

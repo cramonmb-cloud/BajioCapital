@@ -23,6 +23,7 @@ interface OverduePortfolioClientPageProps {
     plazas: Plaza[];
     localidades: Localidad[];
     promotoras: Promotora[];
+    title: string;
 }
 
 export function OverduePortfolioClientPage({ 
@@ -31,7 +32,8 @@ export function OverduePortfolioClientPage({
     loanPlans, 
     plazas, 
     localidades, 
-    promotoras 
+    promotoras,
+    title
 }: OverduePortfolioClientPageProps) {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPlaza, setSelectedPlaza] = useState('all');
@@ -79,7 +81,7 @@ export function OverduePortfolioClientPage({
             const matchesSearch = searchTerm === '' || 
                 details.client.name.toLowerCase().includes(term) ||
                 details.client.street.toLowerCase().includes(term) ||
-                details.client.phone.includes(term) || // Búsqueda por teléfono
+                details.client.phone.includes(term) || 
                 details.hierarchy.plazaName.toLowerCase().includes(term) ||
                 details.hierarchy.localidadName.toLowerCase().includes(term) ||
                 details.hierarchy.promotoraName.toLowerCase().includes(term);
@@ -178,7 +180,7 @@ export function OverduePortfolioClientPage({
                     ) : (
                         <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg bg-muted/30">
                             <p className="text-muted-foreground font-medium">
-                                No hay clientes con pagos pendientes que coincidan con la búsqueda o filtros.
+                                No hay clientes en {title} que coincidan con la búsqueda o filtros.
                             </p>
                         </div>
                     )}

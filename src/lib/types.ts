@@ -76,6 +76,7 @@ export type UserPermissions = {
     consultarCliente: boolean;
     loans: boolean;
     overduePortfolio: boolean;
+    carteraVencida: boolean;
     wallet: boolean;
     plans: boolean;
     settings: boolean;

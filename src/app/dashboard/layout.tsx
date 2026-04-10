@@ -20,6 +20,7 @@ const allLinks = [
   { href: '/dashboard/clients', label: 'Clientes', id: 'clients' },
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans' },
   { href: '/dashboard/overdue-portfolio', label: 'Pagos Pendientes', id: 'overduePortfolio'},
+  { href: '/dashboard/cartera-vencida', label: 'Cartera Vencida', id: 'carteraVencida'},
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet' },
   { href: '/dashboard/control', label: 'Control', id: 'control' },
   { href: '/dashboard/plans', label: 'Planes', id: 'plans' },
@@ -53,7 +54,7 @@ export default function DashboardLayout({
 
         if (isDashboardPage && !hasDashboardAccess) {
             const firstAllowedPage = allLinks.find(
-                link => link.id !== 'dashboard' && appUser.permissions?.[link.id]
+                link => link.id !== 'dashboard' && appUser.permissions?.[link.id as keyof UserPermissions]
             );
 
             if (firstAllowedPage) {
@@ -74,13 +75,12 @@ export default function DashboardLayout({
       }
     }
     fetchConfig();
-  }, [pathname]); // Refetch on path change to ensure it's up to date
+  }, [pathname]); 
   
   if (loading || !user || !appUser) {
     return <div className="flex h-screen w-full items-center justify-center"><Loading /></div>;
   }
   
-  // While redirecting, show a loader to avoid flashing the unauthorized content
   const isDashboardPage = pathname === '/dashboard';
   const hasDashboardAccess = appUser.role === 'admin' || (appUser.permissions && appUser.permissions.dashboard);
   if (isDashboardPage && !hasDashboardAccess) {

@@ -18,7 +18,7 @@ export type OverdueLoanDetails = {
     };
 };
 
-export default async function OverduePortfolioPage() {
+export default async function CarteraVencidaPage() {
     const [loans, clients, loanPlans, plazas, localidades, promotoras] = await Promise.all([
         getLoans(),
         getClients(),
@@ -58,9 +58,9 @@ export default async function OverduePortfolioPage() {
             const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
             const balance = totalToPay - totalPaid;
 
-            // 'Pagos Pendientes': Active loans WITH registered failures (missedPayments > 0) 
-            // but that have NOT yet reached maturity (isExpired is false)
-            if (!isExpired && missedPaymentsCount > 0) {
+            // 'Cartera Vencida': Loans that HAVE reached maturity (isExpired is true) 
+            // and STILL have a balance > 0
+            if (isExpired && balance > 0) {
                 return {
                     loan,
                     client,
@@ -85,9 +85,9 @@ export default async function OverduePortfolioPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
+                <h1 className="text-3xl font-bold tracking-tight">Cartera Vencida</h1>
                 <p className="text-muted-foreground">
-                    Préstamos vigentes que tienen atrasos o pagos incompletos registrados.
+                    Préstamos que han superado su fecha de vencimiento y aún tienen saldo pendiente.
                 </p>
             </div>
             <OverduePortfolioClientPage 
@@ -97,7 +97,7 @@ export default async function OverduePortfolioPage() {
                 plazas={plazas}
                 localidades={localidades}
                 promotoras={promotoras}
-                title="Pagos Pendientes"
+                title="Cartera Vencida"
             />
         </div>
     );
