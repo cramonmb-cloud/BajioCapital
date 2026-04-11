@@ -64,8 +64,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 settings: true,
                 editClients: true,
                 control: true,
-                showMobileNavBar: true,
-                mobileSections: ['dashboard', 'loans', 'overduePortfolio', 'wallet'],
               };
               const newAppUser: Omit<AppUser, 'id'> = {
                 username: username.charAt(0).toUpperCase() + username.slice(1),

@@ -82,8 +82,6 @@ export type UserPermissions = {
     settings: boolean;
     editClients: boolean;
     control: boolean;
-    showMobileNavBar?: boolean;
-    mobileSections?: string[];
 };
 
 export type AppUser = {
