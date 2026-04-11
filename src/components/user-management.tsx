@@ -434,7 +434,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                 <ShieldCheck className="h-6 w-6 text-primary" />
                                 Gestionar: {selectedUser?.username}
                             </DialogTitle>
-                            <DialogHeader>Ajusta el rol y los privilegios de navegación para este usuario.</DialogHeader>
+                            <DialogDescription>Ajusta el rol y los privilegios de navegación para este usuario.</DialogDescription>
                         </DialogHeader>
                         
                         <div className="space-y-8 py-2">
