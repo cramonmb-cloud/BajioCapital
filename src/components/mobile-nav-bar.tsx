@@ -13,7 +13,7 @@ const allLinks: { href: string; label: string; id: string, icon: LucideIcon, col
   { href: '/dashboard/consultar-cliente', label: 'Buscar', id: 'consultarCliente', icon: Search, color: '#3b82f6' },
   { href: '/dashboard/loans', label: 'Pagos', id: 'loans', icon: Landmark, color: '#3b82f6' },
   { href: '/dashboard/overdue-portfolio', label: 'Pendientes', id: 'overduePortfolio', icon: FileWarning, color: '#f97316' },
-  { href: '/dashboard/cartera-vencida', label: 'Vencida', id: 'carteraVencida', icon: History, color: '#dc2626' },
+  { href: '/dashboard/carteravencida', label: 'Vencida', id: 'carteraVencida', icon: History, color: '#dc2626' },
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet', icon: Wallet, color: '#3b82f6' },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity, color: '#2563eb' },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings', icon: Settings, color: '#3b82f6' },
@@ -25,6 +25,7 @@ export function MobileNavBar() {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    // Solo mostrar si no se ha hecho mucho scroll para dar sensación de limpieza
     const handleScroll = () => {
       setIsVisible(window.scrollY < 50);
     };
