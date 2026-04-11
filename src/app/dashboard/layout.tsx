@@ -14,6 +14,7 @@ import type { UserPermissions } from '@/lib/types';
 import { getAppConfig } from '@/lib/firestore-data';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { MobileNavBar } from '@/components/mobile-nav-bar';
 
 
 const allLinks = [
@@ -138,9 +139,10 @@ export default function DashboardLayout({
           <UserNav />
         </div>
       </header>
-      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-8 max-w-[1600px] mx-auto w-full animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out">
+      <main className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-8 max-w-[1600px] mx-auto w-full animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out pb-24 md:pb-8">
         {children}
       </main>
+      <MobileNavBar />
     </div>
   );
 }

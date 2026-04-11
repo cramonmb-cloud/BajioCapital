@@ -21,6 +21,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
     Select,
@@ -45,7 +46,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, Smartphone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -66,6 +68,8 @@ const permissionsSchema = z.object({
   settings: z.boolean().default(false),
   editClients: z.boolean().default(false),
   control: z.boolean().default(false),
+  showMobileNavBar: z.boolean().default(false),
+  mobileSections: z.array(z.string()).default([]),
 });
 
 const addUserFormSchema = z.object({
@@ -130,6 +134,8 @@ export function UserManagement({ users }: UserManagementProps) {
         settings: false,
         editClients: false,
         control: true,
+        showMobileNavBar: false,
+        mobileSections: ['dashboard', 'loans', 'consultarCliente'],
       },
     },
   });
@@ -142,7 +148,11 @@ export function UserManagement({ users }: UserManagementProps) {
     if (selectedUser) {
       editUserForm.reset({
         role: selectedUser.role,
-        permissions: { ...permissionsSchema.parse({}), ...selectedUser.permissions },
+        permissions: { 
+            ...permissionsSchema.parse({}), 
+            ...selectedUser.permissions,
+            mobileSections: selectedUser.permissions.mobileSections || []
+        },
       });
     }
   }, [selectedUser, editUserForm]);
@@ -302,6 +312,54 @@ export function UserManagement({ users }: UserManagementProps) {
                             </div>
                         </div>
 
+                        <div className="space-y-4 bg-muted/20 p-6 rounded-3xl border">
+                            <div className="flex items-center gap-2 border-b pb-2 mb-4">
+                                <Smartphone className="h-4 w-4 text-primary" />
+                                <h4 className="text-sm font-bold uppercase tracking-wider">Configuración Barra Móvil</h4>
+                            </div>
+                            <FormField
+                                control={addUserForm.control}
+                                name="permissions.showMobileNavBar"
+                                render={({ field }) => (
+                                <FormItem className="flex items-center justify-between space-x-2 space-y-0 rounded-xl border bg-background p-4 mb-4">
+                                    <div>
+                                        <FormLabel className="text-base font-bold">Activar Navigator Bar Móvil</FormLabel>
+                                        <FormDescription>Habilita la barra flotante inferior en dispositivos móviles.</FormDescription>
+                                    </div>
+                                    <FormControl>
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
+                                </FormItem>
+                                )}
+                            />
+                            {addUserForm.watch('permissions.showMobileNavBar') && (
+                                <div className="space-y-3">
+                                    <p className="text-xs font-bold uppercase text-muted-foreground">Iconos en Barra Móvil (Máx 5)</p>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                        {permissionLabels.filter(p => p.id !== 'settings' && p.id !== 'editClients').map((item) => (
+                                            <label key={item.id} className={cn(
+                                                "flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all",
+                                                addUserForm.watch('permissions.mobileSections')?.includes(item.id) ? "bg-primary/10 border-primary text-primary" : "bg-background"
+                                            )}>
+                                                <Checkbox 
+                                                    checked={addUserForm.watch('permissions.mobileSections')?.includes(item.id)}
+                                                    onCheckedChange={(checked) => {
+                                                        const current = addUserForm.getValues('permissions.mobileSections') || [];
+                                                        if (checked) {
+                                                            if (current.length < 5) addUserForm.setValue('permissions.mobileSections', [...current, item.id]);
+                                                        } else {
+                                                            addUserForm.setValue('permissions.mobileSections', current.filter(id => id !== item.id));
+                                                        }
+                                                    }}
+                                                />
+                                                {item.label}
+                                            </label>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         <div className="flex justify-end pt-4">
                             <Button type="submit" size="lg" disabled={isSaving} className="px-8 font-bold">
                                 {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
@@ -340,12 +398,15 @@ export function UserManagement({ users }: UserManagementProps) {
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-xs text-muted-foreground max-w-[400px] hidden md:table-cell">
-                                   {user.role === 'admin' ? 
-                                        <span className="text-primary font-bold">ACCESO TOTAL AL SISTEMA</span> : 
-                                        user.permissions ? Object.entries(user.permissions)
-                                            .filter(([, value]) => value)
-                                            .map(([key]) => permissionLabels.find(p => p.id === key)?.label || key)
-                                            .join(', ') : 'SIN ACCESOS DEFINIDOS'}
+                                   <div className='flex flex-wrap gap-1'>
+                                        {user.role === 'admin' ? 
+                                            <span className="text-primary font-bold">ACCESO TOTAL</span> : 
+                                            permissionLabels
+                                                .filter(p => user.permissions?.[p.id])
+                                                .map(p => <Badge key={p.id} variant="outline" className='text-[9px] h-4'>{p.label}</Badge>)
+                                        }
+                                        {user.permissions?.showMobileNavBar && <Badge variant="success" className='text-[9px] h-4'>BARRA MÓVIL</Badge>}
+                                   </div>
                                 </TableCell>
                                 <TableCell className="text-right pr-8">
                                     <div className="flex justify-end gap-2">
@@ -365,7 +426,7 @@ export function UserManagement({ users }: UserManagementProps) {
         </Card>
 
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-            <DialogContent className="max-w-3xl rounded-2xl">
+            <DialogContent className="max-w-3xl rounded-2xl max-h-[90vh] overflow-y-auto">
                 <Form {...editUserForm}>
                     <form onSubmit={editUserForm.handleSubmit(onEditUserSubmit)} className="space-y-8">
                         <DialogHeader className="border-b pb-4">
@@ -423,6 +484,54 @@ export function UserManagement({ users }: UserManagementProps) {
                                     />
                                     ))}
                                 </div>
+                            </div>
+
+                            <div className="space-y-4 bg-muted/20 p-6 rounded-3xl border">
+                                <div className="flex items-center gap-2 border-b pb-2 mb-4">
+                                    <Smartphone className="h-4 w-4 text-primary" />
+                                    <h4 className="text-sm font-bold uppercase tracking-wider">Navigator Bar Móvil</h4>
+                                </div>
+                                <FormField
+                                    control={editUserForm.control}
+                                    name="permissions.showMobileNavBar"
+                                    render={({ field }) => (
+                                    <FormItem className="flex items-center justify-between space-x-2 space-y-0 rounded-xl border bg-background p-4 mb-4">
+                                        <div>
+                                            <FormLabel className="text-base font-bold">Activar Barra Flotante</FormLabel>
+                                            <FormDescription>Permitir acceso rápido desde el celular.</FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                        </FormControl>
+                                    </FormItem>
+                                    )}
+                                />
+                                {editUserForm.watch('permissions.showMobileNavBar') && (
+                                    <div className="space-y-3">
+                                        <p className="text-xs font-bold uppercase text-muted-foreground">Iconos Activos (Máx 5)</p>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                            {permissionLabels.filter(p => p.id !== 'settings' && p.id !== 'editClients').map((item) => (
+                                                <label key={item.id} className={cn(
+                                                    "flex items-center gap-2 p-2 rounded-lg border text-xs cursor-pointer transition-all",
+                                                    editUserForm.watch('permissions.mobileSections')?.includes(item.id) ? "bg-primary/10 border-primary text-primary" : "bg-background"
+                                                )}>
+                                                    <Checkbox 
+                                                        checked={editUserForm.watch('permissions.mobileSections')?.includes(item.id)}
+                                                        onCheckedChange={(checked) => {
+                                                            const current = editUserForm.getValues('permissions.mobileSections') || [];
+                                                            if (checked) {
+                                                                if (current.length < 5) editUserForm.setValue('permissions.mobileSections', [...current, item.id]);
+                                                            } else {
+                                                                editUserForm.setValue('permissions.mobileSections', current.filter(id => id !== item.id));
+                                                            }
+                                                        }}
+                                                    />
+                                                    {item.label}
+                                                </label>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

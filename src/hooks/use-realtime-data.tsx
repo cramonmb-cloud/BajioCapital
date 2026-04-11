@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import { collection, onSnapshot, QuerySnapshot, DocumentData, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Loan, Client, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface RealtimeData {
     loans: Loan[];
@@ -17,12 +19,10 @@ interface RealtimeData {
 function processSnapshot<T>(snapshot: QuerySnapshot<DocumentData, DocumentData>): T[] {
     return snapshot.docs.map(doc => {
         const data = doc.data();
-        // Convert any Timestamps to ISO strings for serializability
         for (const key in data) {
             if (data[key] instanceof Timestamp) {
                 data[key] = (data[key] as Timestamp).toDate().toISOString();
             }
-            // Also check for nested timestamps in payments array
             if (key === 'payments' && Array.isArray(data[key])) {
                 data[key] = data[key].map((p: any) => {
                     if (p.date instanceof Timestamp) {
@@ -65,15 +65,18 @@ export function useRealtimeData() {
             }));
             setLoading(false);
         },
-        (err) => {
-          console.error(`Error fetching ${key}:`, err);
-          setError(err);
+        async (err) => {
+          const permissionError = new FirestorePermissionError({
+            path: collRef.path,
+            operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          setError(permissionError);
           setLoading(false);
         }
       );
     });
 
-    // Cleanup function to unsubscribe from all listeners on component unmount
     return () => {
       unsubscribers.forEach(unsubscribe => unsubscribe());
     };

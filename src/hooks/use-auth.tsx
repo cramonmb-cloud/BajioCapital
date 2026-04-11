@@ -13,6 +13,8 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { saveUserAction } from '@/app/dashboard/settings/actions';
 import type { AppUser, UserPermissions } from '@/lib/types';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface AuthContextType {
   user: User | null;
@@ -36,34 +38,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(user);
       if (user) {
         const userDocRef = doc(db, 'users', user.uid);
-        const userDocSnap = await getDoc(userDocRef);
-        if (userDocSnap.exists()) {
-          setAppUser({ id: userDocSnap.id, ...userDocSnap.data() } as AppUser);
-        } else {
-          // User exists in Auth but not Firestore. Create a profile for them.
-          // This is a failsafe for the first user or desynchronized users.
-          console.warn("User exists in Auth but not in Firestore. Creating a default admin profile.");
-          const username = user.email?.split('@')[0] || 'admin';
-          const defaultAdminPermissions: UserPermissions = {
-            dashboard: true,
-            clients: true,
-            consultarCliente: true,
-            loans: true,
-            overduePortfolio: true,
-            wallet: true,
-            plans: true,
-            settings: true,
-            editClients: true,
-            control: true,
-          };
-          const newAppUser: Omit<AppUser, 'id'> = {
-            username: username.charAt(0).toUpperCase() + username.slice(1),
-            role: 'admin',
-            permissions: defaultAdminPermissions,
-          };
-          
-          await setDoc(userDocRef, newAppUser);
-          setAppUser({ id: user.uid, ...newAppUser });
+        try {
+            const userDocSnap = await getDoc(userDocRef);
+            if (userDocSnap.exists()) {
+              setAppUser({ id: userDocSnap.id, ...userDocSnap.data() } as AppUser);
+            } else {
+              const username = user.email?.split('@')[0] || 'admin';
+              const defaultAdminPermissions: UserPermissions = {
+                dashboard: true,
+                clients: true,
+                consultarCliente: true,
+                loans: true,
+                overduePortfolio: true,
+                carteraVencida: true,
+                wallet: true,
+                plans: true,
+                settings: true,
+                editClients: true,
+                control: true,
+                showMobileNavBar: true,
+                mobileSections: ['dashboard', 'loans', 'overduePortfolio', 'wallet'],
+              };
+              const newAppUser: Omit<AppUser, 'id'> = {
+                username: username.charAt(0).toUpperCase() + username.slice(1),
+                role: 'admin',
+                permissions: defaultAdminPermissions,
+              };
+              
+              await setDoc(userDocRef, newAppUser).catch(async (err) => {
+                  const permissionError = new FirestorePermissionError({
+                      path: userDocRef.path,
+                      operation: 'create',
+                      requestResourceData: newAppUser
+                  });
+                  errorEmitter.emit('permission-error', permissionError);
+                  throw permissionError;
+              });
+              setAppUser({ id: user.uid, ...newAppUser });
+            }
+        } catch (err: any) {
+            if (!(err instanceof FirestorePermissionError)) {
+                const permissionError = new FirestorePermissionError({
+                    path: userDocRef.path,
+                    operation: 'get'
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            }
         }
       } else {
         setAppUser(null);
@@ -78,7 +98,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const { uid } = userCredential.user;
     
-    // After creating the user in Auth, save their details to Firestore
     await saveUserAction(uid, { username, role, permissions });
 
     return userCredential;
