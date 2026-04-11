@@ -14,6 +14,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Switch } from '@/components/ui/switch';
 import {
   Form,
   FormControl,
@@ -21,6 +22,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import {
     Select,
@@ -45,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users } from 'lucide-react';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -66,6 +68,8 @@ const permissionsSchema = z.object({
   settings: z.boolean().default(false),
   editClients: z.boolean().default(false),
   control: z.boolean().default(false),
+  showMobileNavBar: z.boolean().default(false),
+  mobileSections: z.array(z.string()).default([]),
 });
 
 const addUserFormSchema = z.object({
@@ -85,18 +89,18 @@ type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 
 const DUMMY_DOMAIN = 'credicontrol.app';
 
-const permissionLabels: { id: keyof UserPermissions; label: string; description: string }[] = [
-    { id: 'dashboard', label: 'Dashboard', description: 'Vista general de métricas' },
-    { id: 'clients', label: 'Clientes', description: 'Listado y registro de clientes' },
-    { id: 'consultarCliente', label: 'Consultar Cliente', description: 'Búsqueda rápida de perfiles' },
-    { id: 'loans', label: 'Préstamos', description: 'Hojas de cobranza semanal' },
-    { id: 'overduePortfolio', label: 'Pagos Pendientes', description: 'Clientes con fallos vigentes' },
-    { id: 'carteraVencida', label: 'Cartera Vencida', description: 'Cuentas incobrables post-vencimiento' },
-    { id: 'wallet', label: 'Cartera', description: 'Flujo de caja y movimientos' },
-    { id: 'control', label: 'Control', description: 'Capital en calle y proyecciones' },
-    { id: 'plans', label: 'Planes', description: 'Creación de tipos de préstamo' },
-    { id: 'settings', label: 'Ajustes', description: 'Configuraciones críticas del sistema' },
-    { id: 'editClients', label: 'Editar Clientes', description: 'Modificar datos de clientes existentes' },
+const permissionLabels: { id: keyof UserPermissions; label: string; description: string; icon: any }[] = [
+    { id: 'dashboard', label: 'Dashboard', description: 'Vista general de métricas', icon: LayoutDashboard },
+    { id: 'clients', label: 'Clientes', description: 'Listado y registro de clientes', icon: Users },
+    { id: 'consultarCliente', label: 'Consultar Cliente', description: 'Búsqueda rápida de perfiles', icon: Search },
+    { id: 'loans', label: 'Préstamos', description: 'Hojas de cobranza semanal', icon: Landmark },
+    { id: 'overduePortfolio', label: 'Pagos Pendientes', description: 'Clientes con fallos vigentes', icon: FileWarning },
+    { id: 'carteraVencida', label: 'Cartera Vencida', description: 'Cuentas incobrables post-vencimiento', icon: History },
+    { id: 'wallet', label: 'Cartera', description: 'Flujo de caja y movimientos', icon: Wallet },
+    { id: 'control', label: 'Control', description: 'Capital en calle y proyecciones', icon: Activity },
+    { id: 'plans', label: 'Planes', description: 'Creación de tipos de préstamo', icon: Lock },
+    { id: 'settings', label: 'Ajustes', description: 'Configuraciones críticas del sistema', icon: ShieldCheck },
+    { id: 'editClients', label: 'Editar Clientes', description: 'Modificar datos de clientes existentes', icon: Edit },
 ];
 
 interface UserManagementProps {
@@ -130,6 +134,8 @@ export function UserManagement({ users }: UserManagementProps) {
         settings: false,
         editClients: false,
         control: true,
+        showMobileNavBar: true,
+        mobileSections: ['dashboard', 'loans', 'overduePortfolio', 'wallet', 'consultarCliente']
       },
     },
   });
@@ -202,6 +208,19 @@ export function UserManagement({ users }: UserManagementProps) {
   const openEditDialog = (user: AppUser) => {
     setSelectedUser(user);
     setEditDialogOpen(true);
+  };
+
+  const toggleMobileSection = (form: any, sectionId: string) => {
+    const current = form.getValues('permissions.mobileSections') || [];
+    if (current.includes(sectionId)) {
+        form.setValue('permissions.mobileSections', current.filter((id: string) => id !== sectionId));
+    } else {
+        if (current.length >= 5) {
+            toast({ title: 'Límite alcanzado', description: 'Solo puedes seleccionar hasta 5 secciones para la barra móvil.' });
+            return;
+        }
+        form.setValue('permissions.mobileSections', [...current, sectionId]);
+    }
   };
 
   return (
@@ -305,6 +324,56 @@ export function UserManagement({ users }: UserManagementProps) {
                             </div>
                         </div>
 
+                        <div className="space-y-6 pt-4">
+                            <div className="flex items-center gap-2 border-b pb-2">
+                                <Activity className="h-4 w-4 text-primary" />
+                                <h4 className="text-sm font-bold uppercase tracking-wider">Configuración de Interfaz Móvil</h4>
+                            </div>
+                            
+                            <FormField
+                                control={addUserForm.control}
+                                name="permissions.showMobileNavBar"
+                                render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-blue-50/20 border-blue-100">
+                                    <div className="space-y-0.5">
+                                        <FormLabel className="text-base font-bold">Navigator Bar Móvil</FormLabel>
+                                        <FormDescription>Habilita la barra de navegación flotante ultra-moderna en dispositivos celulares.</FormDescription>
+                                    </div>
+                                    <FormControl>
+                                        <Switch
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                </FormItem>
+                                )}
+                            />
+
+                            {addUserForm.watch('permissions.showMobileNavBar') && (
+                                <div className="space-y-3">
+                                    <p className="text-sm font-bold text-muted-foreground">Selecciona hasta 5 secciones para la barra móvil:</p>
+                                    <div className="flex flex-wrap gap-2">
+                                        {permissionLabels.filter(p => p.id !== 'settings' && p.id !== 'editClients' && p.id !== 'plans').map((item) => {
+                                            const isSelected = addUserForm.watch('permissions.mobileSections').includes(item.id);
+                                            return (
+                                                <Button
+                                                    key={item.id}
+                                                    type="button"
+                                                    variant={isSelected ? 'default' : 'outline'}
+                                                    size="sm"
+                                                    className={cn("h-10 px-4 rounded-full transition-all", isSelected && "ring-2 ring-primary ring-offset-2")}
+                                                    onClick={() => toggleMobileSection(addUserForm, item.id)}
+                                                >
+                                                    <item.icon className="h-4 w-4 mr-2" />
+                                                    {item.label}
+                                                </Button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         <div className="flex justify-end pt-4">
                             <Button type="submit" size="lg" disabled={isSaving} className="px-8 font-bold">
                                 {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
@@ -350,6 +419,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                                 .filter(p => user.permissions?.[p.id])
                                                 .map(p => <Badge key={p.id} variant="outline" className='text-[9px] h-4'>{p.label}</Badge>)
                                         }
+                                        {user.permissions?.showMobileNavBar && <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-[9px] h-4 border-blue-200">MOB NAV</Badge>}
                                    </div>
                                 </TableCell>
                                 <TableCell className="text-right pr-8">
@@ -428,6 +498,56 @@ export function UserManagement({ users }: UserManagementProps) {
                                     />
                                     ))}
                                 </div>
+                            </div>
+
+                            <div className="space-y-6 pt-4 border-t">
+                                <div className="flex items-center gap-2">
+                                    <Activity className="h-4 w-4 text-primary" />
+                                    <h4 className="text-sm font-bold uppercase tracking-wider">Interfaz Móvil (Navigator Bar)</h4>
+                                </div>
+                                
+                                <FormField
+                                    control={editUserForm.control}
+                                    name="permissions.showMobileNavBar"
+                                    render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-blue-50/20 border-blue-100">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="text-base font-bold">Activar Barra Móvil</FormLabel>
+                                            <FormDescription>Habilita la navegación rápida en celulares.</FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Switch
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
+                                    </FormItem>
+                                    )}
+                                />
+
+                                {editUserForm.watch('permissions.showMobileNavBar') && (
+                                    <div className="space-y-3">
+                                        <p className="text-sm font-bold text-muted-foreground">Iconos visibles (Máx 5):</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {permissionLabels.filter(p => p.id !== 'settings' && p.id !== 'editClients' && p.id !== 'plans').map((item) => {
+                                                const isSelected = editUserForm.watch('permissions.mobileSections')?.includes(item.id);
+                                                return (
+                                                    <Button
+                                                        key={item.id}
+                                                        type="button"
+                                                        variant={isSelected ? 'default' : 'outline'}
+                                                        size="sm"
+                                                        className={cn("h-9 rounded-full px-4", isSelected && "bg-blue-600 hover:bg-blue-700")}
+                                                        onClick={() => toggleMobileSection(editUserForm, item.id)}
+                                                    >
+                                                        <item.icon className="h-3.5 w-3.5 mr-2" />
+                                                        {item.label}
+                                                    </Button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

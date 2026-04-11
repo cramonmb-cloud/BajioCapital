@@ -64,6 +64,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 settings: true,
                 editClients: true,
                 control: true,
+                showMobileNavBar: true,
+                mobileSections: ['dashboard', 'loans', 'overduePortfolio', 'wallet', 'consultarCliente']
               };
               const newAppUser: Omit<AppUser, 'id'> = {
                 username: username.charAt(0).toUpperCase() + username.slice(1),
@@ -80,10 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   errorEmitter.emit('permission-error', permissionError);
                   throw permissionError;
               });
-              setAppUser({ id: user.uid, ...newAppUser });
+              setAppUser({ id: user.uid, ...newAppUser } as AppUser);
             }
         } catch (err: any) {
-            // Error handling is centralized in FirestorePermissionError
+            // Error handling is centralized
         }
       } else {
         setAppUser(null);

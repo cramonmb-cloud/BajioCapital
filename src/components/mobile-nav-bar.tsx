@@ -35,7 +35,7 @@ export function MobileNavBar() {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  if (!appUser || !appUser.permissions.showMobileNavBar) {
+  if (!appUser || !appUser.permissions?.showMobileNavBar) {
     return null;
   }
 

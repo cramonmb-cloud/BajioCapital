@@ -3,6 +3,7 @@
 import { Logo } from '@/components/logo';
 import { MainNav } from '@/components/main-nav';
 import { UserNav } from '@/components/user-nav';
+import { MobileNavBar } from '@/components/mobile-nav-bar';
 import { Button } from '@/components/ui/button';
 import { Bell, Menu, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -22,7 +23,7 @@ const allLinks = [
   { href: '/dashboard/consultar-cliente', label: 'Consultar', id: 'consultarCliente' },
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans' },
   { href: '/dashboard/overdue-portfolio', label: 'Pendientes', id: 'overduePortfolio'},
-  { href: '/dashboard/cartera-vencida', label: 'Vencida', id: 'carteraVencida'},
+  { href: '/dashboard/carteravencida', label: 'Vencida', id: 'carteraVencida'},
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet' },
   { href: '/dashboard/control', label: 'Control', id: 'control' },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings' },
@@ -141,6 +142,7 @@ export default function DashboardLayout({
       <main className="flex flex-1 flex-col gap-4 p-4 md:gap-6 md:p-8 max-w-[1600px] mx-auto w-full animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out pb-24 md:pb-8">
         {children}
       </main>
+      <MobileNavBar />
     </div>
   );
 }
