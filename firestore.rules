@@ -3,29 +3,13 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * CREDICONTROL SECURITY RULES
+     * CREDICONTROL SECURITY RULES (V2 - ESTRUCTURA PLANA)
      *
-     * Core Philosophy:
-     * This ruleset enforces a strict Role-Based Access Control (RBAC) model combined with user ownership.
-     * Access is tiered across Admin, Agent, and Auditor roles, where the user's role is stored directly
-     * on their profile document.
-     *
-     * Data Structure:
-     * The database is organized into top-level business entities (Clients, Endorsers, LoanTypes) 
-     * and a user-centric tree for profile and navigation settings (/users/{userId}/...).
-     *
-     * Key Security Decisions:
-     * 1. Authorization Independence: Subcollections use path-based IDs (like {clientId}) to allow 
-     *    rules to validate relationships without expensive get() calls.
-     * 2. Role-Based Permissions: Adhering to the "Agent" vs "Admin" vs "Auditor" model defined 
-     *    in the entity logic.
-     * 3. Navigation Security: Access to specific UI sections is secured via a subcollection 
-     *    under each user, managed exclusively by Admins.
-     * 4. Relational Integrity: On creation, documents must link correctly to their parents via 
-     *    internal ID fields (e.g., clientId).
+     * Estas reglas han sido actualizadas para soportar la estructura de colecciones
+     * de primer nivel utilizada en el código de React y los roles 'admin' y 'supervisor'.
      */
 
-    // --- HELPER FUNCTIONS ---
+    // --- FUNCIONES DE AYUDA ---
 
     function isSignedIn() {
       return request.auth != null;
@@ -35,159 +19,82 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function hasRole(role) {
-      return isSignedIn() && getUserData().role == role;
-    }
-
     function isAdmin() {
-      return hasRole('Admin');
+      return isSignedIn() && getUserData().role == 'admin';
     }
 
-    function isAgent() {
-      return hasRole('Agent');
+    function isSupervisor() {
+      return isSignedIn() && getUserData().role == 'supervisor';
     }
 
-    function isAuditor() {
-      return hasRole('Auditor');
+    function isStaff() {
+      return isAdmin() || isSupervisor();
     }
 
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
-    }
+    // --- REGLAS POR COLECCIÓN ---
 
-    function isInternalStaff() {
-      return isAdmin() || isAgent() || isAuditor();
-    }
-
-    function canModifyData() {
-      return isAdmin() || isAgent();
-    }
-
-    // --- COLLECTION RULES ---
-
-    /**
-     * @description Rules for the User profile documents.
-     * @path /users/{userId}
-     * @allow (get) If the user is the owner or an Admin. (create) If the user is registering their own ID.
-     * @deny (write) If an Agent tries to modify another user's profile.
-     * @principle Enforces identity-based ownership and administrative oversight.
-     */
+    // Perfiles de usuario
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if (isExistingOwner(userId) || isAdmin()) && request.resource.data.id == resource.data.id;
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
-
-      /**
-       * @description Controls which navigation sections a specific user can access.
-       * @path /users/{userId}/navigationAccesses/{sectionId}
-       * @allow (list) If the user is checking their own permissions. (write) Admin-only management.
-       * @deny (create) If a non-Admin user tries to grant themselves access to a menu.
-       * @principle Uses path-based ownership for lookup and Admin-only write control.
-       */
-      match /navigationAccesses/{sectionId} {
-        allow get, list: if isOwner(userId) || isAdmin();
-        allow create, update, delete: if isAdmin();
-      }
     }
 
-    /**
-     * @description Global definitions for loan products.
-     * @path /loanTypes/{loanTypeId}
-     * @allow (read) All internal staff. (write) Admin only.
-     * @deny (update) Agents or Auditors trying to change interest rates.
-     * @principle Read-only access for operational staff; restricted configuration for Admins.
-     */
-    match /loanTypes/{loanTypeId} {
-      allow get, list: if isInternalStaff();
-      allow create, update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Master list of available mobile navigation sections.
-     * @path /navigationSections/{sectionId}
-     * @allow (read) All internal staff. (write) Admin only.
-     * @deny (create) Any non-Admin user.
-     * @principle Centralized UI configuration managed by system administrators.
-     */
-    match /navigationSections/{sectionId} {
-      allow get, list: if isInternalStaff();
-      allow create, update, delete: if isAdmin();
-    }
-
-    /**
-     * @description Client records for individuals receiving loans.
-     * @path /clients/{clientId}
-     * @allow (read) All staff. (write) Admin or Agent.
-     * @deny (delete) Standard agents (financial data should only be deleted by Admins).
-     * @principle Role-based access for client management.
-     */
+    // Clientes
     match /clients/{clientId} {
-      allow get, list: if isInternalStaff();
-      allow create: if canModifyData();
-      allow update: if canModifyData() && request.resource.data.id == resource.data.id;
+      allow read: if isStaff();
+      allow create, update: if isStaff();
       allow delete: if isAdmin();
-
-      /**
-       * @description Guarantees/Collateral provided by a client.
-       * @path /clients/{clientId}/guarantees/{guaranteeId}
-       * @allow (read) All staff. (write) Admin or Agent.
-       * @deny (create) Mismatched clientId in request body.
-       * @principle Validates relational integrity between subcollection and parent.
-       */
-      match /guarantees/{guaranteeId} {
-        allow get, list: if isInternalStaff();
-        allow create: if canModifyData() && request.resource.data.clientId == clientId;
-        allow update: if canModifyData() && request.resource.data.clientId == resource.data.clientId;
-        allow delete: if isAdmin();
-      }
-
-      /**
-       * @description Loans issued to a client.
-       * @path /clients/{clientId}/loans/{loanId}
-       * @allow (read) All staff. (write) Admin or Agent.
-       * @deny (update) Modification of the link to the client or loan type.
-       * @principle Enforces immutability of critical financial relationships.
-       */
-      match /loans/{loanId} {
-        allow get, list: if isInternalStaff();
-        allow create: if canModifyData() && request.resource.data.clientId == clientId;
-        allow update: if canModifyData() && request.resource.data.clientId == resource.data.clientId && request.resource.data.loanTypeId == resource.data.loanTypeId;
-        allow delete: if isAdmin();
-
-        /**
-         * @description Payment records for a specific loan.
-         * @path /clients/{clientId}/loans/{loanId}/payments/{paymentId}
-         * @allow (read) All staff. (write) Admin or Agent.
-         * @deny (delete) Any user (payments are immutable audit records in financial systems).
-         * @principle Secures the payment ledger with strict audit-friendly rules.
-         */
-        match /payments/{paymentId} {
-          allow get, list: if isInternalStaff();
-          allow create: if canModifyData() && request.resource.data.loanId == loanId;
-          allow update: if canModifyData() && request.resource.data.loanId == resource.data.loanId;
-          allow delete: if isAdmin();
-        }
-      }
     }
 
-    /**
-     * @description Endorsers who secure client loans.
-     * @path /endorsers/{endorserId}
-     * @allow (read) All staff. (write) Admin or Agent.
-     * @deny (create) Unauthenticated users.
-     * @principle Flat structure allows endorsers to be shared across multiple clients.
-     */
-    match /endorsers/{endorserId} {
-      allow get, list: if isInternalStaff();
-      allow create: if canModifyData();
-      allow update: if canModifyData() && request.resource.data.id == resource.data.id;
+    // Préstamos (Estructura plana)
+    match /loans/{loanId} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
       allow delete: if isAdmin();
+    }
+
+    // Planes de préstamo
+    match /loanPlans/{planId} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // Estructura Operativa (Plazas, Localidades, Promotoras)
+    match /plazas/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+    match /localidades/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+    match /promotoras/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
+    }
+
+    // Cartera y Finanzas
+    match /wallet/{id} {
+      allow read: if isStaff();
+      allow write: if isStaff(); // Necesario para registrar pagos
+    }
+    match /walletTransactions/{id} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update, delete: if isAdmin();
+    }
+
+    // Configuración Global
+    match /config/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin();
     }
   }
 }
