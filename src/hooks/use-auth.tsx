@@ -14,7 +14,7 @@ import { useRouter } from 'next/navigation';
 import { saveUserAction } from '@/app/dashboard/settings/actions';
 import type { AppUser, UserPermissions } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 interface AuthContextType {
   user: User | null;
@@ -39,7 +39,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user) {
         const userDocRef = doc(db, 'users', user.uid);
         try {
-            const userDocSnap = await getDoc(userDocRef);
+            const userDocSnap = await getDoc(userDocRef).catch(async (err) => {
+                const permissionError = new FirestorePermissionError({
+                    path: userDocRef.path,
+                    operation: 'get'
+                } satisfies SecurityRuleContext);
+                errorEmitter.emit('permission-error', permissionError);
+                throw permissionError;
+            });
+
             if (userDocSnap.exists()) {
               setAppUser({ id: userDocSnap.id, ...userDocSnap.data() } as AppUser);
             } else {
@@ -70,20 +78,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                       path: userDocRef.path,
                       operation: 'create',
                       requestResourceData: newAppUser
-                  });
+                  } satisfies SecurityRuleContext);
                   errorEmitter.emit('permission-error', permissionError);
                   throw permissionError;
               });
               setAppUser({ id: user.uid, ...newAppUser });
             }
         } catch (err: any) {
-            if (!(err instanceof FirestorePermissionError)) {
-                const permissionError = new FirestorePermissionError({
-                    path: userDocRef.path,
-                    operation: 'get'
-                });
-                errorEmitter.emit('permission-error', permissionError);
-            }
+            // Error handling is centralized in FirestorePermissionError
         }
       } else {
         setAppUser(null);

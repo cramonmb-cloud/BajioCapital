@@ -5,7 +5,7 @@ import { collection, onSnapshot, QuerySnapshot, DocumentData, Timestamp } from '
 import { db } from '@/lib/firebase';
 import type { Loan, Client, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
+import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
 interface RealtimeData {
     loans: Loan[];
@@ -66,10 +66,12 @@ export function useRealtimeData() {
             setLoading(false);
         },
         async (err) => {
+          // Emit detailed contextual error for debugging
           const permissionError = new FirestorePermissionError({
             path: collRef.path,
             operation: 'list',
-          });
+          } satisfies SecurityRuleContext);
+          
           errorEmitter.emit('permission-error', permissionError);
           setError(permissionError);
           setLoading(false);

@@ -13,7 +13,7 @@ const allLinks: { href: string; label: string; id: string, icon: LucideIcon, col
   { href: '/dashboard/consultar-cliente', label: 'Buscar', id: 'consultarCliente', icon: Search, color: '#3b82f6' },
   { href: '/dashboard/loans', label: 'Pagos', id: 'loans', icon: Landmark, color: '#3b82f6' },
   { href: '/dashboard/overdue-portfolio', label: 'Pendientes', id: 'overduePortfolio', icon: FileWarning, color: '#f97316' },
-  { href: '/dashboard/carteravencida', label: 'Vencida', id: 'carteraVencida', icon: History, color: '#dc2626' },
+  { href: '/dashboard/cartera-vencida', label: 'Vencida', id: 'carteraVencida', icon: History, color: '#dc2626' },
   { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet', icon: Wallet, color: '#3b82f6' },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity, color: '#2563eb' },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings', icon: Settings, color: '#3b82f6' },
@@ -22,14 +22,16 @@ const allLinks: { href: string; label: string; id: string, icon: LucideIcon, col
 export function MobileNavBar() {
   const pathname = usePathname();
   const { appUser } = useAuth();
-  const [isVisible, setIsVisible] = useState(false);
+  const [isVisible, setIsVisible] = useState(true);
 
   useEffect(() => {
-    // Solo mostrar si no se ha hecho mucho scroll para dar sensación de limpieza
+    let lastScroll = 0;
     const handleScroll = () => {
-      setIsVisible(window.scrollY < 50);
+      const currentScroll = window.scrollY;
+      setIsVisible(currentScroll < lastScroll || currentScroll < 50);
+      lastScroll = currentScroll;
     };
-    window.addEventListener('scroll', handleScroll);
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
@@ -43,11 +45,11 @@ export function MobileNavBar() {
   if (linksToShow.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] w-[90%] max-w-[400px] md:hidden">
-      <nav className={cn(
-        "relative flex items-center justify-around px-4 py-3 rounded-[2.5rem] bg-background/70 backdrop-blur-2xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.15)] transition-all duration-500",
-        !isVisible && "opacity-90 scale-95"
-      )}>
+    <div className={cn(
+      "fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] w-[92%] max-w-[420px] md:hidden transition-all duration-500 ease-in-out",
+      isVisible ? "translate-y-0 opacity-100" : "translate-y-20 opacity-0"
+    )}>
+      <nav className="relative flex items-center justify-around px-2 py-2 rounded-[2.5rem] bg-background/60 backdrop-blur-2xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.2)]">
         {linksToShow.map((link) => {
           const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
           return (
@@ -55,31 +57,31 @@ export function MobileNavBar() {
               key={link.href}
               href={link.href}
               className={cn(
-                "relative flex flex-col items-center gap-1 transition-all duration-300 active:scale-90",
-                isActive ? "text-foreground" : "text-muted-foreground/60"
+                "relative flex flex-col items-center justify-center py-2 px-1 flex-1 transition-all duration-300 active:scale-90",
+                isActive ? "text-foreground" : "text-muted-foreground/50"
               )}
             >
               <div className={cn(
-                "p-2 rounded-2xl transition-all duration-500",
-                isActive && "bg-white shadow-[0_8px_20px_-4px_rgba(0,0,0,0.1)] scale-110 -translate-y-1"
+                "p-2.5 rounded-2xl transition-all duration-500 relative",
+                isActive && "bg-white shadow-[0_8px_25px_-5px_rgba(0,0,0,0.15)] -translate-y-1.5"
               )}>
                 <link.icon 
-                  className="h-5 w-5" 
+                  className={cn("h-5 w-5 transition-transform duration-300", isActive && "scale-110")} 
                   style={{ color: isActive ? link.color : 'currentColor' }} 
                 />
+                {isActive && (
+                  <span 
+                    className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full animate-pulse" 
+                    style={{ backgroundColor: link.color }} 
+                  />
+                )}
               </div>
               <span className={cn(
-                "text-[10px] font-bold uppercase tracking-tighter transition-all duration-300",
-                isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
+                "text-[9px] font-bold uppercase tracking-tighter transition-all duration-300 absolute -bottom-1",
+                isActive ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
               )}>
                 {link.label}
               </span>
-              {isActive && (
-                <span 
-                  className="absolute -top-1 w-1 h-1 rounded-full animate-pulse" 
-                  style={{ backgroundColor: link.color }} 
-                />
-              )}
             </Link>
           );
         })}
