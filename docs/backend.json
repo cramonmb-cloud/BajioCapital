@@ -1,0 +1,615 @@
+{
+  "entities": {
+    "Client": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Client",
+      "type": "object",
+      "description": "Represents an individual or entity that receives loans from CrediControl.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Client entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The client's first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The client's last name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The client's email address.",
+          "format": "email"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The client's primary phone number."
+        },
+        "address": {
+          "type": "string",
+          "description": "The client's physical address."
+        },
+        "dateOfBirth": {
+          "type": "string",
+          "description": "The client's date of birth.",
+          "format": "date"
+        },
+        "identificationNumber": {
+          "type": "string",
+          "description": "The client's national identification number (e.g., DNI, Passport, SSN)."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes or remarks about the client."
+        },
+        "guaranteeIds": {
+          "type": "array",
+          "description": "References to Guarantees associated with this client. (Relationship: Client 1:N Guarantee)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "endorserIds": {
+          "type": "array",
+          "description": "References to Endorsers who have endorsed this client's loans. (Relationship: Client N:N Endorser)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "phoneNumber",
+        "address",
+        "identificationNumber"
+      ]
+    },
+    "Guarantee": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Guarantee",
+      "type": "object",
+      "description": "Represents an asset or collateral provided by a client to secure a loan.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Guarantee entity."
+        },
+        "clientId": {
+          "type": "string",
+          "description": "Reference to the Client who provided this guarantee. (Relationship: Client 1:N Guarantee)"
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the guarantee (e.g., 'Car title', 'Property deed', 'Savings account')."
+        },
+        "value": {
+          "type": "number",
+          "description": "The estimated monetary value of the guarantee."
+        },
+        "documentationReference": {
+          "type": "string",
+          "description": "A URI or reference to legal documentation for the guarantee (e.g., scanned deed, title document).",
+          "format": "uri"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes about the guarantee."
+        }
+      },
+      "required": [
+        "id",
+        "clientId",
+        "description",
+        "value"
+      ]
+    },
+    "Endorser": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Endorser",
+      "type": "object",
+      "description": "Represents an individual who endorses a client's loan, providing additional security.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Endorser entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The endorser's first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The endorser's last name."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The endorser's primary phone number."
+        },
+        "email": {
+          "type": "string",
+          "description": "The endorser's email address.",
+          "format": "email"
+        },
+        "address": {
+          "type": "string",
+          "description": "The endorser's physical address."
+        },
+        "identificationNumber": {
+          "type": "string",
+          "description": "The endorser's national identification number."
+        },
+        "relationToClient": {
+          "type": "string",
+          "description": "Describes the endorser's relationship to the client (e.g., 'Family member', 'Friend', 'Colleague')."
+        },
+        "endorsedClientIds": {
+          "type": "array",
+          "description": "References to Clients whose loans this endorser has endorsed. (Relationship: Endorser N:N Client)",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "phoneNumber",
+        "address",
+        "identificationNumber"
+      ]
+    },
+    "LoanType": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "LoanType",
+      "type": "object",
+      "description": "Defines the characteristics and terms for different types of loan products offered.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the LoanType entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "A descriptive name for the loan type (e.g., 'Weekly 110/1000/12', 'Monthly Fixed Rate')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the loan type's terms and conditions (e.g., '110 weekly for every 1000 borrowed for 12 weeks')."
+        },
+        "principalAmountBasis": {
+          "type": "number",
+          "description": "The base principal amount used for calculating payment terms (e.g., 1000 in '110 per 1000')."
+        },
+        "paymentAmountFactor": {
+          "type": "number",
+          "description": "The payment amount associated with the principal basis (e.g., 110 in '110 per 1000')."
+        },
+        "paymentFrequency": {
+          "type": "string",
+          "description": "The frequency of payments (e.g., 'Weekly', 'Bi-weekly', 'Monthly', 'Quarterly')."
+        },
+        "numberOfPayments": {
+          "type": "number",
+          "description": "The total number of payments required for the loan type."
+        },
+        "totalInterestRate": {
+          "type": "number",
+          "description": "The total interest rate for the loan type, expressed as a decimal (e.g., 0.15 for 15%). This can be implicit from factor/basis/payments."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates whether this loan type is currently active and available for new loans."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "principalAmountBasis",
+        "paymentAmountFactor",
+        "paymentFrequency",
+        "numberOfPayments",
+        "isActive"
+      ]
+    },
+    "Loan": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Loan",
+      "type": "object",
+      "description": "Represents a specific loan instance granted to a client.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Loan entity."
+        },
+        "clientId": {
+          "type": "string",
+          "description": "Reference to the Client who received this loan. (Relationship: Client 1:N Loan)"
+        },
+        "loanTypeId": {
+          "type": "string",
+          "description": "Reference to the LoanType that defines the terms of this loan. (Relationship: LoanType 1:N Loan)"
+        },
+        "principalAmount": {
+          "type": "number",
+          "description": "The original principal amount of money borrowed by the client."
+        },
+        "totalAmountDue": {
+          "type": "number",
+          "description": "The total amount expected to be paid back, including principal and all interest/fees."
+        },
+        "currentBalance": {
+          "type": "number",
+          "description": "The current outstanding balance of the loan."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The date when the loan was issued.",
+          "format": "date"
+        },
+        "expectedEndDate": {
+          "type": "string",
+          "description": "The calculated date when the loan is expected to be fully paid off.",
+          "format": "date"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the loan (e.g., 'Active', 'Paid', 'Overdue', 'Defaulted', 'Cancelled')."
+        },
+        "nextPaymentDueDate": {
+          "type": "string",
+          "description": "The due date for the next scheduled payment.",
+          "format": "date"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes or remarks about the specific loan."
+        }
+      },
+      "required": [
+        "id",
+        "clientId",
+        "loanTypeId",
+        "principalAmount",
+        "totalAmountDue",
+        "currentBalance",
+        "startDate",
+        "status"
+      ]
+    },
+    "Payment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payment",
+      "type": "object",
+      "description": "Records an individual payment made by a client towards a specific loan.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Payment entity."
+        },
+        "loanId": {
+          "type": "string",
+          "description": "Reference to the Loan this payment is associated with. (Relationship: Loan 1:N Payment)"
+        },
+        "paymentDate": {
+          "type": "string",
+          "description": "The date and time when the payment was received.",
+          "format": "date-time"
+        },
+        "amountPaid": {
+          "type": "number",
+          "description": "The monetary amount of the payment."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "The method used for the payment (e.g., 'Cash', 'Bank Transfer', 'Credit Card', 'Online Payment')."
+        },
+        "transactionReference": {
+          "type": "string",
+          "description": "A unique reference number for the transaction, if available."
+        },
+        "notes": {
+          "type": "string",
+          "description": "Any additional notes about the payment."
+        }
+      },
+      "required": [
+        "id",
+        "loanId",
+        "paymentDate",
+        "amountPaid",
+        "paymentMethod"
+      ]
+    },
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents an internal administrator or agent who uses the CrediControl application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The user's first name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The user's last name."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for login and communication.",
+          "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user within the application (e.g., 'Admin', 'Agent', 'Auditor'), defining their permissions."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates whether the user's account is currently active."
+        },
+        "lastLoginDate": {
+          "type": "string",
+          "description": "The date and time of the user's last successful login.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "role",
+        "isActive"
+      ]
+    },
+    "NavigationSection": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "NavigationSection",
+      "type": "object",
+      "description": "Defines a section or menu item available in the mobile application's navigation bar.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the NavigationSection entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The display name of the navigation section (e.g., 'Clients List', 'New Loan', 'Reports')."
+        },
+        "path": {
+          "type": "string",
+          "description": "The internal route or identifier that the navigation section links to within the application."
+        },
+        "iconName": {
+          "type": "string",
+          "description": "A symbolic name or reference to the icon asset used to represent this section in the UI."
+        },
+        "displayOrder": {
+          "type": "number",
+          "description": "A numerical value indicating the order in which this section should appear in the navigation bar."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief explanation of what this navigation section offers."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "path",
+        "displayOrder",
+        "description"
+      ]
+    },
+    "UserNavigationAccess": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "UserNavigationAccess",
+      "type": "object",
+      "description": "Manages which specific navigation sections a User (admin/agent) is allowed to access.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the UserNavigationAccess entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who is being granted access. (Relationship: User N:N NavigationSection)"
+        },
+        "navigationSectionId": {
+          "type": "string",
+          "description": "Reference to the NavigationSection being accessed. (Relationship: User N:N NavigationSection)"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "navigationSectionId"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Top-level collection for internal CrediControl administrators and agents. Each document represents a user, where `userId` corresponds to `request.auth.uid`. The `role` field within this document is critical for database access control.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the CrediControl internal user, corresponding to Firebase Authentication UID."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/loanTypes/{loanTypeId}",
+        "definition": {
+          "entityName": "LoanType",
+          "schema": {
+            "$ref": "#/backend/entities/LoanType"
+          },
+          "description": "Top-level collection defining global characteristics and terms for different loan products offered. Managed by administrators, accessible (read-only) by agents. No direct user ownership.",
+          "params": [
+            {
+              "name": "loanTypeId",
+              "description": "The unique ID of the loan type."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/navigationSections/{sectionId}",
+        "definition": {
+          "entityName": "NavigationSection",
+          "schema": {
+            "$ref": "#/backend/entities/NavigationSection"
+          },
+          "description": "Top-level collection defining the available sections or menu items for the mobile application's navigation bar. Managed by administrators. These are the master definitions.",
+          "params": [
+            {
+              "name": "sectionId",
+              "description": "The unique ID of the navigation section."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/navigationAccesses/{navigationSectionId}",
+        "definition": {
+          "entityName": "UserNavigationAccess",
+          "schema": {
+            "$ref": "#/backend/entities/UserNavigationAccess"
+          },
+          "description": "Subcollection under a specific user, granting access to a particular navigation section. The document ID is the `navigationSectionId`. The document itself can be empty or contain audit fields (e.g., `grantedByUserId`, `timestamp`). This structure ensures authorization independence as `userId` is in the path and `navigationSectionId` is the document ID for direct lookup.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique ID of the CrediControl internal user."
+            },
+            {
+              "name": "navigationSectionId",
+              "description": "The unique ID of the navigation section being granted or revoked."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/clients/{clientId}",
+        "definition": {
+          "entityName": "Client",
+          "schema": {
+            "$ref": "#/backend/entities/Client"
+          },
+          "description": "Top-level collection for all client records. Access is managed by internal CrediControl user roles (Admin, Agent). No direct client user authentication.",
+          "params": [
+            {
+              "name": "clientId",
+              "description": "The unique ID of the client."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/clients/{clientId}/guarantees/{guaranteeId}",
+        "definition": {
+          "entityName": "Guarantee",
+          "schema": {
+            "$ref": "#/backend/entities/Guarantee"
+          },
+          "description": "Subcollection under a specific client, containing guarantees provided by that client. `clientId` is available in the path, ensuring authorization independence for security rules.",
+          "params": [
+            {
+              "name": "clientId",
+              "description": "The unique ID of the client associated with the guarantee."
+            },
+            {
+              "name": "guaranteeId",
+              "description": "The unique ID of the guarantee."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/clients/{clientId}/loans/{loanId}",
+        "definition": {
+          "entityName": "Loan",
+          "schema": {
+            "$ref": "#/backend/entities/Loan"
+          },
+          "description": "Subcollection under a specific client, containing all loans issued to that client. `clientId` is available in the path, and `loanTypeId` is a field within the `Loan` document, ensuring authorization independence.",
+          "params": [
+            {
+              "name": "clientId",
+              "description": "The unique ID of the client who received the loan."
+            },
+            {
+              "name": "loanId",
+              "description": "The unique ID of the loan."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/clients/{clientId}/loans/{loanId}/payments/{paymentId}",
+        "definition": {
+          "entityName": "Payment",
+          "schema": {
+            "$ref": "#/backend/entities/Payment"
+          },
+          "description": "Subcollection under a specific loan, containing individual payments made towards that loan. `clientId` and `loanId` are available in the path, ensuring authorization independence.",
+          "params": [
+            {
+              "name": "clientId",
+              "description": "The unique ID of the client associated with the loan."
+            },
+            {
+              "name": "loanId",
+              "description": "The unique ID of the loan for which the payment was made."
+            },
+            {
+              "name": "paymentId",
+              "description": "The unique ID of the payment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/endorsers/{endorserId}",
+        "definition": {
+          "entityName": "Endorser",
+          "schema": {
+            "$ref": "#/backend/entities/Endorser"
+          },
+          "description": "Top-level collection for endorser records. Endorsers can be associated with multiple clients, and this flat structure reflects the N:N relationship. `endorsedClientIds` field facilitates querying. Access is managed by internal CrediControl user roles.",
+          "params": [
+            {
+              "name": "endorserId",
+              "description": "The unique ID of the endorser."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure for CrediControl prioritizes Authorization Independence and Structural Segregation to ensure robust security rules and efficient data access. The design employs a mix of top-level collections for core business entities and user-specific configurations, along with hierarchical subcollections for deeply related data, following a `User 1:N Entity` relationship pattern where applicable. The central principle for authorization is Database Access Control (DBAC) using the `User` entity's `role` field, which will be fetched for `request.auth.uid` to determine permissions across various collections. This avoids `get()` calls to parent documents for authorization of child documents.\n\n**Authorization Independence:**\n*   For `User` related data, such as `UserNavigationAccess`, a hierarchical path `/users/{userId}/navigationAccesses/{navigationSectionId}` is used. Here, the `userId` is directly available in the path, allowing rules to check `request.auth.uid == userId` without needing to `get()` the parent `User` document to verify ownership. The `navigationSectionId` is used as the document ID for `UserNavigationAccess`, making it readily available in the path as well.\n*   For core business entities like `Client`, `Loan`, `Guarantee`, `Endorser`, and `LoanType`, access is primarily determined by the `role` of the authenticated CrediControl internal user (`request.auth.uid`). These entities are mostly housed in top-level collections, or in subcollections where the parent's `id` (e.g., `clientId`, `loanId`) is available in the path. This means that authorization rules for these collections will directly check the `request.auth.uid`'s role (e.g., `isAdmin()` or `isAgent()`, where `isAdmin()` is a helper function that performs a single `get()` on the current user's `/users/{uid}` document to check their role). No `get()` calls are made to other data documents to determine access. For instance, a `Payment` document under `/clients/{clientId}/loans/{loanId}/payments/{paymentId}` inherently includes `clientId` and `loanId` in its path, so authorization for `Payment` does not require getting the parent `Loan` or `Client` documents.\n\n**QAPs (Queries as Permissions):**\n*   **User-Specific Data:** The structure `/users/{userId}/navigationAccesses/{navigationSectionId}` directly supports QAPs. A user can easily `list` their specific navigation permissions by querying `db.collection('users').doc(request.auth.uid).collection('navigationAccesses')`. Security rules can then enforce `allow list: if request.auth.uid == userId;` ensuring users only retrieve their own assigned sections.\n*   **Role-Based Data:** For entities like `Client`, `LoanType`, `Loan`, `Payment`, `Guarantee`, and `Endorser`, access is role-based. For example, `allow list: if isAdmin() || isAgent();`. This means a `list` query will return all documents in the collection that are visible to that role. If fine-grained access (e.g., agents only see *their* clients) were required, the `Client` documents would need a denormalized `assignedAgentId` field, allowing a `list` rule like `allow list: if isAdmin() || (isAgent() && request.query.where.assignedAgentId == request.auth.uid);`. Based on the current request, this level of client-agent assignment is not specified, so a general role-based access for `list` operations is assumed for internal users."
+  }
+}
