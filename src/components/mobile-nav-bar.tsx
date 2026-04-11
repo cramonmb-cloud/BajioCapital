@@ -49,7 +49,7 @@ export function MobileNavBar() {
       "fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] w-[92%] max-w-[420px] md:hidden transition-all duration-500 ease-in-out",
       isVisible ? "translate-y-0 opacity-100" : "translate-y-20 opacity-0"
     )}>
-      <nav className="relative flex items-center justify-around px-2 py-2 rounded-[2.5rem] bg-background/60 backdrop-blur-2xl border border-white/20 shadow-[0_20px_50px_rgba(0,0,0,0.2)]">
+      <nav className="relative flex items-center justify-around px-2 py-2 rounded-[2.5rem] bg-background/85 backdrop-blur-2xl border-2 border-blue-500/40 shadow-[0_15px_40px_-5px_rgba(59,130,246,0.4)]">
         {linksToShow.map((link) => {
           const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
           return (
