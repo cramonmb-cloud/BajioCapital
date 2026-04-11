@@ -3,10 +3,10 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * CREDICONTROL SECURITY RULES (V2 - ESTRUCTURA PLANA)
+     * CREDICONTROL SECURITY RULES (ESTRUCTURA PLANA)
      *
-     * Estas reglas han sido actualizadas para soportar la estructura de colecciones
-     * de primer nivel utilizada en el código de React y los roles 'admin' y 'supervisor'.
+     * Estas reglas permiten el acceso a los roles 'admin' y 'supervisor' 
+     * definidos en el código de la aplicación.
      */
 
     // --- FUNCIONES DE AYUDA ---
@@ -15,6 +15,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Obtiene los datos del usuario actual desde la colección /users/
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -37,30 +38,30 @@ service cloud.firestore {
 
     // --- REGLAS POR COLECCIÓN ---
 
-    // Perfiles de usuario
+    // Perfiles de usuario: Los administradores controlan todo, los usuarios ven su propio perfil
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow list: if isAdmin();
-      allow create: if isOwner(userId);
+      allow create: if isOwner(userId); // Permitir creación durante el primer login
       allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
 
-    // Clientes
+    // Clientes: Acceso total para Staff, eliminación solo Admin
     match /clients/{clientId} {
       allow read: if isStaff();
       allow create, update: if isStaff();
       allow delete: if isAdmin();
     }
 
-    // Préstamos (Estructura plana)
+    // Préstamos: Acceso total para Staff, eliminación solo Admin
     match /loans/{loanId} {
       allow read: if isStaff();
       allow create, update: if isStaff();
       allow delete: if isAdmin();
     }
 
-    // Planes de préstamo
+    // Planes de préstamo: Lectura para todos, edición solo Admin
     match /loanPlans/{planId} {
       allow read: if isStaff();
       allow write: if isAdmin();
@@ -80,10 +81,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Cartera y Finanzas
+    // Cartera y Finanzas: Necesario para registrar pagos y ver saldo
     match /wallet/{id} {
       allow read: if isStaff();
-      allow write: if isStaff(); // Necesario para registrar pagos
+      allow write: if isStaff(); 
     }
     match /walletTransactions/{id} {
       allow read: if isStaff();
@@ -91,7 +92,7 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
-    // Configuración Global
+    // Configuración Global (Nombre de App, Logo)
     match /config/{id} {
       allow read: if isStaff();
       allow write: if isAdmin();
