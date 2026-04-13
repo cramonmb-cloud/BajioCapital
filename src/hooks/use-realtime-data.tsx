@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, QuerySnapshot, DocumentData, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Loan, Client, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
+import type { Loan, Client, LoanPlan, Plaza, Localidad, Promotora, AppUser, AppConfig } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
@@ -14,6 +14,8 @@ interface RealtimeData {
     plazas: Plaza[];
     localidades: Localidad[];
     promotoras: Promotora[];
+    users: AppUser[];
+    config: AppConfig | null;
 }
 
 function processSnapshot<T>(snapshot: QuerySnapshot<DocumentData, DocumentData>): T[] {
@@ -49,24 +51,31 @@ export function useRealtimeData() {
         plazas: collection(db, 'plazas'),
         localidades: collection(db, 'localidades'),
         promotoras: collection(db, 'promotoras'),
+        users: collection(db, 'users'),
+        config: collection(db, 'config'),
     };
 
     const unsubscribers = Object.entries(collections).map(([key, collRef]) => {
       return onSnapshot(collRef, 
         (snapshot) => {
-            setData(prevData => ({
-                ...prevData,
-                loans: key === 'loans' ? processSnapshot<Loan>(snapshot) : prevData?.loans || [],
-                clients: key === 'clients' ? processSnapshot<Client>(snapshot) : prevData?.clients || [],
-                loanPlans: key === 'loanPlans' ? processSnapshot<LoanPlan>(snapshot) : prevData?.loanPlans || [],
-                plazas: key === 'plazas' ? processSnapshot<Plaza>(snapshot) : prevData?.plazas || [],
-                localidades: key === 'localidades' ? processSnapshot<Localidad>(snapshot) : prevData?.localidades || [],
-                promotoras: key === 'promotoras' ? processSnapshot<Promotora>(snapshot) : prevData?.promotoras || [],
-            }));
+            setData(prevData => {
+                const newData = { ...prevData } as RealtimeData;
+                if (key === 'loans') newData.loans = processSnapshot<Loan>(snapshot);
+                if (key === 'clients') newData.clients = processSnapshot<Client>(snapshot);
+                if (key === 'loanPlans') newData.loanPlans = processSnapshot<LoanPlan>(snapshot);
+                if (key === 'plazas') newData.plazas = processSnapshot<Plaza>(snapshot);
+                if (key === 'localidades') newData.localidades = processSnapshot<Localidad>(snapshot);
+                if (key === 'promotoras') newData.promotoras = processSnapshot<Promotora>(snapshot);
+                if (key === 'users') newData.users = processSnapshot<AppUser>(snapshot);
+                if (key === 'config') {
+                    const configDoc = snapshot.docs.find(doc => doc.id === 'main');
+                    newData.config = configDoc ? configDoc.data() as AppConfig : null;
+                }
+                return newData;
+            });
             setLoading(false);
         },
         async (err) => {
-          // Emit detailed contextual error for debugging
           const permissionError = new FirestorePermissionError({
             path: collRef.path,
             operation: 'list',

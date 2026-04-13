@@ -47,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone } from 'lucide-react';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -69,6 +69,14 @@ const permissionsSchema = z.object({
   settings: z.boolean().default(false),
   editClients: z.boolean().default(false),
   control: z.boolean().default(false),
+  // Granular settings
+  manageUsers: z.boolean().default(false),
+  manageZones: z.boolean().default(false),
+  manageMigration: z.boolean().default(false),
+  managePlans: z.boolean().default(false),
+  manageSystem: z.boolean().default(false),
+  manageMaintenance: z.boolean().default(false),
+  // Mobile
   showMobileNavBar: z.boolean().default(false),
   mobileSections: z.array(z.string()).default([]),
 });
@@ -99,9 +107,17 @@ const permissionLabels: { id: keyof Omit<UserPermissions, 'showMobileNavBar' | '
     { id: 'carteraVencida', label: 'Cartera Vencida', description: 'Cuentas incobrables post-vencimiento', icon: History },
     { id: 'wallet', label: 'Cartera', description: 'Flujo de caja y movimientos', icon: Wallet },
     { id: 'control', label: 'Control', description: 'Capital en calle y proyecciones', icon: Activity },
-    { id: 'plans', label: 'Planes', description: 'Creación de tipos de préstamo', icon: Lock },
-    { id: 'settings', label: 'Ajustes', description: 'Configuraciones críticas del sistema', icon: ShieldCheck },
     { id: 'editClients', label: 'Editar Clientes', description: 'Modificar datos de clientes existentes', icon: Edit },
+    { id: 'settings', label: 'Ajustes (Maestro)', description: 'Acceso total a la página de ajustes', icon: Settings },
+];
+
+const granularSettingsLabels: { id: keyof UserPermissions; label: string; description: string; icon: any }[] = [
+    { id: 'manageUsers', label: 'Gestionar Personal', description: 'Control de usuarios y permisos', icon: Users },
+    { id: 'manageZones', label: 'Gestionar Zonas y Rutas', description: 'Plazas, Localidades y Promotoras', icon: MapPin },
+    { id: 'manageMigration', label: 'Gestionar Migración', description: 'Traslado masivo de localidades', icon: ArrowRightLeft },
+    { id: 'managePlans', label: 'Gestionar Planes', description: 'Creación de productos financieros', icon: Lock },
+    { id: 'manageSystem', label: 'Gestionar Personalización', description: 'Nombre y Logo del negocio', icon: Edit },
+    { id: 'manageMaintenance', label: 'Gestionar Mantenimiento', description: 'Sincronización y borrado crítico', icon: Wrench },
 ];
 
 interface UserManagementProps {
@@ -137,6 +153,12 @@ export function UserManagement({ users }: UserManagementProps) {
         settings: false,
         editClients: false,
         control: true,
+        manageUsers: false,
+        manageZones: true,
+        manageMigration: false,
+        managePlans: true,
+        manageSystem: false,
+        manageMaintenance: false,
         showMobileNavBar: true,
         mobileSections: ['dashboard', 'loans', 'overduePortfolio', 'wallet', 'consultarCliente'],
       },
@@ -163,6 +185,12 @@ export function UserManagement({ users }: UserManagementProps) {
             settings: selectedUser.permissions?.settings ?? false,
             editClients: selectedUser.permissions?.editClients ?? false,
             control: selectedUser.permissions?.control ?? false,
+            manageUsers: selectedUser.permissions?.manageUsers ?? false,
+            manageZones: selectedUser.permissions?.manageZones ?? false,
+            manageMigration: selectedUser.permissions?.manageMigration ?? false,
+            managePlans: selectedUser.permissions?.managePlans ?? false,
+            manageSystem: selectedUser.permissions?.manageSystem ?? false,
+            manageMaintenance: selectedUser.permissions?.manageMaintenance ?? false,
             showMobileNavBar: selectedUser.permissions?.showMobileNavBar ?? false,
             mobileSections: selectedUser.permissions?.mobileSections ?? [],
         },
@@ -296,10 +324,10 @@ export function UserManagement({ users }: UserManagementProps) {
                             />
                         </div>
 
-                        <div className="space-y-4">
+                        <div className="space-y-6">
                             <div className="flex items-center gap-2 border-b pb-2">
                                 <Lock className="h-4 w-4 text-primary" />
-                                <h4 className="text-sm font-bold uppercase tracking-wider">Permisos de Acceso al Módulo</h4>
+                                <h4 className="text-sm font-bold uppercase tracking-wider">Permisos de Módulos Generales</h4>
                             </div>
                             
                             {addUserForm.watch('role') === 'admin' && (
@@ -335,7 +363,42 @@ export function UserManagement({ users }: UserManagementProps) {
                                         </FormControl>
                                         <div className="space-y-1 leading-none">
                                             <FormLabel className="text-sm font-bold cursor-pointer">{item.label}</FormLabel>
-                                            <p className="text-xs text-muted-foreground">{item.description}</p>
+                                            <p className="text-[10px] text-muted-foreground">{item.description}</p>
+                                        </div>
+                                    </FormItem>
+                                    )}
+                                />
+                                ))}
+                            </div>
+
+                            <div className="flex items-center gap-2 border-b pb-2 pt-4">
+                                <Settings className="h-4 w-4 text-blue-600" />
+                                <h4 className="text-sm font-bold uppercase tracking-wider">Permisos Detallados de Ajustes</h4>
+                            </div>
+                            <div className={cn(
+                                "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 transition-opacity",
+                                addUserForm.watch('role') === 'admin' && "opacity-50 pointer-events-none"
+                            )}>
+                                {granularSettingsLabels.map((item) => (
+                                <FormField
+                                    key={item.id}
+                                    control={addUserForm.control}
+                                    name={`permissions.${item.id}`}
+                                    render={({ field }) => (
+                                    <FormItem className={cn(
+                                        "flex flex-row items-start space-x-3 space-y-0 rounded-xl border p-4 hover:border-blue-500/50 transition-all cursor-pointer",
+                                        field.value ? "bg-blue-500/5 border-blue-500/20" : "bg-background"
+                                    )}>
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={addUserForm.watch('role') === 'admin' ? true : field.value}
+                                                onCheckedChange={field.onChange}
+                                                className="mt-1"
+                                            />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                            <FormLabel className="text-sm font-bold cursor-pointer">{item.label}</FormLabel>
+                                            <p className="text-[10px] text-muted-foreground">{item.description}</p>
                                         </div>
                                     </FormItem>
                                     )}
@@ -344,7 +407,6 @@ export function UserManagement({ users }: UserManagementProps) {
                             </div>
                         </div>
 
-                        {/* Mobile NavBar Config Section */}
                         <div className="space-y-6 pt-4 border-t">
                             <div className="flex items-center gap-2">
                                 <Smartphone className="h-5 w-5 text-blue-600" />
@@ -358,7 +420,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-blue-50/20 border-blue-100">
                                     <div className="space-y-0.5">
                                         <FormLabel className="text-base font-bold">Activar Navigator Bar Móvil</FormLabel>
-                                        <FormDescription>Habilita la barra flotante ultra-moderna en la parte inferior cuando el usuario acceda por celular.</FormDescription>
+                                        <FormDescription>Habilita la barra flotante en la parte inferior para celulares.</FormDescription>
                                     </div>
                                     <FormControl>
                                         <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -369,9 +431,7 @@ export function UserManagement({ users }: UserManagementProps) {
 
                             {addUserForm.watch('permissions.showMobileNavBar') && (
                                 <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
-                                    <div className="flex items-center gap-2">
-                                        <p className="text-xs font-bold text-muted-foreground uppercase">Secciones visibles en la barra (Máx. 5)</p>
-                                    </div>
+                                    <p className="text-xs font-bold text-muted-foreground uppercase">Secciones visibles en la barra (Máx. 5)</p>
                                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                                         {permissionLabels.slice(0, 9).map((item) => (
                                             <FormField
@@ -387,7 +447,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                                                     const current = [...field.value];
                                                                     if (checked) {
                                                                         if (current.length < 5) current.push(item.id);
-                                                                        else toast({ variant: 'destructive', title: 'Límite alcanzado', description: 'Solo puedes mostrar hasta 5 secciones en la barra móvil.' });
+                                                                        else toast({ variant: 'destructive', title: 'Límite alcanzado', description: 'Máximo 5 secciones.' });
                                                                     } else {
                                                                         const idx = current.indexOf(item.id);
                                                                         if (idx > -1) current.splice(idx, 1);
@@ -449,17 +509,14 @@ export function UserManagement({ users }: UserManagementProps) {
                                         {user.password || '---'}
                                     </TableCell>
                                 )}
-                                <TableCell className="text-xs text-muted-foreground max-w-[400px] hidden md:table-cell">
+                                <TableCell className="text-[10px] text-muted-foreground max-w-[400px] hidden md:table-cell">
                                    <div className='flex flex-wrap gap-1'>
                                         {user.role === 'admin' ? 
                                             <span className="text-primary font-bold">ACCESO TOTAL (POR ROL)</span> : 
-                                            permissionLabels
-                                                .filter(p => user.permissions?.[p.id])
+                                            [...permissionLabels, ...granularSettingsLabels]
+                                                .filter(p => user.permissions?.[p.id as keyof UserPermissions])
                                                 .map(p => <Badge key={p.id} variant="outline" className='text-[9px] h-4'>{p.label}</Badge>)
                                         }
-                                        {user.permissions?.showMobileNavBar && (
-                                            <Badge variant="success" className='text-[9px] h-4 uppercase'>BARRA MÓVIL ACTIVA</Badge>
-                                        )}
                                    </div>
                                 </TableCell>
                                 <TableCell className="text-right pr-8">
@@ -488,7 +545,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                 <ShieldCheck className="h-6 w-6 text-primary" />
                                 Gestionar: {selectedUser?.username}
                             </DialogTitle>
-                            <DialogDescription>Ajusta el rol y los privilegios de navegación para este usuario.</DialogDescription>
+                            <DialogDescription>Ajusta el rol y los privilegios específicos.</DialogDescription>
                         </DialogHeader>
                         
                         <div className="space-y-8 py-2">
@@ -510,30 +567,24 @@ export function UserManagement({ users }: UserManagementProps) {
                                                 <SelectItem value="supervisor">Supervisor (Accesos Limitados)</SelectItem>
                                             </SelectContent>
                                         </Select>
-                                        <FormDescription>
-                                            El rol de Administrador anula cualquier restricción de permisos.
-                                        </FormDescription>
                                     </FormItem>
                                     )}
                                 />
-                                
                                 {editUserForm.watch('role') === 'admin' && (
-                                    <div className="animate-in fade-in zoom-in-95 duration-300">
-                                        <Alert variant="destructive" className="bg-blue-50 border-blue-200 text-blue-800">
-                                            <AlertCircle className="h-4 w-4 text-blue-600" />
-                                            <AlertTitle className="font-bold">Privilegios de Administrador</AlertTitle>
-                                            <AlertDescription className="text-xs">
-                                                {selectedUser?.username} seguirá teniendo ACCESO TOTAL mientras el rol sea Administrador. Cámbialo a Supervisor para aplicar restricciones.
-                                            </AlertDescription>
-                                        </Alert>
-                                    </div>
+                                    <Alert variant="destructive" className="bg-blue-50 border-blue-200 text-blue-800">
+                                        <AlertCircle className="h-4 w-4 text-blue-600" />
+                                        <AlertTitle className="font-bold">Privilegios de Administrador</AlertTitle>
+                                        <AlertDescription className="text-xs">
+                                            El rol de Administrador anula cualquier restricción. Cámbialo a Supervisor para aplicar permisos específicos.
+                                        </AlertDescription>
+                                    </Alert>
                                 )}
                             </div>
                             
-                            <div className="space-y-4">
-                                <h4 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2">
-                                    <Lock className="h-4 w-4" />
-                                    Configurar Permisos Específicos
+                            <div className="space-y-6">
+                                <h4 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-2">
+                                    <Lock className="h-4 w-4 text-primary" />
+                                    Módulos Generales
                                 </h4>
                                 <div className={cn(
                                     "grid grid-cols-1 sm:grid-cols-2 gap-3 transition-all",
@@ -550,10 +601,35 @@ export function UserManagement({ users }: UserManagementProps) {
                                             field.value || editUserForm.watch('role') === 'admin' ? "bg-primary/5 border-primary/20" : "bg-background"
                                         )}>
                                             <FormControl>
-                                                <Checkbox 
-                                                    checked={editUserForm.watch('role') === 'admin' ? true : field.value} 
-                                                    onCheckedChange={field.onChange} 
-                                                />
+                                                <Checkbox checked={editUserForm.watch('role') === 'admin' ? true : field.value} onCheckedChange={field.onChange} />
+                                            </FormControl>
+                                            <FormLabel className="text-sm font-medium cursor-pointer">{item.label}</FormLabel>
+                                        </FormItem>
+                                        )}
+                                    />
+                                    ))}
+                                </div>
+
+                                <h4 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-2 pt-4">
+                                    <Settings className="h-4 w-4 text-blue-600" />
+                                    Sub-funciones de Ajustes
+                                </h4>
+                                <div className={cn(
+                                    "grid grid-cols-1 sm:grid-cols-2 gap-3 transition-all",
+                                    editUserForm.watch('role') === 'admin' && "opacity-40 grayscale pointer-events-none"
+                                )}>
+                                    {granularSettingsLabels.map((item) => (
+                                    <FormField
+                                        key={item.id}
+                                        control={editUserForm.control}
+                                        name={`permissions.${item.id}`}
+                                        render={({ field }) => (
+                                        <FormItem className={cn(
+                                            "flex flex-row items-center space-x-3 space-y-0 rounded-xl border p-3 hover:bg-blue-500/10 transition-all",
+                                            field.value || editUserForm.watch('role') === 'admin' ? "bg-blue-500/5 border-blue-500/20" : "bg-background"
+                                        )}>
+                                            <FormControl>
+                                                <Checkbox checked={editUserForm.watch('role') === 'admin' ? true : field.value} onCheckedChange={field.onChange} />
                                             </FormControl>
                                             <FormLabel className="text-sm font-medium cursor-pointer">{item.label}</FormLabel>
                                         </FormItem>
@@ -563,7 +639,6 @@ export function UserManagement({ users }: UserManagementProps) {
                                 </div>
                             </div>
 
-                            {/* Edit Mobile NavBar Config */}
                             <div className="space-y-6 pt-4 border-t">
                                 <div className="flex items-center gap-2">
                                     <Smartphone className="h-5 w-5 text-blue-600" />
@@ -577,7 +652,6 @@ export function UserManagement({ users }: UserManagementProps) {
                                     <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-blue-50/20 border-blue-100">
                                         <div className="space-y-0.5">
                                             <FormLabel className="text-base font-bold">Activar Navigator Bar Móvil</FormLabel>
-                                            <FormDescription>Habilita la barra flotante ultra-moderna.</FormDescription>
                                         </div>
                                         <FormControl>
                                             <Switch checked={field.value} onCheckedChange={field.onChange} />
@@ -628,7 +702,7 @@ export function UserManagement({ users }: UserManagementProps) {
                             <Button type="button" variant="ghost" onClick={() => setEditDialogOpen(false)}>Cancelar</Button>
                             <Button type="submit" disabled={isEditing} className="px-10 font-bold h-12">
                                 {isEditing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                                Guardar Cambios en Perfil
+                                Guardar Cambios
                             </Button>
                         </DialogFooter>
                     </form>

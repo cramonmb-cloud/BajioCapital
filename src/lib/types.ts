@@ -82,6 +82,14 @@ export type UserPermissions = {
     settings: boolean;
     editClients: boolean;
     control: boolean;
+    // Granular settings
+    manageUsers: boolean;
+    manageZones: boolean;
+    manageMigration: boolean;
+    managePlans: boolean;
+    manageSystem: boolean;
+    manageMaintenance: boolean;
+    // Mobile
     showMobileNavBar: boolean;
     mobileSections: string[];
 };

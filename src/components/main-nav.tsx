@@ -36,7 +36,14 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
     if (appUser.role === 'admin') {
       return true;
     }
-    return appUser.permissions && appUser.permissions[link.id];
+    
+    // Especial logic for Settings: Show if user has generic or ANY granular settings permission
+    if (link.id === 'settings') {
+        const p = appUser.permissions;
+        return p.settings || p.manageUsers || p.manageZones || p.manageMigration || p.managePlans || p.manageSystem || p.manageMaintenance;
+    }
+
+    return appUser.permissions && appUser.permissions[link.id as keyof UserPermissions];
   });
 
   const getIconClass = (id: string, isActive: boolean) => {
