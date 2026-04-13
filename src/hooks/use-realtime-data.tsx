@@ -38,8 +38,19 @@ function processSnapshot<T>(snapshot: QuerySnapshot<DocumentData, DocumentData>)
     });
 }
 
+const initialData: RealtimeData = {
+    loans: [],
+    clients: [],
+    loanPlans: [],
+    plazas: [],
+    localidades: [],
+    promotoras: [],
+    users: [],
+    config: null,
+};
+
 export function useRealtimeData() {
-  const [data, setData] = useState<RealtimeData | null>(null);
+  const [data, setData] = useState<RealtimeData>(initialData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
@@ -59,7 +70,7 @@ export function useRealtimeData() {
       return onSnapshot(collRef, 
         (snapshot) => {
             setData(prevData => {
-                const newData = { ...prevData } as RealtimeData;
+                const newData = { ...prevData };
                 if (key === 'loans') newData.loans = processSnapshot<Loan>(snapshot);
                 if (key === 'clients') newData.clients = processSnapshot<Client>(snapshot);
                 if (key === 'loanPlans') newData.loanPlans = processSnapshot<LoanPlan>(snapshot);
