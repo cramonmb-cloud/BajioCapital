@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -20,7 +21,6 @@ import { getAppConfig } from '@/lib/firestore-data';
 import { Users, Landmark, Banknote, ArrowRight, TrendingUp, Receipt, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { seedDatabaseAction } from './seed-actions';
 import type { Loan } from '@/lib/types';
 import Image from 'next/image';
 import { ClientesConFallos } from '@/components/clientes-con-fallos';
@@ -111,14 +111,18 @@ export default function DashboardPage() {
   };
   
   const currentSaturday = getSaturdayOfWeek(new Date());
+  // Boundary fix: Include the entire Saturday
+  currentSaturday.setUTCHours(23, 59, 59, 999);
+
   const weekStart = new Date(currentSaturday);
   weekStart.setUTCDate(currentSaturday.getUTCDate() - 6);
+  weekStart.setUTCHours(0, 0, 0, 0);
 
   let totalCollectedThisWeek = 0;
   let totalPaymentsThisWeek = 0;
 
   loans.forEach(loan => {
-    loan.payments.forEach(payment => {
+    (loan.payments || []).forEach(payment => {
       const paymentDate = new Date(payment.date);
       if (paymentDate >= weekStart && paymentDate <= currentSaturday) {
         totalCollectedThisWeek += payment.amount;
