@@ -140,7 +140,7 @@ export default function DashboardPage() {
                         src={logoUrl} 
                         alt="Logo de la aplicación" 
                         fill
-                        className="object-contain rounded-3xl border-4 border-white shadow-2xl bg-white/80 backdrop-blur-sm p-4"
+                        className="object-contain rounded-3xl border-4 border-white animate-glow-green bg-white/80 backdrop-blur-sm p-4"
                     />
                 </div>
             </div>
