@@ -37,7 +37,6 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
       return true;
     }
     
-    // Especial logic for Settings: Show if user has generic or ANY granular settings permission
     if (link.id === 'settings') {
         const p = appUser.permissions;
         return p.settings || p.manageUsers || p.manageZones || p.manageMigration || p.managePlans || p.manageSystem || p.manageMaintenance;
@@ -48,7 +47,7 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
 
   const getIconClass = (id: string, isActive: boolean) => {
     return cn(
-        "h-4 w-4 transition-all duration-300 transform",
+        "h-5 w-5 transition-all duration-300 transform",
         isActive ? "scale-110" : "group-hover:scale-110 opacity-70 group-hover:opacity-100",
         id === 'overduePortfolio' && (isActive ? 'text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.4)]' : 'group-hover:text-orange-500'),
         id === 'carteraVencida' && (isActive ? 'text-red-600 drop-shadow-[0_0_8px_rgba(220,38,38,0.4)]' : 'group-hover:text-red-600'),
@@ -84,7 +83,7 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
   }
 
   return (
-        <div className="flex items-center bg-muted/40 p-1 rounded-full border border-border/50 backdrop-blur-sm shadow-inner">
+        <div className="flex items-center bg-muted/40 p-1.5 rounded-full border border-border/50 backdrop-blur-sm shadow-inner h-14">
             {allowedLinks.map((link) => {
                 const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
                 return (
@@ -92,9 +91,9 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
                         key={link.href}
                         href={link.href}
                         className={cn(
-                            'group flex items-center gap-2 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all duration-300 relative overflow-hidden',
+                            'group flex items-center gap-2.5 rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-300 relative overflow-hidden h-full',
                             isActive 
-                                ? 'bg-background text-foreground shadow-sm ring-1 ring-border/50 translate-y-[-1px]' 
+                                ? 'bg-background text-foreground shadow-md ring-1 ring-border/50 translate-y-[-1px]' 
                                 : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                         )}
                     >
@@ -106,7 +105,7 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
                             {link.label}
                         </span>
                         {isActive && (
-                            <span className="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary animate-pulse" />
+                            <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                         )}
                     </Link>
                 );
