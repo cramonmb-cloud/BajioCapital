@@ -1,10 +1,12 @@
+
 import { getPlazas, getLocalidades, getPromotoras, getUsers, getAppConfig, getLoanPlans } from "@/lib/firestore-data";
 import { UserManagement } from "@/components/user-management";
 import { PlazaManagement } from "@/components/plaza-management";
 import { SettingsClientPage } from "@/components/settings-client-page";
 import { PlanManagement } from "@/components/plan-management";
+import { MigrationManagement } from "@/components/migration-management";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, MapPin, Settings as SettingsIcon, Wrench, FileText } from "lucide-react";
+import { Users, MapPin, Settings as SettingsIcon, Wrench, FileText, ArrowRightLeft } from "lucide-react";
 
 export default async function SettingsPage() {
     const [plazas, localidades, promotoras, users, config, loanPlans] = await Promise.all([
@@ -36,6 +38,10 @@ export default async function SettingsPage() {
                             <MapPin className="h-4 w-4" />
                             <span className="hidden sm:inline">Zonas y Rutas</span>
                         </TabsTrigger>
+                        <TabsTrigger value="migration" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
+                            <ArrowRightLeft className="h-4 w-4" />
+                            <span className="hidden sm:inline">Migración</span>
+                        </TabsTrigger>
                         <TabsTrigger value="plans" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
                             <FileText className="h-4 w-4" />
                             <span className="hidden sm:inline">Planes</span>
@@ -60,6 +66,16 @@ export default async function SettingsPage() {
                 <TabsContent value="zones" className="mt-0 focus-visible:outline-none">
                     <div className="animate-in fade-in-50 duration-500">
                         <PlazaManagement 
+                            initialPlazas={plazas} 
+                            initialLocalidades={localidades} 
+                            initialPromotoras={promotoras} 
+                        />
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="migration" className="mt-0 focus-visible:outline-none">
+                    <div className="animate-in fade-in-50 duration-500">
+                        <MigrationManagement 
                             initialPlazas={plazas} 
                             initialLocalidades={localidades} 
                             initialPromotoras={promotoras} 

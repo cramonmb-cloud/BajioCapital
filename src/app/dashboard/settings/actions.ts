@@ -2,7 +2,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc, increment, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc, increment, Timestamp, updateDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import type { Plaza, Localidad, Promotora, AppUser, AppConfig, Loan, LoanPlan, Client } from '@/lib/types';
 
@@ -298,5 +298,26 @@ export async function saveAppNameAction(appName: string) {
         return { success: true, message: 'Nombre de la aplicación actualizado con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar el nombre de la aplicación: ${error.message}` };
+    }
+}
+
+/**
+ * Migrates a Localidad from its current Plaza to a target Plaza.
+ * This effectively moves all linked Promotoras and Loans since the hierarchy is relational.
+ */
+export async function migrateLocalidadAction(localidadId: string, targetPlazaId: string) {
+    try {
+        const localidadRef = doc(db, 'localidades', localidadId);
+        await updateDoc(localidadRef, { plazaId: targetPlazaId });
+        
+        revalidatePath('/dashboard', 'layout');
+        
+        return { 
+            success: true, 
+            message: 'La localidad y todos sus activos han sido migrados a la nueva plaza.' 
+        };
+    } catch (error: any) {
+        console.error('Error migrating locality:', error);
+        return { success: false, message: `Error al migrar localidad: ${error.message}` };
     }
 }
