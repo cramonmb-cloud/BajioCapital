@@ -91,7 +91,7 @@ export default function DashboardLayout({
   
   return (
     <div className="flex min-h-screen w-full flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-      <header className="sticky top-0 z-50 flex h-14 items-center gap-4 border-b border-border/40 bg-background/60 backdrop-blur-xl px-4 md:px-8 shadow-[0_1px_10px_-5px_rgba(0,0,0,0.05)]">
+      <header className="sticky top-0 z-50 flex h-20 items-center gap-4 border-b border-border/40 bg-background/60 backdrop-blur-xl px-4 md:px-8 shadow-[0_1px_10px_-5px_rgba(0,0,0,0.05)]">
          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="shrink-0 md:hidden hover:bg-muted/50 rounded-full h-9 w-9">
