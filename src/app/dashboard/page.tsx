@@ -133,15 +133,14 @@ export default function DashboardPage() {
       </div>
 
       {logoUrl && (
-        <div className="flex justify-center">
-            <div className="w-48 h-48 flex items-center justify-center p-4">
-                <div className="relative w-full h-full">
+        <div className="flex justify-center mb-8">
+            <div className="w-64 h-64 md:w-80 md:h-80 flex items-center justify-center p-4">
+                <div className="relative w-full h-full animate-in fade-in zoom-in duration-700">
                     <Image 
                         src={logoUrl} 
                         alt="Logo de la aplicación" 
                         fill
-                        objectFit="contain"
-                        className="rounded-lg border"
+                        className="object-contain rounded-3xl border-4 border-white shadow-2xl bg-white/80 backdrop-blur-sm p-4"
                     />
                 </div>
             </div>

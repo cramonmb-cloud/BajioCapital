@@ -1,4 +1,3 @@
-
 import {
   Card,
   CardContent,
@@ -22,9 +21,15 @@ export default async function LoginPage() {
         <CardHeader className="text-center">
             <div className='flex flex-col items-center justify-center mb-4 gap-2'>
                 {logoUrl && (
-                    <Image src={logoUrl} alt="Logo" width={128} height={128} className="h-32 w-32 object-contain rounded-lg border" />
+                    <Image 
+                      src={logoUrl} 
+                      alt="Logo" 
+                      width={200} 
+                      height={200} 
+                      className="h-48 w-48 object-contain rounded-2xl border shadow-lg bg-white p-2" 
+                    />
                 )}
-                <h1 className="text-2xl font-bold tracking-tighter">{appName}</h1>
+                <h1 className="text-2xl font-bold tracking-tighter mt-2">{appName}</h1>
             </div>
         </CardHeader>
         <CardContent>
