@@ -33,10 +33,9 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Trash2, Loader2, Database, Image as ImageIcon, Pencil, History, ShieldAlert, Sparkles, Building2 } from "lucide-react";
+import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction } from "@/app/dashboard/settings/actions";
-import { seedDatabaseAction } from "@/app/dashboard/seed-actions";
 import { useRouter } from "next/navigation";
 import type { AppConfig } from "@/lib/types";
 import { Separator } from "./ui/separator";
@@ -59,7 +58,6 @@ interface SettingsClientPageProps {
 
 export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsClientPageProps) {
     const [isDeleting, setIsDeleting] = useState(false);
-    const [isSeeding, setIsSeeding] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [isAccumulating, setIsAccumulating] = useState(false);
     const { toast } = useToast();
@@ -75,21 +73,6 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
         resolver: zodResolver(logoFormSchema),
         defaultValues: { logoUrl: initialConfig?.logoUrl || '' },
     });
-
-    const handleSeedDatabase = async () => {
-        setIsSeeding(true);
-        try {
-            const result = await seedDatabaseAction();
-            if (result.success) {
-                toast({ title: "Éxito", description: result.message });
-                router.refresh();
-            } else throw new Error(result.message);
-        } catch (error: any) {
-             toast({ variant: 'destructive', title: "Error", description: error.message });
-        } finally {
-            setIsSeeding(false);
-        }
-    };
 
     const handleDeleteAllData = async () => {
         setIsDeleting(true);
@@ -153,7 +136,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
 
     if (mode === 'system') {
         return (
-            <div className="grid gap-8 lg:grid-cols-2">
+            <div className="grid gap-8 max-w-2xl">
                 <Card className="shadow-lg border-primary/10">
                     <CardHeader className="bg-primary/5 border-b mb-6">
                         <CardTitle className="flex items-center gap-2 text-xl">
@@ -200,30 +183,6 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                 )} />
                             </form>
                         </Form>
-                    </CardContent>
-                </Card>
-
-                <Card className="shadow-lg border-amber-200">
-                    <CardHeader className="bg-amber-50 border-b mb-6">
-                        <CardTitle className="flex items-center gap-2 text-xl text-amber-700">
-                            <Sparkles className="h-5 w-5" /> Entorno de Pruebas
-                        </CardTitle>
-                        <CardDescription>Genera datos ficticios para demostraciones o capacitación.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-4">
-                        <div className="p-6 border-2 border-dashed border-amber-200 rounded-2xl bg-amber-50/30 flex flex-col items-center text-center gap-4">
-                            <div className="p-4 bg-amber-100 rounded-full">
-                                <Database className="h-8 w-8 text-amber-600" />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="font-bold text-lg">Población de Datos</h3>
-                                <p className="text-sm text-muted-foreground max-w-xs mx-auto">Insertará clientes, préstamos y planes de prueba para explorar la plataforma.</p>
-                            </div>
-                            <Button variant="outline" onClick={handleSeedDatabase} disabled={isSeeding} className="border-amber-600 text-amber-700 hover:bg-amber-100 font-bold px-8">
-                                {isSeeding ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Database className="mr-2 h-4 w-4" />}
-                                Generar Datos de Ejemplo
-                            </Button>
-                        </div>
                     </CardContent>
                 </Card>
             </div>
