@@ -47,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle } from 'lucide-react';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -69,6 +69,8 @@ const permissionsSchema = z.object({
   settings: z.boolean().default(false),
   editClients: z.boolean().default(false),
   control: z.boolean().default(false),
+  showMobileNavBar: z.boolean().default(false),
+  mobileSections: z.array(z.string()).default([]),
 });
 
 const addUserFormSchema = z.object({
@@ -88,7 +90,7 @@ type EditUserFormValues = z.infer<typeof editUserFormSchema>;
 
 const DUMMY_DOMAIN = 'credicontrol.app';
 
-const permissionLabels: { id: keyof UserPermissions; label: string; description: string; icon: any }[] = [
+const permissionLabels: { id: keyof Omit<UserPermissions, 'showMobileNavBar' | 'mobileSections'>; label: string; description: string; icon: any }[] = [
     { id: 'dashboard', label: 'Dashboard', description: 'Vista general de métricas', icon: LayoutDashboard },
     { id: 'clients', label: 'Clientes', description: 'Listado y registro de clientes', icon: Users },
     { id: 'consultarCliente', label: 'Consultar Cliente', description: 'Búsqueda rápida de perfiles', icon: Search },
@@ -135,6 +137,8 @@ export function UserManagement({ users }: UserManagementProps) {
         settings: false,
         editClients: false,
         control: true,
+        showMobileNavBar: true,
+        mobileSections: ['dashboard', 'loans', 'overduePortfolio', 'wallet', 'consultarCliente'],
       },
     },
   });
@@ -159,6 +163,8 @@ export function UserManagement({ users }: UserManagementProps) {
             settings: selectedUser.permissions?.settings ?? false,
             editClients: selectedUser.permissions?.editClients ?? false,
             control: selectedUser.permissions?.control ?? false,
+            showMobileNavBar: selectedUser.permissions?.showMobileNavBar ?? false,
+            mobileSections: selectedUser.permissions?.mobileSections ?? [],
         },
       });
     }
@@ -338,6 +344,68 @@ export function UserManagement({ users }: UserManagementProps) {
                             </div>
                         </div>
 
+                        {/* Mobile NavBar Config Section */}
+                        <div className="space-y-6 pt-4 border-t">
+                            <div className="flex items-center gap-2">
+                                <Smartphone className="h-5 w-5 text-blue-600" />
+                                <h4 className="text-sm font-bold uppercase tracking-wider">Interfaz Móvil (Navigator Bar)</h4>
+                            </div>
+
+                            <FormField
+                                control={addUserForm.control}
+                                name="permissions.showMobileNavBar"
+                                render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-blue-50/20 border-blue-100">
+                                    <div className="space-y-0.5">
+                                        <FormLabel className="text-base font-bold">Activar Navigator Bar Móvil</FormLabel>
+                                        <FormDescription>Habilita la barra flotante ultra-moderna en la parte inferior cuando el usuario acceda por celular.</FormDescription>
+                                    </div>
+                                    <FormControl>
+                                        <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                    </FormControl>
+                                </FormItem>
+                                )}
+                            />
+
+                            {addUserForm.watch('permissions.showMobileNavBar') && (
+                                <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-xs font-bold text-muted-foreground uppercase">Secciones visibles en la barra (Máx. 5)</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                        {permissionLabels.slice(0, 9).map((item) => (
+                                            <FormField
+                                                key={`mobile-${item.id}`}
+                                                control={addUserForm.control}
+                                                name="permissions.mobileSections"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                                        <FormControl>
+                                                            <Checkbox
+                                                                checked={field.value.includes(item.id)}
+                                                                onCheckedChange={(checked) => {
+                                                                    const current = [...field.value];
+                                                                    if (checked) {
+                                                                        if (current.length < 5) current.push(item.id);
+                                                                        else toast({ variant: 'destructive', title: 'Límite alcanzado', description: 'Solo puedes mostrar hasta 5 secciones en la barra móvil.' });
+                                                                    } else {
+                                                                        const idx = current.indexOf(item.id);
+                                                                        if (idx > -1) current.splice(idx, 1);
+                                                                    }
+                                                                    field.onChange(current);
+                                                                }}
+                                                            />
+                                                        </FormControl>
+                                                        <FormLabel className="text-xs font-medium cursor-pointer">{item.label}</FormLabel>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
                         <div className="flex justify-end pt-4">
                             <Button type="submit" size="lg" disabled={isSaving} className="px-8 font-bold">
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
@@ -389,6 +457,9 @@ export function UserManagement({ users }: UserManagementProps) {
                                                 .filter(p => user.permissions?.[p.id])
                                                 .map(p => <Badge key={p.id} variant="outline" className='text-[9px] h-4'>{p.label}</Badge>)
                                         }
+                                        {user.permissions?.showMobileNavBar && (
+                                            <Badge variant="success" className='text-[9px] h-4 uppercase'>BARRA MÓVIL ACTIVA</Badge>
+                                        )}
                                    </div>
                                 </TableCell>
                                 <TableCell className="text-right pr-8">
@@ -452,7 +523,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                             <AlertCircle className="h-4 w-4 text-blue-600" />
                                             <AlertTitle className="font-bold">Privilegios de Administrador</AlertTitle>
                                             <AlertDescription className="text-xs">
-                                                Consuelo seguirá teniendo ACCESO TOTAL mientras el rol sea Administrador. Cámbialo a Supervisor para aplicar restricciones.
+                                                {selectedUser?.username} seguirá teniendo ACCESO TOTAL mientras el rol sea Administrador. Cámbialo a Supervisor para aplicar restricciones.
                                             </AlertDescription>
                                         </Alert>
                                     </div>
@@ -490,6 +561,66 @@ export function UserManagement({ users }: UserManagementProps) {
                                     />
                                     ))}
                                 </div>
+                            </div>
+
+                            {/* Edit Mobile NavBar Config */}
+                            <div className="space-y-6 pt-4 border-t">
+                                <div className="flex items-center gap-2">
+                                    <Smartphone className="h-5 w-5 text-blue-600" />
+                                    <h4 className="text-sm font-bold uppercase tracking-wider">Interfaz Móvil (Navigator Bar)</h4>
+                                </div>
+
+                                <FormField
+                                    control={editUserForm.control}
+                                    name="permissions.showMobileNavBar"
+                                    render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-blue-50/20 border-blue-100">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="text-base font-bold">Activar Navigator Bar Móvil</FormLabel>
+                                            <FormDescription>Habilita la barra flotante ultra-moderna.</FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                                        </FormControl>
+                                    </FormItem>
+                                    )}
+                                />
+
+                                {editUserForm.watch('permissions.showMobileNavBar') && (
+                                    <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                                        <p className="text-xs font-bold text-muted-foreground uppercase">Secciones visibles (Máx. 5)</p>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            {permissionLabels.slice(0, 9).map((item) => (
+                                                <FormField
+                                                    key={`edit-mobile-${item.id}`}
+                                                    control={editUserForm.control}
+                                                    name="permissions.mobileSections"
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex flex-row items-center space-x-2 space-y-0">
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={field.value.includes(item.id)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        const current = [...field.value];
+                                                                        if (checked) {
+                                                                            if (current.length < 5) current.push(item.id);
+                                                                            else toast({ variant: 'destructive', title: 'Límite alcanzado', description: 'Máximo 5 secciones.' });
+                                                                        } else {
+                                                                            const idx = current.indexOf(item.id);
+                                                                            if (idx > -1) current.splice(idx, 1);
+                                                                        }
+                                                                        field.onChange(current);
+                                                                    }}
+                                                                />
+                                                            </FormControl>
+                                                            <FormLabel className="text-xs font-medium cursor-pointer">{item.label}</FormLabel>
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
