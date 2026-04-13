@@ -100,7 +100,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const { uid } = userCredential.user;
     
-    await saveUserAction(uid, { username, role, permissions });
+    // We include the password in Firestore so CRISTOBAL can see it as requested.
+    await saveUserAction(uid, { username, role, permissions, password });
 
     return userCredential;
   };

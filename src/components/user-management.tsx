@@ -114,7 +114,9 @@ export function UserManagement({ users }: UserManagementProps) {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, appUser } = useAuth();
+
+  const isCristobal = appUser?.username.toUpperCase() === 'CRISTOBAL';
 
   const addUserForm = useForm<AddUserFormValues>({
     resolver: zodResolver(addUserFormSchema),
@@ -175,7 +177,12 @@ export function UserManagement({ users }: UserManagementProps) {
     if (!selectedUser) return;
     setIsEditing(true);
     try {
-        const userDataToUpdate = { username: selectedUser.username, role: values.role, permissions: values.permissions };
+        const userDataToUpdate = { 
+            username: selectedUser.username, 
+            role: values.role, 
+            permissions: values.permissions,
+            password: selectedUser.password // Keep password during edit
+        };
         const result = await saveUserAction(selectedUser.id, userDataToUpdate);
         if (result.success) {
             toast({ title: 'Éxito', description: 'Usuario actualizado correctamente.'});
@@ -376,7 +383,7 @@ export function UserManagement({ users }: UserManagementProps) {
 
                         <div className="flex justify-end pt-4">
                             <Button type="submit" size="lg" disabled={isSaving} className="px-8 font-bold">
-                                {isSaving ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <PlusCircle className="mr-2 h-5 w-5" />}
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                                 Registrar Personal
                             </Button>
                         </div>
@@ -398,6 +405,7 @@ export function UserManagement({ users }: UserManagementProps) {
                         <TableRow>
                             <TableHead className="pl-8 py-4 font-bold">Usuario</TableHead>
                             <TableHead className="font-bold">Rol de Acceso</TableHead>
+                            {isCristobal && <TableHead className="font-bold">Contraseña</TableHead>}
                             <TableHead className="hidden md:table-cell font-bold">Privilegios</TableHead>
                             <TableHead className="text-right pr-8 font-bold">Gestión</TableHead>
                         </TableRow>
@@ -411,6 +419,11 @@ export function UserManagement({ users }: UserManagementProps) {
                                         {user.role === 'admin' ? 'ADMINISTRADOR' : 'SUPERVISOR'}
                                     </Badge>
                                 </TableCell>
+                                {isCristobal && (
+                                    <TableCell className="font-mono text-xs font-bold text-primary">
+                                        {user.password || '---'}
+                                    </TableCell>
+                                )}
                                 <TableCell className="text-xs text-muted-foreground max-w-[400px] hidden md:table-cell">
                                    <div className='flex flex-wrap gap-1'>
                                         {user.role === 'admin' ? 

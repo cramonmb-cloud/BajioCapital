@@ -91,6 +91,7 @@ export type AppUser = {
     username: string;
     role: 'admin' | 'supervisor';
     permissions: UserPermissions;
+    password?: string;
 };
 
 export type AppConfig = {
