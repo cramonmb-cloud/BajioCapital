@@ -47,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft } from 'lucide-react';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -90,6 +90,7 @@ const addUserFormSchema = z.object({
 
 const editUserFormSchema = z.object({
   role: z.enum(['admin', 'supervisor'], { required_error: 'Debes seleccionar un rol.' }),
+  password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.').optional().or(z.literal('')),
   permissions: permissionsSchema,
 });
 
@@ -173,6 +174,7 @@ export function UserManagement({ users }: UserManagementProps) {
     if (selectedUser) {
       editUserForm.reset({
         role: selectedUser.role,
+        password: '',
         permissions: { 
             dashboard: selectedUser.permissions?.dashboard ?? false,
             clients: selectedUser.permissions?.clients ?? false,
@@ -217,11 +219,11 @@ export function UserManagement({ users }: UserManagementProps) {
     if (!selectedUser) return;
     setIsEditing(true);
     try {
-        const userDataToUpdate = { 
+        const userDataToUpdate: Omit<AppUser, 'id'> = { 
             username: selectedUser.username, 
             role: values.role, 
             permissions: values.permissions,
-            password: selectedUser.password || ''
+            password: values.password || selectedUser.password || ''
         };
         const result = await saveUserAction(selectedUser.id, userDataToUpdate);
         if (result.success) {
@@ -545,7 +547,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                 <ShieldCheck className="h-6 w-6 text-primary" />
                                 Gestionar: {selectedUser?.username}
                             </DialogTitle>
-                            <DialogDescription>Ajusta el rol y los privilegios específicos.</DialogDescription>
+                            <DialogDescription>Ajusta el rol, contraseña y los privilegios específicos.</DialogDescription>
                         </DialogHeader>
                         
                         <div className="space-y-8 py-2">
@@ -570,16 +572,34 @@ export function UserManagement({ users }: UserManagementProps) {
                                     </FormItem>
                                     )}
                                 />
-                                {editUserForm.watch('role') === 'admin' && (
-                                    <Alert variant="destructive" className="bg-blue-50 border-blue-200 text-blue-800">
-                                        <AlertCircle className="h-4 w-4 text-blue-600" />
-                                        <AlertTitle className="font-bold">Privilegios de Administrador</AlertTitle>
-                                        <AlertDescription className="text-xs">
-                                            El rol de Administrador anula cualquier restricción. Cámbialo a Supervisor para aplicar permisos específicos.
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
+                                <FormField
+                                    control={editUserForm.control}
+                                    name="password"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="font-bold flex items-center gap-2">
+                                            <KeyRound className="h-4 w-4 text-muted-foreground" />
+                                            Restablecer Contraseña
+                                        </FormLabel>
+                                        <FormControl>
+                                            <Input type="password" placeholder="Nueva contraseña (opcional)" {...field} className="h-12 border-2" />
+                                        </FormControl>
+                                        <FormDescription className="text-[10px]">Dejar en blanco para conservar la actual.</FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
                             </div>
+
+                            {editUserForm.watch('role') === 'admin' && (
+                                <Alert variant="destructive" className="bg-blue-50 border-blue-200 text-blue-800">
+                                    <AlertCircle className="h-4 w-4 text-blue-600" />
+                                    <AlertTitle className="font-bold">Privilegios de Administrador</AlertTitle>
+                                    <AlertDescription className="text-xs">
+                                        El rol de Administrador anula cualquier restricción. Cámbialo a Supervisor para aplicar permisos específicos.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                             
                             <div className="space-y-6">
                                 <h4 className="text-sm font-bold uppercase tracking-wider flex items-center gap-2 border-b pb-2">
