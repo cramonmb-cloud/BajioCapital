@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -298,6 +297,17 @@ export async function saveAppNameAction(appName: string) {
         return { success: true, message: 'Nombre de la aplicación actualizado con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar el nombre de la aplicación: ${error.message}` };
+    }
+}
+
+export async function saveWhatsAppTemplateAction(template: string) {
+    try {
+        const configRef = doc(db, 'config', 'main');
+        await setDoc(configRef, { whatsappTemplate: template }, { merge: true });
+        revalidatePath('/dashboard', 'layout');
+        return { success: true, message: 'Plantilla de WhatsApp guardada con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar la plantilla: ${error.message}` };
     }
 }
 

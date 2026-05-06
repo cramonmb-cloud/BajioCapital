@@ -15,6 +15,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
 import { generateColorPalette } from '@/lib/utils';
+import { useRealtimeData } from '@/hooks/use-realtime-data';
 
 interface OverduePortfolioClientPageProps {
     initialOverdueLoans: OverdueLoanDetails[];
@@ -35,6 +36,7 @@ export function OverduePortfolioClientPage({
     promotoras,
     title
 }: OverduePortfolioClientPageProps) {
+    const { data } = useRealtimeData();
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPlaza, setSelectedPlaza] = useState('all');
     const [selectedLocalidad, setSelectedLocalidad] = useState('all');
@@ -42,6 +44,8 @@ export function OverduePortfolioClientPage({
 
     const isOverduePortfolio = title === "Pagos Pendientes";
     const globalDebtLabel = isOverduePortfolio ? "Acumulado de Fallos (Filtro)" : "Deuda Pendiente (Filtro)";
+
+    const appConfig = data?.config;
 
     // Generate colors for plazas
     const plazaColors = useMemo(() => {
@@ -185,6 +189,8 @@ export function OverduePortfolioClientPage({
                                 allLoanPlans={loanPlans}
                                 plazaColor={plazaColors[details.hierarchy.plazaId] || '#666'}
                                 isOverduePortfolio={isOverduePortfolio}
+                                whatsappTemplate={appConfig?.whatsappTemplate}
+                                appName={appConfig?.appName}
                            />
                         ))
                     ) : (

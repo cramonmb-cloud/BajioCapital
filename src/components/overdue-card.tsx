@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
-import type { Client, LoanPlan } from '@/lib/types';
+import type { Client, LoanPlan, AppConfig } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import {
     Dialog,
@@ -30,6 +30,8 @@ interface OverdueCardProps {
     allLoanPlans: LoanPlan[];
     plazaColor: string;
     isOverduePortfolio?: boolean;
+    whatsappTemplate?: string;
+    appName?: string;
 }
 
 const getSaturdayOfWeek = (d: Date) => {
@@ -43,7 +45,7 @@ const getSaturdayOfWeek = (d: Date) => {
 
 const cleanPhone = (phone: string) => phone.replace(/\D/g, '');
 
-export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isOverduePortfolio }: OverdueCardProps) {
+export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isOverduePortfolio, whatsappTemplate, appName }: OverdueCardProps) {
     const { client, loan, loanPlan, amountDue, missedPayments, hierarchy } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -69,14 +71,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
     };
 
-    const handleWhatsApp = (e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        if (client.phone) {
-            const message = `Hola ${client.name}, te contactamos de CrediControl para recordarte sobre tu préstamo pendiente de pago.`;
-            window.open(`https://wa.me/${client.phone}?text=${encodeURIComponent(message)}`, '_blank');
-        }
-    };
-    
     const { avalName, avalAddress, avalPhone } = useMemo(() => {
         const parts = client.endorsement.split('(');
         const name = parts[0].trim();
@@ -98,6 +92,35 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             avalPhone: phone || ''
         };
     }, [client.endorsement]);
+
+    const handleWhatsApp = (e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        if (client.phone) {
+            const defaultTemplate = `Hola {{nombre_cliente}}, te contactamos de {{nombre_negocio}} para recordarte sobre tu préstamo pendiente de pago.`;
+            let message = whatsappTemplate || defaultTemplate;
+
+            const replacements: Record<string, string> = {
+                '{{nombre_cliente}}': client.name.toUpperCase(),
+                '{{domicilio_cliente}}': `${client.street}, ${client.neighborhood}`.toUpperCase(),
+                '{{telefono_cliente}}': client.phone,
+                '{{nombre_aval}}': avalName.toUpperCase(),
+                '{{domicilio_aval}}': avalAddress.toUpperCase(),
+                '{{telefono_aval}}': avalPhone,
+                '{{monto_prestamo}}': formatCurrency(loan.amount),
+                '{{saldo_pendiente}}': formatCurrency(amountDue),
+                '{{fallos_registrados}}': missedPayments.toString(),
+                '{{nombre_negocio}}': appName || 'CREDICONTROL',
+            };
+
+            // Replace all tags
+            Object.keys(replacements).forEach(tag => {
+                const regex = new RegExp(tag, 'g');
+                message = message.replace(regex, replacements[tag]);
+            });
+
+            window.open(`https://wa.me/${client.phone}?text=${encodeURIComponent(message)}`, '_blank');
+        }
+    };
     
     const today = new Date();
     const loanStartDate = new Date(loan.startDate);

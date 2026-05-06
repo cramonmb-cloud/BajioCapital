@@ -31,15 +31,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2 } from "lucide-react";
+import { Textarea } from '@/components/ui/textarea';
+import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction } from "@/app/dashboard/settings/actions";
+import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction } from "@/app/dashboard/settings/actions";
 import { useRouter } from "next/navigation";
 import type { AppConfig } from "@/lib/types";
 import { Separator } from "./ui/separator";
 import { useAuth } from "@/hooks/use-auth";
+import { Badge } from "./ui/badge";
 
 const appNameSchema = z.object({
   appName: z.string().min(3, 'Mínimo 3 caracteres.'),
@@ -47,14 +50,31 @@ const appNameSchema = z.object({
 const logoFormSchema = z.object({
   logoUrl: z.string().url('URL no válida.').or(z.literal('')),
 });
+const whatsappTemplateSchema = z.object({
+  template: z.string().min(1, 'La plantilla no puede estar vacía.'),
+});
 
 type AppNameFormValues = z.infer<typeof appNameSchema>;
 type LogoFormValues = z.infer<typeof logoFormSchema>;
+type WhatsappTemplateFormValues = z.infer<typeof whatsappTemplateSchema>;
 
 interface SettingsClientPageProps {
     initialConfig: AppConfig | null;
     mode?: 'system' | 'maintenance';
 }
+
+const AVAILABLE_TAGS = [
+    { tag: '{{nombre_cliente}}', desc: 'Nombre completo del titular' },
+    { tag: '{{domicilio_cliente}}', desc: 'Dirección del cliente' },
+    { tag: '{{telefono_cliente}}', desc: 'Teléfono del cliente' },
+    { tag: '{{nombre_aval}}', desc: 'Nombre del aval registrado' },
+    { tag: '{{domicilio_aval}}', desc: 'Dirección del aval' },
+    { tag: '{{telefono_aval}}', desc: 'Teléfono del aval' },
+    { tag: '{{monto_prestamo}}', desc: 'Monto original solicitado' },
+    { tag: '{{saldo_pendiente}}', desc: 'Monto total que debe a la fecha' },
+    { tag: '{{fallos_registrados}}', desc: 'Número de pagos incompletos' },
+    { tag: '{{nombre_negocio}}', desc: 'Nombre de tu empresa' },
+];
 
 export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsClientPageProps) {
     const [isDeleting, setIsDeleting] = useState(false);
@@ -72,6 +92,11 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
     const logoForm = useForm<LogoFormValues>({
         resolver: zodResolver(logoFormSchema),
         defaultValues: { logoUrl: initialConfig?.logoUrl || '' },
+    });
+
+    const whatsappForm = useForm<WhatsappTemplateFormValues>({
+        resolver: zodResolver(whatsappTemplateSchema),
+        defaultValues: { template: initialConfig?.whatsappTemplate || 'Hola {{nombre_cliente}}, te contactamos de {{nombre_negocio}} para recordarte sobre tu préstamo pendiente de {{saldo_pendiente}}.' },
     });
 
     const handleDeleteAllData = async () => {
@@ -134,9 +159,24 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
         }
     };
 
+    const onSaveWhatsappSubmit = async (values: WhatsappTemplateFormValues) => {
+        setIsSaving(true);
+        try {
+            const result = await saveWhatsAppTemplateAction(values.template);
+            if (result.success) {
+                toast({ title: 'Configuración Guardada', description: 'La plantilla de WhatsApp ha sido actualizada.' });
+                router.refresh();
+            } else throw new Error(result.message);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     if (mode === 'system') {
         return (
-            <div className="grid gap-8 max-w-2xl">
+            <div className="grid gap-8 max-w-3xl">
                 <Card className="shadow-lg border-primary/10">
                     <CardHeader className="bg-primary/5 border-b mb-6">
                         <CardTitle className="flex items-center gap-2 text-xl">
@@ -181,6 +221,58 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                         <FormMessage />
                                     </FormItem>
                                 )} />
+                            </form>
+                        </Form>
+                    </CardContent>
+                </Card>
+
+                <Card className="shadow-lg border-green-200 overflow-hidden">
+                    <CardHeader className="bg-green-50 border-b mb-6">
+                        <CardTitle className="flex items-center gap-2 text-xl text-green-800">
+                            <MessageSquare className="h-5 w-5" /> Configuración de Mensajes WhatsApp
+                        </CardTitle>
+                        <CardDescription>Define el mensaje predeterminado que se enviará a los clientes en mora.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="bg-muted/30 p-4 rounded-xl space-y-3">
+                            <div className="flex items-center gap-2 mb-2">
+                                <Sparkles className="h-4 w-4 text-yellow-500" />
+                                <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Etiquetas Disponibles</h4>
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {AVAILABLE_TAGS.map(t => (
+                                    <div key={t.tag} className="flex flex-col gap-0.5">
+                                        <code className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 w-fit">{t.tag}</code>
+                                        <span className="text-[9px] text-muted-foreground leading-none">{t.desc}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <Form {...whatsappForm}>
+                            <form onSubmit={whatsappForm.handleSubmit(onSaveWhatsappSubmit)} className="space-y-4">
+                                <FormField control={whatsappForm.control} name="template" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="font-bold">Contenido del Mensaje</FormLabel>
+                                        <FormControl>
+                                            <Textarea 
+                                                placeholder="Escribe el mensaje aquí..." 
+                                                className="min-h-[150px] resize-none border-2 focus:ring-green-500" 
+                                                {...field} 
+                                            />
+                                        </FormControl>
+                                        <FormDescription className="text-[10px]">
+                                            Usa las etiquetas de arriba exactamente como aparecen para que el sistema las reemplace.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <div className="flex justify-end">
+                                    <Button type="submit" disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-white font-bold h-12 px-10 rounded-xl">
+                                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
+                                        Guardar Plantilla
+                                    </Button>
+                                </div>
                             </form>
                         </Form>
                     </CardContent>
