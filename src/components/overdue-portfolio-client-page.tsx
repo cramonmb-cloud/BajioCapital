@@ -109,67 +109,73 @@ export function OverduePortfolioClientPage({
 
     return (
         <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-                <div className="bg-destructive/80 text-white p-4 rounded-lg shadow-sm border border-destructive">
-                    <div className="text-xs font-bold uppercase tracking-wider opacity-80">{globalDebtLabel}</div>
-                    <div className="text-2xl font-bold">
+            <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
+                <div className="bg-destructive/80 text-white p-3 rounded-lg shadow-sm border border-destructive">
+                    <div className="text-[9px] font-black uppercase tracking-wider opacity-80">{globalDebtLabel}</div>
+                    <div className="text-lg font-black">
                         {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalDue)}
                     </div>
                 </div>
-                <div className="bg-card text-card-foreground p-4 rounded-lg border shadow-sm">
-                    <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Total de Clientes (Filtro)</div>
-                    <div className="text-2xl font-bold">{totalClients}</div>
-                    <p className="text-[10px] text-muted-foreground uppercase">{initialOverdueLoans.length} clientes en total</p>
+                <div className="bg-card text-card-foreground p-3 rounded-lg border shadow-sm">
+                    <div className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Clientes (Filtro)</div>
+                    <div className="text-lg font-black">{totalClients}</div>
+                    <p className="text-[8px] text-muted-foreground uppercase">{initialOverdueLoans.length} total histórico</p>
                 </div>
             </div>
 
-            <div className="bg-card p-4 rounded-lg border shadow-sm space-y-4">
-                <div className="flex flex-col md:flex-row gap-4 items-end">
-                    <div className="flex-1 w-full space-y-1">
-                        <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Buscar Cliente</label>
-                        <Input
-                            placeholder="Nombre, dirección o teléfono..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="w-full"
-                        />
+            <div className="bg-card p-3 rounded-lg border shadow-sm space-y-3">
+                <div className="flex flex-col gap-3">
+                    <div className="w-full space-y-1">
+                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Buscar</label>
+                        <div className="relative">
+                            <Input
+                                placeholder="Nombre, calle o teléfono..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="w-full h-9 text-xs"
+                            />
+                            {searchTerm && (
+                                <Button variant="ghost" size="icon" onClick={() => setSearchTerm('')} className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7">
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            )}
+                        </div>
                     </div>
-                    <div className="w-full md:w-[180px] space-y-1">
-                        <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Plaza</label>
-                        <Select value={selectedPlaza} onValueChange={(v) => { setSelectedPlaza(v); setSelectedLocalidad('all'); setSelectedPromotora('all'); }}>
-                            <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas</SelectItem>
-                                {[...plazas].sort((a,b) => a.name.localeCompare(b.name)).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Plaza</label>
+                            <Select value={selectedPlaza} onValueChange={(v) => { setSelectedPlaza(v); setSelectedLocalidad('all'); setSelectedPromotora('all'); }}>
+                                <SelectTrigger className="h-8 text-[10px]"><SelectValue placeholder="Todas" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas</SelectItem>
+                                    {[...plazas].sort((a,b) => a.name.localeCompare(b.name)).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Zona</label>
+                            <Select value={selectedLocalidad} onValueChange={(v) => { setSelectedLocalidad(v); setSelectedPromotora('all'); }}>
+                                <SelectTrigger className="h-8 text-[10px]"><SelectValue placeholder="Todas" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas</SelectItem>
+                                    {filteredLocalidadesOptions.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Ruta</label>
+                            <Select value={selectedPromotora} onValueChange={setSelectedPromotora}>
+                                <SelectTrigger className="h-8 text-[10px]"><SelectValue placeholder="Todas" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todas</SelectItem>
+                                    {filteredPromotorasOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
-                    <div className="w-full md:w-[180px] space-y-1">
-                        <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Localidad</label>
-                        <Select value={selectedLocalidad} onValueChange={(v) => { setSelectedLocalidad(v); setSelectedPromotora('all'); }}>
-                            <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas</SelectItem>
-                                {filteredLocalidadesOptions.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="w-full md:w-[180px] space-y-1">
-                        <label className="text-xs font-bold uppercase text-muted-foreground ml-1">Promotora</label>
-                        <Select value={selectedPromotora} onValueChange={setSelectedPromotora}>
-                            <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">Todas</SelectItem>
-                                {filteredPromotorasOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={clearFilters} disabled={searchTerm === '' && selectedPlaza === 'all' && selectedLocalidad === 'all' && selectedPromotora === 'all'}>
-                        <X className="h-4 w-4" />
-                    </Button>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pt-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-3 gap-y-1 pt-1">
                     {filteredLoans.length > 0 ? (
                         filteredLoans.map(details => (
                            <OverdueCard 
@@ -182,9 +188,9 @@ export function OverduePortfolioClientPage({
                            />
                         ))
                     ) : (
-                        <div className="col-span-full py-12 text-center border-2 border-dashed rounded-lg bg-muted/30">
-                            <p className="text-muted-foreground font-medium">
-                                No hay clientes en {title} que coincidan con la búsqueda o filtros.
+                        <div className="col-span-full py-8 text-center border-2 border-dashed rounded-lg bg-muted/20">
+                            <p className="text-[11px] text-muted-foreground font-black uppercase">
+                                Sin resultados para estos filtros
                             </p>
                         </div>
                     )}
