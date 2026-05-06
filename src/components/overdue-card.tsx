@@ -45,6 +45,9 @@ const getSaturdayOfWeek = (d: Date) => {
   return date;
 };
 
+// Helper to clean phone numbers for tel: protocol
+const cleanPhone = (phone: string) => phone.replace(/\D/g, '');
+
 export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isOverduePortfolio }: OverdueCardProps) {
     const { client, loan, loanPlan, amountDue, missedPayments, hierarchy } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
@@ -148,30 +151,36 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                     <div className="text-sm space-y-2">
                         {/* Bloque Info Cliente */}
-                        <div className="bg-secondary/30 p-2 rounded-md space-y-1">
+                        <div className="bg-secondary/30 p-2 rounded-md space-y-2">
                             <div className="flex items-center justify-between text-muted-foreground">
-                                <div className="flex items-center gap-2">
-                                    <Phone className="h-3 w-3" />
-                                    <span className="font-bold">{client.phone || 'S/N'}</span>
-                                </div>
-                                <div className="flex items-center gap-2 text-xs">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>Inició: {formatDate(loanWeekDate.toISOString())}</span>
-                                </div>
+                                <Button asChild className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-bold w-full" size="sm">
+                                    <a href={`tel:${cleanPhone(client.phone)}`}>
+                                        <Phone className="mr-2 h-3.5 w-3.5" />
+                                        {client.phone || 'LLAMAR CLIENTE'}
+                                    </a>
+                                </Button>
+                            </div>
+                            <div className="flex items-center justify-center gap-2 text-[10px] uppercase font-bold text-muted-foreground">
+                                <Calendar className="h-3 w-3" />
+                                <span>Inició: {formatDate(loanWeekDate.toISOString())}</span>
                             </div>
                         </div>
 
-                        {/* Bloque Info Aval - DIRECTO EN TARJETA */}
-                        <div className="bg-primary/5 border border-primary/10 p-2 rounded-md space-y-1">
+                        {/* Bloque Info Aval */}
+                        <div className="bg-primary/5 border border-primary/10 p-2 rounded-md space-y-2">
                              <div className="flex items-center gap-2 text-primary">
                                 <UserCheck className="h-3 w-3 flex-shrink-0" />
                                 <span className="text-[10px] font-bold uppercase tracking-tight">Aval Responsable</span>
                             </div>
                             <p className="text-xs font-extrabold uppercase leading-tight">{avalName}</p>
-                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                                <Phone className="h-2.5 w-2.5" />
-                                <span className="font-bold">{avalPhone}</span>
-                            </div>
+                            
+                            <Button asChild className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-bold w-full" size="sm">
+                                <a href={`tel:${cleanPhone(avalPhone)}`}>
+                                    <Phone className="mr-2 h-3.5 w-3.5" />
+                                    {avalPhone !== 'SIN TELÉFONO' ? avalPhone : 'LLAMAR AVAL'}
+                                </a>
+                            </Button>
+
                             <div className="flex items-start gap-2 text-[10px] text-muted-foreground leading-none">
                                 <MapPin className="h-2.5 w-2.5 mt-0.5" />
                                 <span className="uppercase">{avalAddress}</span>
@@ -204,7 +213,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 </CardContent>
             </Card>
 
-            {/* Modal de Detalle del Cliente (Estilo Consultar Cliente) */}
+            {/* Modal de Detalle del Cliente */}
             <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
                 <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
@@ -219,8 +228,13 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     <p className="text-sm text-muted-foreground">ID de Cliente: {client.id}</p>
                                 </div>
                             </div>
-                            <div className="text-sm text-muted-foreground grid grid-cols-1 gap-y-1">
-                                <div className="flex items-center gap-2 font-bold text-foreground"><Phone className="h-4 w-4 text-primary" /> {client.phone}</div>
+                            <div className="text-sm text-muted-foreground grid grid-cols-1 gap-y-2">
+                                <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 px-4" size="sm">
+                                    <a href={`tel:${cleanPhone(client.phone)}`}>
+                                        <Phone className="mr-2 h-4 w-4" />
+                                        {client.phone}
+                                    </a>
+                                </Button>
                                 <div className="flex items-center gap-2">
                                     {isMobile ? (
                                         <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline" style={{ color: '#005DC7' }}>
@@ -296,11 +310,16 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         <p className="font-extrabold text-lg uppercase text-primary">{avalName}</p>
                                     </div>
                                     
-                                    <div className="space-y-1">
+                                    <div className="space-y-2">
                                         <p className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
                                             <Phone className="h-3 w-3" /> Teléfono de Contacto
                                         </p>
-                                        <p className="font-bold text-base uppercase">{avalPhone}</p>
+                                        <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-10 px-4 w-full" size="sm">
+                                            <a href={`tel:${cleanPhone(avalPhone)}`}>
+                                                <Phone className="mr-2 h-4 w-4" />
+                                                {avalPhone}
+                                            </a>
+                                        </Button>
                                     </div>
                                     
                                     <div className="space-y-1">
