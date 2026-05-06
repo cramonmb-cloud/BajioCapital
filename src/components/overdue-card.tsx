@@ -138,7 +138,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     </div>
                     <Badge variant="destructive" className="text-[10px] h-5 font-bold">CON FALLA</Badge>
                 </div>
-                <CardContent className="p-4 space-y-3">
+                <CardContent className="p-4 space-y-4">
                     <div className="cursor-pointer group" onClick={() => setDetailModalOpen(true)}>
                         <h3 className="font-bold text-lg leading-tight uppercase group-hover:text-primary transition-colors">{client.name}</h3>
                         <div className="flex items-center gap-1 text-[11px] text-muted-foreground mt-1 uppercase font-semibold">
@@ -146,20 +146,36 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </div>
                     </div>
 
-                    <div className="text-sm space-y-1 text-muted-foreground bg-secondary/30 p-2 rounded-md">
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                                <Phone className="h-3 w-3" />
-                                <span>{client.phone || 'S/N'}</span>
-                            </div>
-                            <div className="flex items-center gap-2 text-xs">
-                                <Calendar className="h-3 w-3" />
-                                <span>Inició: {formatDate(loanWeekDate.toISOString())}</span>
+                    <div className="text-sm space-y-2">
+                        {/* Bloque Info Cliente */}
+                        <div className="bg-secondary/30 p-2 rounded-md space-y-1">
+                            <div className="flex items-center justify-between text-muted-foreground">
+                                <div className="flex items-center gap-2">
+                                    <Phone className="h-3 w-3" />
+                                    <span className="font-bold">{client.phone || 'S/N'}</span>
+                                </div>
+                                <div className="flex items-center gap-2 text-xs">
+                                    <Calendar className="h-3 w-3" />
+                                    <span>Inició: {formatDate(loanWeekDate.toISOString())}</span>
+                                </div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 truncate">
-                            <UserCheck className="h-3 w-3 flex-shrink-0 text-primary" />
-                            <span className="truncate uppercase font-medium">Aval: {avalName}</span>
+
+                        {/* Bloque Info Aval - DIRECTO EN TARJETA */}
+                        <div className="bg-primary/5 border border-primary/10 p-2 rounded-md space-y-1">
+                             <div className="flex items-center gap-2 text-primary">
+                                <UserCheck className="h-3 w-3 flex-shrink-0" />
+                                <span className="text-[10px] font-bold uppercase tracking-tight">Aval Responsable</span>
+                            </div>
+                            <p className="text-xs font-extrabold uppercase leading-tight">{avalName}</p>
+                            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                                <Phone className="h-2.5 w-2.5" />
+                                <span className="font-bold">{avalPhone}</span>
+                            </div>
+                            <div className="flex items-start gap-2 text-[10px] text-muted-foreground leading-none">
+                                <MapPin className="h-2.5 w-2.5 mt-0.5" />
+                                <span className="uppercase">{avalAddress}</span>
+                            </div>
                         </div>
                     </div>
                     
