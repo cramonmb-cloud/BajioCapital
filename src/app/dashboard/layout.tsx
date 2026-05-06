@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Logo } from '@/components/logo';
@@ -111,10 +112,10 @@ export default function DashboardLayout({
               </SheetContent>
             </Sheet>
 
-        {/* Logo centrado solo en móvil */}
+        {/* Logo centrado solo en móvil - Tamaño aumentado de sm a lg */}
         <div className="absolute left-1/2 -translate-x-1/2 md:hidden">
           <Link href="/dashboard" className="transition-transform active:scale-95">
-            <Logo logoUrl={logoUrl} appName={appName} size="sm" />
+            <Logo logoUrl={logoUrl} appName={appName} size="lg" />
           </Link>
         </div>
 

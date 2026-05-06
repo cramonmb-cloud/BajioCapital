@@ -1,3 +1,4 @@
+
 import { CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -43,7 +44,7 @@ export function Logo({ className, logoUrl, appName = 'CrediControl', size = 'md'
       </div>
       <span className={cn(
         "bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/70",
-        size === 'sm' ? 'hidden lg:inline-block text-sm' : size === 'xl' ? 'inline-block text-2xl' : 'inline-block text-base'
+        (size === 'sm' || size === 'md' || size === 'lg') ? "hidden lg:inline-block text-sm" : "inline-block text-2xl"
       )}>
         {appName}
       </span>
