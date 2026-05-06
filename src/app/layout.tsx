@@ -14,6 +14,10 @@ export async function generateMetadata(): Promise<Metadata> {
     title: appName,
     description: description,
     manifest: '/manifest.ts',
+    icons: {
+      icon: logoUrl || '/favicon.ico',
+      apple: logoUrl || '/favicon.ico',
+    },
     openGraph: {
       title: appName,
       description: description,
