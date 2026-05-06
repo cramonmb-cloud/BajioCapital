@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
     Phone, User, Calendar, MessageSquare, Building, MapPin, 
-    Home, Wallet, FileText, Shield, AlertTriangle, X, Map, ChevronDown 
+    Home, Wallet, FileText, Shield, AlertTriangle, X, Map, ChevronDown, UserCheck 
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -85,9 +85,28 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         }
     };
     
-    const avalParts = client.endorsement.split('(');
-    const avalName = avalParts[0].trim();
-    const avalDetails = avalParts[1]?.replace(')', '').trim() || '';
+    // Improved Endorsement Parsing
+    const { avalName, avalAddress, avalPhone } = useMemo(() => {
+        const parts = client.endorsement.split('(');
+        const name = parts[0].trim();
+        let rawDetails = parts[1]?.replace(')', '').trim() || '';
+        
+        let phone = '';
+        const phoneMatch = rawDetails.match(/Tel:\s*(.*)$/i);
+        if (phoneMatch) {
+            phone = phoneMatch[1].trim();
+            rawDetails = rawDetails.replace(phoneMatch[0], '').trim();
+            if (rawDetails.endsWith(',')) {
+                rawDetails = rawDetails.slice(0, -1).trim();
+            }
+        }
+        
+        return {
+            avalName: name || 'NO ESPECIFICADO',
+            avalAddress: rawDetails || 'SIN DIRECCIÓN REGISTRADA',
+            avalPhone: phone || 'SIN TELÉFONO'
+        };
+    }, [client.endorsement]);
     
     const today = new Date();
     const loanStartDate = new Date(loan.startDate);
@@ -139,8 +158,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                             </div>
                         </div>
                         <div className="flex items-center gap-2 truncate">
-                            <User className="h-3 w-3 flex-shrink-0" />
-                            <span className="truncate uppercase">Aval: {avalName}</span>
+                            <UserCheck className="h-3 w-3 flex-shrink-0 text-primary" />
+                            <span className="truncate uppercase font-medium">Aval: {avalName}</span>
                         </div>
                     </div>
                     
@@ -185,14 +204,14 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                             </div>
                             <div className="text-sm text-muted-foreground grid grid-cols-1 gap-y-1">
-                                <div className="flex items-center gap-2"><Phone className="h-4 w-4" /> {client.phone}</div>
+                                <div className="flex items-center gap-2 font-bold text-foreground"><Phone className="h-4 w-4 text-primary" /> {client.phone}</div>
                                 <div className="flex items-center gap-2">
                                     {isMobile ? (
                                         <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline" style={{ color: '#005DC7' }}>
                                             <Map className="h-4 w-4" /> {`${client.street}, ${client.neighborhood}`}
                                         </a>
                                     ) : (
-                                        <><Home className="h-4 w-4" /> {`${client.street}, ${client.neighborhood}`}</>
+                                        <><Home className="h-4 w-4 text-primary" /> {`${client.street}, ${client.neighborhood}`}</>
                                     )}
                                 </div>
                                 <div className="flex items-center gap-2 text-xs font-semibold">
@@ -206,78 +225,91 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                     <div className="grid md:grid-cols-2 gap-8">
                         <div className="space-y-4">
-                            <h3 className="font-semibold text-xl flex items-center gap-2"><Wallet className="text-primary"/> Progreso del Pago</h3>
+                            <h3 className="font-bold text-lg uppercase flex items-center gap-2 border-b pb-2"><Wallet className="text-primary h-5 w-5"/> Progreso del Pago</h3>
                             <div className="grid grid-cols-3 gap-4 text-sm">
                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground">Semana Actual</p>
-                                    <p className="font-bold text-3xl">{currentLoanWeek} <span className="text-lg text-muted-foreground">de {termInWeeksWithPenalty}</span></p>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Semana Actual</p>
+                                    <p className="font-bold text-2xl">{currentLoanWeek} <span className="text-sm text-muted-foreground">de {termInWeeksWithPenalty}</span></p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground">Abono</p>
-                                    <p className="font-bold text-3xl" style={{ color: '#005DC7' }}>{formatCurrency(weeklyPayment)}</p>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Abono</p>
+                                    <p className="font-bold text-2xl" style={{ color: '#005DC7' }}>{formatCurrency(weeklyPayment)}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> Fallos</p>
-                                    <p className={cn("font-bold text-3xl", missedPayments > 0 ? 'text-red-500' : 'text-blue-500')}>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-3 w-3 text-red-500" /> Fallos</p>
+                                    <p className={cn("font-bold text-2xl", missedPayments > 0 ? 'text-red-500' : 'text-blue-500')}>
                                         {missedPayments}
                                     </p>
                                 </div>
                             </div>
-                            <Separator className="my-4"/>
-                            <h3 className="font-semibold text-xl flex items-center gap-2"><FileText className="text-primary"/> Detalles del Préstamo</h3>
+                            
+                            <h3 className="font-bold text-lg uppercase flex items-center gap-2 border-b pb-2 pt-2"><FileText className="text-primary h-5 w-5"/> Detalles del Préstamo</h3>
                             <div className="grid grid-cols-2 gap-4 text-sm">
                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground">Monto Solicitado</p>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Monto Solicitado</p>
                                     <p className="font-bold text-lg">{formatCurrency(loan.amount)}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground">Plan</p>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Plan</p>
                                     <p className="font-semibold uppercase">{loanPlan.name}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground">Fecha de Inicio</p>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Fecha de Inicio</p>
                                     <p className="font-semibold">{formatDateFull(loan.startDate)}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground">Saldo Pendiente</p>
-                                    <p className="font-bold text-destructive">{formatCurrency(remainingBalance > 0 ? remainingBalance : 0)}</p>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Saldo Pendiente Real</p>
+                                    <p className="font-bold text-destructive text-lg">{formatCurrency(remainingBalance > 0 ? remainingBalance : 0)}</p>
                                 </div>
                             </div>
                         </div>
                         
-                        <div className="space-y-2 border-l md:pl-8">
-                            <Collapsible defaultOpen={true}>
-                                <CollapsibleTrigger className="w-full">
-                                    <div className="flex items-center justify-between w-full">
-                                        <h3 className="font-semibold text-xl flex items-center gap-2"><Shield className="text-primary"/> Información del Aval</h3>
-                                        <ChevronDown className="h-5 w-5" />
+                        <div className="space-y-4 border-l md:pl-8">
+                            <div className="flex items-center justify-between w-full border-b pb-2">
+                                <h3 className="font-bold text-lg uppercase flex items-center gap-2">
+                                    <Shield className="text-primary h-5 w-5"/> Datos del Aval
+                                </h3>
+                            </div>
+                            
+                            <div className="space-y-5 py-2">
+                                <div className="p-4 rounded-xl bg-primary/5 border border-primary/10 space-y-4">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                            <UserCheck className="h-3 w-3" /> Nombre Completo del Aval
+                                        </p>
+                                        <p className="font-extrabold text-lg uppercase text-primary">{avalName}</p>
                                     </div>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                    <div className="space-y-3 text-sm mt-4">
-                                        <div className="space-y-1">
-                                            <p className="text-muted-foreground">Garantía</p>
-                                            <p className="font-semibold uppercase">{client.guarantee}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-muted-foreground">Nombre del Aval</p>
-                                            <p className="font-bold text-lg uppercase">{avalName}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-muted-foreground">Contacto y Domicilio</p>
-                                            <p className="font-semibold uppercase">{avalDetails || 'No especificado'}</p>
-                                        </div>
+                                    
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                            <Phone className="h-3 w-3" /> Teléfono de Contacto
+                                        </p>
+                                        <p className="font-bold text-base uppercase">{avalPhone}</p>
                                     </div>
-                                </CollapsibleContent>
-                            </Collapsible>
+                                    
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                            <MapPin className="h-3 w-3" /> Domicilio Registrado
+                                        </p>
+                                        <p className="font-medium text-sm uppercase leading-tight">{avalAddress}</p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-1 pt-2">
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
+                                        <Shield className="h-3 w-3" /> Garantía Presentada
+                                    </p>
+                                    <p className="font-semibold text-sm uppercase bg-muted p-2 rounded-lg">{client.guarantee || 'SIN GARANTÍA'}</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
-                    <div className="flex justify-end mt-6 gap-2">
-                        <Button variant="outline" onClick={() => handleWhatsApp()}>
-                            <MessageSquare className="mr-2 h-4 w-4" /> WhatsApp
+                    <div className="flex justify-end mt-8 gap-3 border-t pt-4">
+                        <Button variant="outline" size="lg" onClick={() => handleWhatsApp()} className="font-bold">
+                            <MessageSquare className="mr-2 h-5 w-5" /> WhatsApp
                         </Button>
-                        <Button onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }}>
+                        <Button size="lg" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-bold px-8">
                             $ Registrar Abono
                         </Button>
                     </div>
