@@ -47,15 +47,16 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
     const { client, loan, loanPlan, amountDue, missedPayments, hierarchy } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
     const { appUser } = useAuth();
 
+    // Toggle Mobile Nav Visibility
     useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 768);
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
+        if (detailModalOpen) {
+            window.dispatchEvent(new CustomEvent('hide-mobile-nav'));
+        } else {
+            window.dispatchEvent(new CustomEvent('show-mobile-nav'));
+        }
+    }, [detailModalOpen]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
@@ -162,7 +163,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         {avalPhone && (
                             <Button asChild className="h-6 bg-blue-700 hover:bg-blue-800 text-white font-black text-[9px] px-2 rounded-md" size="sm">
                                 <a href={`tel:${cleanPhone(avalPhone)}`}>
-                                    <Phone className="mr-1 h-2.5 w-2.5" /> LLAMAR
+                                    <Phone className="mr-1 h-2.5 w-2.5" /> {avalPhone}
                                 </a>
                             </Button>
                         )}
@@ -224,12 +225,17 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                                            <MapPin className="h-3 w-3 text-blue-600" /> Localización
+                                            <MapPin className="h-3 w-3 text-blue-600" /> Localización Cliente
                                         </h4>
                                         <div className="p-3 rounded-lg border text-xs space-y-2 bg-white">
-                                            <p className="font-bold uppercase leading-tight">{fullAddress}</p>
+                                            <p className="font-bold uppercase">{fullAddress}</p>
+                                            <Button asChild className="h-8 bg-blue-600 text-white font-black text-[10px] w-full" size="sm">
+                                                <a href={`tel:${cleanPhone(client.phone)}`}>
+                                                    <Phone className="mr-1.5 h-3 w-3" /> {client.phone}
+                                                </a>
+                                            </Button>
                                             <Button variant="secondary" className="w-full h-8 text-[10px] font-bold" asChild>
-                                                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">MAPS</a>
+                                                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">VER EN GOOGLE MAPS</a>
                                             </Button>
                                         </div>
                                     </div>
@@ -247,7 +253,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                                 <div className="space-y-2">
                                     <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                                        <Shield className="h-3 w-3 text-blue-600" /> Aval y Garantía
+                                        <Shield className="h-3 w-3 text-blue-600" /> Información del Aval
                                     </h4>
                                     <div className="p-4 rounded-xl bg-blue-600 text-white space-y-3 shadow-md">
                                         <div>
@@ -255,7 +261,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             <p className="font-black text-sm uppercase leading-tight">{avalName}</p>
                                         </div>
                                         <Button asChild className="bg-white text-blue-700 font-black h-8 w-full text-xs" size="sm">
-                                            <a href={`tel:${cleanPhone(avalPhone)}`}>LLAMAR: {avalPhone}</a>
+                                            <a href={`tel:${cleanPhone(avalPhone)}`}>TEL: {avalPhone}</a>
                                         </Button>
                                         <p className="text-[9px] font-bold uppercase leading-relaxed text-blue-50 opacity-80">{avalAddress}</p>
                                     </div>

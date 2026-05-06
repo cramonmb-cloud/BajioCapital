@@ -4,6 +4,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
+import { useState, useEffect } from 'react';
 import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, type LucideIcon } from 'lucide-react';
 
 const allLinks: { href: string; label: string; id: string, icon: LucideIcon, color: string }[] = [
@@ -21,6 +22,20 @@ const allLinks: { href: string; label: string; id: string, icon: LucideIcon, col
 export function MobileNavBar() {
   const pathname = usePathname();
   const { appUser } = useAuth();
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const handleHide = () => setIsVisible(false);
+    const handleShow = () => setIsVisible(true);
+
+    window.addEventListener('hide-mobile-nav', handleHide);
+    window.addEventListener('show-mobile-nav', handleShow);
+
+    return () => {
+      window.removeEventListener('hide-mobile-nav', handleHide);
+      window.removeEventListener('show-mobile-nav', handleShow);
+    };
+  }, []);
 
   if (!appUser || !appUser.permissions?.showMobileNavBar) {
     return null;
@@ -32,7 +47,12 @@ export function MobileNavBar() {
   if (linksToShow.length === 0) return null;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] w-[92%] max-w-[420px] md:hidden">
+    <div 
+      className={cn(
+        "fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] w-[92%] max-w-[420px] md:hidden transition-all duration-500 ease-in-out",
+        isVisible ? "translate-y-0 opacity-100" : "translate-y-32 opacity-0 pointer-events-none"
+      )}
+    >
       <nav className="relative flex items-center justify-around px-2 py-2 rounded-[2.5rem] bg-background/85 backdrop-blur-2xl border-2 border-blue-500/40 shadow-[0_15px_40px_-5px_rgba(59,130,246,0.4)]">
         {linksToShow.map((link) => {
           const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
