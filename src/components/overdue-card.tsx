@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
     Phone, User, MessageSquare, Building, MapPin, 
-    Wallet, FileText, Shield, AlertTriangle, Map, UserCheck, X 
+    Wallet, FileText, Shield, AlertTriangle, Map, UserCheck, X, Home
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -122,10 +122,12 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     {/* Fila Superior: Nombre y Deuda */}
                     <div className="flex justify-between items-start gap-2">
                         <div className="cursor-pointer flex-1" onClick={() => setDetailModalOpen(true)}>
-                            <h3 className="font-black text-sm uppercase leading-tight truncate">{client.name}</h3>
-                            <div className="flex items-center gap-1 text-muted-foreground mt-0.5">
-                                <MapPin className="h-3 w-3 text-blue-500" />
-                                <p className="text-[10px] font-bold uppercase truncate">{client.street}, {client.neighborhood}</p>
+                            <h3 className="font-black text-sm uppercase leading-tight">{client.name}</h3>
+                            <div className="flex items-start gap-1 text-muted-foreground mt-1">
+                                <MapPin className="h-3 w-3 text-blue-500 shrink-0 mt-0.5" />
+                                <p className="text-[10px] font-bold uppercase leading-tight">
+                                    {client.street}, {client.neighborhood}
+                                </p>
                             </div>
                         </div>
                         <div className="text-right shrink-0">
@@ -151,22 +153,30 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </div>
                     </div>
 
-                    {/* Bloque Aval: Super Compacto */}
-                    <div className="p-2 rounded-lg bg-blue-50/50 border border-blue-100 flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1 mb-0.5">
-                                <Shield className="h-2.5 w-2.5 text-blue-600" />
-                                <span className="text-[8px] font-black uppercase text-blue-700 tracking-wider">Aval</span>
+                    {/* Bloque Aval: Compacto con Dirección */}
+                    <div className="p-2 rounded-lg bg-blue-50/50 border border-blue-100 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1 mb-0.5">
+                                    <Shield className="h-2.5 w-2.5 text-blue-600" />
+                                    <span className="text-[8px] font-black uppercase text-blue-700 tracking-wider">Aval</span>
+                                </div>
+                                <p className="text-[9px] font-black uppercase truncate text-blue-900">{avalName}</p>
                             </div>
-                            <p className="text-[9px] font-black uppercase truncate text-blue-900">{avalName}</p>
+                            {avalPhone && (
+                                <Button asChild className="h-6 bg-blue-700 hover:bg-blue-800 text-white font-black text-[9px] px-2 rounded-md" size="sm">
+                                    <a href={`tel:${cleanPhone(avalPhone)}`}>
+                                        <Phone className="mr-1 h-2.5 w-2.5" /> {avalPhone}
+                                    </a>
+                                </Button>
+                            )}
                         </div>
-                        {avalPhone && (
-                            <Button asChild className="h-6 bg-blue-700 hover:bg-blue-800 text-white font-black text-[9px] px-2 rounded-md" size="sm">
-                                <a href={`tel:${cleanPhone(avalPhone)}`}>
-                                    <Phone className="mr-1 h-2.5 w-2.5" /> {avalPhone}
-                                </a>
-                            </Button>
-                        )}
+                        <div className="flex items-start gap-1 pl-1 opacity-80">
+                            <Home className="h-2.5 w-2.5 text-blue-400 shrink-0 mt-0.5" />
+                            <p className="text-[8px] font-bold uppercase text-blue-800 leading-tight">
+                                {avalAddress}
+                            </p>
+                        </div>
                     </div>
 
                     {/* Acciones Finales */}
