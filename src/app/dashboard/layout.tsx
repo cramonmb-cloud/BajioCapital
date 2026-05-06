@@ -111,6 +111,13 @@ export default function DashboardLayout({
               </SheetContent>
             </Sheet>
 
+        {/* Logo centrado solo en móvil */}
+        <div className="absolute left-1/2 -translate-x-1/2 md:hidden">
+          <Link href="/dashboard" className="transition-transform active:scale-95">
+            <Logo logoUrl={logoUrl} appName={appName} size="sm" />
+          </Link>
+        </div>
+
         <Link
             href="/dashboard"
             className="hidden items-center gap-2 md:flex mr-4 transition-transform active:scale-95"
