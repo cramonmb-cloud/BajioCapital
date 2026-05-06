@@ -5,7 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-    Phone, User, Calendar, MessageSquare, Building, MapPin, 
+    Phone, User, MessageSquare, Building, MapPin, 
     Wallet, FileText, Shield, AlertTriangle, Map, UserCheck 
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
@@ -119,221 +119,264 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
     const fullAddress = `${client.street}, ${client.neighborhood}, ${client.city}, ${client.postalCode}`;
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
 
-    const debtLabel = isOverduePortfolio ? "Acumulado Fallos" : "Saldo Pendiente";
+    const debtLabel = isOverduePortfolio ? "Fallas Acumuladas" : "Saldo Vencido";
 
     return (
         <>
-            <Card className="overflow-hidden border-t-4 transition-all hover:shadow-md group/card" style={{ borderTopColor: plazaColor }}>
-                {/* Cabecera de Plaza */}
-                <div className="px-4 py-1.5 border-b flex justify-between items-center" style={{ backgroundColor: `${plazaColor}10` }}>
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: plazaColor }}>
-                        <Building className="h-3 w-3" /> {hierarchy.plazaName}
+            <Card className="overflow-hidden border-t-[6px] transition-all hover:shadow-xl group/card bg-white" style={{ borderTopColor: plazaColor }}>
+                {/* Cabecera de Plaza con Estilo de Cinta */}
+                <div className="px-4 py-2 border-b flex justify-between items-center bg-muted/20">
+                    <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.15em]" style={{ color: plazaColor }}>
+                        <Building className="h-3.5 w-3.5" /> {hierarchy.plazaName}
                     </div>
-                    <Badge variant="destructive" className="text-[9px] h-4 font-black px-1.5 animate-pulse">
-                        MORA
+                    <Badge variant={isOverduePortfolio ? "secondary" : "destructive"} className="text-[9px] h-5 font-black px-2 uppercase shadow-sm">
+                        {isOverduePortfolio ? 'Pendiente' : 'En Mora'}
                     </Badge>
                 </div>
 
                 <CardContent className="p-0">
-                    {/* Sección Titular */}
-                    <div className="p-4 space-y-3">
-                        <div className="cursor-pointer" onClick={() => setDetailModalOpen(true)}>
-                            <h3 className="font-extrabold text-lg leading-tight uppercase group-hover/card:text-primary transition-colors line-clamp-1">{client.name}</h3>
-                            <div className="flex items-center gap-2 text-[10px] text-muted-foreground mt-1 uppercase font-bold tracking-tight">
-                                <span className="flex items-center gap-0.5"><MapPin className="h-2.5 w-2.5" /> {hierarchy.localidadName}</span>
-                                <span>•</span>
-                                <span className="flex items-center gap-0.5"><User className="h-2.5 w-2.5" /> {hierarchy.promotoraName}</span>
+                    {/* SECCIÓN TITULAR: DATOS PRINCIPALES */}
+                    <div className="p-4 space-y-4">
+                        <div className="cursor-pointer space-y-1" onClick={() => setDetailModalOpen(true)}>
+                            <h3 className="font-black text-xl leading-none uppercase group-hover/card:text-blue-600 transition-colors">{client.name}</h3>
+                            
+                            {/* Dirección del Cliente */}
+                            <div className="flex items-start gap-1.5 text-muted-foreground pt-1">
+                                <Map className="h-3.5 w-3.5 mt-0.5 flex-shrink-0 text-blue-500" />
+                                <p className="text-[11px] font-bold uppercase leading-tight line-clamp-2">
+                                    {client.street}, {client.neighborhood}, {client.city}
+                                </p>
+                            </div>
+
+                            {/* Jerarquía de Ruta */}
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] text-muted-foreground font-black uppercase tracking-tighter pt-1 opacity-70">
+                                <span className="flex items-center gap-1"><MapPin className="h-2.5 w-2.5" /> {hierarchy.localidadName}</span>
+                                <span className="flex items-center gap-1"><User className="h-2.5 w-2.5" /> {hierarchy.promotoraName}</span>
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-2 items-center">
-                            <Button asChild className="h-9 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl shadow-sm" size="sm">
+                        <div className="grid grid-cols-2 gap-3 items-center">
+                            <Button asChild className="h-10 bg-blue-600 hover:bg-blue-700 text-white font-black text-sm rounded-xl shadow-md border-b-4 border-blue-800 active:border-b-0 active:translate-y-1 transition-all" size="sm">
                                 <a href={`tel:${cleanPhone(client.phone)}`}>
-                                    <Phone className="mr-1.5 h-3.5 w-3.5" />
-                                    {client.phone || 'LLAMAR'}
+                                    <Phone className="mr-2 h-4 w-4" />
+                                    {client.phone}
                                 </a>
                             </Button>
-                            <div className="text-[10px] text-right font-bold text-muted-foreground uppercase">
-                                <p>Inició</p>
-                                <p className="text-foreground">{formatDate(loanWeekDate.toISOString())}</p>
+                            <div className="text-right">
+                                <p className="text-[8px] font-black text-muted-foreground uppercase leading-none mb-1">Contratado</p>
+                                <p className="text-[11px] font-black text-foreground uppercase">{formatDate(loanWeekDate.toISOString())}</p>
                             </div>
                         </div>
                     </div>
 
-                    {/* Sección Aval (Diseño Diferenciado) */}
-                    <div className="mx-4 mb-4 p-3 rounded-2xl bg-primary/5 border border-primary/10 space-y-2 relative overflow-hidden">
-                        <div className="flex items-center gap-1.5 text-primary">
-                            <UserCheck className="h-3.5 w-3.5" />
-                            <span className="text-[9px] font-black uppercase tracking-widest">Aval Responsable</span>
-                        </div>
-                        <p className="text-xs font-black uppercase leading-tight text-foreground/90 line-clamp-1">{avalName}</p>
-                        
-                        <div className="flex flex-col gap-2">
-                            <Button asChild className="h-8 bg-blue-600/90 hover:bg-blue-600 text-white font-bold text-[10px] rounded-lg" size="sm">
-                                <a href={`tel:${cleanPhone(avalPhone)}`}>
-                                    <Phone className="mr-1.5 h-3 w-3" />
-                                    {avalPhone !== 'SIN TELÉFONO' ? avalPhone : 'LLAMAR AVAL'}
-                                </a>
-                            </Button>
-                            <div className="flex items-start gap-1.5 text-[9px] text-muted-foreground/80 leading-tight uppercase font-medium">
-                                <MapPin className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                                <span className="line-clamp-2">{avalAddress}</span>
+                    {/* SECCIÓN AVAL: DIFERENCIACIÓN VISUAL */}
+                    <div className="mx-4 mb-4 p-4 rounded-3xl bg-blue-50/40 border-2 border-dashed border-blue-200 space-y-3 relative overflow-hidden group/aval hover:bg-blue-50 transition-colors">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2 text-blue-700">
+                                <UserCheck className="h-4 w-4" />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Garante / Aval</span>
                             </div>
+                            <Shield className="h-3 w-3 text-blue-300" />
                         </div>
+                        
+                        <div className="space-y-1">
+                            <p className="text-[11px] font-black uppercase leading-tight text-blue-900 line-clamp-1">{avalName}</p>
+                            <p className="text-[9px] font-bold uppercase text-blue-600/70 leading-relaxed italic line-clamp-2">
+                                <MapPin className="inline-block h-2 w-2 mr-1" /> {avalAddress}
+                            </p>
+                        </div>
+                        
+                        <Button asChild className="h-9 bg-blue-700 hover:bg-blue-800 text-white font-black text-xs w-full rounded-2xl shadow-sm border-b-4 border-blue-900 active:border-b-0 active:translate-y-1 transition-all" size="sm">
+                            <a href={`tel:${cleanPhone(avalPhone)}`}>
+                                <Phone className="mr-2 h-3.5 w-3.5" />
+                                LLAMAR AVAL: {avalPhone !== 'SIN TELÉFONO' ? avalPhone : ''}
+                            </a>
+                        </Button>
                     </div>
                     
-                    {/* Sección Financiera */}
-                    <div className="px-4 py-3 bg-muted/30 border-t border-b flex justify-between items-center">
-                        <div className="space-y-0.5">
-                            <p className="text-[9px] text-muted-foreground uppercase font-black tracking-tighter">Préstamo</p>
-                            <p className="font-bold text-xs">{formatCurrency(loan.amount)}</p>
+                    {/* SECCIÓN FINANCIERA: MONTOS CRÍTICOS */}
+                    <div className="px-5 py-4 bg-muted/40 border-t border-b flex justify-between items-center shadow-inner">
+                        <div className="space-y-1">
+                            <p className="text-[9px] text-muted-foreground uppercase font-black tracking-widest">Préstamo Base</p>
+                            <p className="font-bold text-sm text-foreground/80">{formatCurrency(loan.amount)}</p>
                         </div>
-                        <div className="text-right space-y-0.5">
-                            <p className="text-[9px] text-destructive uppercase font-black tracking-tighter">{debtLabel}</p>
-                            <p className="font-black text-xl text-destructive tracking-tight">{formatCurrency(amountDue)}</p>
+                        <div className="text-right space-y-0">
+                            <p className={cn("text-[10px] uppercase font-black tracking-widest", isOverduePortfolio ? 'text-orange-600' : 'text-red-600')}>
+                                {debtLabel}
+                            </p>
+                            <p className={cn("font-black text-2xl tracking-tighter", isOverduePortfolio ? 'text-orange-700' : 'text-red-700')}>
+                                {formatCurrency(amountDue)}
+                            </p>
                         </div>
                     </div>
 
-                    {/* Botones de Acción Final */}
-                    <div className="p-2 grid grid-cols-2 gap-2">
-                        <Button variant="ghost" size="sm" onClick={handleWhatsApp} className="h-10 font-black text-[10px] uppercase tracking-wider rounded-xl border hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-all">
-                            <MessageSquare className="mr-1.5 h-4 w-4" />
+                    {/* ACCIONES FINALES */}
+                    <div className="p-3 grid grid-cols-2 gap-3">
+                        <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-12 font-black text-[10px] uppercase tracking-[0.1em] rounded-2xl border-2 hover:bg-green-50 hover:text-green-700 hover:border-green-300 shadow-sm transition-all active:scale-95">
+                            <MessageSquare className="mr-2 h-5 w-5 text-green-500" />
                             WhatsApp
                         </Button>
-                        <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="h-10 font-black text-[10px] uppercase tracking-wider rounded-xl shadow-lg shadow-primary/20 active:scale-95 transition-all">
-                            <Wallet className="mr-1.5 h-4 w-4" />
-                            Abonar
+                        <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="h-12 font-black text-[10px] uppercase tracking-[0.1em] rounded-2xl shadow-lg shadow-blue-200 active:scale-95 transition-all bg-foreground text-background hover:bg-foreground/90">
+                            <Wallet className="mr-2 h-5 w-5" />
+                            Abonar Pago
                         </Button>
                     </div>
                 </CardContent>
             </Card>
 
-            {/* Modal de Detalle Extendido */}
+            {/* MODAL DE DETALLE EXPANDIDO: VISTA COMPLETA */}
             <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-                <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0 rounded-3xl border-none shadow-2xl">
-                    <div className="sticky top-0 bg-background/80 backdrop-blur-md z-10 p-6 border-b">
-                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-                            <div className="flex items-center gap-5">
-                                <Avatar className="h-20 w-20 border-4 border-primary/20 shadow-xl">
+                <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0 rounded-[2.5rem] border-none shadow-3xl">
+                    <div className="sticky top-0 bg-white/90 backdrop-blur-xl z-20 p-8 border-b-2 border-muted">
+                        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                            <div className="flex items-center gap-6">
+                                <Avatar className="h-24 w-24 border-4 border-white shadow-2xl ring-4 ring-blue-50">
                                     <AvatarImage src={client.avatarUrl} alt={client.name} />
-                                    <AvatarFallback className="text-3xl font-black bg-primary/10">{client.name.charAt(0)}</AvatarFallback>
+                                    <AvatarFallback className="text-4xl font-black bg-blue-100 text-blue-700">{client.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
                                 <div>
-                                    <h2 className="text-2xl font-black uppercase tracking-tight leading-none mb-1">{client.name}</h2>
-                                    <Badge variant="outline" className="font-mono text-[10px] tracking-widest text-muted-foreground uppercase">ID: {client.id}</Badge>
+                                    <h2 className="text-3xl font-black uppercase tracking-tight leading-none mb-2">{client.name}</h2>
+                                    <div className="flex gap-2">
+                                        <Badge variant="outline" className="font-mono text-[10px] tracking-widest text-muted-foreground uppercase px-3 py-1">CLIENTE #{client.id}</Badge>
+                                        <Badge className="bg-blue-600 text-[10px] font-black px-3">{hierarchy.plazaName}</Badge>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex flex-wrap gap-2 w-full md:w-auto">
-                                <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white font-black h-12 px-6 rounded-2xl flex-1 md:flex-none shadow-lg shadow-blue-200" size="lg">
+                            <div className="flex flex-wrap gap-3 w-full md:w-auto">
+                                <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white font-black h-14 px-8 rounded-2xl flex-1 md:flex-none shadow-xl shadow-blue-100 border-b-4 border-blue-800" size="lg">
                                     <a href={`tel:${cleanPhone(client.phone)}`}>
-                                        <Phone className="mr-2 h-5 w-5" />
+                                        <Phone className="mr-3 h-6 w-6" />
                                         {client.phone}
                                     </a>
                                 </Button>
-                                <Button variant="secondary" className="h-12 w-12 rounded-2xl p-0" asChild>
+                                <Button variant="secondary" className="h-14 w-14 rounded-2xl p-0 hover:bg-blue-100 transition-colors shadow-inner" asChild title="Ver en Google Maps">
                                     <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">
-                                        <Map className="h-6 w-6" />
+                                        <Map className="h-7 w-7 text-blue-600" />
                                     </a>
                                 </Button>
                             </div>
                         </div>
                     </div>
 
-                    <div className="p-8 grid md:grid-cols-2 gap-10">
-                        {/* Columna Financiera */}
-                        <div className="space-y-8">
-                            <div className="space-y-4">
-                                <h3 className="font-black text-xs uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-                                    <Wallet className="text-primary h-4 w-4"/> Control de Pagos
+                    <div className="p-10 grid md:grid-cols-2 gap-12">
+                        {/* COLUMNA IZQUIERDA: MÉTRICAS Y DIRECCIÓN */}
+                        <div className="space-y-10">
+                            <div className="space-y-6">
+                                <h3 className="font-black text-xs uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-3">
+                                    <Wallet className="text-blue-600 h-5 w-5"/> Control de Cobranza
                                 </h3>
-                                <div className="grid grid-cols-3 gap-6">
-                                    <div className="p-4 rounded-2xl bg-muted/30 border space-y-1">
+                                <div className="grid grid-cols-3 gap-5">
+                                    <div className="p-5 rounded-3xl bg-muted/30 border-2 border-muted space-y-1">
                                         <p className="text-[10px] uppercase font-black text-muted-foreground">Progreso</p>
-                                        <p className="font-black text-2xl">{currentLoanWeek} <span className="text-sm font-bold text-muted-foreground">/ {termInWeeksWithPenalty}</span></p>
+                                        <p className="font-black text-3xl">{currentLoanWeek} <span className="text-sm font-bold text-muted-foreground">/ {termInWeeksWithPenalty}</span></p>
                                     </div>
-                                    <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-100 space-y-1">
-                                        <p className="text-[10px] uppercase font-black text-blue-600">Cuota</p>
-                                        <p className="font-black text-2xl text-blue-700">{formatCurrency(weeklyPayment)}</p>
+                                    <div className="p-5 rounded-3xl bg-blue-50 border-2 border-blue-100 space-y-1">
+                                        <p className="text-[10px] uppercase font-black text-blue-600">Abono</p>
+                                        <p className="font-black text-3xl text-blue-700">{formatCurrency(weeklyPayment)}</p>
                                     </div>
-                                    <div className="p-4 rounded-2xl bg-red-50/50 border border-red-100 space-y-1">
+                                    <div className="p-5 rounded-3xl bg-red-50 border-2 border-red-100 space-y-1">
                                         <p className="text-[10px] uppercase font-black text-red-600">Fallos</p>
-                                        <p className="font-black text-2xl text-red-700">{missedPayments}</p>
+                                        <p className="font-black text-3xl text-red-700">{missedPayments}</p>
                                     </div>
                                 </div>
                             </div>
                             
-                            <Separator />
-
-                            <div className="space-y-4">
-                                <h3 className="font-black text-xs uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-                                    <FileText className="text-primary h-4 w-4"/> Datos del Préstamo
+                            <div className="space-y-6">
+                                <h3 className="font-black text-xs uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-3">
+                                    <MapPin className="text-blue-600 h-5 w-5"/> Ubicación del Titular
                                 </h3>
-                                <div className="grid grid-cols-2 gap-y-6 gap-x-10">
+                                <div className="p-6 rounded-3xl bg-muted/20 border-2 space-y-4">
                                     <div className="space-y-1">
-                                        <p className="text-[10px] uppercase font-black text-muted-foreground">Capital Original</p>
-                                        <p className="font-bold text-lg">{formatCurrency(loan.amount)}</p>
+                                        <p className="text-[10px] font-black uppercase text-muted-foreground">Dirección Registrada</p>
+                                        <p className="font-bold text-lg uppercase leading-snug">{fullAddress}</p>
+                                    </div>
+                                    <div className="flex gap-4 pt-2">
+                                        <div className="flex-1 space-y-1">
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground">Localidad</p>
+                                            <p className="font-black text-sm uppercase text-blue-700">{hierarchy.localidadName}</p>
+                                        </div>
+                                        <div className="flex-1 space-y-1 border-l-2 pl-4">
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground">Promotora</p>
+                                            <p className="font-black text-sm uppercase text-blue-700">{hierarchy.promotoraName}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="space-y-6">
+                                <h3 className="font-black text-xs uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-3">
+                                    <FileText className="text-blue-600 h-5 w-5"/> Datos Financieros
+                                </h3>
+                                <div className="grid grid-cols-2 gap-y-8 gap-x-12">
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] uppercase font-black text-muted-foreground">Monto de Inicio</p>
+                                        <p className="font-bold text-xl">{formatCurrency(loan.amount)}</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-[10px] uppercase font-black text-muted-foreground">Plan Seleccionado</p>
-                                        <p className="font-bold text-lg uppercase">{loanPlan.name}</p>
+                                        <p className="text-[10px] uppercase font-black text-muted-foreground">Tipo de Plan</p>
+                                        <p className="font-bold text-xl uppercase text-blue-700">{loanPlan.name}</p>
                                     </div>
                                     <div className="space-y-1">
-                                        <p className="text-[10px] uppercase font-black text-muted-foreground">Fecha Contratación</p>
-                                        <p className="font-bold text-lg">{formatDateFull(loan.startDate)}</p>
+                                        <p className="text-[10px] uppercase font-black text-muted-foreground">Fecha Contrato</p>
+                                        <p className="font-bold text-xl">{formatDateFull(loan.startDate)}</p>
                                     </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] uppercase font-black text-red-600">Saldo Exigible Real</p>
-                                        <p className="font-black text-2xl text-red-600">{formatCurrency(remainingBalance > 0 ? remainingBalance : 0)}</p>
+                                    <div className="space-y-1 bg-red-50 p-4 rounded-2xl border-2 border-red-100">
+                                        <p className="text-[10px] uppercase font-black text-red-600">Saldo Exigible Total</p>
+                                        <p className="font-black text-3xl text-red-700 leading-none mt-1">{formatCurrency(remainingBalance > 0 ? remainingBalance : 0)}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
-                        {/* Columna Aval */}
-                        <div className="space-y-6 md:border-l md:pl-10">
-                            <h3 className="font-black text-xs uppercase tracking-[0.2em] text-muted-foreground flex items-center gap-2">
-                                <Shield className="text-primary h-4 w-4"/> Garantía y Responsable
+                        {/* COLUMNA DERECHA: AVAL Y GARANTÍA */}
+                        <div className="space-y-8 md:border-l-4 md:border-muted md:pl-12">
+                            <h3 className="font-black text-xs uppercase tracking-[0.3em] text-muted-foreground flex items-center gap-3">
+                                <Shield className="text-blue-600 h-5 w-5"/> Garantía y Responsable Solidario
                             </h3>
                             
-                            <div className="p-6 rounded-[2rem] bg-primary/5 border-2 border-primary/10 space-y-6 relative">
-                                <div className="space-y-1.5">
-                                    <p className="text-[10px] uppercase font-black text-primary/60 flex items-center gap-1.5">
-                                        <UserCheck className="h-3.5 w-3.5" /> Avalista
-                                    </p>
-                                    <p className="font-black text-xl uppercase text-foreground leading-tight">{avalName}</p>
+                            <div className="p-8 rounded-[3rem] bg-blue-600 text-white space-y-8 relative overflow-hidden shadow-2xl shadow-blue-200">
+                                <div className="absolute top-0 right-0 p-6 opacity-10">
+                                    <UserCheck className="h-32 w-32" />
                                 </div>
                                 
-                                <div className="space-y-2.5">
-                                    <p className="text-[10px] uppercase font-black text-muted-foreground">Contacto Aval</p>
-                                    <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white font-black h-12 px-6 w-full rounded-2xl shadow-md" size="sm">
+                                <div className="space-y-2 relative z-10">
+                                    <p className="text-[11px] uppercase font-black tracking-[0.2em] text-blue-200 flex items-center gap-2">
+                                        <UserCheck className="h-4 w-4" /> Titular del Aval
+                                    </p>
+                                    <p className="font-black text-2xl uppercase leading-tight">{avalName}</p>
+                                </div>
+                                
+                                <div className="space-y-4 relative z-10">
+                                    <p className="text-[11px] uppercase font-black tracking-[0.2em] text-blue-200">Contacto Directo</p>
+                                    <Button asChild className="bg-white hover:bg-blue-50 text-blue-700 font-black h-14 px-8 w-full rounded-2xl shadow-lg text-lg transition-transform active:scale-95" size="sm">
                                         <a href={`tel:${cleanPhone(avalPhone)}`}>
-                                            <Phone className="mr-2 h-5 w-5" />
+                                            <Phone className="mr-3 h-6 w-6" />
                                             {avalPhone}
                                         </a>
                                     </Button>
                                 </div>
                                 
-                                <div className="space-y-1.5">
-                                    <p className="text-[10px] uppercase font-black text-muted-foreground">Dirección Aval</p>
-                                    <p className="font-bold text-sm uppercase leading-relaxed text-muted-foreground">{avalAddress}</p>
+                                <div className="space-y-2 relative z-10 pt-4 border-t border-blue-500/50">
+                                    <p className="text-[11px] uppercase font-black tracking-[0.2em] text-blue-200">Dirección del Aval</p>
+                                    <p className="font-bold text-sm uppercase leading-relaxed text-blue-50">{avalAddress}</p>
                                 </div>
                             </div>
 
-                            <div className="p-5 rounded-2xl bg-muted/50 border space-y-2">
-                                <p className="text-[10px] uppercase font-black text-muted-foreground flex items-center gap-1.5">
-                                    <Shield className="h-3.5 w-3.5" /> Garantía Declarada
+                            <div className="p-8 rounded-3xl bg-muted/40 border-2 border-dashed space-y-3">
+                                <p className="text-[11px] uppercase font-black text-muted-foreground flex items-center gap-2">
+                                    <Shield className="h-4 w-4 text-blue-600" /> Garantía Declarada en Contrato
                                 </p>
-                                <p className="font-black text-sm uppercase text-foreground/80 leading-snug">{client.guarantee || 'SIN GARANTÍA'}</p>
+                                <p className="font-black text-base uppercase text-foreground/80 leading-snug">{client.guarantee || 'SIN GARANTÍA REGISTRADA'}</p>
                             </div>
                         </div>
                     </div>
                     
-                    <div className="p-8 bg-muted/20 border-t flex justify-end gap-4">
-                        <Button variant="outline" size="lg" onClick={() => handleWhatsApp()} className="font-black uppercase tracking-widest text-[11px] h-14 px-8 rounded-2xl border-2">
-                            <MessageSquare className="mr-2 h-5 w-5" /> WhatsApp
+                    <div className="p-10 bg-muted/20 border-t-2 border-muted flex flex-col sm:flex-row justify-end gap-5">
+                        <Button variant="outline" size="lg" onClick={() => handleWhatsApp()} className="font-black uppercase tracking-widest text-xs h-16 px-10 rounded-2xl border-4 hover:bg-green-50 hover:text-green-700 hover:border-green-300 transition-all active:scale-95 shadow-sm">
+                            <MessageSquare className="mr-3 h-6 w-6 text-green-500" /> WhatsApp Directo
                         </Button>
-                        <Button size="lg" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase tracking-widest text-[11px] h-14 px-12 rounded-2xl shadow-xl shadow-primary/20">
-                            $ Registrar Abono
+                        <Button size="lg" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase tracking-widest text-xs h-16 px-16 rounded-2xl shadow-2xl shadow-blue-300 bg-blue-600 hover:bg-blue-700 text-white transition-all active:scale-95 border-b-4 border-blue-800">
+                            <Wallet className="mr-3 h-6 w-6" /> $ Registrar Abono Hoy
                         </Button>
                     </div>
                 </DialogContent>
@@ -349,7 +392,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 weekDate={loanWeekDate}
                 initialAmount={amountDue}
                 onPaymentRegistered={() => {
-                    // Refrescar para ver cambios
                     if (typeof window !== 'undefined') window.location.reload();
                 }}
             />
