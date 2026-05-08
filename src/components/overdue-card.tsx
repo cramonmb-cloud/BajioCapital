@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
     Phone, User, MessageSquare, Building, MapPin, 
-    Wallet, FileText, Shield, AlertTriangle, Map, UserCheck, X, Home
+    Wallet, FileText, Shield, AlertTriangle, Map, UserCheck, X, Home, Route
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -140,22 +140,32 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
     return (
         <>
-            <Card className="overflow-hidden border-l-[4px] transition-all hover:shadow-lg bg-white mb-2" style={{ borderLeftColor: plazaColor }}>
-                <CardContent className="p-3 space-y-2">
+            <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-3" style={{ borderLeftColor: plazaColor }}>
+                <CardContent className="p-3 space-y-2.5">
+                    {/* ENCABEZADO DE RUTA (JERARQUÍA) */}
+                    <div className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap border-b pb-1.5">
+                        <Badge className="text-[8px] font-black uppercase px-1.5 h-4" style={{ backgroundColor: plazaColor }}>
+                            {hierarchy.plazaName}
+                        </Badge>
+                        <span className="text-[9px] font-bold text-muted-foreground uppercase truncate">
+                            {hierarchy.localidadName} • {hierarchy.promotoraName}
+                        </span>
+                    </div>
+
                     {/* Fila Superior: Nombre y Deuda */}
                     <div className="flex justify-between items-start gap-2">
                         <div className="cursor-pointer flex-1" onClick={() => setDetailModalOpen(true)}>
-                            <h3 className="font-black text-sm uppercase leading-tight">{client.name}</h3>
+                            <h3 className="font-black text-sm uppercase leading-tight text-foreground">{client.name}</h3>
                             <div className="flex items-start gap-1 text-muted-foreground mt-1">
                                 <MapPin className="h-3 w-3 text-blue-500 shrink-0 mt-0.5" />
-                                <p className="text-[10px] font-bold uppercase leading-tight">
+                                <p className="text-[9px] font-bold uppercase leading-tight">
                                     {client.street}, {client.neighborhood}
                                 </p>
                             </div>
                         </div>
                         <div className="text-right shrink-0">
-                            <p className={cn("text-[9px] font-black uppercase", isOverduePortfolio ? 'text-orange-600' : 'text-red-600')}>Saldo</p>
-                            <p className={cn("font-black text-base tracking-tighter leading-none", isOverduePortfolio ? 'text-orange-700' : 'text-red-700')}>
+                            <p className={cn("text-[9px] font-black uppercase tracking-tighter", isOverduePortfolio ? 'text-orange-600' : 'text-red-600')}>Saldo</p>
+                            <p className={cn("font-black text-lg tracking-tighter leading-none", isOverduePortfolio ? 'text-orange-700' : 'text-red-700')}>
                                 {formatCurrency(amountDue)}
                             </p>
                         </div>
@@ -163,53 +173,52 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                     {/* Fila Media: Contacto Cliente */}
                     <div className="flex gap-2 items-center">
-                        <Button asChild className="h-7 bg-blue-600 hover:bg-blue-700 text-white font-black text-[10px] rounded-lg flex-1" size="sm">
+                        <Button asChild className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] rounded-lg flex-1 shadow-sm" size="sm">
                             <a href={`tel:${cleanPhone(client.phone)}`}>
-                                <Phone className="mr-1.5 h-3 w-3" /> {client.phone}
+                                <Phone className="mr-2 h-3.5 w-3.5" /> {client.phone}
                             </a>
                         </Button>
-                        <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-7 w-9 p-0 rounded-lg border-green-200 hover:bg-green-50">
-                            <MessageSquare className="h-4 w-4 text-green-500" />
+                        <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-8 w-10 p-0 rounded-lg border-green-200 hover:bg-green-50 shadow-sm">
+                            <MessageSquare className="h-5 w-5 text-green-500" />
                         </Button>
-                        <div className="text-[9px] font-bold text-muted-foreground uppercase shrink-0">
-                            INICIÓ: {formatDate(loanWeekDate.toISOString())}
-                        </div>
                     </div>
 
-                    {/* Bloque Aval: Compacto con Dirección */}
-                    <div className="p-2 rounded-lg bg-blue-50/50 border border-blue-100 space-y-1.5">
+                    {/* Bloque Aval: Estructura mejorada */}
+                    <div className="p-2.5 rounded-xl bg-blue-50/40 border border-blue-100 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-1 mb-0.5">
                                     <Shield className="h-2.5 w-2.5 text-blue-600" />
-                                    <span className="text-[8px] font-black uppercase text-blue-700 tracking-wider">Aval</span>
+                                    <span className="text-[8px] font-black uppercase text-blue-700 tracking-widest">Responsable Solidario (Aval)</span>
                                 </div>
-                                <p className="text-[9px] font-black uppercase truncate text-blue-900">{avalName}</p>
+                                <p className="text-[10px] font-black uppercase truncate text-blue-900">{avalName}</p>
+                            </div>
+                        </div>
+                        
+                        <div className="flex flex-col gap-1.5">
+                            <div className="flex items-start gap-1.5 opacity-90">
+                                <Home className="h-3 w-3 text-blue-400 shrink-0 mt-0.5" />
+                                <p className="text-[9px] font-bold uppercase text-blue-800 leading-tight">
+                                    {avalAddress}
+                                </p>
                             </div>
                             {avalPhone && (
-                                <Button asChild className="h-6 bg-blue-700 hover:bg-blue-800 text-white font-black text-[9px] px-2 rounded-md" size="sm">
+                                <Button asChild className="h-7 bg-blue-700 hover:bg-blue-800 text-white font-black text-[10px] w-full rounded-lg" size="sm">
                                     <a href={`tel:${cleanPhone(avalPhone)}`}>
-                                        <Phone className="mr-1 h-2.5 w-2.5" /> {avalPhone}
+                                        <Phone className="mr-2 h-3 w-3" /> {avalPhone}
                                     </a>
                                 </Button>
                             )}
                         </div>
-                        <div className="flex items-start gap-1 pl-1 opacity-80">
-                            <Home className="h-2.5 w-2.5 text-blue-400 shrink-0 mt-0.5" />
-                            <p className="text-[8px] font-bold uppercase text-blue-800 leading-tight">
-                                {avalAddress}
-                            </p>
-                        </div>
                     </div>
 
                     {/* Acciones Finales */}
-                    <div className="flex items-center justify-between gap-3 pt-1">
-                        <div className="flex gap-2 text-[8px] font-black text-muted-foreground uppercase opacity-60">
-                            <span className="flex items-center gap-0.5"><Building className="h-2 w-2" /> {hierarchy.plazaName}</span>
-                            <span className="flex items-center gap-0.5"><User className="h-2 w-2" /> {hierarchy.promotoraName}</span>
+                    <div className="flex items-center justify-between gap-3 pt-1 border-t border-dashed">
+                        <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1">
+                            <History className="h-2.5 w-2.5" /> INICIÓ: {formatDate(loanWeekDate.toISOString())}
                         </div>
-                        <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="h-8 bg-foreground text-background font-black text-[10px] uppercase px-4 rounded-lg active:scale-95 shadow-sm">
-                            <Wallet className="mr-1.5 h-3.5 w-3.5" /> Abonar
+                        <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="h-8 bg-foreground text-background font-black text-[10px] uppercase px-5 rounded-lg active:scale-95 shadow-md">
+                            <Wallet className="mr-1.5 h-4 w-4" /> Abonar
                         </Button>
                     </div>
                 </CardContent>
@@ -218,7 +227,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             {/* MODAL DE DETALLE REDISEÑADO COMPACTO */}
             <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
                 <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
-                    <DialogHeader className="px-5 py-3 border-b shrink-0 flex flex-row items-center justify-between bg-muted/10">
+                    <DialogHeader className="px-5 py-3 border-b shrink-0 flex row items-center justify-between bg-muted/10">
                         <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10 border">
                                 <AvatarImage src={client.avatarUrl} alt={client.name} />
