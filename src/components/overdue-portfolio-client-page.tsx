@@ -41,13 +41,13 @@ export function OverduePortfolioClientPage({
     const [selectedPlaza, setSelectedPlaza] = useState('all');
     const [selectedLocalidad, setSelectedLocalidad] = useState('all');
     const [selectedPromotora, setSelectedPromotora] = useState('all');
+    const [selectedFailures, setSelectedFailures] = useState('all');
 
     const isOverduePortfolio = title === "Pagos Pendientes";
     const globalDebtLabel = isOverduePortfolio ? "Acumulado de Fallos (Filtro)" : "Deuda Pendiente (Filtro)";
 
     const appConfig = data?.config;
 
-    // Generate colors for plazas
     const plazaColors = useMemo(() => {
         const sortedPlazas = [...plazas].sort((a, b) => a.name.localeCompare(b.name));
         const colors = generateColorPalette(sortedPlazas.length);
@@ -58,7 +58,6 @@ export function OverduePortfolioClientPage({
         return map;
     }, [plazas]);
 
-    // Hierarchical filter options
     const filteredLocalidadesOptions = useMemo(() => {
         let result = selectedPlaza === 'all' 
             ? localidades 
@@ -81,7 +80,6 @@ export function OverduePortfolioClientPage({
         return [...result].sort((a, b) => a.name.localeCompare(b.name));
     }, [selectedLocalidad, selectedPlaza, promotoras, localidades]);
 
-    // Apply filtering
     const filteredLoans = useMemo(() => {
         return initialOverdueLoans.filter(details => {
             const term = searchTerm.toLowerCase();
@@ -96,10 +94,11 @@ export function OverduePortfolioClientPage({
             const matchesPlaza = selectedPlaza === 'all' || details.hierarchy.plazaId === selectedPlaza;
             const matchesLocalidad = selectedLocalidad === 'all' || details.hierarchy.localidadId === selectedLocalidad;
             const matchesPromotora = selectedPromotora === 'all' || details.hierarchy.promotoraId === selectedPromotora;
+            const matchesFailures = selectedFailures === 'all' || details.missedPayments.toString() === selectedFailures;
 
-            return matchesSearch && matchesPlaza && matchesLocalidad && matchesPromotora;
+            return matchesSearch && matchesPlaza && matchesLocalidad && matchesPromotora && matchesFailures;
         });
-    }, [initialOverdueLoans, searchTerm, selectedPlaza, selectedLocalidad, selectedPromotora]);
+    }, [initialOverdueLoans, searchTerm, selectedPlaza, selectedLocalidad, selectedPromotora, selectedFailures]);
 
     const totalDue = filteredLoans.reduce((acc, details) => acc + details.amountDue, 0);
     const totalClients = new Set(filteredLoans.map(d => d.client.id)).size;
@@ -109,6 +108,7 @@ export function OverduePortfolioClientPage({
         setSelectedPlaza('all');
         setSelectedLocalidad('all');
         setSelectedPromotora('all');
+        setSelectedFailures('all');
     };
 
     return (
@@ -145,7 +145,7 @@ export function OverduePortfolioClientPage({
                             )}
                         </div>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className="grid grid-cols-4 gap-2">
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Plaza</label>
                             <Select value={selectedPlaza} onValueChange={(v) => { setSelectedPlaza(v); setSelectedLocalidad('all'); setSelectedPromotora('all'); }}>
@@ -173,6 +173,18 @@ export function OverduePortfolioClientPage({
                                 <SelectContent>
                                     <SelectItem value="all">Todas</SelectItem>
                                     {filteredPromotorasOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Fallos</label>
+                            <Select value={selectedFailures} onValueChange={setSelectedFailures}>
+                                <SelectTrigger className="h-8 text-[10px] border-blue-200 focus:ring-blue-500"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Todos</SelectItem>
+                                    {Array.from({ length: 13 }, (_, i) => (
+                                        <SelectItem key={i} value={i.toString()}>{i} {i === 1 ? 'fallo' : 'fallos'}</SelectItem>
+                                    ))}
                                 </SelectContent>
                             </Select>
                         </div>

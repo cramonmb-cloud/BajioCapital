@@ -71,7 +71,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     let missedWeeksCount = 0;
     let baseDebt = 0;
 
-    // Lógica sincronizada de deuda y fallos
+    // Lógica sincronizada de deuda y fallos (Topado al plazo base)
     for (let i = 1; i <= baseTerm; i++) {
         const p = activeLoan.payments.find(p => p.weekNumber === i);
         if (p) {
@@ -94,7 +94,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         const penaltyPayment = activeLoan.payments.find(p => p.weekNumber === baseTerm + 1);
         penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
     }
-    const balance = baseDebt + penaltyDebt;
+    const totalBalance = baseDebt + penaltyDebt;
 
     let endorsementName = selectedClient.endorsement;
     let endorsementDetails = '';
@@ -116,7 +116,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
       endorsementName,
       endorsementDetails,
       termInWeeks: termInWeeks,
-      balance: balance,
+      balance: totalBalance,
       missedWeeks: missedWeeksCount,
       plazaName: plaza?.name || 'N/A',
       localidadName: localidad?.name || 'N/A',

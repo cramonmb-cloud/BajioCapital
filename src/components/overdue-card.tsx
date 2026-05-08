@@ -46,7 +46,7 @@ const getSaturdayOfWeek = (d: Date) => {
 const cleanPhone = (phone: string) => phone.replace(/\D/g, '');
 
 export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isOverduePortfolio, whatsappTemplate, appName }: OverdueCardProps) {
-    const { client, loan, loanPlan, hierarchy } = details;
+    const { client, loan, loanPlan, hierarchy, amountDue, missedPayments } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const { appUser } = useAuth();
@@ -100,43 +100,18 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
         
         const baseTerm = loanPlan.termInWeeks;
-        let missedCount = 0;
-        let baseDebt = 0;
-
-        for (let i = 1; i <= baseTerm; i++) {
-            const p = loan.payments.find(pay => pay.weekNumber === i);
-            if (p) {
-                if (p.amount < weeklyPayment) {
-                    missedCount++;
-                    baseDebt += (weeklyPayment - p.amount);
-                }
-            } else if (i < rawCurrentLoanWeek) {
-                missedCount++;
-                baseDebt += weeklyPayment;
-            }
-        }
-
-        const hasPenalty = missedCount >= 2;
+        const hasPenalty = missedPayments >= 2;
         const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
         
-        let penaltyDebt = 0;
-        if (hasPenalty) {
-            const penaltyPayment = loan.payments.find(p => p.weekNumber === baseTerm + 1);
-            penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
-        }
-
-        const balance = baseDebt + penaltyDebt;
         const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
 
         return {
             weeklyPayment,
-            missedCount,
             termInWeeks,
-            balance,
             currentProgressWeek,
             loanWeekDate: getSaturdayOfWeek(loanStartDate)
         };
-    }, [loan, loanPlan]);
+    }, [loan, loanPlan, missedPayments]);
 
     const handleWhatsApp = (e?: React.MouseEvent) => {
         e?.stopPropagation();
@@ -152,8 +127,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 '{{domicilio_aval}}': avalAddress.toUpperCase(),
                 '{{telefono_aval}}': avalPhone,
                 '{{monto_prestamo}}': formatCurrency(loan.amount),
-                '{{saldo_pendiente}}': formatCurrency(metrics.balance),
-                '{{fallos_registrados}}': metrics.missedCount.toString(),
+                '{{saldo_pendiente}}': formatCurrency(amountDue),
+                '{{fallos_registrados}}': missedPayments.toString(),
                 '{{nombre_negocio}}': appName || 'CREDICONTROL',
             };
 
@@ -173,7 +148,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         <>
             <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-3" style={{ borderLeftColor: plazaColor }}>
                 <CardContent className="p-3 space-y-2.5">
-                    {/* ENCABEZADO DE RUTA */}
                     <div className="flex flex-wrap items-center gap-1.5 border-b pb-1.5">
                         <Badge className="text-[8px] font-black uppercase px-1.5 h-4 shrink-0" style={{ backgroundColor: plazaColor }}>
                             PLAZA: {hierarchy.plazaName}
@@ -203,7 +177,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         <div className="text-right shrink-0">
                             <p className={cn("text-[9px] font-black uppercase tracking-tighter", isOverduePortfolio ? 'text-orange-600' : 'text-red-600')}>Saldo</p>
                             <p className={cn("font-black text-lg tracking-tighter leading-none", isOverduePortfolio ? 'text-orange-700' : 'text-red-700')}>
-                                {formatCurrency(metrics.balance)}
+                                {formatCurrency(amountDue)}
                             </p>
                         </div>
                     </div>
@@ -291,7 +265,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                                 <div className="p-2 rounded-lg bg-red-50 border-red-100 text-center">
                                     <p className="text-[7px] uppercase font-black text-red-600">Fallos</p>
-                                    <p className={cn("font-black text-sm", metrics.missedCount > 0 ? "text-red-700" : "")}>{metrics.missedCount}</p>
+                                    <p className={cn("font-black text-sm", missedPayments > 0 ? "text-red-700" : "")}>{missedPayments}</p>
                                 </div>
                             </div>
 
@@ -320,7 +294,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         </h4>
                                         <div className="p-3 rounded-lg border bg-white flex justify-between items-center">
                                             <span className="text-[9px] font-bold text-muted-foreground">RESTA TOTAL</span>
-                                            <span className="text-lg font-black text-red-700">{formatCurrency(metrics.balance)}</span>
+                                            <span className="text-lg font-black text-red-700">{formatCurrency(amountDue)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -368,7 +342,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 loanPlans={allLoanPlans}
                 weekNumber={metrics.currentProgressWeek}
                 weekDate={metrics.loanWeekDate}
-                initialAmount={metrics.balance > metrics.weeklyPayment ? metrics.weeklyPayment : metrics.balance}
+                initialAmount={amountDue > metrics.weeklyPayment ? metrics.weeklyPayment : amountDue}
                 onPaymentRegistered={() => {
                     if (typeof window !== 'undefined') window.location.reload();
                 }}

@@ -1,4 +1,4 @@
-import { getClients, getLoanPlans, getLoans, getPlazas, getLocalidades, getPromotoras } from '@/lib/firestore-data';
+import { getClients, getLoanPlans, getLoans, getPlazas, getLocalidades, getPromotoras, getAppConfig } from '@/lib/firestore-data';
 import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { OverduePortfolioClientPage } from '@/components/overdue-portfolio-client-page';
 
@@ -19,13 +19,14 @@ export type OverdueLoanDetails = {
 };
 
 export default async function OverduePortfolioPage() {
-    const [loans, clients, loanPlans, plazas, localidades, promotoras] = await Promise.all([
+    const [loans, clients, loanPlans, plazas, localidades, promotoras, config] = await Promise.all([
         getLoans(),
         getClients(),
         getLoanPlans(),
         getPlazas(),
         getLocalidades(),
         getPromotoras(),
+        getAppConfig(),
     ]);
 
     const overdueLoansDetails: OverdueLoanDetails[] = loans
@@ -49,7 +50,7 @@ export default async function OverduePortfolioPage() {
             let missedCount = 0;
             let baseDebt = 0;
 
-            // CÁLCULO DE DEUDA Y FALLOS
+            // CÁLCULO DE DEUDA Y FALLOS (Topado al plazo base)
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
@@ -73,15 +74,15 @@ export default async function OverduePortfolioPage() {
                 penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
             }
 
-            const balance = baseDebt + penaltyDebt;
+            const totalBalance = baseDebt + penaltyDebt;
 
             // 'Pagos Pendientes': Préstamos VIGENTES con 2 o más fallos
-            if (!isExpired && missedCount >= 2 && balance > 0) {
+            if (!isExpired && missedCount >= 2 && totalBalance > 0) {
                 return {
                     loan,
                     client,
                     loanPlan,
-                    amountDue: balance,
+                    amountDue: totalBalance,
                     missedPayments: missedCount,
                     hierarchy: {
                         plazaId: plaza?.id || 'N/A',
@@ -103,7 +104,7 @@ export default async function OverduePortfolioPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
                 <p className="text-muted-foreground">
-                    Préstamos vigentes que tienen 2 o más fallos registrados. El saldo incluye el monto de fallos y la penalización correspondiente.
+                    Préstamos vigentes con 2 o más fallos. El saldo incluye automáticamente la semana extra de penalización.
                 </p>
             </div>
             <OverduePortfolioClientPage 

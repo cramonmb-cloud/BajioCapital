@@ -1,4 +1,4 @@
-import { getClients, getLoanPlans, getLoans, getPlazas, getLocalidades, getPromotoras } from '@/lib/firestore-data';
+import { getClients, getLoanPlans, getLoans, getPlazas, getLocalidades, getPromotoras, getAppConfig } from '@/lib/firestore-data';
 import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { OverduePortfolioClientPage } from '@/components/overdue-portfolio-client-page';
 
@@ -19,13 +19,14 @@ export type OverdueLoanDetails = {
 };
 
 export default async function CarteraVencidaPage() {
-    const [loans, clients, loanPlans, plazas, localidades, promotoras] = await Promise.all([
+    const [loans, clients, loanPlans, plazas, localidades, promotoras, config] = await Promise.all([
         getLoans(),
         getClients(),
         getLoanPlans(),
         getPlazas(),
         getLocalidades(),
         getPromotoras(),
+        getAppConfig(),
     ]);
 
     const overdueLoansDetails: OverdueLoanDetails[] = loans
@@ -49,7 +50,7 @@ export default async function CarteraVencidaPage() {
             let missedCount = 0;
             let baseDebt = 0;
 
-            // CÁLCULO DE DEUDA Y FALLOS (Las semanas pasadas sin registro cuentan como deuda y fallo)
+            // CÁLCULO DE DEUDA Y FALLOS (Topado al plazo base)
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
@@ -58,7 +59,6 @@ export default async function CarteraVencidaPage() {
                         baseDebt += (weeklyPayment - p.amount);
                     }
                 } else if (i < rawCurrentLoanWeek) {
-                    // Semana vencida sin registro = DEUDA TOTAL y FALLO
                     missedCount++;
                     baseDebt += weeklyPayment;
                 }
@@ -74,15 +74,15 @@ export default async function CarteraVencidaPage() {
                 penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
             }
 
-            const balance = baseDebt + penaltyDebt;
+            const totalBalance = baseDebt + penaltyDebt;
 
             // 'Cartera Vencida': Préstamos EXPIRADOS con saldo pendiente
-            if (isExpired && balance > 0) {
+            if (isExpired && totalBalance > 0) {
                 return {
                     loan,
                     client,
                     loanPlan,
-                    amountDue: balance,
+                    amountDue: totalBalance,
                     missedPayments: missedCount,
                     hierarchy: {
                         plazaId: plaza?.id || 'N/A',
@@ -104,7 +104,7 @@ export default async function CarteraVencidaPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Cartera Vencida</h1>
                 <p className="text-muted-foreground">
-                    Préstamos que han superado su fecha de vencimiento y aún tienen saldo pendiente (incluyendo semana extra si aplica).
+                    Préstamos expirados con saldo pendiente. Se incluye automáticamente la semana extra si el cliente tuvo 2 o más fallos.
                 </p>
             </div>
             <OverduePortfolioClientPage 
