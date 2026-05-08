@@ -168,24 +168,31 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     <div className="flex justify-between items-start gap-2">
                         <div className="cursor-pointer flex-1" onClick={() => setDetailModalOpen(true)}>
                             <h3 className="font-black text-sm uppercase leading-tight text-foreground">{client.name}</h3>
-                            <div className="flex items-start gap-1 text-muted-foreground mt-1">
-                                <MapPin className="h-3 w-3 text-blue-500 shrink-0 mt-0.5" />
-                                <p className="text-[9px] font-bold uppercase leading-tight">
-                                    {client.street}, {client.neighborhood}
-                                </p>
+                            <div className="flex flex-wrap items-center gap-2 mt-1">
+                                <div className="flex items-start gap-1 text-muted-foreground">
+                                    <MapPin className="h-3 w-3 text-blue-500 shrink-0 mt-0.5" />
+                                    <p className="text-[9px] font-bold uppercase leading-tight">
+                                        {client.street}, {client.neighborhood}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                    <Badge variant="outline" className="h-4 px-1 text-[8px] font-black bg-red-50 text-red-700 border-red-200">
+                                        {missedPayments} {missedPayments === 1 ? 'FALLO' : 'FALLOS'}
+                                    </Badge>
+                                    {metrics.hasPenalty && (
+                                        <Badge className="h-4 px-1 text-[8px] font-black bg-orange-500 text-white hover:bg-orange-600 border-none">
+                                            S. EXTRA
+                                        </Badge>
+                                    )}
+                                </div>
                             </div>
                         </div>
                         <div className="text-right shrink-0">
                             <div className="flex flex-col items-end gap-1">
-                                <p className={cn("text-[9px] font-black uppercase tracking-tighter", isOverduePortfolio ? 'text-orange-600' : 'text-red-600')}>Saldo</p>
-                                <div className="flex items-center gap-1">
-                                    {metrics.hasPenalty && (
-                                        <Badge variant="outline" className="border-orange-500 text-orange-600 text-[7px] h-3.5 px-1 font-black leading-none">S. EXTRA</Badge>
-                                    )}
-                                    <p className={cn("font-black text-lg tracking-tighter leading-none", isOverduePortfolio ? 'text-orange-700' : 'text-red-700')}>
-                                        {formatCurrency(amountDue)}
-                                    </p>
-                                </div>
+                                <p className={cn("text-[9px] font-black uppercase tracking-tighter", isOverduePortfolio ? 'text-orange-600' : 'text-red-600')}>Saldo Total</p>
+                                <p className={cn("font-black text-lg tracking-tighter leading-none", isOverduePortfolio ? 'text-orange-700' : 'text-red-700')}>
+                                    {formatCurrency(amountDue)}
+                                </p>
                             </div>
                         </div>
                     </div>
@@ -262,22 +269,25 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                     <ScrollArea className="flex-1 overflow-y-auto">
                         <div className="p-4 space-y-5">
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className={cn("grid gap-2", metrics.hasPenalty ? "grid-cols-4" : "grid-cols-3")}>
                                 <div className="p-2 rounded-lg bg-muted/30 border text-center">
                                     <p className="text-[7px] uppercase font-black text-muted-foreground">Progreso</p>
                                     <p className="font-black text-sm">{metrics.currentProgressWeek} / {metrics.termInWeeks}</p>
                                 </div>
                                 <div className="p-2 rounded-lg bg-blue-50 border-blue-100 text-center">
-                                    <p className="text-[7px] uppercase font-black text-blue-600">Abono Semanal</p>
+                                    <p className="text-[7px] uppercase font-black text-blue-600">Abono</p>
                                     <p className="font-black text-sm text-blue-700">{formatCurrency(metrics.weeklyPayment)}</p>
                                 </div>
-                                <div className="p-2 rounded-lg bg-red-50 border-red-100 text-center relative overflow-hidden">
+                                <div className="p-2 rounded-lg bg-red-50 border-red-100 text-center">
                                     <p className="text-[7px] uppercase font-black text-red-600">Fallos</p>
                                     <p className={cn("font-black text-sm", missedPayments > 0 ? "text-red-700" : "")}>{missedPayments}</p>
-                                    {metrics.hasPenalty && (
-                                        <div className="bg-orange-500 text-white text-[6px] font-black uppercase py-0.5 px-1 absolute bottom-0 left-0 right-0">S. EXTRA ACTIVADA</div>
-                                    )}
                                 </div>
+                                {metrics.hasPenalty && (
+                                    <div className="p-2 rounded-lg bg-orange-500 border-orange-600 text-center flex flex-col justify-center">
+                                        <p className="text-[7px] uppercase font-black text-white">S. Extra</p>
+                                        <p className="font-black text-[10px] text-white leading-tight">ACTIVA</p>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="grid md:grid-cols-2 gap-4">
@@ -301,14 +311,14 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                                     <div className="space-y-2">
                                         <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                                            <FileText className="h-3 w-3 text-blue-600" /> Saldo
+                                            <FileText className="h-3 w-3 text-blue-600" /> Liquidación
                                         </h4>
                                         <div className="p-3 rounded-lg border bg-white flex justify-between items-center relative overflow-hidden">
-                                            <span className="text-[9px] font-bold text-muted-foreground">RESTA TOTAL</span>
+                                            <span className="text-[9px] font-bold text-muted-foreground uppercase">Resta por Pagar</span>
                                             <div className="flex flex-col items-end">
                                                 {metrics.hasPenalty && (
                                                     <span className="text-[7px] font-black text-orange-600 uppercase mb-0.5 leading-none flex items-center gap-0.5">
-                                                        <AlertCircle className="h-2 w-2" /> Incluye Semana Extra
+                                                        <AlertCircle className="h-2 w-2" /> Incluye Penalización
                                                     </span>
                                                 )}
                                                 <span className="text-lg font-black text-red-700 leading-none">{formatCurrency(amountDue)}</span>
