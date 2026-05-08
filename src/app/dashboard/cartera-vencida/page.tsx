@@ -57,24 +57,30 @@ export default async function CarteraVencidaPage() {
 
             const hasPenalty = missedPaymentsCount >= 2;
             const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-            
-            // Es vencido si ya pasó la fecha de la última semana (incluyendo penalización)
             const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
-            // CÁLCULO DE SALDO REAL (Unificado con la lógica de Pagos Asumidos)
-            let effectivePaid = 0;
-            for (let i = 1; i <= totalTermInWeeks; i++) {
+            // CÁLCULO DE SALDO (Lógica Robusta: Base + Penalización)
+            let effectivePaidBase = 0;
+            for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
-                    effectivePaid += p.amount;
-                } else if (i < rawCurrentLoanWeek && i <= baseTerm) {
-                    // Semanas pasadas sin registro dentro del plazo base se asumen pagadas
-                    effectivePaid += weeklyPayment;
+                    effectivePaidBase += p.amount;
+                } else if (i < rawCurrentLoanWeek) {
+                    effectivePaidBase += weeklyPayment;
                 }
             }
 
-            const totalExpected = weeklyPayment * totalTermInWeeks;
-            const balance = Math.max(0, totalExpected - effectivePaid);
+            const baseExpected = weeklyPayment * baseTerm;
+            const baseDebt = Math.max(0, baseExpected - effectivePaidBase);
+            
+            // Si tiene penalización, se suma un abono completo al saldo si no ha sido pagado en la semana extra
+            let penaltyDebt = 0;
+            if (hasPenalty) {
+                const penaltyPayment = loan.payments.find(p => p.weekNumber === baseTerm + 1);
+                penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
+            }
+
+            const balance = baseDebt + penaltyDebt;
 
             // 'Cartera Vencida': Préstamos EXPIRADOS con saldo pendiente
             if (isExpired && balance > 0) {

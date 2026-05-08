@@ -101,7 +101,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         
         const baseTerm = loanPlan.termInWeeks;
         
-        // Solo contamos fallos si hay un registro explícito de abono insuficiente (dentro del plazo base)
         let missedCount = 0;
         for (let i = 1; i <= baseTerm; i++) {
             const p = loan.payments.find(pay => pay.weekNumber === i);
@@ -113,20 +112,26 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const hasPenalty = missedCount >= 2;
         const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
         
-        // Cálculo de saldo efectivo usando Pagos Asumidos
-        let effectivePaid = 0;
-        for (let i = 1; i <= termInWeeks; i++) {
+        // CÁLCULO DE SALDO EXPLICITO
+        let effectivePaidBase = 0;
+        for (let i = 1; i <= baseTerm; i++) {
             const p = loan.payments.find(pay => pay.weekNumber === i);
             if (p) {
-                effectivePaid += p.amount;
-            } else if (i < rawCurrentLoanWeek && i <= baseTerm) {
-                // Semanas sin registro en el pasado (dentro del plazo base) se asumen pagadas
-                effectivePaid += weeklyPayment;
+                effectivePaidBase += p.amount;
+            } else if (i < rawCurrentLoanWeek) {
+                effectivePaidBase += weeklyPayment;
             }
         }
 
-        const totalExpected = weeklyPayment * termInWeeks;
-        const balance = Math.max(0, totalExpected - effectivePaid);
+        const baseDebt = Math.max(0, (weeklyPayment * baseTerm) - effectivePaidBase);
+        
+        let penaltyDebt = 0;
+        if (hasPenalty) {
+            const penaltyPayment = loan.payments.find(p => p.weekNumber === baseTerm + 1);
+            penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
+        }
+
+        const balance = baseDebt + penaltyDebt;
         const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
 
         return {

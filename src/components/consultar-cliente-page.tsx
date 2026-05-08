@@ -67,23 +67,37 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const timeDiff = today.getTime() - loanStartDate.getTime();
     const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
     
-    // CONTAR FALLOS (Solo dentro del plazo base)
+    // CONTAR FALLOS
     const baseTerm = loanPlan.termInWeeks;
     let missedWeeksCount = 0;
     for (let i = 1; i <= baseTerm; i++) {
-        if (i >= rawCurrentLoanWeek) break;
         const p = activeLoan.payments.find(p => p.weekNumber === i);
-        const paidAmount = p ? p.amount : 0;
-        if (paidAmount < weeklyPayment) {
+        if (p && p.amount < weeklyPayment) {
             missedWeeksCount++;
         }
     }
     
     const hasPenalty = missedWeeksCount >= 2;
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-
-    // No mostrar mas semanas de las que tiene el prestamo (Cappeado por la penalización)
     const currentLoanWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
+
+    // SALDO EXPLICITO
+    let effectivePaidBase = 0;
+    for (let i = 1; i <= baseTerm; i++) {
+        const p = activeLoan.payments.find(p => p.weekNumber === i);
+        if (p) {
+            effectivePaidBase += p.amount;
+        } else if (i < rawCurrentLoanWeek) {
+            effectivePaidBase += weeklyPayment;
+        }
+    }
+    const baseDebt = Math.max(0, (weeklyPayment * baseTerm) - effectivePaidBase);
+    let penaltyDebt = 0;
+    if (hasPenalty) {
+        const penaltyPayment = activeLoan.payments.find(p => p.weekNumber === baseTerm + 1);
+        penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
+    }
+    const balance = baseDebt + penaltyDebt;
 
     let endorsementName = selectedClient.endorsement;
     let endorsementDetails = '';
@@ -93,11 +107,6 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         endorsementDetails = endorsementMatch[2];
     }
     
-    // SALDO REAL: (Total esperado con penalización) - (Total Pagado)
-    const totalExpected = weeklyPayment * termInWeeks;
-    const actualTotalPaid = activeLoan.payments.reduce((acc, p) => acc + p.amount, 0);
-    const balance = Math.max(0, totalExpected - actualTotalPaid);
-
     const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
     const localidad = localidades.find(l => l.id === promotora?.localidadId);
     const plaza = plazas.find(p => p.id === localidad?.plazaId);

@@ -26,19 +26,14 @@ export async function createLoanAction(input: CreateLoanInput) {
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
-    // Get day of week (Sunday is 0, Saturday is 6)
     const dayOfWeek = today.getUTCDay();
-
-    // Calculate days to subtract to get to the previous Saturday.
     const daysToSubtract = (dayOfWeek + 1) % 7;
-
     const saturday = new Date(today);
     saturday.setUTCDate(today.getUTCDate() - daysToSubtract);
 
     let clientId = input.client.id;
 
     if (!clientId) {
-        // Create a new client
         const newClientData = {
             ...input.client,
             avatarUrl: `https://picsum.photos/seed/${Math.random()}/40/40`
@@ -206,28 +201,31 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const hasPenalty = missedWeeksCount >= 2;
             const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             
-            // CÁLCULO DE SALDO EFECTIVO (Unificado)
-            let effectivePaid = 0;
-            for (let i = 1; i <= termInWeeks; i++) {
+            // CÁLCULO DE SALDO EFECTIVO (Base + Penalización)
+            let effectivePaidBase = 0;
+            for (let i = 1; i <= baseTerm; i++) {
                 const p = allPayments.find(pay => pay.weekNumber === i);
                 if (p) {
-                    effectivePaid += p.amount;
-                } else if (i < rawCurrentLoanWeek && i <= baseTerm) {
-                    effectivePaid += weeklyPayment;
+                    effectivePaidBase += p.amount;
+                } else if (i < rawCurrentLoanWeek) {
+                    effectivePaidBase += weeklyPayment;
                 }
             }
 
-            const totalExpected = weeklyPayment * termInWeeks;
+            const baseDebt = Math.max(0, (weeklyPayment * baseTerm) - effectivePaidBase);
+            let penaltyDebt = 0;
+            if (hasPenalty) {
+                const penaltyPayment = allPayments.find(p => p.weekNumber === baseTerm + 1);
+                penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
+            }
+
+            const balance = baseDebt + penaltyDebt;
             let newStatus: Loan['status'] = loan.status;
 
-            if (effectivePaid >= totalExpected) {
-                newStatus = (missedWeeksCount >= 2 || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
+            if (balance <= 0) {
+                newStatus = (hasPenalty || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
             } else {
-                if (missedWeeksCount >= 2) {
-                    newStatus = 'Overdue';
-                } else {
-                    newStatus = 'Active';
-                }
+                newStatus = hasPenalty ? 'Overdue' : 'Active';
             }
 
             transaction.update(loanRef, {
@@ -289,20 +287,26 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             const hasPenalty = missedWeeksCount >= 2;
             const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             
-            let effectivePaid = 0;
-            for (let i = 1; i <= termInWeeks; i++) {
+            // CÁLCULO DE SALDO EXPLICITO (Base + Penalización)
+            let effectivePaidBase = 0;
+            for (let i = 1; i <= baseTerm; i++) {
                 const p = currentPayments.find(pay => pay.weekNumber === i);
                 if (p) {
-                    effectivePaid += p.amount;
-                } else if (i < rawCurrentLoanWeek && i <= baseTerm) {
-                    effectivePaid += weeklyPayment;
+                    effectivePaidBase += p.amount;
+                } else if (i < rawCurrentLoanWeek) {
+                    effectivePaidBase += weeklyPayment;
                 }
             }
 
-            const totalExpected = weeklyPayment * termInWeeks;
-            const settlementAmount = Math.max(0, totalExpected - effectivePaid);
+            const baseDebt = Math.max(0, (weeklyPayment * baseTerm) - effectivePaidBase);
+            let penaltyDebt = 0;
+            if (hasPenalty) {
+                const penaltyPayment = currentPayments.find(p => p.weekNumber === baseTerm + 1);
+                penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
+            }
 
-            const finalStatus: Loan['status'] = (missedWeeksCount >= 2 || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
+            const settlementAmount = baseDebt + penaltyDebt;
+            const finalStatus: Loan['status'] = (hasPenalty || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
 
             if (settlementAmount <= 0) {
                 transaction.update(loanRef, { status: finalStatus });
@@ -405,13 +409,11 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
 
                 if (!paymentExists) {
                     const client = clients.find(c => c.id === loan.clientId);
-                    
                     const newPayment = {
                         date: new Date().toISOString(),
                         amount: weeklyPaymentAmount,
                         weekNumber: weekNumber,
                     };
-
                     updatedPayments.push(newPayment);
                     
                     const walletTransactionRef = doc(collection(db, 'walletTransactions'));
@@ -432,20 +434,26 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
             }
 
             if (loanChanged) {
-                let effectivePaid = 0;
-                for (let i = 1; i <= termInWeeks; i++) {
+                // CÁLCULO DE SALDO FINAL
+                let effectivePaidBase = 0;
+                for (let i = 1; i <= baseTerm; i++) {
                     const p = updatedPayments.find((pay: any) => pay.weekNumber === i);
-                    if (p) effectivePaid += p.amount;
-                    else if (i < rawCurrentLoanWeek && i <= baseTerm) effectivePaid += weeklyPaymentAmount;
+                    if (p) effectivePaidBase += p.amount;
+                    else if (i < rawCurrentLoanWeek) effectivePaidBase += weeklyPaymentAmount;
+                }
+                const baseDebt = Math.max(0, (weeklyPaymentAmount * baseTerm) - effectivePaidBase);
+                let penaltyDebt = 0;
+                if (hasPenalty) {
+                    const penaltyPayment = updatedPayments.find(p => p.weekNumber === baseTerm + 1);
+                    penaltyDebt = weeklyPaymentAmount - (penaltyPayment?.amount || 0);
                 }
 
-                const totalExpected = weeklyPaymentAmount * termInWeeks;
-                let newStatus = loan.status;
-                if (effectivePaid >= totalExpected) {
-                    newStatus = (missedWeeksCount >= 2 || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
+                if ((baseDebt + penaltyDebt) <= 0) {
+                    const newStatus = (hasPenalty || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
+                    batch.update(doc(db, 'loans', loan.id), { payments: updatedPayments, status: newStatus });
+                } else {
+                    batch.update(doc(db, 'loans', loan.id), { payments: updatedPayments });
                 }
-
-                batch.update(doc(db, 'loans', loan.id), { payments: updatedPayments, status: newStatus });
             }
         }
 

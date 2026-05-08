@@ -221,14 +221,12 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         const loanPlan = loanPlans.find(p => p.id === activeLoan.loanPlanId);
         if (loanPlan) {
             const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
-            
-            // Re-calculate current loan state matching the weekly sheet logic
             const today = new Date();
             const loanStartDate = new Date(activeLoan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
 
-            // Count registered failures for penalty detection
+            const baseTerm = loanPlan.termInWeeks;
             let missedWeeksCount = 0;
             for (let i = 1; i < currentLoanWeek; i++) {
                 const p = activeLoan.payments.find(p => p.weekNumber === i);
@@ -236,34 +234,35 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             }
 
             const hasPenalty = missedWeeksCount >= 2;
-            const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
+            const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             
-            // Calculate effective balance using "Assumed Payments" logic
-            // Weeks without records in the past are considered PAID.
-            let effectivePaid = 0;
-            for (let i = 1; i <= termInWeeks; i++) {
+            // CÁLCULO DE SALDO EXPLICITO
+            let effectivePaidBase = 0;
+            for (let i = 1; i <= baseTerm; i++) {
                 const p = activeLoan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
-                    effectivePaid += p.amount;
-                } else if (i < currentLoanWeek) {
-                    // Assumed paid for past weeks with no records
-                    effectivePaid += weeklyPayment;
+                    effectivePaidBase += p.amount;
+                } else if (i < rawCurrentLoanWeek) {
+                    effectivePaidBase += weeklyPayment;
                 }
             }
 
-            const totalLoanAmount = weeklyPayment * termInWeeks;
-            const settlementAmount = Math.max(0, totalLoanAmount - effectivePaid);
+            const baseDebt = Math.max(0, (weeklyPayment * baseTerm) - effectivePaidBase);
+            let penaltyDebt = 0;
+            if (hasPenalty) {
+                const penaltyPayment = activeLoan.payments.find(p => p.weekNumber === baseTerm + 1);
+                penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
+            }
 
-            // Weeks remaining = Future weeks + Past weeks with registered failures
-            const futureWeeksCount = Math.max(0, termInWeeks - currentLoanWeek + 1);
-            const weeksRemaining = futureWeeksCount + missedWeeksCount;
+            const settlementAmount = baseDebt + penaltyDebt;
+            const futureWeeksCount = Math.max(0, termInWeeks - rawCurrentLoanWeek + 1);
             
             const hierarchy = getHierarchy(activeLoan.promotoraId);
 
             setActiveLoanDetails({
                 loan: activeLoan,
                 settlementAmount: settlementAmount,
-                weeksRemaining: Math.ceil(weeksRemaining),
+                weeksRemaining: Math.ceil(futureWeeksCount),
                 hierarchy: hierarchy
             });
         }

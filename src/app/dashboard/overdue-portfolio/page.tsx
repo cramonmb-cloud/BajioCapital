@@ -45,7 +45,7 @@ export default async function OverduePortfolioPage() {
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
-            // CONTAR FALLOS REALES (Solo registros explícitos incompletos)
+            // CONTAR FALLOS REALES
             const baseTerm = loanPlan.termInWeeks;
             let missedCount = 0;
             for (let i = 1; i <= baseTerm; i++) {
@@ -59,19 +59,26 @@ export default async function OverduePortfolioPage() {
             const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
-            // CÁLCULO DE SALDO REAL
-            let effectivePaid = 0;
-            for (let i = 1; i <= totalTermInWeeks; i++) {
+            // CÁLCULO DE SALDO EXPLICITO (Base + Penalización)
+            let effectivePaidBase = 0;
+            for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
-                    effectivePaid += p.amount;
-                } else if (i < rawCurrentLoanWeek && i <= baseTerm) {
-                    effectivePaid += weeklyPayment;
+                    effectivePaidBase += p.amount;
+                } else if (i < rawCurrentLoanWeek) {
+                    effectivePaidBase += weeklyPayment;
                 }
             }
 
-            const totalExpected = weeklyPayment * totalTermInWeeks;
-            const balance = Math.max(0, totalExpected - effectivePaid);
+            const baseDebt = Math.max(0, (weeklyPayment * baseTerm) - effectivePaidBase);
+            
+            let penaltyDebt = 0;
+            if (hasPenalty) {
+                const penaltyPayment = loan.payments.find(p => p.weekNumber === baseTerm + 1);
+                penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
+            }
+
+            const balance = baseDebt + penaltyDebt;
 
             // 'Pagos Pendientes': Préstamos VIGENTES con 2 o más fallos
             if (!isExpired && missedCount >= 2 && balance > 0) {
