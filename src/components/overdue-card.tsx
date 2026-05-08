@@ -5,8 +5,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
-    Phone, User, MessageSquare, Building, MapPin, 
-    Wallet, FileText, Shield, AlertTriangle, Map, UserCheck, X, Home, History
+    Phone, MessageSquare, MapPin, 
+    Wallet, FileText, Shield, History, 
+    X, Home
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -141,13 +142,13 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         <>
             <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-3" style={{ borderLeftColor: plazaColor }}>
                 <CardContent className="p-3 space-y-2.5">
-                    {/* ENCABEZADO DE RUTA (JERARQUÍA) */}
+                    {/* ENCABEZADO DE RUTA (JERARQUÍA) CON TÍTULOS */}
                     <div className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap border-b pb-1.5">
                         <Badge className="text-[8px] font-black uppercase px-1.5 h-4" style={{ backgroundColor: plazaColor }}>
-                            {hierarchy.plazaName}
+                            PLAZA: {hierarchy.plazaName}
                         </Badge>
                         <span className="text-[9px] font-bold text-muted-foreground uppercase truncate">
-                            {hierarchy.localidadName} • {hierarchy.promotoraName}
+                            LOCALIDAD: {hierarchy.localidadName} • PROMOTORA: {hierarchy.promotoraName}
                         </span>
                     </div>
 
@@ -234,7 +235,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                             </Avatar>
                             <div>
                                 <DialogTitle className="text-sm font-black uppercase leading-none">{client.name}</DialogTitle>
-                                <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1">{hierarchy.plazaName} • ID: {client.id}</p>
+                                <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1">PLAZA: {hierarchy.plazaName} • ID: {client.id}</p>
                             </div>
                         </div>
                         <DialogClose asChild>
