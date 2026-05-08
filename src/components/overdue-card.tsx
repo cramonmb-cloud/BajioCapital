@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { 
     Phone, MessageSquare, MapPin, 
     Wallet, FileText, Shield, History as HistoryIcon, 
-    X, Home
+    X, Home, AlertCircle
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -109,7 +109,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             weeklyPayment,
             termInWeeks,
             currentProgressWeek,
-            loanWeekDate: getSaturdayOfWeek(loanStartDate)
+            loanWeekDate: getSaturdayOfWeek(loanStartDate),
+            hasPenalty
         };
     }, [loan, loanPlan, missedPayments]);
 
@@ -175,10 +176,17 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                             </div>
                         </div>
                         <div className="text-right shrink-0">
-                            <p className={cn("text-[9px] font-black uppercase tracking-tighter", isOverduePortfolio ? 'text-orange-600' : 'text-red-600')}>Saldo</p>
-                            <p className={cn("font-black text-lg tracking-tighter leading-none", isOverduePortfolio ? 'text-orange-700' : 'text-red-700')}>
-                                {formatCurrency(amountDue)}
-                            </p>
+                            <div className="flex flex-col items-end gap-1">
+                                <p className={cn("text-[9px] font-black uppercase tracking-tighter", isOverduePortfolio ? 'text-orange-600' : 'text-red-600')}>Saldo</p>
+                                <div className="flex items-center gap-1">
+                                    {metrics.hasPenalty && (
+                                        <Badge variant="outline" className="border-orange-500 text-orange-600 text-[7px] h-3.5 px-1 font-black leading-none">S. EXTRA</Badge>
+                                    )}
+                                    <p className={cn("font-black text-lg tracking-tighter leading-none", isOverduePortfolio ? 'text-orange-700' : 'text-red-700')}>
+                                        {formatCurrency(amountDue)}
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -263,9 +271,12 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     <p className="text-[7px] uppercase font-black text-blue-600">Abono Semanal</p>
                                     <p className="font-black text-sm text-blue-700">{formatCurrency(metrics.weeklyPayment)}</p>
                                 </div>
-                                <div className="p-2 rounded-lg bg-red-50 border-red-100 text-center">
+                                <div className="p-2 rounded-lg bg-red-50 border-red-100 text-center relative overflow-hidden">
                                     <p className="text-[7px] uppercase font-black text-red-600">Fallos</p>
                                     <p className={cn("font-black text-sm", missedPayments > 0 ? "text-red-700" : "")}>{missedPayments}</p>
+                                    {metrics.hasPenalty && (
+                                        <div className="bg-orange-500 text-white text-[6px] font-black uppercase py-0.5 px-1 absolute bottom-0 left-0 right-0">S. EXTRA ACTIVADA</div>
+                                    )}
                                 </div>
                             </div>
 
@@ -292,9 +303,16 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
                                             <FileText className="h-3 w-3 text-blue-600" /> Saldo
                                         </h4>
-                                        <div className="p-3 rounded-lg border bg-white flex justify-between items-center">
+                                        <div className="p-3 rounded-lg border bg-white flex justify-between items-center relative overflow-hidden">
                                             <span className="text-[9px] font-bold text-muted-foreground">RESTA TOTAL</span>
-                                            <span className="text-lg font-black text-red-700">{formatCurrency(amountDue)}</span>
+                                            <div className="flex flex-col items-end">
+                                                {metrics.hasPenalty && (
+                                                    <span className="text-[7px] font-black text-orange-600 uppercase mb-0.5 leading-none flex items-center gap-0.5">
+                                                        <AlertCircle className="h-2 w-2" /> Incluye Semana Extra
+                                                    </span>
+                                                )}
+                                                <span className="text-lg font-black text-red-700 leading-none">{formatCurrency(amountDue)}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
