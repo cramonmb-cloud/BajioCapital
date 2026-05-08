@@ -117,7 +117,6 @@ export function EditLoanDialog({
     }
   }, [loan, isOpen, form, promotoras, localidades, plazas]);
 
-  // Sorting for selections
   const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
   
   const filteredLocalidades = useMemo(() => {

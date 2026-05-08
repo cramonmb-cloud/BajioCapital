@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
     Phone, MessageSquare, MapPin, 
-    Wallet, FileText, Shield, History, 
+    Wallet, FileText, Shield, History as HistoryIcon, 
     X, Home
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
@@ -46,12 +46,11 @@ const getSaturdayOfWeek = (d: Date) => {
 const cleanPhone = (phone: string) => phone.replace(/\D/g, '');
 
 export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isOverduePortfolio, whatsappTemplate, appName }: OverdueCardProps) {
-    const { client, loan, loanPlan, amountDue, missedPayments, hierarchy } = details;
+    const { client, loan, loanPlan, hierarchy } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const { appUser } = useAuth();
 
-    // Toggle Mobile Nav Visibility
     useEffect(() => {
         if (detailModalOpen) {
             window.dispatchEvent(new CustomEvent('hide-mobile-nav'));
@@ -93,36 +92,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         };
     }, [client.endorsement]);
 
-    const handleWhatsApp = (e?: React.MouseEvent) => {
-        e?.stopPropagation();
-        if (client.phone) {
-            const defaultTemplate = `Hola {{nombre_cliente}}, te contactamos de {{nombre_negocio}} para recordarte sobre tu préstamo pendiente de pago.`;
-            let message = whatsappTemplate || defaultTemplate;
-
-            const replacements: Record<string, string> = {
-                '{{nombre_cliente}}': client.name.toUpperCase(),
-                '{{domicilio_cliente}}': `${client.street}, ${client.neighborhood}`.toUpperCase(),
-                '{{telefono_cliente}}': client.phone,
-                '{{nombre_aval}}': avalName.toUpperCase(),
-                '{{domicilio_aval}}': avalAddress.toUpperCase(),
-                '{{telefono_aval}}': avalPhone,
-                '{{monto_prestamo}}': formatCurrency(loan.amount),
-                '{{saldo_pendiente}}': formatCurrency(amountDue),
-                '{{fallos_registrados}}': missedPayments.toString(),
-                '{{nombre_negocio}}': appName || 'CREDICONTROL',
-            };
-
-            // Replace all tags
-            Object.keys(replacements).forEach(tag => {
-                const regex = new RegExp(tag, 'g');
-                message = message.replace(regex, replacements[tag]);
-            });
-
-            window.open(`https://wa.me/${client.phone}?text=${encodeURIComponent(message)}`, '_blank');
-        }
-    };
-    
-    // RE-CÁLCULO DINÁMICO DE MÉTRICAS (Mismo que el servidor)
+    // RE-CÁLCULO DINÁMICO DE MÉTRICAS (Mismo que el servidor para consistencia)
     const metrics = useMemo(() => {
         const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
         const today = new Date();
@@ -157,6 +127,34 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         };
     }, [loan, loanPlan]);
 
+    const handleWhatsApp = (e?: React.MouseEvent) => {
+        e?.stopPropagation();
+        if (client.phone) {
+            const defaultTemplate = `Hola {{nombre_cliente}}, te contactamos de {{nombre_negocio}} para recordarte sobre tu préstamo pendiente de pago.`;
+            let message = whatsappTemplate || defaultTemplate;
+
+            const replacements: Record<string, string> = {
+                '{{nombre_cliente}}': client.name.toUpperCase(),
+                '{{domicilio_cliente}}': `${client.street}, ${client.neighborhood}`.toUpperCase(),
+                '{{telefono_cliente}}': client.phone,
+                '{{nombre_aval}}': avalName.toUpperCase(),
+                '{{domicilio_aval}}': avalAddress.toUpperCase(),
+                '{{telefono_aval}}': avalPhone,
+                '{{monto_prestamo}}': formatCurrency(loan.amount),
+                '{{saldo_pendiente}}': formatCurrency(metrics.balance),
+                '{{fallos_registrados}}': metrics.missedCount.toString(),
+                '{{nombre_negocio}}': appName || 'CREDICONTROL',
+            };
+
+            Object.keys(replacements).forEach(tag => {
+                const regex = new RegExp(tag, 'g');
+                message = message.replace(regex, replacements[tag]);
+            });
+
+            window.open(`https://wa.me/${client.phone}?text=${encodeURIComponent(message)}`, '_blank');
+        }
+    };
+
     const fullAddress = `${client.street}, ${client.neighborhood}, ${client.city}, ${client.postalCode}`;
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
 
@@ -164,7 +162,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         <>
             <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-3" style={{ borderLeftColor: plazaColor }}>
                 <CardContent className="p-3 space-y-2.5">
-                    {/* ENCABEZADO DE RUTA */}
+                    {/* ENCABEZADO DE RUTA CON CONTORNOS */}
                     <div className="flex flex-wrap items-center gap-1.5 border-b pb-1.5">
                         <Badge className="text-[8px] font-black uppercase px-1.5 h-4 shrink-0" style={{ backgroundColor: plazaColor }}>
                             PLAZA: {hierarchy.plazaName}
@@ -195,7 +193,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         <div className="text-right shrink-0">
                             <p className={cn("text-[9px] font-black uppercase tracking-tighter", isOverduePortfolio ? 'text-orange-600' : 'text-red-600')}>Saldo</p>
                             <p className={cn("font-black text-lg tracking-tighter leading-none", isOverduePortfolio ? 'text-orange-700' : 'text-red-700')}>
-                                {formatCurrency(amountDue)}
+                                {formatCurrency(metrics.balance)}
                             </p>
                         </div>
                     </div>
@@ -212,7 +210,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </Button>
                     </div>
 
-                    {/* Bloque Aval */}
+                    {/* Bloque Aval COMPLETO */}
                     <div className="p-2.5 rounded-xl bg-blue-50/40 border border-blue-100 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex-1 min-w-0">
@@ -244,7 +242,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     {/* Acciones Finales */}
                     <div className="flex items-center justify-between gap-3 pt-1 border-t border-dashed">
                         <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1">
-                            <History className="h-2.5 w-2.5" /> INICIÓ: {formatDate(metrics.loanWeekDate.toISOString())}
+                            <HistoryIcon className="h-2.5 w-2.5" /> INICIÓ: {formatDate(metrics.loanWeekDate.toISOString())}
                         </div>
                         <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="h-8 bg-foreground text-background font-black text-[10px] uppercase px-5 rounded-lg active:scale-95 shadow-md">
                             <Wallet className="mr-1.5 h-4 w-4" /> Abonar
@@ -253,10 +251,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 </CardContent>
             </Card>
 
-            {/* MODAL DE DETALLE */}
             <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
                 <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
-                    <DialogHeader className="px-5 py-3 border-b shrink-0 flex row items-center justify-between bg-muted/10">
+                    <DialogHeader className="px-5 py-3 border-b shrink-0 flex flex-row items-center justify-between bg-muted/10">
                         <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10 border">
                                 <AvatarImage src={client.avatarUrl} alt={client.name} />
@@ -276,7 +273,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                     <ScrollArea className="flex-1 overflow-y-auto">
                         <div className="p-4 space-y-5">
-                            {/* MÉTRICAS */}
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="p-2 rounded-lg bg-muted/30 border text-center">
                                     <p className="text-[7px] uppercase font-black text-muted-foreground">Progreso</p>

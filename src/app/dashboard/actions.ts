@@ -52,7 +52,7 @@ export async function createLoanAction(input: CreateLoanInput) {
         promotoraId: input.promotoraId,
         loanPlanId: input.loanPlanId,
         amount: input.amount,
-        startDate: saturday, // Use the Date object directly, Firestore will convert it
+        startDate: saturday,
         status: 'Active' as const,
         payments: [],
     };
@@ -63,6 +63,76 @@ export async function createLoanAction(input: CreateLoanInput) {
     revalidatePath('/dashboard/clients');
     
     return { success: true, message: 'Préstamo creado con éxito.' };
+}
+
+export async function updateLoanAction(loanId: string, data: { loanPlanId: string; amount: number; startDate: string; promotoraId: string }) {
+    try {
+        const loanRef = doc(db, 'loans', loanId);
+        await updateDoc(loanRef, {
+            loanPlanId: data.loanPlanId,
+            amount: data.amount,
+            startDate: new Date(data.startDate),
+            promotoraId: data.promotoraId
+        });
+
+        revalidatePath('/dashboard/loans');
+        revalidatePath('/dashboard/clients');
+        return { success: true, message: 'Préstamo actualizado con éxito.' };
+    } catch (error: any) {
+        console.error('Error updating loan:', error);
+        return { success: false, message: `Error al actualizar el préstamo: ${error.message}` };
+    }
+}
+
+export async function deleteLoanAction(loanId: string) {
+    try {
+        await runTransaction(db, async (transaction) => {
+            const loanRef = doc(db, 'loans', loanId);
+            const loanSnap = await transaction.get(loanRef);
+
+            if (!loanSnap.exists()) {
+                throw new Error('Préstamo no encontrado');
+            }
+
+            const loan = loanSnap.data() as Loan;
+            const totalPaid = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
+
+            if (totalPaid > 0) {
+                const walletRef = doc(db, 'wallet', 'main');
+                transaction.update(walletRef, { balance: increment(-totalPaid) });
+            }
+
+            transaction.delete(loanRef);
+        });
+
+        revalidatePath('/dashboard/loans');
+        revalidatePath('/dashboard/wallet');
+        revalidatePath('/dashboard/clients');
+
+        return { success: true, message: 'Préstamo eliminado y saldo de cartera ajustado correctamente.' };
+    } catch (error: any) {
+        console.error('Error deleting loan:', error);
+        return { success: false, message: `Error al eliminar el préstamo: ${error.message}` };
+    }
+}
+
+export async function changeLoansDateAction(loanIds: string[], targetDateIso: string) {
+    try {
+        const batch = writeBatch(db);
+        const targetDate = new Date(targetDateIso);
+        
+        loanIds.forEach(id => {
+            const ref = doc(db, 'loans', id);
+            batch.update(ref, { startDate: targetDate });
+        });
+
+        await batch.commit();
+        revalidatePath('/dashboard/loans');
+        return { success: true, message: `Se actualizó la fecha de inicio de ${loanIds.length} préstamos correctamente.` };
+    } catch (error: any) {
+        console.error('Error changing loans dates:', error);
+        return { success: false, message: `Error al cambiar las fechas: ${error.message}` };
+    }
 }
 
 
@@ -93,10 +163,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 date: parseFirestoreDate(p.date).toISOString()
             }));
 
-            // Overwrite logic: Remove any existing payment for the starting week
             const allPayments = currentPayments.filter(p => p.weekNumber !== startingWeekNumber);
-            
-            // Add the new payment for the starting week.
             allPayments.push({
                 date: new Date().toISOString(),
                 amount: amountPaid,
@@ -108,7 +175,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
 
-            // --- Wallet and Transaction Logic ---
             const originalTotalPaid = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const newTotalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
             const walletAdjustment = newTotalPaid - originalTotalPaid;
@@ -119,7 +185,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                     type: walletAdjustment > 0 ? 'credit' : 'debit',
                     amount: Math.abs(walletAdjustment),
                     date: new Date(),
-                    description: `Abono/Ajuste de ${client?.name || 'N/A'} para préstamo (Semana ${startingWeekNumber}).`,
+                    description: `Abono/Ajuste de ${client?.name || 'N/A'} (Semana ${startingWeekNumber}).`,
                     loanId: loanId,
                     clientId: loan.clientId,
                     userId: userId || null,
@@ -128,11 +194,10 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 transaction.update(walletRef, { balance: increment(walletAdjustment) });
             }
 
-            // RE-CALCULAR FALLOS (Solo dentro del plazo base de 12 semanas)
             let missedWeeksCount = 0;
             const baseTerm = loanPlan.termInWeeks;
             for (let i = 1; i <= baseTerm; i++) {
-                if (i >= rawCurrentLoanWeek) break; // Todavía no llega esa fecha
+                if (i >= rawCurrentLoanWeek) break;
                 const p = allPayments.find(pay => pay.weekNumber === i);
                 const amount = p ? p.amount : 0;
                 if (amount < weeklyPayment) missedWeeksCount++;
@@ -167,11 +232,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
         revalidatePath('/dashboard');
         revalidatePath('/dashboard/overdue-portfolio');
         
-        const message = amountPaid > 0 
-            ? 'Pago registrado con éxito.'
-            : 'Fallo registrado con éxito.';
-            
-        return { success: true, message: message };
+        return { success: true, message: 'Pago registrado con éxito.' };
 
     } catch (error: any) {
         console.error('Error registering payment:', error);
@@ -210,7 +271,6 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
                 date: parseFirestoreDate(p.date).toISOString()
             }));
 
-            // Calcular fallos para penalización
             let missedWeeksCount = 0;
             for (let i = 1; i <= baseTerm; i++) {
                 if (i >= rawCurrentLoanWeek) break;
@@ -236,7 +296,7 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             const newPayments = [...currentPayments, {
                 date: new Date().toISOString(),
                 amount: settlementAmount,
-                weekNumber: -1, // Liquidación Manual
+                weekNumber: -1,
             }];
             
             const walletRef = doc(db, 'wallet', 'main');
@@ -311,13 +371,13 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
                 date: parseFirestoreDate(p.date).toISOString()
             }));
 
-            // Calcular fallos (tope base term)
             let missedWeeksCount = 0;
             const baseTerm = loanPlan.termInWeeks;
             for (let i = 1; i <= baseTerm; i++) {
                 if (i >= rawCurrentLoanWeek) break;
                 const p = currentPayments.find((pay: any) => pay.weekNumber === i);
                 if (p && p.amount < weeklyPaymentAmount) missedWeeksCount++;
+                if (!p) missedWeeksCount++;
             }
             const hasPenalty = missedWeeksCount >= 2;
             const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
@@ -325,7 +385,6 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
             let updatedPayments = [...currentPayments];
             let loanChanged = false;
 
-            // Recorrer hasta la semana actual (tope total term)
             for (let weekNumber = 1; weekNumber <= Math.min(rawCurrentLoanWeek, termInWeeks); weekNumber++) {
                 const paymentExists = updatedPayments.some((p: any) => p.weekNumber === weekNumber);
 
