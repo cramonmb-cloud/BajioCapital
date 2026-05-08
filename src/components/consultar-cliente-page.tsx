@@ -67,20 +67,22 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const timeDiff = today.getTime() - loanStartDate.getTime();
     const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
     
+    // CONTAR FALLOS (Solo dentro del plazo base)
+    const baseTerm = loanPlan.termInWeeks;
     let missedWeeksCount = 0;
-    for (let i = 1; i < rawCurrentLoanWeek; i++) {
-        const paymentForWeek = activeLoan.payments.find(p => p.weekNumber === i);
-        if (!paymentForWeek) continue; // Solo fallos registrados cuentan
-
-        const paidForWeek = paymentForWeek.amount;
-        if (paidForWeek < weeklyPayment) {
+    for (let i = 1; i <= baseTerm; i++) {
+        if (i >= rawCurrentLoanWeek) break;
+        const p = activeLoan.payments.find(p => p.weekNumber === i);
+        const paidAmount = p ? p.amount : 0;
+        if (paidAmount < weeklyPayment) {
             missedWeeksCount++;
         }
     }
+    
     const hasPenalty = missedWeeksCount >= 2;
-    const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
+    const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
 
-    // No mostrar mas semanas de las que tiene el prestamo
+    // No mostrar mas semanas de las que tiene el prestamo (Cappeado por la penalización)
     const currentLoanWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
 
     let endorsementName = selectedClient.endorsement;
@@ -91,21 +93,10 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         endorsementDetails = endorsementMatch[2];
     }
     
-    const totalToPay = weeklyPayment * termInWeeks;
-    const totalPaid = activeLoan.payments.reduce((acc, p) => acc + p.amount, 0);
-    
-    // Logica de pagos asumidos para calculo de saldo real
-    let effectivePaid = 0;
-    for (let i = 1; i <= termInWeeks; i++) {
-        const p = activeLoan.payments.find(pay => pay.weekNumber === i);
-        if (p) {
-            effectivePaid += p.amount;
-        } else if (i < rawCurrentLoanWeek) {
-            // Asumido pagado si paso la fecha y no hay registro de fallo
-            effectivePaid += weeklyPayment;
-        }
-    }
-    const balance = totalToPay - effectivePaid;
+    // SALDO REAL: (Total esperado con penalización) - (Total Pagado)
+    const totalExpected = weeklyPayment * termInWeeks;
+    const actualTotalPaid = activeLoan.payments.reduce((acc, p) => acc + p.amount, 0);
+    const balance = Math.max(0, totalExpected - actualTotalPaid);
 
     const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
     const localidad = localidades.find(l => l.id === promotora?.localidadId);
@@ -119,7 +110,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
       endorsementName,
       endorsementDetails,
       termInWeeks: termInWeeks,
-      balance: balance > 0 ? balance : 0,
+      balance: balance,
       missedWeeks: missedWeeksCount,
       plazaName: plaza?.name || 'N/A',
       localidadName: localidad?.name || 'N/A',
@@ -284,8 +275,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                     <p className="font-semibold">{formatDate(activeLoanDetails.loan.startDate)}</p>
                                 </div>
                                  <div className="space-y-1">
-                                    <p className="text-muted-foreground">Estado</p>
-                                    <p className="font-semibold">{activeLoanDetails.loan.status === 'Overdue' ? 'VENCIDO' : 'ACTIVO'}</p>
+                                    <p className="text-muted-foreground">Saldo Pendiente</p>
+                                    <p className="font-bold text-red-600">{formatCurrency(activeLoanDetails.balance)}</p>
                                 </div>
                             </div>
                         </div>

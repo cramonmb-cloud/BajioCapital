@@ -43,29 +43,34 @@ export default async function OverduePortfolioPage() {
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
+            const baseTerm = loanPlan.termInWeeks;
             let missedPaymentsCount = 0;
-            let totalFailureAmount = 0;
+            let currentFailuresAmount = 0;
             
-            // Iterate through past weeks to find missed amounts
-            for (let i = 1; i < currentLoanWeek; i++) {
+            // Contar fallos dentro de lo que ha transcurrido hasta hoy (pero sin pasarse del plazo base)
+            for (let i = 1; i <= baseTerm; i++) {
+                if (i >= rawCurrentLoanWeek) break; // Futuro
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 const amountPaid = p ? p.amount : 0;
                 if (amountPaid < weeklyPayment) {
                     missedPaymentsCount++;
-                    totalFailureAmount += (weeklyPayment - amountPaid);
+                    currentFailuresAmount += (weeklyPayment - amountPaid);
                 }
             }
 
             const hasPenalty = missedPaymentsCount >= 2;
-            const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
-            const isExpired = currentLoanWeek > termInWeeks;
+            const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
+            
+            // No es vigente si ya expiró
+            const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
-            // 'Pagos Pendientes': Active loans (NOT expired) WITH 2 or more missed payments.
-            // For active loans, we show the current debt (failures) + penalty amount if triggered.
+            // 'Pagos Pendientes': Préstamos VIGENTES con 2 o más fallos
             if (!isExpired && missedPaymentsCount >= 2) {
-                const currentDebt = totalFailureAmount + (hasPenalty ? weeklyPayment : 0);
+                // El saldo mostrado para vigentes es la suma de los fallos ya ocurridos 
+                // más la semana extra si ya se activó
+                const currentDebt = currentFailuresAmount + (hasPenalty ? weeklyPayment : 0);
                 
                 return {
                     loan,

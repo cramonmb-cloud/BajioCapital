@@ -1,4 +1,3 @@
-
 'use server';
 
 import type { Client, Loan, LoanPlan, AppUser } from '@/lib/types';
@@ -89,7 +88,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
             
-            // Clean up payments converting any existing Timestamps to ensure filtering works
             const currentPayments = (loan.payments || []).map(p => ({
                 ...p,
                 date: parseFirestoreDate(p.date).toISOString()
@@ -130,31 +128,25 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 transaction.update(walletRef, { balance: increment(walletAdjustment) });
             }
 
-            // Re-calculate penalties for status
+            // RE-CALCULAR FALLOS (Solo dentro del plazo base de 12 semanas)
             let missedWeeksCount = 0;
-            for (let i = 1; i < rawCurrentLoanWeek; i++) {
-                const paymentForWeek = allPayments.find(p => p.weekNumber === i);
-                if (paymentForWeek && paymentForWeek.amount < weeklyPayment) {
-                    missedWeeksCount++;
-                }
-            }
-            const termInWeeks = loanPlan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
-            
-            // Logica de pagos asumidos para determinar liquidacion
-            let effectivePaid = 0;
-            for (let i = 1; i <= termInWeeks; i++) {
+            const baseTerm = loanPlan.termInWeeks;
+            for (let i = 1; i <= baseTerm; i++) {
+                if (i >= rawCurrentLoanWeek) break; // Todavía no llega esa fecha
                 const p = allPayments.find(pay => pay.weekNumber === i);
-                if (p) {
-                    effectivePaid += p.amount;
-                } else if (i < rawCurrentLoanWeek) {
-                    effectivePaid += weeklyPayment;
-                }
+                const amount = p ? p.amount : 0;
+                if (amount < weeklyPayment) missedWeeksCount++;
             }
 
-            const totalLoanAmount = weeklyPayment * termInWeeks;
+            const hasPenalty = missedWeeksCount >= 2;
+            const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
+            
+            const totalExpected = weeklyPayment * termInWeeks;
+            const totalPaidReal = allPayments.reduce((sum, p) => sum + p.amount, 0);
+
             let newStatus: Loan['status'] = loan.status;
 
-            if (effectivePaid >= totalLoanAmount) {
+            if (totalPaidReal >= totalExpected) {
                 newStatus = (wasOverdue || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
             } else {
                 if (missedWeeksCount >= 2) {
@@ -207,28 +199,32 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             }
 
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-            
-            // Recalculate term with penalty
             const today = new Date();
             const loanStartDate = parseFirestoreDate(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
-            const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
-            let missedWeeksCount = 0;
+            const baseTerm = loanPlan.termInWeeks;
             const currentPayments = (loan.payments || []).map(p => ({
                 ...p,
                 date: parseFirestoreDate(p.date).toISOString()
             }));
 
-            for (let i = 1; i < rawCurrentLoanWeek; i++) {
-                const p = currentPayments.find(p => p.weekNumber === i);
-                if (p && p.amount < weeklyPayment) missedWeeksCount++;
+            // Calcular fallos para penalización
+            let missedWeeksCount = 0;
+            for (let i = 1; i <= baseTerm; i++) {
+                if (i >= rawCurrentLoanWeek) break;
+                const p = currentPayments.find(pay => pay.weekNumber === i);
+                const amount = p ? p.amount : 0;
+                if (amount < weeklyPayment) missedWeeksCount++;
             }
-            const termInWeeks = loanPlan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
+
+            const hasPenalty = missedWeeksCount >= 2;
+            const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             
-            const totalLoanAmount = weeklyPayment * termInWeeks;
-            const totalPaid = currentPayments.reduce((sum, p) => sum + p.amount, 0);
-            const settlementAmount = totalLoanAmount - totalPaid;
+            const totalExpected = weeklyPayment * termInWeeks;
+            const totalPaidReal = currentPayments.reduce((sum, p) => sum + p.amount, 0);
+            const settlementAmount = Math.max(0, totalExpected - totalPaidReal);
 
             const finalStatus: Loan['status'] = (wasOverdue || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
 
@@ -240,7 +236,7 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             const newPayments = [...currentPayments, {
                 date: new Date().toISOString(),
                 amount: settlementAmount,
-                weekNumber: -1, // Liquidacion
+                weekNumber: -1, // Liquidación Manual
             }];
             
             const walletRef = doc(db, 'wallet', 'main');
@@ -287,7 +283,6 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
         const batch = writeBatch(db);
         const walletRef = doc(db, 'wallet', 'main');
         
-        // Fetch fresh data from Firestore to avoid Timestamp issues
         const [loansSnap, plansSnap, clientsSnap] = await Promise.all([
             getDocs(query(collection(db, 'loans'), where('__name__', 'in', loanIds.slice(0, 30)))),
             getDocs(collection(db, 'loanPlans')),
@@ -310,28 +305,28 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
-            // Detect penalty
-            let missedWeeksCount = 0;
             const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-            
             const currentPayments = (loan.payments || []).map((p: any) => ({
                 ...p,
                 date: parseFirestoreDate(p.date).toISOString()
             }));
 
-            for (let i = 1; i < rawCurrentLoanWeek; i++) {
+            // Calcular fallos (tope base term)
+            let missedWeeksCount = 0;
+            const baseTerm = loanPlan.termInWeeks;
+            for (let i = 1; i <= baseTerm; i++) {
+                if (i >= rawCurrentLoanWeek) break;
                 const p = currentPayments.find((pay: any) => pay.weekNumber === i);
                 if (p && p.amount < weeklyPaymentAmount) missedWeeksCount++;
             }
-            const termInWeeks = loanPlan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
+            const hasPenalty = missedWeeksCount >= 2;
+            const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
 
             let updatedPayments = [...currentPayments];
             let loanChanged = false;
 
-            // Go through all weeks up to the current one (capped at term)
+            // Recorrer hasta la semana actual (tope total term)
             for (let weekNumber = 1; weekNumber <= Math.min(rawCurrentLoanWeek, termInWeeks); weekNumber++) {
-                if (weekNumber <= 0) continue;
-
                 const paymentExists = updatedPayments.some((p: any) => p.weekNumber === weekNumber);
 
                 if (!paymentExists) {
@@ -363,17 +358,11 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
             }
 
             if (loanChanged) {
-                // Determine closing status
-                let effectivePaid = 0;
-                for (let i = 1; i <= termInWeeks; i++) {
-                    const p = updatedPayments.find((pay: any) => pay.weekNumber === i);
-                    if (p) effectivePaid += p.amount;
-                    else if (i < rawCurrentLoanWeek) effectivePaid += weeklyPaymentAmount;
-                }
+                const totalExpected = weeklyPaymentAmount * termInWeeks;
+                const totalPaidReal = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
 
-                const totalLoanAmount = weeklyPaymentAmount * termInWeeks;
                 let newStatus = loan.status;
-                if (effectivePaid >= totalLoanAmount) {
+                if (totalPaidReal >= totalExpected) {
                     newStatus = (loan.status === 'Overdue' || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
                 }
 
@@ -399,101 +388,5 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
     } catch (error: any) {
         console.error('Error accumulating payments:', error);
         return { success: false, message: `Error al acumular pagos: ${error.message}` };
-    }
-}
-
-
-export async function changeLoansDateAction(loanIds: string[], newStartDate: string) {
-  try {
-    const batch = writeBatch(db);
-    const newDate = new Date(newStartDate);
-
-    loanIds.forEach(loanId => {
-      const loanRef = doc(db, 'loans', loanId);
-      batch.update(loanRef, { startDate: newDate });
-    });
-
-    await batch.commit();
-    
-    revalidatePath('/dashboard/loans');
-    revalidatePath('/dashboard/clients');
-
-    return { success: true, message: `${loanIds.length} préstamos han sido movidos de fecha exitosamente.` };
-  } catch (error: any) {
-    console.error('Error changing loan dates:', error);
-    return { success: false, message: `Error al cambiar las fechas de los préstamos: ${error.message}` };
-  }
-}
-
-export type UpdateLoanData = {
-    loanPlanId: string;
-    amount: number;
-    startDate: string;
-    promotoraId: string;
-};
-
-export async function updateLoanAction(loanId: string, data: UpdateLoanData) {
-    try {
-        const loanRef = doc(db, 'loans', loanId);
-        await updateDoc(loanRef, {
-            loanPlanId: data.loanPlanId,
-            amount: data.amount,
-            startDate: new Date(data.startDate),
-            promotoraId: data.promotoraId,
-        });
-
-        revalidatePath('/dashboard/loans');
-        revalidatePath('/dashboard/clients');
-        const updatedDoc = await getDoc(loanRef);
-        revalidatePath(`/dashboard/clients/${updatedDoc.data()?.clientId}`);
-
-        return { success: true, message: 'Préstamo actualizado con éxito.' };
-    } catch (error: any) {
-        console.error('Error updating loan:', error);
-        return { success: false, message: `Error al actualizar el préstamo: ${error.message}` };
-    }
-}
-
-export async function deleteLoanAction(loanId: string) {
-    try {
-        // 1. Get loan data to know how much to subtract from wallet
-        const loanRef = doc(db, 'loans', loanId);
-        const loanSnap = await getDoc(loanRef);
-        if (!loanSnap.exists()) throw new Error('Préstamo no encontrado');
-        const loan = loanSnap.data() as Loan;
-        const totalPaid = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
-        const clientId = loan.clientId;
-
-        // 2. Find associated wallet transactions
-        const transactionsQuery = query(collection(db, 'walletTransactions'), where('loanId', '==', loanId));
-        const transactionsSnap = await getDocs(transactionsQuery);
-
-        // 3. Execute all deletions and balance update in a batch
-        const batch = writeBatch(db);
-        
-        // Update wallet balance (reverting the income)
-        if (totalPaid > 0) {
-            const walletRef = doc(db, 'wallet', 'main');
-            batch.update(walletRef, { balance: increment(-totalPaid) });
-        }
-
-        // Delete wallet transactions
-        transactionsSnap.docs.forEach(txDoc => batch.delete(txDoc.ref));
-
-        // Delete loan
-        batch.delete(loanRef);
-
-        await batch.commit();
-
-        revalidatePath('/dashboard');
-        revalidatePath('/dashboard/loans');
-        revalidatePath('/dashboard/wallet');
-        revalidatePath('/dashboard/clients');
-        revalidatePath(`/dashboard/clients/${clientId}`);
-
-        return { success: true, message: 'Préstamo y sus movimientos eliminados exitosamente.' };
-    } catch (error: any) {
-        console.error('Error deleting loan:', error);
-        return { success: false, message: `Error al eliminar el préstamo: ${error.message}` };
     }
 }

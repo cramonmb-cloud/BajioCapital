@@ -122,19 +122,40 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         }
     };
     
-    const today = new Date();
-    const loanStartDate = new Date(loan.startDate);
-    const timeDiff = today.getTime() - loanStartDate.getTime();
-    const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
-    
-    const loanWeekDate = getSaturdayOfWeek(new Date(loan.startDate));
+    // RE-CÁLCULO DINÁMICO DE MÉTRICAS (Mismo que el servidor)
+    const metrics = useMemo(() => {
+        const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+        const today = new Date();
+        const loanStartDate = new Date(loan.startDate);
+        const timeDiff = today.getTime() - loanStartDate.getTime();
+        const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+        
+        const baseTerm = loanPlan.termInWeeks;
+        let missedCount = 0;
+        for (let i = 1; i <= baseTerm; i++) {
+            if (i >= rawCurrentLoanWeek) break;
+            const p = loan.payments.find(pay => pay.weekNumber === i);
+            const amountPaid = p ? p.amount : 0;
+            if (amountPaid < weeklyPayment) missedCount++;
+        }
 
-    const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-    const termInWeeksWithPenalty = loanPlan.termInWeeks + (missedPayments >= 2 ? 1 : 0);
-    const totalToPay = weeklyPayment * termInWeeksWithPenalty;
-    const totalPaid = loan.payments.reduce((acc, p) => acc + p.amount, 0);
-    const remainingBalance = totalToPay - totalPaid;
-    const currentLoanWeek = Math.min(rawCurrentLoanWeek, termInWeeksWithPenalty);
+        const hasPenalty = missedCount >= 2;
+        const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
+        
+        const totalExpected = weeklyPayment * termInWeeks;
+        const totalPaid = loan.payments.reduce((acc, p) => acc + p.amount, 0);
+        const balance = Math.max(0, totalExpected - totalPaid);
+        const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
+
+        return {
+            weeklyPayment,
+            missedCount,
+            termInWeeks,
+            balance,
+            currentProgressWeek,
+            loanWeekDate: getSaturdayOfWeek(loanStartDate)
+        };
+    }, [loan, loanPlan]);
 
     const fullAddress = `${client.street}, ${client.neighborhood}, ${client.city}, ${client.postalCode}`;
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
@@ -143,7 +164,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         <>
             <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-3" style={{ borderLeftColor: plazaColor }}>
                 <CardContent className="p-3 space-y-2.5">
-                    {/* ENCABEZADO DE RUTA (JERARQUÍA) CON TÍTULOS Y CONTORNOS */}
+                    {/* ENCABEZADO DE RUTA */}
                     <div className="flex flex-wrap items-center gap-1.5 border-b pb-1.5">
                         <Badge className="text-[8px] font-black uppercase px-1.5 h-4 shrink-0" style={{ backgroundColor: plazaColor }}>
                             PLAZA: {hierarchy.plazaName}
@@ -191,7 +212,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </Button>
                     </div>
 
-                    {/* Bloque Aval: Estructura mejorada */}
+                    {/* Bloque Aval */}
                     <div className="p-2.5 rounded-xl bg-blue-50/40 border border-blue-100 space-y-2">
                         <div className="flex items-center justify-between gap-2">
                             <div className="flex-1 min-w-0">
@@ -223,7 +244,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     {/* Acciones Finales */}
                     <div className="flex items-center justify-between gap-3 pt-1 border-t border-dashed">
                         <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1">
-                            <History className="h-2.5 w-2.5" /> INICIÓ: {formatDate(loanWeekDate.toISOString())}
+                            <History className="h-2.5 w-2.5" /> INICIÓ: {formatDate(metrics.loanWeekDate.toISOString())}
                         </div>
                         <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="h-8 bg-foreground text-background font-black text-[10px] uppercase px-5 rounded-lg active:scale-95 shadow-md">
                             <Wallet className="mr-1.5 h-4 w-4" /> Abonar
@@ -232,7 +253,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 </CardContent>
             </Card>
 
-            {/* MODAL DE DETALLE REDISEÑADO COMPACTO */}
+            {/* MODAL DE DETALLE */}
             <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
                 <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
                     <DialogHeader className="px-5 py-3 border-b shrink-0 flex row items-center justify-between bg-muted/10">
@@ -259,15 +280,15 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                             <div className="grid grid-cols-3 gap-2">
                                 <div className="p-2 rounded-lg bg-muted/30 border text-center">
                                     <p className="text-[7px] uppercase font-black text-muted-foreground">Progreso</p>
-                                    <p className="font-black text-sm">{currentLoanWeek} / {termInWeeksWithPenalty}</p>
+                                    <p className="font-black text-sm">{metrics.currentProgressWeek} / {metrics.termInWeeks}</p>
                                 </div>
                                 <div className="p-2 rounded-lg bg-blue-50 border-blue-100 text-center">
                                     <p className="text-[7px] uppercase font-black text-blue-600">Abono Semanal</p>
-                                    <p className="font-black text-sm text-blue-700">{formatCurrency(weeklyPayment)}</p>
+                                    <p className="font-black text-sm text-blue-700">{formatCurrency(metrics.weeklyPayment)}</p>
                                 </div>
                                 <div className="p-2 rounded-lg bg-red-50 border-red-100 text-center">
                                     <p className="text-[7px] uppercase font-black text-red-600">Fallos</p>
-                                    <p className="font-black text-sm text-red-700">{missedPayments}</p>
+                                    <p className="font-black text-sm text-red-700">{metrics.missedCount}</p>
                                 </div>
                             </div>
 
@@ -296,7 +317,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         </h4>
                                         <div className="p-3 rounded-lg border bg-white flex justify-between items-center">
                                             <span className="text-[9px] font-bold text-muted-foreground">RESTA TOTAL</span>
-                                            <span className="text-lg font-black text-red-700">{formatCurrency(remainingBalance > 0 ? remainingBalance : 0)}</span>
+                                            <span className="text-lg font-black text-red-700">{formatCurrency(metrics.balance)}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -310,9 +331,11 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             <p className="text-[7px] uppercase font-black text-blue-200">Titular Aval</p>
                                             <p className="font-black text-sm uppercase leading-tight">{avalName}</p>
                                         </div>
-                                        <Button asChild className="bg-white text-blue-700 font-black h-8 w-full text-xs" size="sm">
-                                            <a href={`tel:${cleanPhone(avalPhone)}`}>TEL: {avalPhone}</a>
-                                        </Button>
+                                        {avalPhone && (
+                                            <Button asChild className="bg-white text-blue-700 font-black h-8 w-full text-xs" size="sm">
+                                                <a href={`tel:${cleanPhone(avalPhone)}`}>TEL: {avalPhone}</a>
+                                            </Button>
+                                        )}
                                         <p className="text-[9px] font-bold uppercase leading-relaxed text-blue-50 opacity-80">{avalAddress}</p>
                                     </div>
                                     <div className="p-2 border border-dashed rounded-lg text-[9px] font-bold uppercase text-muted-foreground text-center">
@@ -340,9 +363,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 loan={loan}
                 clients={allClients}
                 loanPlans={allLoanPlans}
-                weekNumber={currentLoanWeek}
-                weekDate={loanWeekDate}
-                initialAmount={remainingBalance > 0 ? remainingBalance : weeklyPayment}
+                weekNumber={metrics.currentProgressWeek}
+                weekDate={metrics.loanWeekDate}
+                initialAmount={metrics.balance > metrics.weeklyPayment ? metrics.weeklyPayment : metrics.balance}
                 onPaymentRegistered={() => {
                     if (typeof window !== 'undefined') window.location.reload();
                 }}

@@ -43,27 +43,30 @@ export default async function CarteraVencidaPage() {
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
             const timeDiff = today.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
-            // Detect failures: A failure is any past week with amount < weeklyPayment (including NO record)
+            // CONTAR FALLOS (Solo dentro del plazo base)
             let missedPaymentsCount = 0;
-            for (let i = 1; i < currentLoanWeek; i++) {
+            const baseTerm = loanPlan.termInWeeks;
+            for (let i = 1; i <= baseTerm; i++) {
+                if (i >= rawCurrentLoanWeek) break;
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 const amountPaid = p ? p.amount : 0;
                 if (amountPaid < weeklyPayment) missedPaymentsCount++;
             }
 
             const hasPenalty = missedPaymentsCount >= 2;
-            const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
+            const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             
-            // Is expired if we passed the base term AND any penalty week
-            const isExpired = currentLoanWeek > termInWeeks;
+            // Es vencido si ya pasó la fecha de la última semana (incluyendo penalización)
+            const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
-            const totalToPay = weeklyPayment * termInWeeks;
-            const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
-            const balance = totalToPay - totalPaid;
+            // SALDO REAL: (Total esperado con penalización) - (Todo lo pagado)
+            const totalExpected = weeklyPayment * totalTermInWeeks;
+            const actualTotalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
+            const balance = totalExpected - actualTotalPaid;
 
-            // 'Cartera Vencida': Loans that HAVE reached maturity and STILL have a balance > 0
+            // 'Cartera Vencida': Préstamos EXPIRADOS con saldo pendiente
             if (isExpired && balance > 0) {
                 return {
                     loan,
