@@ -45,14 +45,14 @@ export default async function CarteraVencidaPage() {
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
-            // CONTAR FALLOS (Solo dentro del plazo base)
+            // CONTAR FALLOS REALES (Solo registros explícitos incompletos)
             let missedPaymentsCount = 0;
             const baseTerm = loanPlan.termInWeeks;
             for (let i = 1; i <= baseTerm; i++) {
-                if (i >= rawCurrentLoanWeek) break;
                 const p = loan.payments.find(pay => pay.weekNumber === i);
-                const amountPaid = p ? p.amount : 0;
-                if (amountPaid < weeklyPayment) missedPaymentsCount++;
+                if (p && p.amount < weeklyPayment) {
+                    missedPaymentsCount++;
+                }
             }
 
             const hasPenalty = missedPaymentsCount >= 2;
@@ -61,10 +61,20 @@ export default async function CarteraVencidaPage() {
             // Es vencido si ya pasó la fecha de la última semana (incluyendo penalización)
             const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
-            // SALDO REAL: (Total esperado con penalización) - (Todo lo pagado)
+            // CÁLCULO DE SALDO REAL (Unificado con la lógica de Pagos Asumidos)
+            let effectivePaid = 0;
+            for (let i = 1; i <= totalTermInWeeks; i++) {
+                const p = loan.payments.find(pay => pay.weekNumber === i);
+                if (p) {
+                    effectivePaid += p.amount;
+                } else if (i < rawCurrentLoanWeek && i <= baseTerm) {
+                    // Semanas pasadas sin registro dentro del plazo base se asumen pagadas
+                    effectivePaid += weeklyPayment;
+                }
+            }
+
             const totalExpected = weeklyPayment * totalTermInWeeks;
-            const actualTotalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
-            const balance = totalExpected - actualTotalPaid;
+            const balance = Math.max(0, totalExpected - effectivePaid);
 
             // 'Cartera Vencida': Préstamos EXPIRADOS con saldo pendiente
             if (isExpired && balance > 0) {
@@ -94,7 +104,7 @@ export default async function CarteraVencidaPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Cartera Vencida</h1>
                 <p className="text-muted-foreground">
-                    Préstamos que han superado su fecha de vencimiento y aún tienen saldo pendiente.
+                    Préstamos que han superado su fecha de vencimiento y aún tienen saldo pendiente (incluyendo semana extra si aplica).
                 </p>
             </div>
             <OverduePortfolioClientPage 

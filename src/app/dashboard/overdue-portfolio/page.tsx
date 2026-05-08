@@ -45,39 +45,42 @@ export default async function OverduePortfolioPage() {
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
+            // CONTAR FALLOS REALES (Solo registros explícitos incompletos)
             const baseTerm = loanPlan.termInWeeks;
-            let missedPaymentsCount = 0;
-            let currentFailuresAmount = 0;
-            
-            // Contar fallos dentro de lo que ha transcurrido hasta hoy (pero sin pasarse del plazo base)
+            let missedCount = 0;
             for (let i = 1; i <= baseTerm; i++) {
-                if (i >= rawCurrentLoanWeek) break; // Futuro
                 const p = loan.payments.find(pay => pay.weekNumber === i);
-                const amountPaid = p ? p.amount : 0;
-                if (amountPaid < weeklyPayment) {
-                    missedPaymentsCount++;
-                    currentFailuresAmount += (weeklyPayment - amountPaid);
+                if (p && p.amount < weeklyPayment) {
+                    missedCount++;
                 }
             }
 
-            const hasPenalty = missedPaymentsCount >= 2;
+            const hasPenalty = missedCount >= 2;
             const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-            
-            // No es vigente si ya expiró
             const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
+            // CÁLCULO DE SALDO REAL
+            let effectivePaid = 0;
+            for (let i = 1; i <= totalTermInWeeks; i++) {
+                const p = loan.payments.find(pay => pay.weekNumber === i);
+                if (p) {
+                    effectivePaid += p.amount;
+                } else if (i < rawCurrentLoanWeek && i <= baseTerm) {
+                    effectivePaid += weeklyPayment;
+                }
+            }
+
+            const totalExpected = weeklyPayment * totalTermInWeeks;
+            const balance = Math.max(0, totalExpected - effectivePaid);
+
             // 'Pagos Pendientes': Préstamos VIGENTES con 2 o más fallos
-            if (!isExpired && missedPaymentsCount >= 2) {
-                // El saldo mostrado para vigentes es la suma de los fallos ya ocurridos 
-                // más la semana extra si ya se activó
-                const currentDebt = currentFailuresAmount + (hasPenalty ? weeklyPayment : 0);
-                
+            if (!isExpired && missedCount >= 2 && balance > 0) {
                 return {
                     loan,
                     client,
                     loanPlan,
-                    amountDue: currentDebt,
-                    missedPayments: missedPaymentsCount,
+                    amountDue: balance,
+                    missedPayments: missedCount,
                     hierarchy: {
                         plazaId: plaza?.id || 'N/A',
                         plazaName: plaza?.name || 'N/A',
@@ -98,7 +101,7 @@ export default async function OverduePortfolioPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
                 <p className="text-muted-foreground">
-                    Préstamos vigentes que tienen 2 o más fallos registrados. El saldo mostrado incluye la suma de abonos incompletos y la semana extra de penalización.
+                    Préstamos vigentes que tienen 2 o más fallos registrados. El saldo incluye el monto de fallos y la penalización correspondiente.
                 </p>
             </div>
             <OverduePortfolioClientPage 

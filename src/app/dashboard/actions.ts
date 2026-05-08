@@ -147,7 +147,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             }
 
             const loan = loanSnap.data() as Loan;
-            const wasOverdue = loan.status === 'Overdue';
             const client = await getClient(loan.clientId);
             const loanPlan = await getLoanPlan(loan.loanPlanId);
             const walletRef = doc(db, 'wallet', 'main');
@@ -194,25 +193,35 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 transaction.update(walletRef, { balance: increment(walletAdjustment) });
             }
 
+            // CONTAR FALLOS (Solo registros explícitos incompletos)
             let missedWeeksCount = 0;
             const baseTerm = loanPlan.termInWeeks;
             for (let i = 1; i <= baseTerm; i++) {
-                if (i >= rawCurrentLoanWeek) break;
                 const p = allPayments.find(pay => pay.weekNumber === i);
-                const amount = p ? p.amount : 0;
-                if (amount < weeklyPayment) missedWeeksCount++;
+                if (p && p.amount < weeklyPayment) {
+                    missedWeeksCount++;
+                }
             }
 
             const hasPenalty = missedWeeksCount >= 2;
             const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             
-            const totalExpected = weeklyPayment * termInWeeks;
-            const totalPaidReal = allPayments.reduce((sum, p) => sum + p.amount, 0);
+            // CÁLCULO DE SALDO EFECTIVO
+            let effectivePaid = 0;
+            for (let i = 1; i <= termInWeeks; i++) {
+                const p = allPayments.find(pay => pay.weekNumber === i);
+                if (p) {
+                    effectivePaid += p.amount;
+                } else if (i < rawCurrentLoanWeek && i <= baseTerm) {
+                    effectivePaid += weeklyPayment;
+                }
+            }
 
+            const totalExpected = weeklyPayment * termInWeeks;
             let newStatus: Loan['status'] = loan.status;
 
-            if (totalPaidReal >= totalExpected) {
-                newStatus = (wasOverdue || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
+            if (effectivePaid >= totalExpected) {
+                newStatus = (missedWeeksCount >= 2 || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
             } else {
                 if (missedWeeksCount >= 2) {
                     newStatus = 'Overdue';
@@ -251,7 +260,6 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             }
 
             const loan = loanDoc.data() as Loan;
-            const wasOverdue = loan.status === 'Overdue';
             const client = await getClient(loan.clientId);
             const loanPlan = await getLoanPlan(loan.loanPlanId);
             
@@ -273,20 +281,27 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
 
             let missedWeeksCount = 0;
             for (let i = 1; i <= baseTerm; i++) {
-                if (i >= rawCurrentLoanWeek) break;
                 const p = currentPayments.find(pay => pay.weekNumber === i);
-                const amount = p ? p.amount : 0;
-                if (amount < weeklyPayment) missedWeeksCount++;
+                if (p && p.amount < weeklyPayment) missedWeeksCount++;
             }
 
             const hasPenalty = missedWeeksCount >= 2;
             const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             
-            const totalExpected = weeklyPayment * termInWeeks;
-            const totalPaidReal = currentPayments.reduce((sum, p) => sum + p.amount, 0);
-            const settlementAmount = Math.max(0, totalExpected - totalPaidReal);
+            let effectivePaid = 0;
+            for (let i = 1; i <= termInWeeks; i++) {
+                const p = currentPayments.find(pay => pay.weekNumber === i);
+                if (p) {
+                    effectivePaid += p.amount;
+                } else if (i < rawCurrentLoanWeek && i <= baseTerm) {
+                    effectivePaid += weeklyPayment;
+                }
+            }
 
-            const finalStatus: Loan['status'] = (wasOverdue || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
+            const totalExpected = weeklyPayment * termInWeeks;
+            const settlementAmount = Math.max(0, totalExpected - effectivePaid);
+
+            const finalStatus: Loan['status'] = (missedWeeksCount >= 2 || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
 
             if (settlementAmount <= 0) {
                 transaction.update(loanRef, { status: finalStatus });
@@ -374,10 +389,8 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
             let missedWeeksCount = 0;
             const baseTerm = loanPlan.termInWeeks;
             for (let i = 1; i <= baseTerm; i++) {
-                if (i >= rawCurrentLoanWeek) break;
                 const p = currentPayments.find((pay: any) => pay.weekNumber === i);
                 if (p && p.amount < weeklyPaymentAmount) missedWeeksCount++;
-                if (!p) missedWeeksCount++;
             }
             const hasPenalty = missedWeeksCount >= 2;
             const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
@@ -385,7 +398,7 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
             let updatedPayments = [...currentPayments];
             let loanChanged = false;
 
-            for (let weekNumber = 1; weekNumber <= Math.min(rawCurrentLoanWeek, termInWeeks); weekNumber++) {
+            for (let weekNumber = 1; weekNumber <= Math.min(rawCurrentLoanWeek, baseTerm); weekNumber++) {
                 const paymentExists = updatedPayments.some((p: any) => p.weekNumber === weekNumber);
 
                 if (!paymentExists) {
@@ -417,12 +430,17 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
             }
 
             if (loanChanged) {
-                const totalExpected = weeklyPaymentAmount * termInWeeks;
-                const totalPaidReal = updatedPayments.reduce((sum, p) => sum + p.amount, 0);
+                let effectivePaid = 0;
+                for (let i = 1; i <= termInWeeks; i++) {
+                    const p = updatedPayments.find((pay: any) => pay.weekNumber === i);
+                    if (p) effectivePaid += p.amount;
+                    else if (i < rawCurrentLoanWeek && i <= baseTerm) effectivePaid += weeklyPaymentAmount;
+                }
 
+                const totalExpected = weeklyPaymentAmount * termInWeeks;
                 let newStatus = loan.status;
-                if (totalPaidReal >= totalExpected) {
-                    newStatus = (loan.status === 'Overdue' || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
+                if (effectivePaid >= totalExpected) {
+                    newStatus = (missedWeeksCount >= 2 || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
                 }
 
                 batch.update(doc(db, 'loans', loan.id), { payments: updatedPayments, status: newStatus });
