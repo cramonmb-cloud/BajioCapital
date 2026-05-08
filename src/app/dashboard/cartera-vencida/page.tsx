@@ -74,6 +74,7 @@ export default async function CarteraVencidaPage() {
                 penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
             }
 
+            // SALDO FINAL: Suma de fallos base + penalización pendiente
             const totalBalance = baseDebt + penaltyDebt;
 
             // 'Cartera Vencida': Préstamos EXPIRADOS con saldo pendiente
