@@ -67,13 +67,21 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const timeDiff = today.getTime() - loanStartDate.getTime();
     const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
     
-    // CONTAR FALLOS
     const baseTerm = loanPlan.termInWeeks;
     let missedWeeksCount = 0;
+    let baseDebt = 0;
+
+    // Lógica sincronizada de deuda y fallos
     for (let i = 1; i <= baseTerm; i++) {
         const p = activeLoan.payments.find(p => p.weekNumber === i);
-        if (p && p.amount < weeklyPayment) {
+        if (p) {
+            if (p.amount < weeklyPayment) {
+                missedWeeksCount++;
+                baseDebt += (weeklyPayment - p.amount);
+            }
+        } else if (i < rawCurrentLoanWeek) {
             missedWeeksCount++;
+            baseDebt += weeklyPayment;
         }
     }
     
@@ -81,17 +89,6 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
     const currentLoanWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
 
-    // SALDO EXPLICITO
-    let effectivePaidBase = 0;
-    for (let i = 1; i <= baseTerm; i++) {
-        const p = activeLoan.payments.find(p => p.weekNumber === i);
-        if (p) {
-            effectivePaidBase += p.amount;
-        } else if (i < rawCurrentLoanWeek) {
-            effectivePaidBase += weeklyPayment;
-        }
-    }
-    const baseDebt = Math.max(0, (weeklyPayment * baseTerm) - effectivePaidBase);
     let penaltyDebt = 0;
     if (hasPenalty) {
         const penaltyPayment = activeLoan.payments.find(p => p.weekNumber === baseTerm + 1);

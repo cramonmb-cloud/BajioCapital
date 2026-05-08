@@ -45,35 +45,29 @@ export default async function CarteraVencidaPage() {
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
-            // CONTAR FALLOS REALES (Solo dentro del plazo base original)
-            let missedPaymentsCount = 0;
             const baseTerm = loanPlan.termInWeeks;
-            for (let i = 1; i <= baseTerm; i++) {
-                const p = loan.payments.find(pay => pay.weekNumber === i);
-                if (p && p.amount < weeklyPayment) {
-                    missedPaymentsCount++;
-                }
-            }
+            let missedCount = 0;
+            let baseDebt = 0;
 
-            const hasPenalty = missedPaymentsCount >= 2;
-            const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-            const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
-
-            // CÁLCULO DE SALDO (Lógica Robusta: Base + Penalización)
-            let effectivePaidBase = 0;
+            // CÁLCULO DE DEUDA Y FALLOS (Las semanas pasadas sin registro cuentan como deuda y fallo)
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
-                    effectivePaidBase += p.amount;
+                    if (p.amount < weeklyPayment) {
+                        missedCount++;
+                        baseDebt += (weeklyPayment - p.amount);
+                    }
                 } else if (i < rawCurrentLoanWeek) {
-                    effectivePaidBase += weeklyPayment;
+                    // Semana vencida sin registro = DEUDA TOTAL y FALLO
+                    missedCount++;
+                    baseDebt += weeklyPayment;
                 }
             }
 
-            const baseExpected = weeklyPayment * baseTerm;
-            const baseDebt = Math.max(0, baseExpected - effectivePaidBase);
-            
-            // Si tiene penalización, se suma un abono completo al saldo si no ha sido pagado en la semana extra
+            const hasPenalty = missedCount >= 2;
+            const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
+            const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
+
             let penaltyDebt = 0;
             if (hasPenalty) {
                 const penaltyPayment = loan.payments.find(p => p.weekNumber === baseTerm + 1);
@@ -89,7 +83,7 @@ export default async function CarteraVencidaPage() {
                     client,
                     loanPlan,
                     amountDue: balance,
-                    missedPayments: missedPaymentsCount,
+                    missedPayments: missedCount,
                     hierarchy: {
                         plazaId: plaza?.id || 'N/A',
                         plazaName: plaza?.name || 'N/A',

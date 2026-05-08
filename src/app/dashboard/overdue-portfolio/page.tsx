@@ -45,13 +45,21 @@ export default async function OverduePortfolioPage() {
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
-            // CONTAR FALLOS REALES
             const baseTerm = loanPlan.termInWeeks;
             let missedCount = 0;
+            let baseDebt = 0;
+
+            // CÁLCULO DE DEUDA Y FALLOS
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
-                if (p && p.amount < weeklyPayment) {
+                if (p) {
+                    if (p.amount < weeklyPayment) {
+                        missedCount++;
+                        baseDebt += (weeklyPayment - p.amount);
+                    }
+                } else if (i < rawCurrentLoanWeek) {
                     missedCount++;
+                    baseDebt += weeklyPayment;
                 }
             }
 
@@ -59,19 +67,6 @@ export default async function OverduePortfolioPage() {
             const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
-            // CÁLCULO DE SALDO EXPLICITO (Base + Penalización)
-            let effectivePaidBase = 0;
-            for (let i = 1; i <= baseTerm; i++) {
-                const p = loan.payments.find(pay => pay.weekNumber === i);
-                if (p) {
-                    effectivePaidBase += p.amount;
-                } else if (i < rawCurrentLoanWeek) {
-                    effectivePaidBase += weeklyPayment;
-                }
-            }
-
-            const baseDebt = Math.max(0, (weeklyPayment * baseTerm) - effectivePaidBase);
-            
             let penaltyDebt = 0;
             if (hasPenalty) {
                 const penaltyPayment = loan.payments.find(p => p.weekNumber === baseTerm + 1);

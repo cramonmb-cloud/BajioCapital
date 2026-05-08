@@ -100,30 +100,24 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
         
         const baseTerm = loanPlan.termInWeeks;
-        
         let missedCount = 0;
+        let baseDebt = 0;
+
         for (let i = 1; i <= baseTerm; i++) {
             const p = loan.payments.find(pay => pay.weekNumber === i);
-            if (p && p.amount < weeklyPayment) {
+            if (p) {
+                if (p.amount < weeklyPayment) {
+                    missedCount++;
+                    baseDebt += (weeklyPayment - p.amount);
+                }
+            } else if (i < rawCurrentLoanWeek) {
                 missedCount++;
+                baseDebt += weeklyPayment;
             }
         }
 
         const hasPenalty = missedCount >= 2;
         const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-        
-        // CÁLCULO DE SALDO EXPLICITO
-        let effectivePaidBase = 0;
-        for (let i = 1; i <= baseTerm; i++) {
-            const p = loan.payments.find(pay => pay.weekNumber === i);
-            if (p) {
-                effectivePaidBase += p.amount;
-            } else if (i < rawCurrentLoanWeek) {
-                effectivePaidBase += weeklyPayment;
-            }
-        }
-
-        const baseDebt = Math.max(0, (weeklyPayment * baseTerm) - effectivePaidBase);
         
         let penaltyDebt = 0;
         if (hasPenalty) {
