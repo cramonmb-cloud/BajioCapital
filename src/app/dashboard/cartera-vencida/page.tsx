@@ -45,21 +45,25 @@ export default async function CarteraVencidaPage() {
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
+            // Detect failures: A failure is any past week with amount < weeklyPayment (including NO record)
             let missedPaymentsCount = 0;
             for (let i = 1; i < currentLoanWeek; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
-                if (p && p.amount < weeklyPayment) missedPaymentsCount++;
+                const amountPaid = p ? p.amount : 0;
+                if (amountPaid < weeklyPayment) missedPaymentsCount++;
             }
 
-            const termInWeeks = loanPlan.termInWeeks + (missedPaymentsCount >= 2 ? 1 : 0);
+            const hasPenalty = missedPaymentsCount >= 2;
+            const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
+            
+            // Is expired if we passed the base term AND any penalty week
             const isExpired = currentLoanWeek > termInWeeks;
 
             const totalToPay = weeklyPayment * termInWeeks;
             const totalPaid = loan.payments.reduce((sum, p) => sum + p.amount, 0);
             const balance = totalToPay - totalPaid;
 
-            // 'Cartera Vencida': Loans that HAVE reached maturity (isExpired is true) 
-            // and STILL have a balance > 0
+            // 'Cartera Vencida': Loans that HAVE reached maturity and STILL have a balance > 0
             if (isExpired && balance > 0) {
                 return {
                     loan,

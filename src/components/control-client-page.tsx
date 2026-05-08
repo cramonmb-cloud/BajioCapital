@@ -32,12 +32,20 @@ const checkPenalty = (loan: Loan, loanPlan: LoanPlan) => {
     const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
     let missedWeeksCount = 0;
     
-    // Solo contamos fallos registrados explícitamente
-    loan.payments.forEach(p => {
-        if (p.weekNumber > 0 && p.amount < weeklyPayment) {
+    // Calculate current week to know how many past weeks to check
+    const today = new Date();
+    const loanStartDate = new Date(loan.startDate);
+    const timeDiff = today.getTime() - loanStartDate.getTime();
+    const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+
+    // Count missed payments (including non-registered past weeks)
+    for (let i = 1; i < currentLoanWeek; i++) {
+        const p = loan.payments.find(pay => pay.weekNumber === i);
+        const amountPaid = p ? p.amount : 0;
+        if (amountPaid < weeklyPayment) {
             missedWeeksCount++;
         }
-    });
+    }
     
     return missedWeeksCount >= 2;
 };
@@ -109,44 +117,46 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
-            // Lógica de "Abonos Asumidos" para saldo real
-            let effectivePaid = 0;
-            for (let i = 1; i <= termInWeeks; i++) {
-                const p = loan.payments.find(pay => pay.weekNumber === i);
-                if (p) {
-                    effectivePaid += p.amount;
-                } else if (i < rawCurrentLoanWeek) {
-                    effectivePaid += weeklyPayment;
-                }
-            }
-
+            // Total expected including penalty if triggered
             const totalExpected = weeklyPayment * termInWeeks;
-            const balanceRemaining = Math.max(0, totalExpected - effectivePaid);
+            const actualTotalPaid = (loan.payments || []).reduce((sum, p) => sum + p.amount, 0);
 
             // DETECCIÓN DE CARTERA VENCIDA
-            // Si la semana actual supera el plazo total del préstamo
             if (rawCurrentLoanWeek > termInWeeks) {
-                if (balanceRemaining > 0) {
+                const balanceRemainingAbsolute = Math.max(0, totalExpected - actualTotalPaid);
+                if (balanceRemainingAbsolute > 0) {
                     if (statsByPlaza[plazaId]) {
-                        statsByPlaza[plazaId].carteraVencida += balanceRemaining;
+                        statsByPlaza[plazaId].carteraVencida += balanceRemainingAbsolute;
                     }
-                    globalCarteraVencida += balanceRemaining;
+                    globalCarteraVencida += balanceRemainingAbsolute;
                 }
-                return; // Salir aquí para que no se sume a Capital Pendiente ni Calle Vigente
+                return; 
             }
 
             // CAPITAL PENDIENTE (VIGENTE)
+            // For active loans, we use the "Assumed Payments" logic to see what is PENDING registration
+            let effectivePaidForStats = 0;
+            for (let i = 1; i <= termInWeeks; i++) {
+                const p = loan.payments.find(pay => pay.weekNumber === i);
+                if (p) {
+                    effectivePaidForStats += p.amount;
+                } else if (i < rawCurrentLoanWeek) {
+                    effectivePaidForStats += weeklyPayment;
+                }
+            }
+
             const principalRatio = totalExpected > 0 ? (loan.amount / totalExpected) : 0;
-            const capitalRecuperado = effectivePaid * principalRatio;
+            const capitalRecuperado = effectivePaidForStats * principalRatio;
             const capitalPendiente = Math.max(0, loan.amount - capitalRecuperado);
+            const balanceRemainingVigente = Math.max(0, totalExpected - effectivePaidForStats);
 
             if (statsByPlaza[plazaId]) {
                 statsByPlaza[plazaId].totalPrestado += capitalPendiente;
-                statsByPlaza[plazaId].dineroEnCalle += balanceRemaining;
+                statsByPlaza[plazaId].dineroEnCalle += balanceRemainingVigente;
             }
 
             globalTotalPrestado += capitalPendiente;
-            globalDineroEnCalle += balanceRemaining;
+            globalDineroEnCalle += balanceRemainingVigente;
         });
 
         return {
@@ -223,7 +233,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                     </CardHeader>
                     <CardContent>
                         <div className="text-3xl font-bold text-destructive">{formatCurrency(stats.global.carteraVencida)}</div>
-                        <p className="text-xs text-muted-foreground mt-1">Saldo de préstamos que ya superaron su plazo.</p>
+                        <p className="text-xs text-muted-foreground mt-1">Saldo total de deuda de préstamos expirados (incl. penalización).</p>
                     </CardContent>
                 </Card>
             </div>

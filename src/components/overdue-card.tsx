@@ -125,7 +125,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
     const today = new Date();
     const loanStartDate = new Date(loan.startDate);
     const timeDiff = today.getTime() - loanStartDate.getTime();
-    const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+    const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
     
     const loanWeekDate = getSaturdayOfWeek(new Date(loan.startDate));
 
@@ -134,6 +134,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
     const totalToPay = weeklyPayment * termInWeeksWithPenalty;
     const totalPaid = loan.payments.reduce((acc, p) => acc + p.amount, 0);
     const remainingBalance = totalToPay - totalPaid;
+    const currentLoanWeek = Math.min(rawCurrentLoanWeek, termInWeeksWithPenalty);
 
     const fullAddress = `${client.street}, ${client.neighborhood}, ${client.city}, ${client.postalCode}`;
     const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
@@ -341,7 +342,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 loanPlans={allLoanPlans}
                 weekNumber={currentLoanWeek}
                 weekDate={loanWeekDate}
-                initialAmount={amountDue}
+                initialAmount={remainingBalance > 0 ? remainingBalance : weeklyPayment}
                 onPaymentRegistered={() => {
                     if (typeof window !== 'undefined') window.location.reload();
                 }}
