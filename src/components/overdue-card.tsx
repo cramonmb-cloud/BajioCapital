@@ -6,11 +6,11 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
     Phone, User, MessageSquare, Building, MapPin, 
-    Wallet, FileText, Shield, AlertTriangle, Map, UserCheck, X, Home, Route
+    Wallet, FileText, Shield, AlertTriangle, Map, UserCheck, X, Home, History
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
-import type { Client, LoanPlan, AppConfig } from '@/lib/types';
+import type { Client, LoanPlan } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import {
     Dialog,
@@ -20,7 +20,6 @@ import {
     DialogClose,
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
