@@ -142,14 +142,21 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         <>
             <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-3" style={{ borderLeftColor: plazaColor }}>
                 <CardContent className="p-3 space-y-2.5">
-                    {/* ENCABEZADO DE RUTA (JERARQUÍA) CON TÍTULOS */}
-                    <div className="flex items-center gap-1.5 overflow-hidden whitespace-nowrap border-b pb-1.5">
-                        <Badge className="text-[8px] font-black uppercase px-1.5 h-4" style={{ backgroundColor: plazaColor }}>
+                    {/* ENCABEZADO DE RUTA (JERARQUÍA) CON TÍTULOS Y CONTORNOS */}
+                    <div className="flex flex-wrap items-center gap-1.5 border-b pb-1.5">
+                        <Badge className="text-[8px] font-black uppercase px-1.5 h-4 shrink-0" style={{ backgroundColor: plazaColor }}>
                             PLAZA: {hierarchy.plazaName}
                         </Badge>
-                        <span className="text-[9px] font-bold text-muted-foreground uppercase truncate">
-                            LOCALIDAD: {hierarchy.localidadName} • PROMOTORA: {hierarchy.promotoraName}
-                        </span>
+                        <div className="px-1.5 h-4 border border-zinc-400 rounded flex items-center shrink-0">
+                            <span className="text-[8px] font-black text-zinc-600 uppercase whitespace-nowrap">
+                                LOCALIDAD: {hierarchy.localidadName}
+                            </span>
+                        </div>
+                        <div className="px-1.5 h-4 border border-zinc-400 rounded flex items-center shrink-0">
+                            <span className="text-[8px] font-black text-zinc-600 uppercase whitespace-nowrap">
+                                PROMOTORA: {hierarchy.promotoraName}
+                            </span>
+                        </div>
                     </div>
 
                     {/* Fila Superior: Nombre y Deuda */}
