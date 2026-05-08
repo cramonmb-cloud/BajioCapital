@@ -51,6 +51,7 @@ export default async function CarteraVencidaPage() {
             let baseDebt = 0;
 
             // CÁLCULO DE DEUDA Y FALLOS (Topado al plazo base)
+            // Se consideran fallos las semanas sin registro o con pago incompleto
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
@@ -74,7 +75,7 @@ export default async function CarteraVencidaPage() {
                 penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
             }
 
-            // SALDO FINAL: Suma de fallos base + penalización pendiente
+            // SALDO FINAL: Suma de deuda base + penalización
             const totalBalance = baseDebt + penaltyDebt;
 
             // 'Cartera Vencida': Préstamos EXPIRADOS con saldo pendiente

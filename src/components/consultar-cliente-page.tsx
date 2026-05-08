@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/collapsible"
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
+import { Badge } from './ui/badge';
 
 interface ConsultarClientePageProps {
   clients: Client[];
@@ -118,6 +119,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
       termInWeeks: termInWeeks,
       balance: totalBalance,
       missedWeeks: missedWeeksCount,
+      hasPenalty: hasPenalty,
       plazaName: plaza?.name || 'N/A',
       localidadName: localidad?.name || 'N/A',
       promotoraName: promotora?.name || 'N/A',
@@ -248,7 +250,12 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                     <CardContent className="p-6 grid md:grid-cols-2 gap-8">
                         
                          <div className="space-y-4">
-                             <h3 className="font-semibold text-xl flex items-center gap-2"><Wallet className="text-primary"/> Progreso del Pago</h3>
+                             <div className='flex items-center justify-between'>
+                                <h3 className="font-semibold text-xl flex items-center gap-2"><Wallet className="text-primary"/> Progreso del Pago</h3>
+                                {activeLoanDetails.hasPenalty && (
+                                    <Badge className="bg-orange-500 hover:bg-orange-600 font-black text-[10px] px-3">S. EXTRA ACTIVA</Badge>
+                                )}
+                             </div>
                              <div className="grid grid-cols-3 gap-4 text-sm">
                                 <div className="space-y-1">
                                     <p className="text-muted-foreground">Semana Actual</p>

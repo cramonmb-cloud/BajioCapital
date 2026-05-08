@@ -74,7 +74,7 @@ export default async function OverduePortfolioPage() {
                 penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
             }
 
-            // SALDO FINAL: Suma de fallos base + penalización pendiente
+            // SALDO FINAL: Suma de deuda base + penalización
             const totalBalance = baseDebt + penaltyDebt;
 
             // 'Pagos Pendientes': Préstamos VIGENTES con 2 o más fallos

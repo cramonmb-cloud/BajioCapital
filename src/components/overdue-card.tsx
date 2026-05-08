@@ -176,11 +176,11 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-1">
-                                    <Badge variant="outline" className="h-4 px-1 text-[8px] font-black bg-red-50 text-red-700 border-red-200">
+                                    <Badge variant="outline" className="h-4 px-1.5 text-[8px] font-black bg-red-50 text-red-700 border-red-200">
                                         {missedPayments} {missedPayments === 1 ? 'FALLO' : 'FALLOS'}
                                     </Badge>
                                     {metrics.hasPenalty && (
-                                        <Badge className="h-4 px-1 text-[8px] font-black bg-orange-500 text-white hover:bg-orange-600 border-none">
+                                        <Badge className="h-4 px-1.5 text-[8px] font-black bg-orange-500 text-white hover:bg-orange-600 border-none">
                                             S. EXTRA
                                         </Badge>
                                     )}
