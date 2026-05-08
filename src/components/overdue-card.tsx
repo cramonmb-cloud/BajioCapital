@@ -101,7 +101,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         
         const baseTerm = loanPlan.termInWeeks;
         
-        // Solo contamos fallos si hay un registro explícito de abono insuficiente
+        // Solo contamos fallos si hay un registro explícito de abono insuficiente (dentro del plazo base)
         let missedCount = 0;
         for (let i = 1; i <= baseTerm; i++) {
             const p = loan.payments.find(pay => pay.weekNumber === i);

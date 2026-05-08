@@ -45,7 +45,7 @@ export default async function CarteraVencidaPage() {
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
-            // CONTAR FALLOS REALES (Solo registros explícitos incompletos)
+            // CONTAR FALLOS REALES (Solo dentro del plazo base original)
             let missedPaymentsCount = 0;
             const baseTerm = loanPlan.termInWeeks;
             for (let i = 1; i <= baseTerm; i++) {

@@ -206,7 +206,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             const hasPenalty = missedWeeksCount >= 2;
             const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             
-            // CÁLCULO DE SALDO EFECTIVO
+            // CÁLCULO DE SALDO EFECTIVO (Unificado)
             let effectivePaid = 0;
             for (let i = 1; i <= termInWeeks; i++) {
                 const p = allPayments.find(pay => pay.weekNumber === i);
@@ -240,6 +240,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
         revalidatePath('/dashboard/wallet');
         revalidatePath('/dashboard');
         revalidatePath('/dashboard/overdue-portfolio');
+        revalidatePath('/dashboard/cartera-vencida');
         
         return { success: true, message: 'Pago registrado con éxito.' };
 
@@ -339,6 +340,7 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
         revalidatePath('/dashboard/wallet');
         revalidatePath('/dashboard');
         revalidatePath('/dashboard/clients');
+        revalidatePath('/dashboard/cartera-vencida');
 
         return result;
 
