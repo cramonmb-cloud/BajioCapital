@@ -309,7 +309,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     <Button asChild variant="outline" className="h-9 px-3 rounded-md border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md font-black text-[10px]" size="sm">
                                         <a href={`tel:${cleanPhone(avalPhone)}`} title="Llamar Aval">
                                             <Phone className="h-3.5 w-3.5 mr-1" />
-                                            LLAMAR
+                                            {avalPhone}
                                         </a>
                                     </Button>
                                 )}
@@ -498,7 +498,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             {avalPhone ? (
                                                 <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 font-black h-9 flex-1 text-[10px] rounded-md shadow-md border-none" size="sm">
                                                     <a href={`tel:${cleanPhone(avalPhone)}`}>
-                                                        <Phone className="mr-1.5 h-3.5 w-3.5" /> LLAMAR
+                                                        <Phone className="mr-1.5 h-3.5 w-3.5" /> {avalPhone}
                                                     </a>
                                                 </Button>
                                             ) : (
