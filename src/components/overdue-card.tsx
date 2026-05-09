@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { 
     Phone, MessageSquare, MapPin, 
     Wallet, FileText, Shield, History as HistoryIcon, 
-    X, Home, ListTodo, PencilLine
+    X, Home, ListTodo, PencilLine, User, Building, Route, Info
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/cartera-vencida/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -191,7 +191,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 vencimiento: dueDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' }),
                 importeAbono: weeklyPayment,
                 importeRecibido: isRegistered ? payment.amount : 0,
-                fechaAbono: statusText,
+                statusText: statusText,
                 isPenalty: i > loanPlan.termInWeeks,
                 status: statusType
             });
@@ -343,101 +343,179 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             </Card>
 
             <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-                <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
-                    <DialogHeader className="px-5 py-4 border-b shrink-0 flex flex-row items-center justify-between bg-muted/10">
-                        <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border-2 border-white shadow-md">
+                <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
+                    <DialogHeader className="px-6 py-5 border-b shrink-0 flex flex-row items-center justify-between bg-muted/10">
+                        <div className="flex items-center gap-4">
+                            <Avatar className="h-14 w-14 border-2 border-white shadow-xl">
                                 <AvatarImage src={client.avatarUrl} alt={client.name} />
-                                <AvatarFallback className="font-black text-xs bg-blue-100 text-blue-700">{client.name.charAt(0)}</AvatarFallback>
+                                <AvatarFallback className="font-black text-lg bg-blue-100 text-blue-700">{client.name.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <div>
-                                <DialogTitle className="text-sm font-black uppercase leading-none tracking-tight">{client.name}</DialogTitle>
-                                <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1.5">PROMOTORA: {hierarchy.promotoraName} • ID: {client.id}</p>
+                                <DialogTitle className="text-xl font-black uppercase leading-none tracking-tight">{client.name}</DialogTitle>
+                                <div className="flex items-center gap-2 mt-2">
+                                     <Badge variant="outline" className="text-[9px] font-black border-blue-200 bg-blue-50 text-blue-700 uppercase h-5">ID: {client.id}</Badge>
+                                     <Badge variant="outline" className="text-[9px] font-black border-zinc-200 bg-white text-zinc-600 uppercase h-5">{loanPlan.name}</Badge>
+                                </div>
                             </div>
                         </div>
                         <DialogClose asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                                <X className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full hover:bg-zinc-200">
+                                <X className="h-5 w-5" />
                             </Button>
                         </DialogClose>
                     </DialogHeader>
 
                     <ScrollArea className="flex-1 overflow-y-auto">
-                        <div className="p-5 space-y-6">
-                            <div className={cn("grid gap-2.5", metrics.hasPenalty ? "grid-cols-4" : "grid-cols-3")}>
-                                <div className="p-3 rounded-xl bg-muted/30 border text-center">
-                                    <p className="text-[8px] uppercase font-black text-muted-foreground tracking-widest mb-1">Progreso</p>
-                                    <p className="font-black text-base">{metrics.currentProgressWeek} / {metrics.termInWeeks}</p>
+                        <div className="p-6 space-y-8">
+                            {/* METRICS ROW */}
+                            <div className={cn("grid gap-3", metrics.hasPenalty ? "grid-cols-4" : "grid-cols-3")}>
+                                <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200 text-center shadow-sm">
+                                    <p className="text-[9px] uppercase font-black text-muted-foreground tracking-widest mb-1">Semana Actual</p>
+                                    <p className="font-black text-xl">{metrics.currentProgressWeek} / {metrics.termInWeeks}</p>
                                 </div>
-                                <div className="p-3 rounded-xl bg-blue-50 border-blue-100 text-center">
-                                    <p className="text-[8px] uppercase font-black text-blue-600 tracking-widest mb-1">Abono</p>
-                                    <p className="font-black text-base text-blue-700">{formatCurrency(metrics.weeklyPayment)}</p>
+                                <div className="p-4 rounded-2xl bg-blue-50 border-blue-100 text-center shadow-sm">
+                                    <p className="text-[9px] uppercase font-black text-blue-600 tracking-widest mb-1">Abono Semanal</p>
+                                    <p className="font-black text-xl text-blue-700">{formatCurrency(metrics.weeklyPayment)}</p>
                                 </div>
-                                <div className="p-3 rounded-xl bg-red-50 border-red-100 text-center">
-                                    <p className="text-[8px] uppercase font-black text-red-600 tracking-widest mb-1">Fallos</p>
-                                    <p className="font-black text-base text-red-700">{metrics.missedCount}</p>
+                                <div className="p-4 rounded-2xl bg-red-50 border-red-100 text-center shadow-sm">
+                                    <p className="text-[9px] uppercase font-black text-red-600 tracking-widest mb-1">Fallos Totales</p>
+                                    <p className="font-black text-xl text-red-700">{metrics.missedCount}</p>
                                 </div>
                                 {metrics.hasPenalty && (
-                                    <div className="p-3 rounded-xl bg-orange-500 border-orange-600 text-center flex flex-col justify-center shadow-sm">
-                                        <p className="text-[8px] uppercase font-black text-white tracking-widest mb-0.5">S. Extra</p>
-                                        <p className="font-black text-[11px] text-white leading-none">ACTIVA</p>
+                                    <div className="p-4 rounded-2xl bg-orange-500 border-orange-600 text-center flex flex-col justify-center shadow-md animate-pulse">
+                                        <p className="text-[9px] uppercase font-black text-white tracking-widest mb-0.5">Semana Extra</p>
+                                        <p className="font-black text-sm text-white leading-none">ACTIVA</p>
                                     </div>
                                 )}
                             </div>
 
-                            <div className="grid md:grid-cols-2 gap-6">
-                                <div className="space-y-5">
-                                    <div className="space-y-2.5">
-                                        <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
-                                            <FileText className="h-4 w-4 text-blue-600" /> Detalle del Adeudo
+                            <div className="grid md:grid-cols-2 gap-8">
+                                <div className="space-y-8">
+                                    {/* FINANCIAL SUMMARY */}
+                                    <div className="space-y-3">
+                                        <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2 px-1">
+                                            <FileText className="h-4 w-4 text-blue-600" /> Resumen de Deuda
                                         </h4>
-                                        <div className="p-5 rounded-2xl border bg-white space-y-3 shadow-inner">
-                                            <div className="flex justify-between items-center text-xs">
-                                                <span className="font-bold text-muted-foreground uppercase text-[9px]">Suma de Fallos</span>
+                                        <div className="p-6 rounded-3xl border-2 bg-white space-y-4 shadow-inner">
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="font-bold text-muted-foreground uppercase text-[10px]">Suma de Fallos</span>
                                                 <span className="font-black text-zinc-800">{formatCurrency(metrics.baseArrears)}</span>
                                             </div>
                                             {metrics.hasPenalty && (
-                                                <div className="flex justify-between items-center text-xs border-b border-dashed border-zinc-200 pb-3">
-                                                    <span className="font-bold text-orange-600 uppercase text-[9px]">Semana de Penalización</span>
+                                                <div className="flex justify-between items-center text-sm border-b border-dashed border-zinc-200 pb-4">
+                                                    <span className="font-bold text-orange-600 uppercase text-[10px]">Penalización (Vencimiento)</span>
                                                     <span className="font-black text-orange-600">+{formatCurrency(metrics.penaltyArrear)}</span>
                                                 </div>
                                             )}
-                                            <div className="flex justify-between items-center pt-1">
-                                                <span className="font-black text-red-700 uppercase text-[10px]">Total a Liquidar</span>
-                                                <span className="text-2xl font-black text-red-700 tracking-tighter">
+                                            <div className="flex justify-between items-center pt-2">
+                                                <span className="font-black text-red-700 uppercase text-[11px]">Total a Liquidar</span>
+                                                <span className="text-3xl font-black text-red-700 tracking-tighter">
                                                     {formatCurrency(metrics.totalDue)}
                                                 </span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-2.5">
-                                        <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
-                                            <Home className="h-4 w-4 text-blue-600" /> Domicilio Cliente
+
+                                    {/* CLIENT PERSONAL DATA */}
+                                    <div className="space-y-3">
+                                        <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2 px-1">
+                                            <User className="h-4 w-4 text-blue-600" /> Información del Titular
                                         </h4>
-                                        <div className="p-4 rounded-xl border text-[11px] bg-muted/5 font-bold uppercase leading-relaxed shadow-sm">
-                                            {client.street}, {client.neighborhood}, {client.city}
+                                        <div className="p-6 rounded-3xl border bg-white space-y-5 shadow-sm">
+                                            <div>
+                                                <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1.5">Domicilio Completo</p>
+                                                <div className="flex items-start gap-2.5">
+                                                    <Home className="h-4 w-4 text-zinc-400 mt-0.5" />
+                                                    <p className="text-xs font-bold uppercase leading-relaxed text-zinc-800">
+                                                        {client.street}, {client.neighborhood}, {client.city}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-2">Contacto Directo</p>
+                                                <Button asChild variant="outline" className="h-12 w-full rounded-2xl border-blue-200 text-blue-700 hover:bg-blue-50 font-black text-sm shadow-md transition-all active:scale-95" size="lg">
+                                                    <a href={`tel:${cleanPhone(client.phone)}`}>
+                                                        <Phone className="h-5 w-5 mr-3" />
+                                                        {client.phone}
+                                                    </a>
+                                                </Button>
+                                            </div>
+                                            <div className="pt-2">
+                                                <p className="text-[8px] font-black uppercase text-muted-foreground tracking-widest mb-1.5">Garantías Registradas</p>
+                                                <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-100 flex items-start gap-2.5">
+                                                    <Shield className="h-4 w-4 text-zinc-400 mt-0.5" />
+                                                    <p className="text-[11px] font-bold uppercase text-zinc-600 italic leading-snug">
+                                                        {client.guarantee || 'SIN GARANTÍA REGISTRADA'}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="space-y-2.5">
-                                    <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
-                                        <Shield className="h-4 w-4 text-blue-600" /> Información del Aval
-                                    </h4>
-                                    <div className="p-5 rounded-2xl bg-zinc-900 text-white space-y-4 shadow-xl">
-                                        <div>
-                                            <p className="text-[8px] uppercase font-black text-zinc-400 tracking-widest mb-1">Aval / Responsable</p>
-                                            <p className="font-black text-base uppercase leading-tight">{avalName}</p>
+                                <div className="space-y-8">
+                                    {/* HIERARCHY / LOCATION DATA */}
+                                    <div className="space-y-3">
+                                        <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2 px-1">
+                                            <MapPin className="h-4 w-4 text-blue-600" /> Ubicación en Sistema
+                                        </h4>
+                                        <div className="p-6 rounded-3xl border-2 border-blue-50 bg-blue-50/20 space-y-4 shadow-sm">
+                                            <div className="flex justify-between items-center border-b border-blue-100 pb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <Building className="h-4 w-4 text-blue-400" />
+                                                    <span className="text-[9px] font-black uppercase text-zinc-500">Plaza</span>
+                                                </div>
+                                                <span className="text-xs font-black uppercase text-blue-900">{hierarchy.plazaName}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center border-b border-blue-100 pb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="h-4 w-4 text-blue-400" />
+                                                    <span className="text-[9px] font-black uppercase text-zinc-500">Localidad</span>
+                                                </div>
+                                                <span className="text-xs font-black uppercase text-blue-900">{hierarchy.localidadName}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <Route className="h-4 w-4 text-blue-400" />
+                                                    <span className="text-[9px] font-black uppercase text-zinc-500">Promotora</span>
+                                                </div>
+                                                <span className="text-xs font-black uppercase text-blue-900">{hierarchy.promotoraName}</span>
+                                            </div>
                                         </div>
-                                        {avalPhone && (
-                                            <Button asChild className="bg-white text-zinc-900 hover:bg-zinc-100 font-black h-11 w-full text-xs rounded-xl shadow-md" size="sm">
-                                                <a href={`tel:${cleanPhone(avalPhone)}`}>
-                                                    <Phone className="mr-2 h-4 w-4 text-blue-600" /> {avalPhone}
-                                                </a>
-                                            </Button>
-                                        )}
-                                        <div className="pt-2 border-t border-zinc-700">
-                                            <p className="text-[9px] font-bold uppercase leading-relaxed text-zinc-300 opacity-90">{avalAddress}</p>
+                                    </div>
+
+                                    {/* AVAL DATA */}
+                                    <div className="space-y-3">
+                                        <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2 px-1">
+                                            <Shield className="h-4 w-4 text-blue-600" /> Datos del Responsable (Aval)
+                                        </h4>
+                                        <div className="p-6 rounded-3xl bg-zinc-900 text-white space-y-6 shadow-2xl relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 p-4 opacity-10">
+                                                <Shield className="h-20 w-20" />
+                                            </div>
+                                            <div>
+                                                <p className="text-[8px] uppercase font-black text-zinc-400 tracking-widest mb-1.5">Aval Registrado</p>
+                                                <p className="font-black text-lg uppercase leading-none text-white">{avalName}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-[8px] uppercase font-black text-zinc-400 tracking-widest mb-2">Llamar Responsable</p>
+                                                {avalPhone ? (
+                                                    <Button asChild className="bg-white text-zinc-900 hover:bg-zinc-100 font-black h-12 w-full text-sm rounded-2xl shadow-xl transition-all active:scale-95" size="lg">
+                                                        <a href={`tel:${cleanPhone(avalPhone)}`}>
+                                                            <Phone className="mr-3 h-5 w-5 text-blue-600" /> {avalPhone}
+                                                        </a>
+                                                    </Button>
+                                                ) : (
+                                                    <div className="h-12 w-full rounded-2xl bg-zinc-800 flex items-center justify-center text-[10px] font-black text-zinc-500 uppercase border border-zinc-700">SIN TELÉFONO</div>
+                                                )}
+                                            </div>
+                                            <div className="pt-4 border-t border-zinc-700">
+                                                <p className="text-[8px] uppercase font-black text-zinc-400 tracking-widest mb-2">Dirección del Aval</p>
+                                                <div className="flex items-start gap-2.5">
+                                                    <MapPin className="h-4 w-4 text-zinc-500 mt-0.5" />
+                                                    <p className="text-[10px] font-bold uppercase leading-relaxed text-zinc-300 opacity-90">{avalAddress}</p>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -445,12 +523,12 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </div>
                     </ScrollArea>
                     
-                    <div className="p-4 bg-muted/30 border-t flex gap-3 shrink-0">
-                        <Button variant="outline" onClick={() => setHistoryDialogOpen(true)} className="font-black uppercase text-[10px] h-11 flex-1 rounded-xl border-zinc-300 bg-white hover:bg-zinc-50 shadow-sm">
-                            <ListTodo className="mr-2 h-4 w-4 text-blue-600" /> Historial de Abonos
+                    <div className="p-4 bg-muted/20 border-t flex gap-3 shrink-0">
+                        <Button variant="outline" size="lg" onClick={() => setHistoryDialogOpen(true)} className="font-black uppercase text-[11px] h-14 flex-1 rounded-2xl border-zinc-300 bg-white hover:bg-zinc-50 shadow-sm transition-all active:scale-95">
+                            <ListTodo className="mr-2 h-5 w-5 text-blue-600" /> Ver Estado de Cuenta
                         </Button>
-                        <Button size="lg" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase text-[10px] h-11 flex-1 rounded-xl bg-blue-600 text-white shadow-xl hover:bg-blue-700 active:scale-95 transition-all">
-                            <Wallet className="mr-2 h-4 w-4" /> Registrar Abono
+                        <Button size="lg" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase text-[11px] h-14 flex-1 rounded-2xl bg-blue-600 text-white shadow-xl hover:bg-blue-700 active:scale-95 transition-all">
+                            <Wallet className="mr-2 h-5 w-5" /> Registrar Abono Manual
                         </Button>
                     </div>
                 </DialogContent>
@@ -458,38 +536,51 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
             <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
                 <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
-                    <DialogHeader className="p-6 pb-3 border-b shrink-0 flex flex-row items-center justify-between bg-muted/5">
-                        <DialogTitle className="text-sm font-black uppercase text-center w-full tracking-wider">Estado de cuenta detallado</DialogTitle>
+                    <DialogHeader className="p-6 pb-4 border-b shrink-0 flex flex-row items-center justify-between bg-muted/5">
+                        <DialogTitle className="text-sm font-black uppercase text-center w-full tracking-wider flex items-center justify-center gap-2">
+                             <HistoryIcon className="h-4 w-4 text-primary" /> Reporte Detallado de Abonos
+                        </DialogTitle>
                         <DialogClose asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                                <X className="h-4 w-4" />
+                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full">
+                                <X className="h-5 w-5" />
                             </Button>
                         </DialogClose>
                     </DialogHeader>
                     <div className="flex-1 min-h-0">
                         <ScrollArea className="h-full p-6">
+                            <div className="mb-6 flex flex-col md:flex-row justify-between items-center gap-4 bg-zinc-50 p-4 rounded-2xl border">
+                                <div className="text-center md:text-left">
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase">Cliente</p>
+                                    <p className="font-black text-sm uppercase">{client.name}</p>
+                                </div>
+                                <div className="text-center md:text-right">
+                                    <p className="text-[10px] font-black text-muted-foreground uppercase">Préstamo Iniciado</p>
+                                    <p className="font-black text-sm uppercase">{formatDate(loan.startDate)}</p>
+                                </div>
+                            </div>
+
                             <Table className="border border-zinc-200">
                                 <TableHeader className="bg-zinc-100 sticky top-0 z-10">
                                     <TableRow className="hover:bg-zinc-100 border-zinc-200">
-                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 text-center uppercase text-[9px]">Semanas</TableHead>
-                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 uppercase text-[9px]">Vencimiento</TableHead>
+                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 text-center uppercase text-[9px]">Semana</TableHead>
+                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 uppercase text-[9px]">Fecha Vencimiento</TableHead>
                                         <TableHead className="text-zinc-900 font-black border-r border-zinc-200 text-right uppercase text-[9px]">Cuota Fija</TableHead>
                                         <TableHead className="text-zinc-900 font-black border-r border-zinc-200 text-right uppercase text-[9px]">Importe Pagado</TableHead>
-                                        <TableHead className="text-zinc-900 font-black text-center uppercase text-[9px]">Estado de Pago</TableHead>
+                                        <TableHead className="text-zinc-900 font-black text-center uppercase text-[9px]">Estado de Abono</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {loanHistoryData.map((row) => (
                                         <TableRow key={row.num} className={cn("border-zinc-100 hover:bg-zinc-50/50", row.isPenalty && "bg-orange-50/40")}>
-                                            <TableCell className="border-r border-zinc-100 text-center py-2 font-black text-xs">
+                                            <TableCell className="border-r border-zinc-100 text-center py-2.5 font-black text-xs">
                                                 {row.num}
                                                 {row.isPenalty && <span className="ml-1 text-[7px] text-orange-600 block leading-none font-black tracking-tighter">EXTRA</span>}
                                             </TableCell>
-                                            <TableCell className="border-r border-zinc-100 py-2 text-[10px] font-bold text-zinc-600">{row.vencimiento}</TableCell>
-                                            <TableCell className="border-r border-zinc-100 text-right py-2 font-bold text-zinc-800">{formatCurrency(row.importeAbono)}</TableCell>
+                                            <TableCell className="border-r border-zinc-100 py-2.5 text-[10px] font-bold text-zinc-600">{row.vencimiento}</TableCell>
+                                            <TableCell className="border-r border-zinc-100 text-right py-2.5 font-bold text-zinc-800">{formatCurrency(row.importeAbono)}</TableCell>
                                             <TableCell 
                                                 className={cn(
-                                                    "border-r border-zinc-100 text-right py-2 font-black relative group", 
+                                                    "border-r border-zinc-100 text-right py-2.5 font-black relative group", 
                                                     row.status === 'PAID' ? "bg-green-50 text-green-700" : 
                                                     row.status === 'MISSED' ? "bg-red-50 text-red-700" : 
                                                     "bg-blue-50/20 text-blue-600",
@@ -505,22 +596,22 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                                 </div>
                                             </TableCell>
                                             <TableCell className={cn(
-                                                "text-center py-2 text-[10px] font-black uppercase tracking-tight", 
+                                                "text-center py-2.5 text-[10px] font-black uppercase tracking-tight", 
                                                 row.status === 'PAID' ? "text-green-600/70" : 
                                                 row.status === 'MISSED' ? "text-red-600 font-black" : 
                                                 "text-blue-600 animate-pulse"
                                             )}>
                                                 {row.status === 'PENDING' ? (
                                                     <span className="text-blue-600 font-black">PENDIENTE</span>
-                                                ) : row.fechaAbono}
+                                                ) : row.statusText}
                                             </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
-                                <TableFooter className="bg-zinc-50 border-t-2 border-zinc-300">
+                                <TableFooter className="bg-zinc-100 border-t-2 border-zinc-300">
                                     <TableRow>
-                                        <TableCell colSpan={2} className="text-right font-black text-zinc-900 uppercase text-[10px] py-3">Saldo Actual Exigible</TableCell>
-                                        <TableCell className="text-right font-black text-red-700 text-lg py-3" colSpan={2}>
+                                        <TableCell colSpan={2} className="text-right font-black text-zinc-900 uppercase text-[10px] py-4">Saldo Actual Pendiente</TableCell>
+                                        <TableCell className="text-right font-black text-red-700 text-xl py-4" colSpan={2}>
                                             {formatCurrency(metrics.totalDue)}
                                         </TableCell>
                                         <TableCell></TableCell>
@@ -529,8 +620,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                             </Table>
                         </ScrollArea>
                     </div>
-                    <div className="p-4 border-t flex justify-end bg-muted/10 shrink-0">
-                        <Button variant="secondary" className="font-black uppercase text-[10px] rounded-lg" onClick={() => setHistoryDialogOpen(false)}>Cerrar Reporte</Button>
+                    <div className="p-6 border-t flex justify-end bg-muted/10 shrink-0">
+                        <Button variant="secondary" className="font-black uppercase text-[10px] rounded-xl h-11 px-8" onClick={() => setHistoryDialogOpen(false)}>Cerrar Reporte</Button>
                     </div>
                 </DialogContent>
             </Dialog>
