@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { 
     Phone, MessageSquare, MapPin, 
     Wallet, FileText, Shield, History as HistoryIcon, 
-    X, Home, ListTodo, AlertTriangle
+    X, Home, ListTodo, AlertTriangle, User,
+    Map as MapIcon, Route
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -107,8 +108,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             }
         }
 
-        // REGLA: Semana Extra SOLO para Pagos Pendientes con 2+ fallos.
-        // En Cartera Vencida (isExpired) se elimina por petición del usuario.
+        // Rule: Semana Extra ONLY for Pagos Pendientes with 2+ failures.
+        // For Cartera Vencida (isExpired), it's removed as per request.
         const hasPenalty = isOverduePortfolio && (registeredMissedCount >= 2);
 
         let penaltyArrear = 0;
@@ -172,8 +173,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             const isRegistered = !!payment;
             const isPast = today > dueDate;
             
-            let statusText = '';
             let statusType: 'PAID' | 'MISSED' | 'PENDING' = 'PENDING';
+            let statusText = '';
 
             if (isRegistered) {
                 if (payment.amount >= weeklyPayment) {
@@ -231,73 +232,96 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
     return (
         <>
-            <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-3" style={{ borderLeftColor: plazaColor }}>
-                <CardContent className="p-3 space-y-2.5">
-                    <div className="flex flex-wrap items-center justify-between gap-1.5 border-b pb-1.5">
-                        <div className='flex items-center gap-1.5'>
-                            <Badge className="text-[8px] font-black uppercase px-1.5 h-4 shrink-0" style={{ backgroundColor: plazaColor }}>
-                                PLAZA: {hierarchy.plazaName}
+            <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-4" style={{ borderLeftColor: plazaColor }}>
+                <CardContent className="p-3.5 space-y-3.5">
+                    {/* HIERARCHY */}
+                    <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 pb-2">
+                        <Badge className="text-[8px] font-black uppercase px-2 h-4 shrink-0 shadow-sm" style={{ backgroundColor: plazaColor }}>
+                            PLAZA: {hierarchy.plazaName}
+                        </Badge>
+                        <Badge variant="outline" className="text-[8px] font-black text-zinc-600 uppercase border-zinc-300 h-4 px-2">
+                            ZONA: {hierarchy.localidadName}
+                        </Badge>
+                        <Badge variant="outline" className="text-[8px] font-black text-blue-600 uppercase border-blue-200 h-4 px-2 bg-blue-50/50">
+                            RUTA: {hierarchy.promotoraName}
+                        </Badge>
+                    </div>
+
+                    {/* CLIENT INFO */}
+                    <div className="space-y-2">
+                        <div className="flex justify-between items-start gap-2">
+                            <div className="flex-1" onClick={() => setDetailModalOpen(true)}>
+                                <h3 className="font-black text-sm uppercase leading-tight text-foreground tracking-tight">{client.name}</h3>
+                                <div className="flex items-center gap-1.5 text-zinc-500 mt-1">
+                                    <Home className="h-3 w-3 shrink-0 text-blue-500" />
+                                    <span className="text-[10px] font-bold uppercase leading-tight">
+                                        {client.street}, {client.neighborhood}
+                                    </span>
+                                </div>
+                            </div>
+                            <div className="flex gap-1.5 shrink-0">
+                                <Button asChild variant="outline" className="h-8 w-8 p-0 rounded-full border-blue-200 text-blue-600 hover:bg-blue-50 shadow-sm" size="sm">
+                                    <a href={`tel:${cleanPhone(client.phone)}`} title="Llamar Cliente">
+                                        <Phone className="h-4 w-4" />
+                                    </a>
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-8 w-8 p-0 rounded-full border-green-200 text-green-600 hover:bg-green-50 shadow-sm">
+                                    <MessageSquare className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* AVAL INFO */}
+                    <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 space-y-2 relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-zinc-300" />
+                        <div className="flex justify-between items-start gap-2 pl-1">
+                            <div className="flex-1">
+                                <p className="text-[7px] font-black uppercase text-muted-foreground tracking-widest mb-0.5">Responsable Solidario (Aval)</p>
+                                <p className="text-[11px] font-black uppercase leading-tight text-zinc-800">{avalName}</p>
+                                <div className="flex items-start gap-1.5 text-zinc-500 mt-1">
+                                    <MapPin className="h-2.5 w-2.5 shrink-0 mt-0.5" />
+                                    <span className="text-[9px] font-bold uppercase leading-tight">{avalAddress}</span>
+                                </div>
+                            </div>
+                            {avalPhone && (
+                                <Button asChild variant="outline" className="h-8 w-8 p-0 rounded-full border-zinc-300 text-zinc-600 hover:bg-white bg-white shadow-sm shrink-0" size="sm">
+                                    <a href={`tel:${cleanPhone(avalPhone)}`} title="Llamar Aval">
+                                        <Phone className="h-4 w-4" />
+                                    </a>
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* FINANCIAL SUMMARY */}
+                    <div className="flex items-end justify-between gap-4 pt-1">
+                        <div className="flex flex-wrap gap-1.5">
+                            <Badge variant="destructive" className="h-5 px-2 text-[9px] font-black uppercase shadow-sm">
+                                {metrics.missedCount} FALLOS
                             </Badge>
-                            <div className="px-1.5 h-4 border border-zinc-300 rounded flex items-center shrink-0">
-                                <span className="text-[8px] font-black text-zinc-600 uppercase whitespace-nowrap">
-                                    ZONA: {hierarchy.localidadName}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex justify-between items-start gap-2">
-                        <div className="cursor-pointer flex-1" onClick={() => setDetailModalOpen(true)}>
-                            <h3 className="font-black text-sm uppercase leading-tight text-foreground">{client.name}</h3>
-                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                <Badge variant="outline" className="h-5 px-2 text-[9px] font-black bg-red-50 text-red-700 border-red-200 uppercase">
-                                    {metrics.missedCount} {metrics.missedCount === 1 ? 'FALLO' : 'FALLOS'}
+                            {metrics.hasPenalty && (
+                                <Badge className="h-5 px-2 text-[9px] font-black bg-orange-500 text-white uppercase shadow-sm">
+                                    S. EXTRA
                                 </Badge>
-                                {metrics.hasPenalty && (
-                                    <Badge className="h-5 px-2 text-[9px] font-black bg-orange-500 text-white shadow-sm uppercase">
-                                        S. EXTRA
-                                    </Badge>
-                                )}
-                            </div>
+                            )}
                         </div>
-                        
-                        <div className="text-right shrink-0 bg-zinc-50 p-2 rounded-lg border border-zinc-200 min-w-[115px]">
-                            <div className="space-y-0.5">
-                                <div className="flex justify-between gap-2 text-[7px] font-black text-muted-foreground uppercase">
-                                    <span>Saldo Fallos</span>
-                                    <span>{formatCurrency(metrics.baseArrears)}</span>
-                                </div>
-                                {metrics.hasPenalty && (
-                                    <div className="flex justify-between gap-2 text-[7px] font-black text-orange-600 uppercase border-b border-zinc-200 pb-0.5">
-                                        <span>Semana Extra</span>
-                                        <span>+{formatCurrency(metrics.penaltyArrear)}</span>
-                                    </div>
-                                )}
-                                <div className="flex flex-col items-end pt-1">
-                                    <span className="text-[7px] font-black text-red-700 uppercase leading-none mb-0.5">Total a Deber</span>
-                                    <span className="text-sm font-black text-red-700 tracking-tighter leading-none">{formatCurrency(metrics.totalDue)}</span>
-                                </div>
+
+                        <div className="text-right bg-red-50 px-3 py-2 rounded-lg border border-red-100 min-w-[125px] shadow-inner">
+                            <div className="flex flex-col">
+                                <span className="text-[7px] font-black text-red-600 uppercase leading-none mb-0.5">Total a Deber</span>
+                                <span className="text-base font-black text-red-700 tracking-tighter leading-none">{formatCurrency(metrics.totalDue)}</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex gap-2 items-center">
-                        <Button asChild className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] rounded-lg flex-1" size="sm">
-                            <a href={`tel:${cleanPhone(client.phone)}`}>
-                                <Phone className="mr-2 h-3.5 w-3.5" /> {client.phone}
-                            </a>
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-8 w-10 p-0 rounded-lg border-green-200 hover:bg-green-50 shadow-sm">
-                            <MessageSquare className="h-5 w-5 text-green-500" />
-                        </Button>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-3 pt-1 border-t border-dashed">
-                        <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1">
-                            <HistoryIcon className="h-2.5 w-2.5" /> INICIÓ: {formatDate(metrics.loanWeekDate.toISOString())}
+                    {/* FOOTER ACTIONS */}
+                    <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-dashed border-zinc-200">
+                        <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1.5">
+                            <HistoryIcon className="h-3.5 w-3.5" /> INICIÓ: {formatDate(metrics.loanWeekDate.toISOString())}
                         </div>
-                        <Button size="sm" onClick={() => setDetailModalOpen(true)} className="h-8 bg-foreground text-background font-black text-[10px] uppercase px-5 rounded-lg shadow-md">
-                            <Wallet className="mr-1.5 h-4 w-4" /> Detalle
+                        <Button size="sm" onClick={() => setDetailModalOpen(true)} className="h-8 bg-zinc-900 text-white font-black text-[10px] uppercase px-6 rounded-lg shadow-lg hover:bg-zinc-800 active:scale-95 transition-all">
+                            <Wallet className="mr-1.5 h-3.5 w-3.5" /> Detalle
                         </Button>
                     </div>
                 </CardContent>
@@ -305,15 +329,15 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
             <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
                 <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
-                    <DialogHeader className="px-5 py-3 border-b shrink-0 flex flex-row items-center justify-between bg-muted/10">
+                    <DialogHeader className="px-5 py-4 border-b shrink-0 flex flex-row items-center justify-between bg-muted/10">
                         <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border shadow-sm">
+                            <Avatar className="h-10 w-10 border-2 border-white shadow-md">
                                 <AvatarImage src={client.avatarUrl} alt={client.name} />
-                                <AvatarFallback className="font-bold text-xs bg-blue-100 text-blue-700">{client.name.charAt(0)}</AvatarFallback>
+                                <AvatarFallback className="font-black text-xs bg-blue-100 text-blue-700">{client.name.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <div>
-                                <DialogTitle className="text-sm font-black uppercase leading-none">{client.name}</DialogTitle>
-                                <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1">PLAZA: {hierarchy.plazaName} • ID: {client.id}</p>
+                                <DialogTitle className="text-sm font-black uppercase leading-none tracking-tight">{client.name}</DialogTitle>
+                                <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1.5">RUTA: {hierarchy.promotoraName} • ID: {client.id}</p>
                             </div>
                         </div>
                         <DialogClose asChild>
@@ -324,88 +348,92 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     </DialogHeader>
 
                     <ScrollArea className="flex-1 overflow-y-auto">
-                        <div className="p-4 space-y-5">
-                            <div className={cn("grid gap-2", metrics.hasPenalty ? "grid-cols-4" : "grid-cols-3")}>
-                                <div className="p-2 rounded-lg bg-muted/30 border text-center">
-                                    <p className="text-[7px] uppercase font-black text-muted-foreground">Progreso</p>
-                                    <p className="font-black text-sm">{metrics.currentProgressWeek} / {metrics.termInWeeks}</p>
+                        <div className="p-5 space-y-6">
+                            <div className={cn("grid gap-2.5", metrics.hasPenalty ? "grid-cols-4" : "grid-cols-3")}>
+                                <div className="p-3 rounded-xl bg-muted/30 border text-center">
+                                    <p className="text-[8px] uppercase font-black text-muted-foreground tracking-widest mb-1">Progreso</p>
+                                    <p className="font-black text-base">{metrics.currentProgressWeek} / {metrics.termInWeeks}</p>
                                 </div>
-                                <div className="p-2 rounded-lg bg-blue-50 border-blue-100 text-center">
-                                    <p className="text-[7px] uppercase font-black text-blue-600">Abono</p>
-                                    <p className="font-black text-sm text-blue-700">{formatCurrency(metrics.weeklyPayment)}</p>
+                                <div className="p-3 rounded-xl bg-blue-50 border-blue-100 text-center">
+                                    <p className="text-[8px] uppercase font-black text-blue-600 tracking-widest mb-1">Abono</p>
+                                    <p className="font-black text-base text-blue-700">{formatCurrency(metrics.weeklyPayment)}</p>
                                 </div>
-                                <div className="p-2 rounded-lg bg-red-50 border-red-100 text-center">
-                                    <p className="text-[7px] uppercase font-black text-red-600">Fallos</p>
-                                    <p className="font-black text-sm text-red-700">{metrics.missedCount}</p>
+                                <div className="p-3 rounded-xl bg-red-50 border-red-100 text-center">
+                                    <p className="text-[8px] uppercase font-black text-red-600 tracking-widest mb-1">Fallos</p>
+                                    <p className="font-black text-base text-red-700">{metrics.missedCount}</p>
                                 </div>
                                 {metrics.hasPenalty && (
-                                    <div className="p-2 rounded-lg bg-orange-500 border-orange-600 text-center flex flex-col justify-center">
-                                        <p className="text-[7px] uppercase font-black text-white">S. Extra</p>
-                                        <p className="font-black text-[10px] text-white leading-tight">ACTIVA</p>
+                                    <div className="p-3 rounded-xl bg-orange-500 border-orange-600 text-center flex flex-col justify-center shadow-sm">
+                                        <p className="text-[8px] uppercase font-black text-white tracking-widest mb-0.5">S. Extra</p>
+                                        <p className="font-black text-[11px] text-white leading-none">ACTIVA</p>
                                     </div>
                                 )}
                             </div>
 
-                            <div className="grid md:grid-cols-2 gap-4">
-                                <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                                            <FileText className="h-3 w-3 text-blue-600" /> Detalle del Saldo Deudor
+                            <div className="grid md:grid-cols-2 gap-6">
+                                <div className="space-y-5">
+                                    <div className="space-y-2.5">
+                                        <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
+                                            <FileText className="h-4 w-4 text-blue-600" /> Detalle del Adeudo
                                         </h4>
-                                        <div className="p-4 rounded-xl border bg-white space-y-2 shadow-inner">
+                                        <div className="p-5 rounded-2xl border bg-white space-y-3 shadow-inner">
                                             <div className="flex justify-between items-center text-xs">
                                                 <span className="font-bold text-muted-foreground uppercase text-[9px]">Suma de Fallos</span>
                                                 <span className="font-black text-zinc-800">{formatCurrency(metrics.baseArrears)}</span>
                                             </div>
                                             {metrics.hasPenalty && (
-                                                <div className="flex justify-between items-center text-xs border-b border-dashed pb-2">
+                                                <div className="flex justify-between items-center text-xs border-b border-dashed border-zinc-200 pb-3">
                                                     <span className="font-bold text-orange-600 uppercase text-[9px]">Semana de Penalización</span>
                                                     <span className="font-black text-orange-600">+{formatCurrency(metrics.penaltyArrear)}</span>
                                                 </div>
                                             )}
-                                            <div className="flex justify-between items-center pt-2">
+                                            <div className="flex justify-between items-center pt-1">
                                                 <span className="font-black text-red-700 uppercase text-[10px]">Total a Liquidar</span>
-                                                <span className="text-xl font-black text-red-700 tracking-tighter">{formatCurrency(metrics.totalDue)}</span>
+                                                <span className="text-2xl font-black text-red-700 tracking-tighter">{formatCurrency(metrics.totalDue)}</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                                            <MapPin className="h-3 w-3 text-blue-600" /> Dirección Cliente
+                                    <div className="space-y-2.5">
+                                        <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
+                                            <Home className="h-4 w-4 text-blue-600" /> Domicilio Cliente
                                         </h4>
-                                        <div className="p-3 rounded-lg border text-[10px] bg-muted/5 font-bold uppercase leading-tight">
+                                        <div className="p-4 rounded-xl border text-[11px] bg-muted/5 font-bold uppercase leading-relaxed shadow-sm">
                                             {client.street}, {client.neighborhood}, {client.city}
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                                        <Shield className="h-3 w-3 text-blue-600" /> Información del Aval
+                                <div className="space-y-2.5">
+                                    <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
+                                        <Shield className="h-4 w-4 text-blue-600" /> Información del Aval
                                     </h4>
-                                    <div className="p-4 rounded-xl bg-blue-600 text-white space-y-3 shadow-md">
+                                    <div className="p-5 rounded-2xl bg-zinc-900 text-white space-y-4 shadow-xl">
                                         <div>
-                                            <p className="text-[7px] uppercase font-black text-blue-200">Responsable Solidario</p>
-                                            <p className="font-black text-sm uppercase leading-tight">{avalName}</p>
+                                            <p className="text-[8px] uppercase font-black text-zinc-400 tracking-widest mb-1">Aval / Responsable</p>
+                                            <p className="font-black text-base uppercase leading-tight">{avalName}</p>
                                         </div>
                                         {avalPhone && (
-                                            <Button asChild className="bg-white text-blue-700 font-black h-8 w-full text-xs" size="sm">
-                                                <a href={`tel:${cleanPhone(avalPhone)}`}>TEL: {avalPhone}</a>
+                                            <Button asChild className="bg-white text-zinc-900 hover:bg-zinc-100 font-black h-9 w-full text-xs rounded-lg shadow-md" size="sm">
+                                                <a href={`tel:${cleanPhone(avalPhone)}`}>
+                                                    <Phone className="mr-2 h-4 w-4" /> MARCAR AL AVAL
+                                                </a>
                                             </Button>
                                         )}
-                                        <p className="text-[9px] font-bold uppercase leading-relaxed text-blue-50 opacity-80">{avalAddress}</p>
+                                        <div className="pt-2 border-t border-zinc-700">
+                                            <p className="text-[9px] font-bold uppercase leading-relaxed text-zinc-300 opacity-90">{avalAddress}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </ScrollArea>
                     
-                    <div className="p-4 bg-muted/30 border-t flex gap-2">
-                        <Button variant="outline" onClick={() => setHistoryDialogOpen(true)} className="font-black uppercase text-[10px] h-10 flex-1 rounded-lg border-blue-200 bg-white">
-                            <ListTodo className="mr-1.5 h-4 w-4" /> Historial de Abonos
+                    <div className="p-4 bg-muted/30 border-t flex gap-3 shrink-0">
+                        <Button variant="outline" onClick={() => setHistoryDialogOpen(true)} className="font-black uppercase text-[10px] h-11 flex-1 rounded-xl border-zinc-300 bg-white hover:bg-zinc-50 shadow-sm">
+                            <ListTodo className="mr-2 h-4 w-4 text-blue-600" /> Historial de Abonos
                         </Button>
-                        <Button size="lg" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase text-[10px] h-10 flex-1 rounded-lg bg-blue-600 text-white shadow-lg">
-                            <Wallet className="mr-1.5 h-4 w-4" /> Abonar
+                        <Button size="lg" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase text-[10px] h-11 flex-1 rounded-xl bg-blue-600 text-white shadow-xl hover:bg-blue-700 active:scale-95 transition-all">
+                            <Wallet className="mr-2 h-4 w-4" /> Registrar Abono
                         </Button>
                     </div>
                 </DialogContent>
@@ -413,8 +441,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
             <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
                 <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
-                    <DialogHeader className="p-6 pb-2 border-b shrink-0 flex flex-row items-center justify-between">
-                        <DialogTitle className="text-sm font-black uppercase text-center w-full">Detalle de todos los abonos</DialogTitle>
+                    <DialogHeader className="p-6 pb-3 border-b shrink-0 flex flex-row items-center justify-between bg-muted/5">
+                        <DialogTitle className="text-sm font-black uppercase text-center w-full tracking-wider">Estado de cuenta detallado</DialogTitle>
                         <DialogClose asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                                 <X className="h-4 w-4" />
@@ -423,50 +451,50 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     </DialogHeader>
                     <div className="flex-1 min-h-0">
                         <ScrollArea className="h-full p-6">
-                            <Table className="border border-blue-200">
-                                <TableHeader className="bg-blue-100 sticky top-0 z-10">
-                                    <TableRow className="hover:bg-blue-100 border-blue-200">
-                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-center">Num Abono</TableHead>
-                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200">Vencimiento</TableHead>
-                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Cuota</TableHead>
-                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Pagado</TableHead>
-                                        <TableHead className="text-blue-900 font-bold text-center">Estado / Fecha</TableHead>
+                            <Table className="border border-zinc-200">
+                                <TableHeader className="bg-zinc-100 sticky top-0 z-10">
+                                    <TableRow className="hover:bg-zinc-100 border-zinc-200">
+                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 text-center uppercase text-[9px]">Semanas</TableHead>
+                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 uppercase text-[9px]">Vencimiento</TableHead>
+                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 text-right uppercase text-[9px]">Cuota Fija</TableHead>
+                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 text-right uppercase text-[9px]">Importe Pagado</TableHead>
+                                        <TableHead className="text-zinc-900 font-black text-center uppercase text-[9px]">Estado de Pago</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {loanHistoryData.map((row) => (
-                                        <TableRow key={row.num} className={cn("border-blue-100 hover:bg-blue-50/50", row.isPenalty && "bg-orange-50/40")}>
-                                            <TableCell className="border-r border-blue-100 text-center py-1 font-bold">
+                                        <TableRow key={row.num} className={cn("border-zinc-100 hover:bg-zinc-50/50", row.isPenalty && "bg-orange-50/40")}>
+                                            <TableCell className="border-r border-zinc-100 text-center py-2 font-black text-xs">
                                                 {row.num}
-                                                {row.isPenalty && <span className="ml-1 text-[8px] text-orange-600 block leading-none font-black">EXTRA</span>}
+                                                {row.isPenalty && <span className="ml-1 text-[7px] text-orange-600 block leading-none font-black tracking-tighter">EXTRA</span>}
                                             </TableCell>
-                                            <TableCell className="border-r border-blue-100 py-1 text-[10px] font-bold">{row.vencimiento}</TableCell>
-                                            <TableCell className="border-r border-blue-100 text-right py-1 font-bold">{formatCurrency(row.importeAbono)}</TableCell>
+                                            <TableCell className="border-r border-zinc-100 py-2 text-[10px] font-bold text-zinc-600">{row.vencimiento}</TableCell>
+                                            <TableCell className="border-r border-zinc-100 text-right py-2 font-bold text-zinc-800">{formatCurrency(row.importeAbono)}</TableCell>
                                             <TableCell className={cn(
-                                                "border-r border-blue-100 text-right py-1 font-black", 
+                                                "border-r border-zinc-100 text-right py-2 font-black", 
                                                 row.status === 'PAID' ? "bg-green-50 text-green-700" : 
                                                 row.status === 'MISSED' ? "bg-red-50 text-red-700" : 
-                                                "bg-blue-50/30 text-blue-600"
+                                                "bg-blue-50/20 text-blue-600"
                                             )}>
                                                 {formatCurrency(row.importeRecibido)}
                                             </TableCell>
                                             <TableCell className={cn(
-                                                "text-center py-1 text-[10px] font-black uppercase", 
-                                                row.status === 'PAID' ? "text-muted-foreground/80 font-bold" : 
-                                                row.status === 'MISSED' ? "text-red-600 animate-pulse font-black" : 
-                                                "text-blue-600 font-bold"
+                                                "text-center py-2 text-[10px] font-black uppercase tracking-tight", 
+                                                row.status === 'PAID' ? "text-green-600/70" : 
+                                                row.status === 'MISSED' ? "text-red-600 font-black" : 
+                                                "text-blue-600 animate-pulse"
                                             )}>
                                                 {row.status === 'PENDING' ? (
-                                                    <span className="text-blue-600">{formatCurrency(row.importeAbono)}</span>
+                                                    <span className="text-blue-600">PENDIENTE</span>
                                                 ) : row.fechaAbono}
                                             </TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>
-                                <TableFooter className="bg-zinc-50 border-t-2 border-blue-300">
+                                <TableFooter className="bg-zinc-50 border-t-2 border-zinc-300">
                                     <TableRow>
-                                        <TableCell colSpan={2} className="text-right font-black text-blue-900 uppercase text-xs">Total Deuda Calculada</TableCell>
-                                        <TableCell className="text-right font-black text-red-700 text-sm" colSpan={2}>
+                                        <TableCell colSpan={2} className="text-right font-black text-zinc-900 uppercase text-[10px] py-3">Saldo Actual Exigible</TableCell>
+                                        <TableCell className="text-right font-black text-red-700 text-lg py-3" colSpan={2}>
                                             {formatCurrency(metrics.totalDue)}
                                         </TableCell>
                                         <TableCell></TableCell>
@@ -476,7 +504,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </ScrollArea>
                     </div>
                     <div className="p-4 border-t flex justify-end bg-muted/10 shrink-0">
-                        <Button variant="secondary" className="font-bold" onClick={() => setHistoryDialogOpen(false)}>Cerrar Historial</Button>
+                        <Button variant="secondary" className="font-black uppercase text-[10px] rounded-lg" onClick={() => setHistoryDialogOpen(false)}>Cerrar Reporte</Button>
                     </div>
                 </DialogContent>
             </Dialog>
