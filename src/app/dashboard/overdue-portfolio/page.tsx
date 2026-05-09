@@ -48,19 +48,14 @@ export default async function OverduePortfolioPage() {
             
             const baseTerm = loanPlan.termInWeeks;
             let missedCount = 0;
-            let baseDebt = 0;
 
-            // CÁLCULO DE DEUDA Y FALLOS (Topado al plazo base)
+            // CONTAR FALLOS REALES (Semanas no pagadas o incompletas en el plazo base)
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
-                    if (p.amount < weeklyPayment) {
-                        missedCount++;
-                        baseDebt += (weeklyPayment - p.amount);
-                    }
+                    if (p.amount < weeklyPayment) missedCount++;
                 } else if (i < rawCurrentLoanWeek) {
                     missedCount++;
-                    baseDebt += weeklyPayment;
                 }
             }
 
@@ -68,14 +63,10 @@ export default async function OverduePortfolioPage() {
             const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
-            let penaltyDebt = 0;
-            if (hasPenalty) {
-                const penaltyPayment = loan.payments.find(p => p.weekNumber === baseTerm + 1);
-                penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
-            }
-
-            // SALDO FINAL: Suma de deuda base + penalización
-            const totalBalance = baseDebt + penaltyDebt;
+            // CALCULO DE SALDO ABSOLUTO: (Total Semanas * Abono) - Total Pagado
+            const totalExpectedAmount = totalTermInWeeks * weeklyPayment;
+            const totalPaidAmount = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
+            const totalBalance = Math.max(0, totalExpectedAmount - totalPaidAmount);
 
             // 'Pagos Pendientes': Préstamos VIGENTES con 2 o más fallos
             if (!isExpired && missedCount >= 2 && totalBalance > 0) {

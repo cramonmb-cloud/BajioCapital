@@ -70,32 +70,25 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     
     const baseTerm = loanPlan.termInWeeks;
     let missedWeeksCount = 0;
-    let baseDebt = 0;
 
-    // Lógica sincronizada de deuda y fallos (Topado al plazo base)
+    // CONTAR FALLOS REALES (Topado al plazo base)
     for (let i = 1; i <= baseTerm; i++) {
         const p = activeLoan.payments.find(p => p.weekNumber === i);
         if (p) {
-            if (p.amount < weeklyPayment) {
-                missedWeeksCount++;
-                baseDebt += (weeklyPayment - p.amount);
-            }
+            if (p.amount < weeklyPayment) missedWeeksCount++;
         } else if (i < rawCurrentLoanWeek) {
             missedWeeksCount++;
-            baseDebt += weeklyPayment;
         }
     }
     
     const hasPenalty = missedWeeksCount >= 2;
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-    const currentLoanWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
+    const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
 
-    let penaltyDebt = 0;
-    if (hasPenalty) {
-        const penaltyPayment = activeLoan.payments.find(p => p.weekNumber === baseTerm + 1);
-        penaltyDebt = weeklyPayment - (penaltyPayment?.amount || 0);
-    }
-    const totalBalance = baseDebt + penaltyDebt;
+    // CALCULO DE SALDO ABSOLUTO
+    const totalExpectedAmount = termInWeeks * weeklyPayment;
+    const totalPaidAmount = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
+    const totalBalance = Math.max(0, totalExpectedAmount - totalPaidAmount);
 
     let endorsementName = selectedClient.endorsement;
     let endorsementDetails = '';
@@ -113,7 +106,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
       loan: activeLoan,
       loanPlan,
       weeklyPayment,
-      currentLoanWeek,
+      currentLoanWeek: currentLoanWeekDisplay,
       endorsementName,
       endorsementDetails,
       termInWeeks: termInWeeks,
