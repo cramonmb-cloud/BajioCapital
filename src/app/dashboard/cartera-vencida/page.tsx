@@ -43,10 +43,8 @@ export default async function CarteraVencidaPage() {
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
-            const timeDiff = today.getTime() - loanStartDate.getTime();
-            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
-            
             const baseTerm = loanPlan.termInWeeks;
+            
             let missedCount = 0;
             let totalArrears = 0;
 
@@ -59,7 +57,6 @@ export default async function CarteraVencidaPage() {
                     const dueDate = new Date(loanStartDate);
                     dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
                     
-                    // En Cartera Vencida, tratamos todo lo no pagado como deuda real
                     if (p || today > dueDate) {
                         missedCount++;
                         totalArrears += (weeklyPayment - amountPaid);
@@ -67,17 +64,18 @@ export default async function CarteraVencidaPage() {
                 }
             }
 
-            const isExpired = rawCurrentLoanWeek > baseTerm;
-
-            // REGLA DE NEGOCIO OBLIGATORIA: En Cartera Vencida la penalización es SIEMPRE OBLIGATORIA (hasPenalty = true)
-            // No importa si tiene 1 fallo o 9 fallos. Si venció el plazo, se cobra la extra.
+            // REGLA ABSOLUTA: En Cartera Vencida la penalización es SIEMPRE OBLIGATORIA
             const penaltyWeekNum = baseTerm + 1;
             const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
             const amountPaidExtra = pExtra ? pExtra.amount : 0;
             const penaltyArrear = weeklyPayment - amountPaidExtra;
 
-            // Saldo Final = Deuda Base + Semana Extra Completa (o lo que falte de ella)
+            // Saldo Final = Deuda Base + Deuda Semana Extra
             const calculatedAmountDue = totalArrears + penaltyArrear;
+
+            const timeDiff = today.getTime() - loanStartDate.getTime();
+            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+            const isExpired = rawCurrentLoanWeek > baseTerm;
 
             // Mostrar solo si expiró y tiene deuda (incluyendo la semana extra obligatoria)
             if (isExpired && calculatedAmountDue > 0) {
@@ -107,7 +105,7 @@ export default async function CarteraVencidaPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight text-red-700">Cartera Vencida</h1>
                 <p className="text-muted-foreground">
-                    Préstamos con plazo base expirado. Se aplica 1 semana extra de penalización obligatoria sin excepciones.
+                    Préstamos con plazo base expirado. Se aplica 1 semana extra de penalización obligatoria.
                 </p>
             </div>
             <OverduePortfolioClientPage 

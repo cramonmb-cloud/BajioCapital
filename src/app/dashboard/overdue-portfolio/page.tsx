@@ -43,10 +43,8 @@ export default async function OverduePortfolioPage() {
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
-            const timeDiff = today.getTime() - loanStartDate.getTime();
-            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
-            
             const baseTerm = loanPlan.termInWeeks;
+            
             let missedCount = 0;
             let totalArrears = 0;
 
@@ -66,23 +64,24 @@ export default async function OverduePortfolioPage() {
                 }
             }
 
+            // REGLA: Si tiene 2 o más fallos se activa la penalización
             const hasPenalty = missedCount >= 2;
-            const termWithPenalty = baseTerm + (hasPenalty ? 1 : 0);
-            const isExpired = rawCurrentLoanWeek > termWithPenalty;
-
-            // Calcular deuda de la semana extra si aplica
             let penaltyArrear = 0;
             if (hasPenalty) {
                 const penaltyWeekNum = baseTerm + 1;
                 const pExtra = loan.payments.find(pay => pay.weekNumber === penaltyWeekNum);
-                const amountPaidExtra = pExtra ? pExtra.amount : 0;
-                penaltyArrear = weeklyPayment - amountPaidExtra;
+                penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
             }
 
-            // REGLA DE NEGOCIO: Saldo = Suma de Arrears + Deuda Semana Extra
+            // Saldo Final = Arrears base + Arrear de penalización
             const calculatedAmountDue = totalArrears + penaltyArrear;
 
-            // 'Pagos Pendientes': Solo 2 o más fallos Y NO expirados con deuda
+            const timeDiff = today.getTime() - loanStartDate.getTime();
+            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+            const termWithPenalty = baseTerm + (hasPenalty ? 1 : 0);
+            const isExpired = rawCurrentLoanWeek > termWithPenalty;
+
+            // REGLA DE FILTRO: Solo vigente con 2+ fallos y saldo pendiente
             if (!isExpired && missedCount >= 2 && calculatedAmountDue > 0) {
                 return {
                     loan,
@@ -110,7 +109,7 @@ export default async function OverduePortfolioPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
                 <p className="text-muted-foreground">
-                    Préstamos vigentes con 2 o más fallos. El saldo incluye el monto de los fallos y la semana extra.
+                    Préstamos vigentes con 2 o más fallos. Se incluye cobro de semana extra.
                 </p>
             </div>
             <OverduePortfolioClientPage 

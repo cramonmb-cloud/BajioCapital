@@ -64,10 +64,10 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
     const today = new Date();
     const loanStartDate = new Date(activeLoan.startDate);
-    
     const baseTerm = loanPlan.termInWeeks;
-    let registeredMissedCount = 0;
+    
     let baseArrears = 0;
+    let registeredMissedCount = 0;
 
     for (let i = 1; i <= baseTerm; i++) {
         const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
@@ -83,9 +83,12 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         }
     }
     
-    // REGLA: Si expiró el plazo base, la penalización es OBLIGATORIA
-    const isExpired = today > new Date(loanStartDate.getTime() + (baseTerm * 7 * 24 * 60 * 60 * 1000));
-    const hasPenalty = isExpired ? true : (registeredMissedCount >= 2);
+    // REGLA DE NEGOCIO: En consulta, si expiró el plazo base O si tiene 2+ fallos, aplica penalización
+    const timeDiff = today.getTime() - loanStartDate.getTime();
+    const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+    const isExpired = rawCurrentLoanWeek > baseTerm;
+    
+    const hasPenalty = isExpired || (registeredMissedCount >= 2);
 
     let penaltyArrear = 0;
     if (hasPenalty) {
@@ -95,11 +98,12 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     }
 
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-    const timeDiff = today.getTime() - loanStartDate.getTime();
-    const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
     const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
-
     const totalBalance = baseArrears + penaltyArrear;
+
+    const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
+    const localidad = localidades.find(l => l.id === promotora?.localidadId);
+    const plaza = plazas.find(p => p.id === localidad?.plazaId);
 
     let endorsementName = selectedClient.endorsement;
     let endorsementDetails = '';
@@ -108,24 +112,20 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         endorsementName = endorsementMatch[1];
         endorsementDetails = endorsementMatch[2];
     }
-    
-    const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
-    const localidad = localidades.find(l => l.id === promotora?.localidadId);
-    const plaza = plazas.find(p => p.id === localidad?.plazaId);
 
     return {
       loan: activeLoan,
       loanPlan,
       weeklyPayment,
       currentLoanWeek: currentLoanWeekDisplay,
-      endorsementName,
-      endorsementDetails,
-      termInWeeks: termInWeeks,
+      termInWeeks,
       baseArrears,
       penaltyArrear,
-      totalBalance: totalBalance,
+      totalBalance,
       missedWeeks: registeredMissedCount,
-      hasPenalty: hasPenalty,
+      hasPenalty,
+      endorsementName,
+      endorsementDetails,
       plazaName: plaza?.name || 'N/A',
       localidadName: localidad?.name || 'N/A',
       promotoraName: promotora?.name || 'N/A',
@@ -143,9 +143,6 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
   };
   
   const formatCurrency = (amount: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
-
-  const fullAddress = selectedClient ? `${selectedClient.street}, ${selectedClient.neighborhood}, ${selectedClient.city}, ${selectedClient.postalCode}` : '';
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
 
   return (
     <div className="space-y-6">
@@ -256,19 +253,19 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                  </div>
                              </div>
 
-                            <div className="space-y-3 p-5 bg-zinc-100 rounded-2xl border-2 border-zinc-200">
+                            <div className="space-y-3 p-5 bg-zinc-100 rounded-2xl border-2 border-zinc-200 shadow-inner">
                                 <div className="flex justify-between items-center text-xs">
-                                    <span className="font-black text-muted-foreground uppercase text-[9px]">Saldo de Fallos</span>
+                                    <span className="font-black text-muted-foreground uppercase text-[9px]">Saldo Fallos Acumulado</span>
                                     <span className="font-black text-zinc-800">{formatCurrency(activeLoanDetails.baseArrears)}</span>
                                 </div>
                                 {activeLoanDetails.hasPenalty && (
                                     <div className="flex justify-between items-center text-xs border-b border-zinc-300 border-dashed pb-2">
-                                        <span className="font-black text-orange-600 uppercase text-[9px]">Semana Extra</span>
-                                        <span className="font-black text-orange-600">+{formatCurrency(activeLoanDetails.weeklyPayment)}</span>
+                                        <span className="font-black text-orange-600 uppercase text-[9px]">Semana de Penalización</span>
+                                        <span className="font-black text-orange-600">+{formatCurrency(activeLoanDetails.penaltyArrear)}</span>
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center pt-2">
-                                    <span className="font-black text-red-700 uppercase text-xs">Total a Deber</span>
+                                    <span className="font-black text-red-700 uppercase text-xs">Total a Liquidar</span>
                                     <span className="text-3xl font-black text-red-700 tracking-tighter">{formatCurrency(activeLoanDetails.totalBalance)}</span>
                                 </div>
                             </div>

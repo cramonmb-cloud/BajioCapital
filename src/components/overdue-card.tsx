@@ -89,7 +89,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         let baseArrears = 0;
         let registeredMissedCount = 0;
 
-        // Calcular deuda de semanas base
+        // Calcular deuda de semanas base (1 a baseTerm)
         for (let i = 1; i <= baseTerm; i++) {
             const p = (loan.payments || []).find(pay => pay.weekNumber === i);
             const amountPaid = p ? p.amount : 0;
@@ -97,6 +97,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
             
             if (amountPaid < weeklyPayment) {
+                // Se considera fallo si ya pasó la fecha o si ya hay un registro de pago incompleto
                 if (p || today > dueDate) {
                     baseArrears += (weeklyPayment - amountPaid);
                     registeredMissedCount++;
@@ -104,9 +105,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             }
         }
 
-        // DETERMINACIÓN DE PENALIZACIÓN
-        // Si es Cartera Vencida (isOverduePortfolio === false), SIEMPRE es obligatoria.
-        // Si es Pagos Pendientes (isOverduePortfolio === true), depende de si hay 2+ fallos.
+        // REGLA DE PENALIZACIÓN UNIFICADA
+        // Si es Cartera Vencida (isOverduePortfolio === false), la penalización es obligatoria (SIEMPRE).
+        // Si es Pagos Pendientes (isOverduePortfolio === true), se activa con 2 o más fallos.
         const hasPenalty = !isOverduePortfolio ? true : (registeredMissedCount >= 2);
 
         let penaltyArrear = 0;
@@ -116,7 +117,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
         }
 
+        const totalDue = baseArrears + penaltyArrear;
         const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
+        
         const timeDiff = today.getTime() - loanStartDate.getTime();
         const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
         const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
@@ -129,7 +132,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             hasPenalty,
             baseArrears,
             penaltyArrear,
-            totalDue: baseArrears + penaltyArrear,
+            totalDue,
             missedCount: registeredMissedCount
         };
     }, [loan, loanPlan, isOverduePortfolio]);
@@ -275,7 +278,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 {metrics.hasPenalty && (
                                     <div className="flex justify-between gap-3 text-[7px] font-black text-orange-600 uppercase border-b border-zinc-200 pb-0.5">
                                         <span>Semana Extra</span>
-                                        <span>+{formatCurrency(metrics.weeklyPayment)}</span>
+                                        <span>+{formatCurrency(metrics.penaltyArrear)}</span>
                                     </div>
                                 )}
                                 <div className="flex flex-col items-end pt-1">
@@ -365,7 +368,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             {metrics.hasPenalty && (
                                                 <div className="flex justify-between items-center text-xs border-b border-dashed pb-2">
                                                     <span className="font-bold text-orange-600 uppercase text-[9px]">Semana de Penalización</span>
-                                                    <span className="font-black text-orange-600">+{formatCurrency(metrics.weeklyPayment)}</span>
+                                                    <span className="font-black text-orange-600">+{formatCurrency(metrics.penaltyArrear)}</span>
                                                 </div>
                                             )}
                                             <div className="flex justify-between items-center pt-2">
