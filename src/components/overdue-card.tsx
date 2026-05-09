@@ -402,9 +402,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     <p className="font-black text-sm text-red-700">{metrics.missedCount}</p>
                                 </div>
                                 {metrics.hasPenalty && (
-                                    <div className="p-2.5 rounded-md bg-orange-500 border-orange-600 text-center flex flex-col justify-center shadow-md">
-                                        <p className="text-[7px] uppercase font-black text-white tracking-widest">S. Extra</p>
-                                        <p className="font-black text-[10px] text-white leading-none">ACTIVA</p>
+                                    <div className="p-2.5 rounded-md bg-orange-50 border-orange-200 text-center flex flex-col justify-center shadow-sm">
+                                        <p className="text-[7px] uppercase font-black text-orange-600 tracking-widest">S. Extra</p>
+                                        <p className="font-black text-[10px] text-orange-700 leading-none">ACTIVA</p>
                                     </div>
                                 )}
                             </div>
