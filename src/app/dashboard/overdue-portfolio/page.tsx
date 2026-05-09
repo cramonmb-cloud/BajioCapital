@@ -95,9 +95,6 @@ export default async function OverduePortfolioPage() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight uppercase">Pagos Pendientes</h1>
-                <p className="text-muted-foreground font-bold">
-                    Préstamos vigentes con 2 o más fallos. Incluye cobro de semana extra.
-                </p>
             </div>
             <OverduePortfolioClientPage 
                 initialOverdueLoans={overdueLoansDetails}

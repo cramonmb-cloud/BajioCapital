@@ -99,9 +99,6 @@ export default async function CarteraVencidaPage() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight text-red-700 uppercase">Cartera Vencida</h1>
-                <p className="text-muted-foreground font-bold">
-                    Préstamos expirados. Cobro OBLIGATORIO de semana extra por vencimiento.
-                </p>
             </div>
             <OverduePortfolioClientPage 
                 initialOverdueLoans={overdueLoansDetails}
