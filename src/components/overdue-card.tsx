@@ -232,17 +232,17 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
     return (
         <>
-            <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-4" style={{ borderLeftColor: plazaColor }}>
+            <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-4 rounded-md" style={{ borderLeftColor: plazaColor }}>
                 <CardContent className="p-3.5 space-y-3.5">
                     {/* HIERARCHY */}
                     <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 pb-2">
-                        <Badge className="text-[8px] font-black uppercase px-2 h-4 shrink-0 shadow-sm" style={{ backgroundColor: plazaColor }}>
+                        <Badge className="text-[8px] font-black uppercase px-2 h-4 shrink-0 shadow-sm rounded-sm" style={{ backgroundColor: plazaColor }}>
                             PLAZA: {hierarchy.plazaName}
                         </Badge>
-                        <Badge variant="outline" className="text-[8px] font-black text-zinc-600 uppercase border-zinc-300 h-4 px-2">
+                        <Badge variant="outline" className="text-[8px] font-black text-zinc-600 uppercase border-zinc-300 h-4 px-2 rounded-sm">
                             LOCALIDAD: {hierarchy.localidadName}
                         </Badge>
-                        <Badge variant="outline" className="text-[8px] font-black text-blue-600 uppercase border-blue-200 h-4 px-2 bg-blue-50/50">
+                        <Badge variant="outline" className="text-[8px] font-black text-blue-600 uppercase border-blue-200 h-4 px-2 bg-blue-50/50 rounded-sm">
                             PROMOTORA: {hierarchy.promotoraName}
                         </Badge>
                     </div>
@@ -250,7 +250,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     {/* CLIENT INFO */}
                     <div className="space-y-2">
                         <div className="flex justify-between items-start gap-2">
-                            <div className="flex-1" onClick={() => setDetailModalOpen(true)}>
+                            <div className="flex-1 cursor-pointer" onClick={() => setDetailModalOpen(true)}>
                                 <h3 className="font-black text-sm uppercase leading-tight text-foreground tracking-tight">{client.name}</h3>
                                 <div className="flex items-center gap-1.5 text-zinc-500 mt-1">
                                     <Home className="h-3 w-3 shrink-0 text-blue-500" />
@@ -260,13 +260,13 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                <Button asChild variant="outline" className="h-10 px-4 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 shadow-md font-black text-xs" size="sm">
+                                <Button asChild variant="outline" className="h-10 px-4 rounded-md border-blue-200 text-blue-700 hover:bg-blue-50 shadow-md font-black text-xs" size="sm">
                                     <a href={`tel:${cleanPhone(client.phone)}`} title="Llamar Cliente">
                                         <Phone className="h-4 w-4 mr-2" />
                                         {client.phone}
                                     </a>
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-9 w-full border-green-200 text-green-700 hover:bg-green-50 shadow-sm rounded-full font-black text-[10px]">
+                                <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-9 w-full border-green-200 text-green-700 hover:bg-green-50 shadow-sm rounded-md font-black text-[10px]">
                                     <MessageSquare className="h-4 w-4 mr-2" />
                                     WHATSAPP
                                 </Button>
@@ -275,7 +275,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     </div>
 
                     {/* AVAL INFO */}
-                    <div className="p-3 rounded-xl bg-zinc-50 border border-zinc-200 space-y-2 relative overflow-hidden">
+                    <div className="p-3 rounded-md bg-zinc-50 border border-zinc-200 space-y-2 relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-1 h-full bg-zinc-300" />
                         <div className="flex justify-between items-start gap-2 pl-1">
                             <div className="flex-1">
@@ -287,7 +287,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                             </div>
                             {avalPhone && (
-                                <Button asChild variant="outline" className="h-10 px-4 rounded-full border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md shrink-0 font-black text-[10px]" size="sm">
+                                <Button asChild variant="outline" className="h-10 px-4 rounded-md border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md shrink-0 font-black text-[10px]" size="sm">
                                     <a href={`tel:${cleanPhone(avalPhone)}`} title="Llamar Aval">
                                         <Phone className="h-4 w-4 mr-2" />
                                         {avalPhone}
@@ -300,17 +300,17 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     {/* FINANCIAL SUMMARY */}
                     <div className="flex items-end justify-between gap-4 pt-1">
                         <div className="flex flex-wrap gap-1.5">
-                            <Badge variant="destructive" className="h-5 px-2 text-[9px] font-black uppercase shadow-sm">
+                            <Badge variant="destructive" className="h-5 px-2 text-[9px] font-black uppercase shadow-sm rounded-sm">
                                 {metrics.missedCount} FALLOS
                             </Badge>
                             {metrics.hasPenalty && (
-                                <Badge className="h-5 px-2 text-[9px] font-black bg-orange-500 text-white uppercase shadow-sm">
+                                <Badge className="h-5 px-2 text-[9px] font-black bg-orange-500 text-white uppercase shadow-sm rounded-sm">
                                     S. EXTRA
                                 </Badge>
                             )}
                         </div>
 
-                        <div className="text-right bg-red-50 px-3 py-2 rounded-lg border border-red-100 min-w-[140px] shadow-inner">
+                        <div className="text-right bg-red-50 px-3 py-2 rounded-md border border-red-100 min-w-[140px] shadow-inner">
                             <div className="flex flex-col">
                                 <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-zinc-500 uppercase">
                                     <span>Saldo Fallos:</span>
@@ -335,7 +335,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1.5">
                             <HistoryIcon className="h-3.5 w-3.5" /> INICIÓ: {formatDate(metrics.loanWeekDate.toISOString())}
                         </div>
-                        <Button size="sm" onClick={() => setDetailModalOpen(true)} className="h-8 bg-zinc-900 text-white font-black text-[10px] uppercase px-6 rounded-lg shadow-lg hover:bg-zinc-800 active:scale-95 transition-all">
+                        <Button size="sm" onClick={() => setDetailModalOpen(true)} className="h-8 bg-zinc-900 text-white font-black text-[10px] uppercase px-6 rounded-md shadow-lg hover:bg-zinc-800 active:scale-95 transition-all">
                             <Wallet className="mr-1.5 h-3.5 w-3.5" /> Detalle
                         </Button>
                     </div>
@@ -343,18 +343,18 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             </Card>
 
             <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-                <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
+                <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col p-0 overflow-hidden sm:rounded-md">
                     <DialogHeader className="px-5 py-3 border-b shrink-0 flex flex-row items-center bg-muted/10">
                         <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border-2 border-white shadow-lg">
+                            <Avatar className="h-10 w-10 border-2 border-white shadow-lg rounded-md">
                                 <AvatarImage src={client.avatarUrl} alt={client.name} />
-                                <AvatarFallback className="font-black text-xs bg-blue-100 text-blue-700">{client.name.charAt(0)}</AvatarFallback>
+                                <AvatarFallback className="font-black text-xs bg-blue-100 text-blue-700 rounded-md">{client.name.charAt(0)}</AvatarFallback>
                             </Avatar>
                             <div>
                                 <DialogTitle className="text-base font-black uppercase leading-none tracking-tight">{client.name}</DialogTitle>
                                 <div className="flex items-center gap-1.5 mt-1">
-                                     <Badge variant="outline" className="text-[8px] font-black border-blue-200 bg-blue-50 text-blue-700 uppercase h-4 px-1.5">ID: {client.id}</Badge>
-                                     <Badge variant="outline" className="text-[8px] font-black border-zinc-200 bg-white text-zinc-600 uppercase h-4 px-1.5">{loanPlan.name}</Badge>
+                                     <Badge variant="outline" className="text-[8px] font-black border-blue-200 bg-blue-50 text-blue-700 uppercase h-4 px-1.5 rounded-sm">ID: {client.id}</Badge>
+                                     <Badge variant="outline" className="text-[8px] font-black border-zinc-200 bg-white text-zinc-600 uppercase h-4 px-1.5 rounded-sm">{loanPlan.name}</Badge>
                                 </div>
                             </div>
                         </div>
@@ -364,20 +364,20 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         <div className="p-4 space-y-4">
                             {/* METRICS ROW COMPACT */}
                             <div className={cn("grid gap-2", metrics.hasPenalty ? "grid-cols-4" : "grid-cols-3")}>
-                                <div className="p-2.5 rounded-xl bg-zinc-50 border border-zinc-200 text-center shadow-sm">
+                                <div className="p-2.5 rounded-md bg-zinc-50 border border-zinc-200 text-center shadow-sm">
                                     <p className="text-[7px] uppercase font-black text-muted-foreground tracking-widest mb-0.5">Semana</p>
                                     <p className="font-black text-sm">{metrics.currentProgressWeek} / {metrics.termInWeeks}</p>
                                 </div>
-                                <div className="p-2.5 rounded-xl bg-blue-50 border-blue-100 text-center shadow-sm">
+                                <div className="p-2.5 rounded-md bg-blue-50 border-blue-100 text-center shadow-sm">
                                     <p className="text-[7px] uppercase font-black text-blue-600 tracking-widest mb-0.5">Abono</p>
                                     <p className="font-black text-sm text-blue-700">{formatCurrency(metrics.weeklyPayment)}</p>
                                 </div>
-                                <div className="p-2.5 rounded-xl bg-red-50 border-red-100 text-center shadow-sm">
+                                <div className="p-2.5 rounded-md bg-red-50 border-red-100 text-center shadow-sm">
                                     <p className="text-[7px] uppercase font-black text-red-600 tracking-widest mb-0.5">Fallos</p>
                                     <p className="font-black text-sm text-red-700">{metrics.missedCount}</p>
                                 </div>
                                 {metrics.hasPenalty && (
-                                    <div className="p-2.5 rounded-xl bg-orange-500 border-orange-600 text-center flex flex-col justify-center shadow-md">
+                                    <div className="p-2.5 rounded-md bg-orange-500 border-orange-600 text-center flex flex-col justify-center shadow-md">
                                         <p className="text-[7px] uppercase font-black text-white tracking-widest">S. Extra</p>
                                         <p className="font-black text-[10px] text-white leading-none">ACTIVA</p>
                                     </div>
@@ -387,7 +387,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                             <div className="grid md:grid-cols-2 gap-4">
                                 <div className="space-y-4">
                                     {/* FINANCIAL SUMMARY COMPACT */}
-                                    <div className="p-4 rounded-2xl border-2 bg-white space-y-2 shadow-inner">
+                                    <div className="p-4 rounded-md border bg-white space-y-2 shadow-inner">
                                         <div className="flex justify-between items-center text-xs">
                                             <span className="font-bold text-muted-foreground uppercase text-[8px]">Suma de Fallos</span>
                                             <span className="font-black text-zinc-800">{formatCurrency(metrics.baseArrears)}</span>
@@ -407,7 +407,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     </div>
 
                                     {/* CLIENT PERSONAL DATA COMPACT */}
-                                    <div className="p-4 rounded-2xl border bg-white space-y-3 shadow-sm">
+                                    <div className="p-4 rounded-md border bg-white space-y-3 shadow-sm">
                                         <div className="flex items-start gap-2">
                                             <Home className="h-3.5 w-3.5 text-zinc-400 mt-0.5" />
                                             <div>
@@ -417,13 +417,13 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                                 </p>
                                             </div>
                                         </div>
-                                        <Button asChild variant="outline" className="h-9 w-full rounded-xl border-blue-200 text-blue-700 hover:bg-blue-50 font-black text-xs shadow-sm" size="sm">
+                                        <Button asChild variant="outline" className="h-9 w-full rounded-md border-blue-200 text-blue-700 hover:bg-blue-50 font-black text-xs shadow-sm" size="sm">
                                             <a href={`tel:${cleanPhone(client.phone)}`}>
                                                 <Phone className="h-3.5 w-3.5 mr-2" />
                                                 {client.phone}
                                             </a>
                                         </Button>
-                                        <div className="p-2 rounded-lg bg-zinc-50 border border-zinc-100 flex items-start gap-2">
+                                        <div className="p-2 rounded-md bg-zinc-50 border border-zinc-100 flex items-start gap-2">
                                             <Shield className="h-3 w-3 text-zinc-400 mt-0.5" />
                                             <p className="text-[9px] font-bold uppercase text-zinc-600 leading-tight">
                                                 {client.guarantee || 'SIN GARANTÍA REGISTRADA'}
@@ -434,7 +434,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                                 <div className="space-y-4">
                                     {/* HIERARCHY / LOCATION DATA COMPACT */}
-                                    <div className="p-3.5 rounded-2xl border-2 border-blue-50 bg-blue-50/20 space-y-2.5 shadow-sm">
+                                    <div className="p-3.5 rounded-md border bg-blue-50/20 space-y-2.5 shadow-sm">
                                         <div className="flex justify-between items-center text-[10px] border-b border-blue-100 pb-1.5">
                                             <div className="flex items-center gap-1.5">
                                                 <Building className="h-3 w-3 text-blue-400" />
@@ -459,7 +459,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     </div>
 
                                     {/* AVAL DATA COMPACT */}
-                                    <div className="p-4 rounded-2xl bg-zinc-900 text-white space-y-3 shadow-xl relative overflow-hidden">
+                                    <div className="p-4 rounded-md bg-zinc-900 text-white space-y-3 shadow-xl relative overflow-hidden">
                                         <div className="absolute top-0 right-0 p-2 opacity-5">
                                             <Shield className="h-10 w-10" />
                                         </div>
@@ -468,13 +468,13 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             <p className="font-black text-sm uppercase leading-none text-white">{avalName}</p>
                                         </div>
                                         {avalPhone ? (
-                                            <Button asChild className="bg-white text-zinc-900 hover:bg-zinc-100 font-black h-9 w-full text-xs rounded-xl shadow-md" size="sm">
+                                            <Button asChild className="bg-white text-zinc-900 hover:bg-zinc-100 font-black h-9 w-full text-xs rounded-md shadow-md" size="sm">
                                                 <a href={`tel:${cleanPhone(avalPhone)}`}>
                                                     <Phone className="mr-2 h-4 w-4 text-blue-600" /> {avalPhone}
                                                 </a>
                                             </Button>
                                         ) : (
-                                            <div className="h-8 w-full rounded-xl bg-zinc-800 flex items-center justify-center text-[8px] font-black text-zinc-500 uppercase border border-zinc-700">SIN TELÉFONO</div>
+                                            <div className="h-8 w-full rounded-md bg-zinc-800 flex items-center justify-center text-[8px] font-black text-zinc-500 uppercase border border-zinc-700">SIN TELÉFONO</div>
                                         )}
                                         <div className="flex items-start gap-1.5 pt-1 border-t border-zinc-700">
                                             <MapPin className="h-3 w-3 text-zinc-500 mt-0.5" />
@@ -487,10 +487,10 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     </ScrollArea>
                     
                     <div className="p-3 bg-muted/20 border-t flex gap-2 shrink-0">
-                        <Button variant="outline" size="sm" onClick={() => setHistoryDialogOpen(true)} className="font-black uppercase text-[9px] h-10 flex-1 rounded-xl border-zinc-300 bg-white hover:bg-zinc-50 shadow-sm">
+                        <Button variant="outline" size="sm" onClick={() => setHistoryDialogOpen(true)} className="font-black uppercase text-[9px] h-10 flex-1 rounded-md border-zinc-300 bg-white hover:bg-zinc-50 shadow-sm">
                             <ListTodo className="mr-1.5 h-4 w-4 text-blue-600" /> Estado Cuenta
                         </Button>
-                        <Button size="sm" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase text-[9px] h-10 flex-1 rounded-xl bg-blue-600 text-white shadow-md hover:bg-blue-700">
+                        <Button size="sm" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase text-[9px] h-10 flex-1 rounded-md bg-blue-600 text-white shadow-md hover:bg-blue-700">
                             <Wallet className="mr-1.5 h-4 w-4" /> Registrar Abono
                         </Button>
                     </div>
@@ -498,7 +498,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             </Dialog>
 
             <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-                <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
+                <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-md">
                     <DialogHeader className="p-6 pb-4 border-b shrink-0 flex flex-row items-center bg-muted/5">
                         <DialogTitle className="text-sm font-black uppercase text-center w-full tracking-wider flex items-center justify-center gap-2">
                              <HistoryIcon className="h-4 w-4 text-primary" /> Reporte Detallado de Abonos
@@ -506,7 +506,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     </DialogHeader>
                     <div className="flex-1 min-h-0">
                         <ScrollArea className="h-full p-6">
-                            <div className="mb-6 flex flex-col md:flex-row justify-between items-center gap-4 bg-zinc-50 p-4 rounded-2xl border">
+                            <div className="mb-6 flex flex-col md:flex-row justify-between items-center gap-4 bg-zinc-50 p-4 rounded-md border">
                                 <div className="text-center md:text-left">
                                     <p className="text-[10px] font-black text-muted-foreground uppercase">Cliente</p>
                                     <p className="font-black text-sm uppercase">{client.name}</p>
@@ -579,7 +579,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </ScrollArea>
                     </div>
                     <div className="p-6 border-t flex justify-end bg-muted/10 shrink-0">
-                        <Button variant="secondary" className="font-black uppercase text-[10px] rounded-xl h-11 px-8" onClick={() => setHistoryDialogOpen(false)}>Cerrar Reporte</Button>
+                        <Button variant="secondary" className="font-black uppercase text-[10px] rounded-md h-11 px-8" onClick={() => setHistoryDialogOpen(false)}>Cerrar Reporte</Button>
                     </div>
                 </DialogContent>
             </Dialog>
