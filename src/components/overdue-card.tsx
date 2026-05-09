@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -484,33 +483,33 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         </div>
                                     </div>
 
-                                    <div className="p-4 rounded-md bg-zinc-900 text-white space-y-3 shadow-xl relative overflow-hidden">
-                                        <div className="absolute top-0 right-0 p-2 opacity-5">
-                                            <Shield className="h-10 w-10" />
+                                    <div className="p-4 rounded-md bg-blue-50/40 border border-blue-100 text-zinc-900 space-y-3 shadow-sm relative overflow-hidden">
+                                        <div className="absolute top-0 right-0 p-2 opacity-10">
+                                            <Shield className="h-10 w-10 text-blue-600" />
                                         </div>
                                         <div>
-                                            <p className="text-[7px] uppercase font-black text-zinc-400 tracking-widest">Responsable (Aval)</p>
-                                            <p className="font-black text-sm uppercase leading-none text-white">{avalName}</p>
+                                            <p className="text-[7px] uppercase font-black text-blue-600/70 tracking-widest">Responsable (Aval)</p>
+                                            <p className="font-black text-sm uppercase leading-none text-blue-900">{avalName}</p>
                                         </div>
                                         <div className="flex gap-2">
                                             {avalPhone ? (
-                                                <Button asChild className="bg-white text-zinc-900 hover:bg-zinc-100 font-black h-9 flex-1 text-[10px] rounded-md shadow-md" size="sm">
+                                                <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 font-black h-9 flex-1 text-[10px] rounded-md shadow-md border-none" size="sm">
                                                     <a href={`tel:${cleanPhone(avalPhone)}`}>
-                                                        <Phone className="mr-1.5 h-3.5 w-3.5 text-blue-600" /> LLAMAR
+                                                        <Phone className="mr-1.5 h-3.5 w-3.5" /> LLAMAR
                                                     </a>
                                                 </Button>
                                             ) : (
-                                                <div className="h-8 flex-1 rounded-md bg-zinc-800 flex items-center justify-center text-[8px] font-black text-zinc-500 uppercase border border-zinc-700">SIN TELÉFONO</div>
+                                                <div className="h-8 flex-1 rounded-md bg-zinc-100 flex items-center justify-center text-[8px] font-black text-zinc-400 uppercase border border-zinc-200">SIN TELÉFONO</div>
                                             )}
                                             {avalPhone && (
-                                                <Button onClick={() => handleWhatsApp('aval')} className="bg-green-600 hover:bg-green-700 text-white font-black h-9 flex-1 text-[10px] rounded-md shadow-md" size="sm">
+                                                <Button onClick={() => handleWhatsApp('aval')} className="bg-green-600 hover:bg-green-700 text-white font-black h-9 flex-1 text-[10px] rounded-md shadow-md border-none" size="sm">
                                                     <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> WA AVAL
                                                 </Button>
                                             )}
                                         </div>
-                                        <div className="flex items-start gap-1.5 pt-1 border-t border-zinc-700">
-                                            <MapPin className="h-3 w-3 text-zinc-500 mt-0.5" />
-                                            <p className="text-[9px] font-bold uppercase leading-tight text-zinc-300 opacity-90">{avalAddress}</p>
+                                        <div className="flex items-start gap-1.5 pt-1 border-t border-blue-100">
+                                            <MapPin className="h-3 w-3 text-blue-400 mt-0.5" />
+                                            <p className="text-[9px] font-bold uppercase leading-tight text-blue-800 opacity-90">{avalAddress}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -525,93 +524,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         <Button size="sm" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase text-[9px] h-10 flex-1 rounded-md bg-blue-600 text-white shadow-md hover:bg-blue-700">
                             <Wallet className="mr-1.5 h-4 w-4" /> Registrar Abono
                         </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
-
-            <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-                <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-md">
-                    <DialogHeader className="p-6 pb-4 border-b shrink-0 flex flex-row items-center bg-muted/5">
-                        <DialogTitle className="text-sm font-black uppercase text-center w-full tracking-wider flex items-center justify-center gap-2">
-                             <HistoryIcon className="h-4 w-4 text-primary" /> Reporte Detallado de Abonos
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="flex-1 min-h-0">
-                        <ScrollArea className="h-full p-6">
-                            <div className="mb-6 flex flex-col md:flex-row justify-between items-center gap-4 bg-zinc-50 p-4 rounded-md border">
-                                <div className="text-center md:text-left">
-                                    <p className="text-[10px] font-black text-muted-foreground uppercase">Cliente</p>
-                                    <p className="font-black text-sm uppercase">{client.name}</p>
-                                </div>
-                                <div className="text-center md:text-right">
-                                    <p className="text-[10px] font-black text-muted-foreground uppercase">Préstamo Iniciado</p>
-                                    <p className="font-black text-sm uppercase">{formatDate(loan.startDate)}</p>
-                                </div>
-                            </div>
-
-                            <Table className="border border-zinc-200">
-                                <TableHeader className="bg-zinc-100 sticky top-0 z-10">
-                                    <TableRow className="hover:bg-zinc-100 border-zinc-200">
-                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 text-center uppercase text-[9px]">Semana</TableHead>
-                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 uppercase text-[9px]">Fecha Vencimiento</TableHead>
-                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 text-right uppercase text-[9px]">Cuota Fija</TableHead>
-                                        <TableHead className="text-zinc-900 font-black border-r border-zinc-200 text-right uppercase text-[9px]">Importe Pagado</TableHead>
-                                        <TableHead className="text-zinc-900 font-black text-center uppercase text-[9px]">Estado de Abono</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {loanHistoryData.map((row) => (
-                                        <TableRow key={row.num} className={cn("border-zinc-100 hover:bg-zinc-50/50", row.isPenalty && "bg-orange-50/40")}>
-                                            <TableCell className="border-r border-zinc-100 text-center py-2.5 font-black text-xs">
-                                                {row.num}
-                                                {row.isPenalty && <span className="ml-1 text-[7px] text-orange-600 block leading-none font-black tracking-tighter">EXTRA</span>}
-                                            </TableCell>
-                                            <TableCell className="border-r border-zinc-100 py-2.5 text-[10px] font-bold text-zinc-600">{row.vencimiento}</TableCell>
-                                            <TableCell className="border-r border-zinc-100 text-right py-2.5 font-bold text-zinc-800">{formatCurrency(row.importeAbono)}</TableCell>
-                                            <TableCell 
-                                                className={cn(
-                                                    "border-r border-zinc-100 text-right py-2.5 font-black relative group", 
-                                                    row.status === 'PAID' ? "bg-green-50 text-green-700" : 
-                                                    row.status === 'MISSED' ? "bg-red-50 text-red-700" : 
-                                                    "bg-blue-50/20 text-blue-600",
-                                                    isCristobal && "cursor-pointer hover:bg-zinc-200 transition-colors"
-                                                )}
-                                                onClick={() => isCristobal && handleAdjustClick(row.num, row.importeRecibido)}
-                                            >
-                                                <div className="flex items-center justify-end gap-2">
-                                                    {formatCurrency(row.importeRecibido)}
-                                                    {isCristobal && (
-                                                        <PencilLine className="h-3 w-3 opacity-0 group-hover:opacity-100 text-blue-600 shrink-0" />
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className={cn(
-                                                "text-center py-2.5 text-[10px] font-black uppercase tracking-tight", 
-                                                row.status === 'PAID' ? "text-green-600/70" : 
-                                                row.status === 'MISSED' ? "text-red-600 font-black" : 
-                                                "text-blue-600 animate-pulse"
-                                            )}>
-                                                {row.status === 'PENDING' ? (
-                                                    <span className="text-blue-600 font-black">PENDIENTE</span>
-                                                ) : row.statusText}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                                <TableFooter className="bg-zinc-100 border-t-2 border-zinc-300">
-                                    <TableRow>
-                                        <TableCell colSpan={2} className="text-right font-black text-zinc-900 uppercase text-[10px] py-4">Saldo Actual Pendiente</TableCell>
-                                        <TableCell className="text-right font-black text-red-700 text-xl py-4" colSpan={2}>
-                                            {formatCurrency(metrics.totalDue)}
-                                        </TableCell>
-                                        <TableCell></TableCell>
-                                    </TableRow>
-                                </TableFooter>
-                            </Table>
-                        </ScrollArea>
-                    </div>
-                    <div className="p-6 border-t flex justify-end bg-muted/10 shrink-0">
-                        <Button variant="secondary" className="font-black uppercase text-[10px] rounded-md h-11 px-8" onClick={() => setHistoryDialogOpen(false)}>Cerrar Reporte</Button>
                     </div>
                 </DialogContent>
             </Dialog>
