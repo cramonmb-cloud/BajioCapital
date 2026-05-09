@@ -107,10 +107,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             }
         }
 
-        // REGLA DE PENALIZACIÓN UNIFICADA Y OBLIGATORIA
-        // Cartera Vencida (!isOverduePortfolio) -> PENALIZACIÓN SIEMPRE OBLIGATORIA.
-        // Pagos Pendientes (isOverduePortfolio) -> Requiere 2+ fallos.
-        const hasPenalty = !isOverduePortfolio || (registeredMissedCount >= 2);
+        // REGLA: Semana Extra SOLO para Pagos Pendientes con 2+ fallos.
+        // En Cartera Vencida (isExpired) se elimina por petición del usuario.
+        const hasPenalty = isOverduePortfolio && (registeredMissedCount >= 2);
 
         let penaltyArrear = 0;
         if (hasPenalty) {
@@ -457,7 +456,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                                 row.status === 'MISSED' ? "text-red-600 animate-pulse font-black" : 
                                                 "text-blue-600 font-bold"
                                             )}>
-                                                {row.fechaAbono}
+                                                {row.status === 'PENDING' ? (
+                                                    <span className="text-blue-600">{formatCurrency(row.importeAbono)}</span>
+                                                ) : row.fechaAbono}
                                             </TableCell>
                                         </TableRow>
                                     ))}

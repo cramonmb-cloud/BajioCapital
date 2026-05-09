@@ -188,7 +188,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 transaction.update(walletRef, { balance: increment(walletAdjustment) });
             }
 
-            // Lógica de Penalización REFORZADA
+            // Lógica de Penalización REVISADA
             const baseTerm = loanPlan.termInWeeks;
             const isExpired = rawCurrentLoanWeek > baseTerm;
             
@@ -202,13 +202,13 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
             }
 
-            // REGLA ABSOLUTA: Si el plazo base expiró, la penalización es OBLIGATORIA (hasPenalty = true)
-            // Si está vigente, requiere 2 fallos.
-            const hasPenalty = isExpired ? true : (missedCount >= 2);
+            // REGLA: La penalización solo existe para préstamos vigentes con 2+ fallos.
+            // Para Cartera Vencida (isExpired), se elimina el requerimiento de semana extra.
+            const hasPenalty = !isExpired && (missedCount >= 2);
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             const totalExpected = totalTerm * weeklyPayment;
             
-            // Saldo absoluto incluyendo la penalización
+            // Saldo absoluto
             const balance = Math.max(0, totalExpected - newTotalPaid);
 
             let newStatus: Loan['status'] = loan.status;
@@ -275,8 +275,8 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             }
 
             const isExpired = rawCurrentLoanWeek > baseTerm;
-            // REGLA ABSOLUTA: Si expiró, penalización fija.
-            const hasPenalty = isExpired ? true : (missedCount >= 2);
+            // REGLA: Sin penalización en Cartera Vencida (isExpired).
+            const hasPenalty = !isExpired && (missedCount >= 2);
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             
             const totalExpected = totalTerm * weeklyPayment;

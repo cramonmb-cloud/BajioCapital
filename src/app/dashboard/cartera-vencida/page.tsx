@@ -54,20 +54,13 @@ export default async function CarteraVencidaPage() {
                 const amountPaid = p ? p.amount : 0;
                 
                 if (amountPaid < weeklyPayment) {
-                    // En Cartera Vencida, todas las semanas base están vencidas
                     missedCount++;
                     totalArrears += (weeklyPayment - amountPaid);
                 }
             }
 
-            // 2. REGLA ABSOLUTA: En Cartera Vencida la penalización es SIEMPRE OBLIGATORIA
-            const penaltyWeekNum = baseTerm + 1;
-            const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
-            const amountPaidExtra = pExtra ? pExtra.amount : 0;
-            const penaltyArrear = weeklyPayment - amountPaidExtra;
-
-            // Saldo Final = Deuda Base + Deuda Semana Extra
-            const calculatedAmountDue = totalArrears + penaltyArrear;
+            // En Cartera Vencida ya NO cobramos semana extra por regla de negocio
+            const calculatedAmountDue = totalArrears;
 
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
@@ -101,7 +94,7 @@ export default async function CarteraVencidaPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight text-red-700 uppercase">Cartera Vencida</h1>
                 <p className="text-muted-foreground font-bold">
-                    Préstamos con plazo base expirado. Se aplica 1 semana extra de penalización OBLIGATORIA.
+                    Préstamos con plazo base expirado. Solo se cobra el saldo de los abonos fallidos.
                 </p>
             </div>
             <OverduePortfolioClientPage 

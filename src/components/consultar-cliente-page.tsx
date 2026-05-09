@@ -87,10 +87,9 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         }
     }
     
-    // REGLA DE NEGOCIO UNIFICADA: 
-    // Cartera Vencida (isExpired) -> PENALIZACIÓN SIEMPRE OBLIGATORIA.
-    // Pagos Pendientes -> Requiere 2+ fallos.
-    const hasPenalty = isExpired || (registeredMissedCount >= 2);
+    // REGLA: Semana Extra SOLO para préstamos vigentes con 2+ fallos.
+    // Cartera Vencida (isExpired) -> YA NO TIENE PENALIZACIÓN.
+    const hasPenalty = !isExpired && (registeredMissedCount >= 2);
 
     let penaltyArrear = 0;
     if (hasPenalty) {
