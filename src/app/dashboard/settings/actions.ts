@@ -4,7 +4,7 @@
 import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc, increment, Timestamp, updateDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
-import type { Plaza, Localidad, Promotora, AppUser, AppConfig, Loan, LoanPlan, Client, WalletTransaction } from '@/lib/types';
+import type { Plaza, Localidad, Promotora, AppUser, AppConfig, Loan, LoanPlan, Client, WalletTransaction, WhatsAppTemplates } from '@/lib/types';
 
 // Helper to handle Firestore dates consistently in server actions
 const parseFirestoreDate = (date: any): Date => {
@@ -303,6 +303,22 @@ export async function saveWhatsAppTemplateAction(template: string) {
         return { success: true, message: 'Plantilla de WhatsApp guardada con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar la plantilla: ${error.message}` };
+    }
+}
+
+export async function savePlazaWhatsAppTemplatesAction(plazaId: string, templates: WhatsAppTemplates) {
+    try {
+        const configRef = doc(db, 'config', 'main');
+        const updateKey = `whatsappTemplates.${plazaId}`;
+        await setDoc(configRef, { 
+            whatsappTemplates: { 
+                [plazaId]: templates 
+            } 
+        }, { merge: true });
+        revalidatePath('/dashboard', 'layout');
+        return { success: true, message: 'Plantillas de la plaza actualizadas correctamente.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar plantillas por plaza: ${error.message}` };
     }
 }
 

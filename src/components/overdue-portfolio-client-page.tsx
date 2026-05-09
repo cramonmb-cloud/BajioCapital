@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -201,8 +202,7 @@ export function OverduePortfolioClientPage({
                                 allLoanPlans={loanPlans}
                                 plazaColor={plazaColors[details.hierarchy.plazaId] || '#666'}
                                 isOverduePortfolio={isOverduePortfolio}
-                                whatsappTemplate={appConfig?.whatsappTemplate}
-                                appName={appConfig?.appName}
+                                appConfig={appConfig}
                            />
                         ))
                     ) : (

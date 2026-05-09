@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -7,11 +8,11 @@ import { Button } from '@/components/ui/button';
 import { 
     Phone, MessageSquare, MapPin, 
     Wallet, FileText, Shield, History as HistoryIcon, 
-    X, Home, ListTodo, PencilLine, User, Building, Route, Info
+    X, Home, ListTodo, PencilLine, User, Building, Route, Info, UserCheck
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/cartera-vencida/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
-import type { Client, LoanPlan } from '@/lib/types';
+import type { Client, LoanPlan, AppConfig } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
 import {
     Dialog,
@@ -40,8 +41,7 @@ interface OverdueCardProps {
     allLoanPlans: LoanPlan[];
     plazaColor: string;
     isOverduePortfolio?: boolean; 
-    whatsappTemplate?: string;
-    appName?: string;
+    appConfig?: AppConfig | null;
 }
 
 const getSaturdayOfWeek = (d: Date) => {
@@ -55,7 +55,7 @@ const getSaturdayOfWeek = (d: Date) => {
 
 const cleanPhone = (phone: string) => phone.replace(/\D/g, '');
 
-export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isOverduePortfolio, whatsappTemplate, appName }: OverdueCardProps) {
+export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isOverduePortfolio, appConfig }: OverdueCardProps) {
     const { client, loan, loanPlan, hierarchy } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -199,11 +199,25 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         return rows;
     }, [loan, loanPlan, metrics]);
 
-    const handleWhatsApp = (e?: React.MouseEvent) => {
+    const handleWhatsApp = (target: 'client' | 'aval', e?: React.MouseEvent) => {
         e?.stopPropagation();
-        if (client.phone) {
-            const defaultTemplate = `Hola {{nombre_cliente}}, te contactamos de {{nombre_negocio}} para recordarte sobre tu préstamo pendiente de pago.`;
-            let message = whatsappTemplate || defaultTemplate;
+        
+        const plazaId = hierarchy.plazaId;
+        const plazaTemplates = appConfig?.whatsappTemplates?.[plazaId];
+        const defaultTemplates = appConfig?.whatsappTemplates?.default;
+
+        let message = '';
+        let targetPhone = '';
+        
+        if (target === 'client') {
+            message = plazaTemplates?.client || defaultTemplates?.client || appConfig?.whatsappTemplate || 'Hola {{nombre_cliente}}, te recordamos tu adeudo de {{saldo_pendiente}} en {{nombre_negocio}}.';
+            targetPhone = client.phone;
+        } else {
+            message = plazaTemplates?.aval || defaultTemplates?.aval || 'Hola {{nombre_aval}}, te contactamos de {{nombre_negocio}} por el atraso de {{nombre_cliente}}.';
+            targetPhone = avalPhone;
+        }
+
+        if (targetPhone) {
             const replacements: Record<string, string> = {
                 '{{nombre_cliente}}': client.name.toUpperCase(),
                 '{{domicilio_cliente}}': `${client.street}, ${client.neighborhood}`.toUpperCase(),
@@ -214,13 +228,15 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 '{{monto_prestamo}}': formatCurrency(loan.amount),
                 '{{saldo_pendiente}}': formatCurrency(metrics.totalDue),
                 '{{fallos_registrados}}': metrics.missedCount.toString(),
-                '{{nombre_negocio}}': appName || 'CREDICONTROL',
+                '{{nombre_negocio}}': appConfig?.appName || 'CREDICONTROL',
             };
+            
             Object.keys(replacements).forEach(tag => {
                 const regex = new RegExp(tag, 'g');
                 message = message.replace(regex, replacements[tag]);
             });
-            window.open(`https://wa.me/${client.phone}?text=${encodeURIComponent(message)}`, '_blank');
+            
+            window.open(`https://wa.me/${cleanPhone(targetPhone)}?text=${encodeURIComponent(message)}`, '_blank');
         }
     };
 
@@ -266,7 +282,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         {client.phone}
                                     </a>
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-9 w-full border-green-200 text-green-700 hover:bg-green-50 shadow-sm rounded-md font-black text-[10px]">
+                                <Button variant="outline" size="sm" onClick={() => handleWhatsApp('client')} className="h-9 w-full border-green-200 text-green-700 hover:bg-green-50 shadow-sm rounded-md font-black text-[10px]">
                                     <MessageSquare className="h-4 w-4 mr-2" />
                                     WHATSAPP
                                 </Button>
@@ -286,14 +302,22 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     <span className="text-[9px] font-bold uppercase leading-tight">{avalAddress}</span>
                                 </div>
                             </div>
-                            {avalPhone && (
-                                <Button asChild variant="outline" className="h-10 px-4 rounded-md border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md shrink-0 font-black text-[10px]" size="sm">
-                                    <a href={`tel:${cleanPhone(avalPhone)}`} title="Llamar Aval">
-                                        <Phone className="h-4 w-4 mr-2" />
-                                        {avalPhone}
-                                    </a>
-                                </Button>
-                            )}
+                            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                {avalPhone && (
+                                    <Button asChild variant="outline" className="h-9 px-3 rounded-md border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md font-black text-[10px]" size="sm">
+                                        <a href={`tel:${cleanPhone(avalPhone)}`} title="Llamar Aval">
+                                            <Phone className="h-3.5 w-3.5 mr-1" />
+                                            LLAMAR
+                                        </a>
+                                    </Button>
+                                )}
+                                {avalPhone && (
+                                    <Button variant="outline" size="sm" onClick={() => handleWhatsApp('aval')} className="h-9 px-3 rounded-md border-green-100 text-green-600 hover:bg-green-50 bg-white shadow-sm font-black text-[10px]">
+                                        <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                                        WA AVAL
+                                    </Button>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -362,7 +386,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                     <ScrollArea className="flex-1 overflow-y-auto">
                         <div className="p-4 space-y-4">
-                            {/* METRICS ROW COMPACT */}
                             <div className={cn("grid gap-2", metrics.hasPenalty ? "grid-cols-4" : "grid-cols-3")}>
                                 <div className="p-2.5 rounded-md bg-zinc-50 border border-zinc-200 text-center shadow-sm">
                                     <p className="text-[7px] uppercase font-black text-muted-foreground tracking-widest mb-0.5">Semana</p>
@@ -386,7 +409,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                             <div className="grid md:grid-cols-2 gap-4">
                                 <div className="space-y-4">
-                                    {/* FINANCIAL SUMMARY COMPACT */}
                                     <div className="p-4 rounded-md border bg-white space-y-2 shadow-inner">
                                         <div className="flex justify-between items-center text-xs">
                                             <span className="font-bold text-muted-foreground uppercase text-[8px]">Suma de Fallos</span>
@@ -406,7 +428,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         </div>
                                     </div>
 
-                                    {/* CLIENT PERSONAL DATA COMPACT */}
                                     <div className="p-4 rounded-md border bg-white space-y-3 shadow-sm">
                                         <div className="flex items-start gap-2">
                                             <Home className="h-3.5 w-3.5 text-zinc-400 mt-0.5" />
@@ -417,12 +438,18 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                                 </p>
                                             </div>
                                         </div>
-                                        <Button asChild variant="outline" className="h-9 w-full rounded-md border-blue-200 text-blue-700 hover:bg-blue-50 font-black text-xs shadow-sm" size="sm">
-                                            <a href={`tel:${cleanPhone(client.phone)}`}>
-                                                <Phone className="h-3.5 w-3.5 mr-2" />
-                                                {client.phone}
-                                            </a>
-                                        </Button>
+                                        <div className="flex gap-2">
+                                            <Button asChild variant="outline" className="h-9 flex-1 rounded-md border-blue-200 text-blue-700 hover:bg-blue-50 font-black text-xs shadow-sm" size="sm">
+                                                <a href={`tel:${cleanPhone(client.phone)}`}>
+                                                    <Phone className="h-3.5 w-3.5 mr-2" />
+                                                    {client.phone}
+                                                </a>
+                                            </Button>
+                                            <Button variant="outline" onClick={() => handleWhatsApp('client')} className="h-9 flex-1 rounded-md border-green-200 text-green-700 hover:bg-green-50 font-black text-[10px] shadow-sm" size="sm">
+                                                <MessageSquare className="h-3.5 w-3.5 mr-2" />
+                                                WA CLIENTE
+                                            </Button>
+                                        </div>
                                         <div className="p-2 rounded-md bg-zinc-50 border border-zinc-100 flex items-start gap-2">
                                             <Shield className="h-3 w-3 text-zinc-400 mt-0.5" />
                                             <p className="text-[9px] font-bold uppercase text-zinc-600 leading-tight">
@@ -433,7 +460,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
 
                                 <div className="space-y-4">
-                                    {/* HIERARCHY / LOCATION DATA COMPACT */}
                                     <div className="p-3.5 rounded-md border bg-blue-50/20 space-y-2.5 shadow-sm">
                                         <div className="flex justify-between items-center text-[10px] border-b border-blue-100 pb-1.5">
                                             <div className="flex items-center gap-1.5">
@@ -458,7 +484,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         </div>
                                     </div>
 
-                                    {/* AVAL DATA COMPACT */}
                                     <div className="p-4 rounded-md bg-zinc-900 text-white space-y-3 shadow-xl relative overflow-hidden">
                                         <div className="absolute top-0 right-0 p-2 opacity-5">
                                             <Shield className="h-10 w-10" />
@@ -467,15 +492,22 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             <p className="text-[7px] uppercase font-black text-zinc-400 tracking-widest">Responsable (Aval)</p>
                                             <p className="font-black text-sm uppercase leading-none text-white">{avalName}</p>
                                         </div>
-                                        {avalPhone ? (
-                                            <Button asChild className="bg-white text-zinc-900 hover:bg-zinc-100 font-black h-9 w-full text-xs rounded-md shadow-md" size="sm">
-                                                <a href={`tel:${cleanPhone(avalPhone)}`}>
-                                                    <Phone className="mr-2 h-4 w-4 text-blue-600" /> {avalPhone}
-                                                </a>
-                                            </Button>
-                                        ) : (
-                                            <div className="h-8 w-full rounded-md bg-zinc-800 flex items-center justify-center text-[8px] font-black text-zinc-500 uppercase border border-zinc-700">SIN TELÉFONO</div>
-                                        )}
+                                        <div className="flex gap-2">
+                                            {avalPhone ? (
+                                                <Button asChild className="bg-white text-zinc-900 hover:bg-zinc-100 font-black h-9 flex-1 text-[10px] rounded-md shadow-md" size="sm">
+                                                    <a href={`tel:${cleanPhone(avalPhone)}`}>
+                                                        <Phone className="mr-1.5 h-3.5 w-3.5 text-blue-600" /> LLAMAR
+                                                    </a>
+                                                </Button>
+                                            ) : (
+                                                <div className="h-8 flex-1 rounded-md bg-zinc-800 flex items-center justify-center text-[8px] font-black text-zinc-500 uppercase border border-zinc-700">SIN TELÉFONO</div>
+                                            )}
+                                            {avalPhone && (
+                                                <Button onClick={() => handleWhatsApp('aval')} className="bg-green-600 hover:bg-green-700 text-white font-black h-9 flex-1 text-[10px] rounded-md shadow-md" size="sm">
+                                                    <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> WA AVAL
+                                                </Button>
+                                            )}
+                                        </div>
                                         <div className="flex items-start gap-1.5 pt-1 border-t border-zinc-700">
                                             <MapPin className="h-3 w-3 text-zinc-500 mt-0.5" />
                                             <p className="text-[9px] font-bold uppercase leading-tight text-zinc-300 opacity-90">{avalAddress}</p>

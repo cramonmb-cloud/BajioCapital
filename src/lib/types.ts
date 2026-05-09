@@ -102,8 +102,14 @@ export type AppUser = {
     password?: string;
 };
 
+export type WhatsAppTemplates = {
+    client: string;
+    aval: string;
+};
+
 export type AppConfig = {
   appName?: string;
   logoUrl?: string;
-  whatsappTemplate?: string;
+  whatsappTemplate?: string; // Mantener por compatibilidad con default client
+  whatsappTemplates?: Record<string, WhatsAppTemplates>; // PlazaId -> Templates
 };

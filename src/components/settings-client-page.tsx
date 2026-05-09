@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -9,7 +9,6 @@ import {
     Card,
     CardContent,
     CardDescription,
-    CardFooter,
     CardHeader,
     CardTitle,
 } from "@/components/ui/card";
@@ -34,16 +33,22 @@ import {
   FormMessage,
   FormDescription,
 } from '@/components/ui/form';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson } from "lucide-react";
+import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction } from "@/app/dashboard/settings/actions";
+import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction } from "@/app/dashboard/settings/actions";
 import { useRouter } from "next/navigation";
-import type { AppConfig } from "@/lib/types";
+import type { AppConfig, WhatsAppTemplates } from "@/lib/types";
 import { Separator } from "./ui/separator";
 import { useAuth } from "@/hooks/use-auth";
-import { Badge } from "./ui/badge";
 import { useRealtimeData } from "@/hooks/use-realtime-data";
 
 const appNameSchema = z.object({
@@ -52,13 +57,14 @@ const appNameSchema = z.object({
 const logoFormSchema = z.object({
   logoUrl: z.string().url('URL no válida.').or(z.literal('')),
 });
-const whatsappTemplateSchema = z.object({
-  template: z.string().min(1, 'La plantilla no puede estar vacía.'),
+const whatsappTemplatesSchema = z.object({
+  client: z.string().min(1, 'La plantilla para el cliente no puede estar vacía.'),
+  aval: z.string().min(1, 'La plantilla para el aval no puede estar vacía.'),
 });
 
 type AppNameFormValues = z.infer<typeof appNameSchema>;
 type LogoFormValues = z.infer<typeof logoFormSchema>;
-type WhatsappTemplateFormValues = z.infer<typeof whatsappTemplateSchema>;
+type WhatsappTemplatesFormValues = z.infer<typeof whatsappTemplatesSchema>;
 
 interface SettingsClientPageProps {
     initialConfig: AppConfig | null;
@@ -84,6 +90,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
     const [isAccumulating, setIsAccumulating] = useState(false);
     const [isReverting, setIsReverting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
+    const [selectedPlazaId, setSelectedPlazaId] = useState<string>('default');
     const fileInputRef = useRef<HTMLInputElement>(null);
     
     const { toast } = useToast();
@@ -101,10 +108,29 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
         defaultValues: { logoUrl: initialConfig?.logoUrl || '' },
     });
 
-    const whatsappForm = useForm<WhatsappTemplateFormValues>({
-        resolver: zodResolver(whatsappTemplateSchema),
-        defaultValues: { template: initialConfig?.whatsappTemplate || 'Hola {{nombre_cliente}}, te contactamos de {{nombre_negocio}} para recordarte sobre tu préstamo pendiente de {{saldo_pendiente}}.' },
+    const whatsappForm = useForm<WhatsappTemplatesFormValues>({
+        resolver: zodResolver(whatsappTemplatesSchema),
+        defaultValues: { 
+            client: '',
+            aval: ''
+        },
     });
+
+    // Cargar datos al cambiar de plaza seleccionada
+    useEffect(() => {
+        if (selectedPlazaId === 'default') {
+            whatsappForm.reset({
+                client: initialConfig?.whatsappTemplate || 'Hola {{nombre_cliente}}, te recordamos tu adeudo de {{saldo_pendiente}}.',
+                aval: initialConfig?.whatsappTemplates?.default?.aval || 'Hola {{nombre_aval}}, te contactamos por el atraso de {{nombre_cliente}}.'
+            });
+        } else {
+            const plazaTemplates = initialConfig?.whatsappTemplates?.[selectedPlazaId];
+            whatsappForm.reset({
+                client: plazaTemplates?.client || initialConfig?.whatsappTemplate || 'Hola {{nombre_cliente}}, te recordamos tu adeudo de {{saldo_pendiente}}.',
+                aval: plazaTemplates?.aval || 'Hola {{nombre_aval}}, te contactamos por el atraso de {{nombre_cliente}}.'
+            });
+        }
+    }, [selectedPlazaId, initialConfig, whatsappForm]);
 
     const handleDeleteAllData = async () => {
         setIsDeleting(true);
@@ -231,12 +257,22 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
         }
     };
 
-    const onSaveWhatsappSubmit = async (values: WhatsappTemplateFormValues) => {
+    const onSaveWhatsappSubmit = async (values: WhatsappTemplatesFormValues) => {
         setIsSaving(true);
         try {
-            const result = await saveWhatsAppTemplateAction(values.template);
+            const templates: WhatsAppTemplates = {
+                client: values.client,
+                aval: values.aval
+            };
+            const result = await savePlazaWhatsAppTemplatesAction(selectedPlazaId, templates);
+            
+            // Si es el default, también actualizar el campo global por compatibilidad legacy
+            if (selectedPlazaId === 'default') {
+                await saveWhatsAppTemplateAction(values.client);
+            }
+
             if (result.success) {
-                toast({ title: 'Configuración Guardada', description: 'La plantilla de WhatsApp ha sido actualizada.' });
+                toast({ title: 'Configuración Guardada', description: `Las plantillas para ${selectedPlazaId === 'default' ? 'todas las plazas' : 'la plaza seleccionada'} han sido actualizadas.` });
                 router.refresh();
             } else throw new Error(result.message);
         } catch (error: any) {
@@ -248,7 +284,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
 
     if (mode === 'system') {
         return (
-            <div className="grid gap-8 max-w-3xl">
+            <div className="grid gap-8 max-w-4xl">
                 <Card className="shadow-lg border-primary/10">
                     <CardHeader className="bg-primary/5 border-b mb-6">
                         <CardTitle className="flex items-center gap-2 text-xl">
@@ -300,49 +336,86 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
 
                 <Card className="shadow-lg border-green-200 overflow-hidden">
                     <CardHeader className="bg-green-50 border-b mb-6">
-                        <CardTitle className="flex items-center gap-2 text-xl text-green-800">
-                            <MessageSquare className="h-5 w-5" /> Configuración de Mensajes WhatsApp
-                        </CardTitle>
-                        <CardDescription>Define el mensaje predeterminado que se enviará a los clientes en mora.</CardDescription>
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <CardTitle className="flex items-center gap-2 text-xl text-green-800">
+                                    <MessageSquare className="h-5 w-5" /> Notificaciones WhatsApp
+                                </CardTitle>
+                                <CardDescription>Define mensajes personalizados por Plaza y Destinatario.</CardDescription>
+                            </div>
+                            <div className="min-w-[200px] space-y-1">
+                                <label className="text-[10px] font-black uppercase text-green-700">Configurar Plaza:</label>
+                                <Select value={selectedPlazaId} onValueChange={setSelectedPlazaId}>
+                                    <SelectTrigger className="bg-white border-green-200 focus:ring-green-500">
+                                        <SelectValue placeholder="Selecciona Plaza" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="default">TODAS (Predefinido)</SelectItem>
+                                        {systemData?.plazas.map(p => (
+                                            <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent className="space-y-6">
                         <div className="bg-muted/30 p-4 rounded-xl space-y-3">
                             <div className="flex items-center gap-2 mb-2">
                                 <Sparkles className="h-4 w-4 text-yellow-500" />
-                                <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Etiquetas Disponibles</h4>
+                                <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground">Etiquetas Dinámicas</h4>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-y-2 gap-x-4">
                                 {AVAILABLE_TAGS.map(t => (
                                     <div key={t.tag} className="flex flex-col gap-0.5">
-                                        <code className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 w-fit">{t.tag}</code>
-                                        <span className="text-[9px] text-muted-foreground leading-none">{t.desc}</span>
+                                        <code className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 w-fit">{t.tag}</code>
+                                        <span className="text-[8px] text-muted-foreground leading-none">{t.desc}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
 
                         <Form {...whatsappForm}>
-                            <form onSubmit={whatsappForm.handleSubmit(onSaveWhatsappSubmit)} className="space-y-4">
-                                <FormField control={whatsappForm.control} name="template" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="font-bold">Contenido del Mensaje</FormLabel>
-                                        <FormControl>
-                                            <Textarea 
-                                                placeholder="Escribe el mensaje aquí..." 
-                                                className="min-h-[150px] resize-none border-2 focus:ring-green-500" 
-                                                {...field} 
-                                            />
-                                        </FormControl>
-                                        <FormDescription className="text-[10px]">
-                                            Usa las etiquetas de arriba exactamente como aparecen para que el sistema las reemplace.
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <div className="flex justify-end">
-                                    <Button type="submit" disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-white font-bold h-12 px-10 rounded-xl">
+                            <form onSubmit={whatsappForm.handleSubmit(onSaveWhatsAppSubmit)} className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <FormField control={whatsappForm.control} name="client" render={({ field }) => (
+                                        <FormItem className="space-y-3">
+                                            <div className="flex items-center gap-2">
+                                                <User className="h-4 w-4 text-green-600" />
+                                                <FormLabel className="font-black uppercase text-xs">Mensaje para el Cliente</FormLabel>
+                                            </div>
+                                            <FormControl>
+                                                <Textarea 
+                                                    placeholder="Escribe el mensaje aquí..." 
+                                                    className="min-h-[200px] resize-none border-2 focus:ring-green-500 text-sm" 
+                                                    {...field} 
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+
+                                    <FormField control={whatsappForm.control} name="aval" render={({ field }) => (
+                                        <FormItem className="space-y-3">
+                                            <div className="flex items-center gap-2">
+                                                <UserCheck className="h-4 w-4 text-green-600" />
+                                                <FormLabel className="font-black uppercase text-xs">Mensaje para el Aval</FormLabel>
+                                            </div>
+                                            <FormControl>
+                                                <Textarea 
+                                                    placeholder="Escribe el mensaje aquí..." 
+                                                    className="min-h-[200px] resize-none border-2 focus:ring-green-500 text-sm" 
+                                                    {...field} 
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                </div>
+                                <div className="flex justify-end pt-4 border-t">
+                                    <Button type="submit" disabled={isSaving} className="bg-green-600 hover:bg-green-700 text-white font-black h-12 px-10 rounded-xl shadow-lg">
                                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
-                                        Guardar Plantilla
+                                        Guardar Cambios para {selectedPlazaId === 'default' ? 'Sistema' : 'Plaza'}
                                     </Button>
                                 </div>
                             </form>
