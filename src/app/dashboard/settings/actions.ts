@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -492,5 +491,88 @@ export async function importBackupAction(backupData: any) {
     } catch (error: any) {
         console.error('Error importing backup:', error);
         return { success: false, message: `Error crítico al restaurar: ${error.message}` };
+    }
+}
+
+/**
+ * INTEGRACIÓN SUPERVISORAPP: Importa clientes desde una API externa.
+ */
+export async function syncWithSupervisorAppAction(weekId: string, apiKey: string) {
+    if (!apiKey) return { success: false, message: 'La llave de acceso API (X-API-KEY) es obligatoria.' };
+    if (!weekId) return { success: false, message: 'Debes seleccionar una semana (YYYY-WW) para importar.' };
+
+    try {
+        const response = await fetch(`https://coorporativo.online/api/v1/clients?weekId=${weekId}`, {
+            method: 'GET',
+            headers: {
+                'X-API-KEY': apiKey,
+                'Accept': 'application/json',
+            },
+        });
+
+        if (!response.ok) {
+            const errorMsg = await response.text();
+            throw new Error(`Error en la API externa (${response.status}): ${errorMsg}`);
+        }
+
+        const externalClients = await response.json();
+
+        if (!Array.isArray(externalClients)) {
+            throw new Error('La respuesta de la API no contiene un listado de clientes válido.');
+        }
+
+        if (externalClients.length === 0) {
+            return { success: true, message: 'No se encontraron clientes nuevos para importar en esta semana.' };
+        }
+
+        let syncedCount = 0;
+        let batch = writeBatch(db);
+        let batchCount = 0;
+
+        for (const ext of externalClients) {
+            // Mapeo inteligente basado en las especificaciones y campos comunes
+            const externalId = ext.id || ext.uid || ext.client_id || `import_${syncedCount}_${Date.now()}`;
+            
+            const clientData: Omit<Client, 'id'> = {
+                name: (ext.name || ext.nombre || 'CLIENTE IMPORTADO').toUpperCase(),
+                email: ext.email || ext.correo || `${externalId}@supervisorapp.com`,
+                phone: ext.phone || ext.telefono || '',
+                street: (ext.street || ext.calle || ext.domicilio || '').toUpperCase(),
+                neighborhood: (ext.neighborhood || ext.colonia || '').toUpperCase(),
+                postalCode: ext.postalCode || ext.cp || ext.codigo_postal || '',
+                city: (ext.city || ext.ciudad || ext.estado || '').toUpperCase(),
+                guarantee: (ext.guarantee || ext.garantia || 'DATO IMPORTADO').toUpperCase(),
+                endorsement: (ext.endorsement || ext.aval || 'SIN AVAL REGISTRADO').toUpperCase(),
+                avatarUrl: ext.avatarUrl || ext.foto || `https://picsum.photos/seed/${externalId}/40/40`,
+            };
+
+            const clientRef = doc(db, 'clients', String(externalId));
+            batch.set(clientRef, clientData, { merge: true });
+            
+            syncedCount++;
+            batchCount++;
+
+            if (batchCount >= 450) {
+                await batch.commit();
+                batch = writeBatch(db);
+                batchCount = 0;
+            }
+        }
+
+        if (batchCount > 0) {
+            await batch.commit();
+        }
+
+        revalidatePath('/dashboard/clients');
+        revalidatePath('/dashboard/consultar-cliente');
+
+        return { 
+            success: true, 
+            message: `Importación finalizada con éxito. Se sincronizaron ${syncedCount} clientes de la semana ${weekId}.` 
+        };
+
+    } catch (error: any) {
+        console.error('SupervisorApp Sync Error:', error);
+        return { success: false, message: `Fallo crítico al conectar con SUPERvisorApp: ${error.message}` };
     }
 }
