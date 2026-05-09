@@ -14,8 +14,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
-import { generateColorPalette } from '@/lib/utils';
+import { X, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { generateColorPalette, cn } from '@/lib/utils';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 
 interface OverduePortfolioClientPageProps {
@@ -43,6 +43,7 @@ export function OverduePortfolioClientPage({
     const [selectedLocalidad, setSelectedLocalidad] = useState('all');
     const [selectedPromotora, setSelectedPromotora] = useState('all');
     const [selectedFailures, setSelectedFailures] = useState('all');
+    const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
     const isOverduePortfolio = title === "Pagos Pendientes";
     const globalDebtLabel = isOverduePortfolio ? "Cobro de Mora (Filtro)" : "Deuda Pendiente (Filtro)";
@@ -104,14 +105,6 @@ export function OverduePortfolioClientPage({
     const totalDue = filteredLoans.reduce((acc, details) => acc + details.amountDue, 0);
     const totalClients = new Set(filteredLoans.map(d => d.client.id)).size;
 
-    const clearFilters = () => {
-        setSearchTerm('');
-        setSelectedPlaza('all');
-        setSelectedLocalidad('all');
-        setSelectedPromotora('all');
-        setSelectedFailures('all');
-    };
-
     return (
         <div className="space-y-4">
             <div className="grid gap-2 grid-cols-2 lg:grid-cols-4">
@@ -129,7 +122,29 @@ export function OverduePortfolioClientPage({
             </div>
 
             <div className="bg-card p-3 rounded-lg border shadow-sm space-y-3">
-                <div className="flex flex-col gap-3">
+                {/* Mobile Toggle Button */}
+                <div className="md:hidden">
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+                        className={cn(
+                            "w-full flex justify-between items-center h-10 border-2 font-black uppercase text-[10px] tracking-widest",
+                            isFiltersOpen ? "bg-zinc-100 border-zinc-300" : "bg-zinc-50"
+                        )}
+                    >
+                        <div className="flex items-center gap-2">
+                            <Filter className="h-4 w-4 text-blue-600" />
+                            Buscador y Filtros
+                        </div>
+                        {isFiltersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                    </Button>
+                </div>
+
+                <div className={cn(
+                    "flex flex-col gap-3",
+                    !isFiltersOpen && "hidden md:flex"
+                )}>
                     <div className="w-full space-y-1">
                         <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Buscador</label>
                         <div className="relative">

@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2, CalendarCog, BadgeDollarSign } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2, CalendarCog, BadgeDollarSign, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -123,6 +123,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   const [loanToPayOff, setLoanToPayOff] = useState<Loan | null>(null);
   const [changeDateDialogOpen, setChangeDateDialogOpen] = useState(false);
   const [targetWeek, setTargetWeek] = useState<string>('');
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const { toast } = useToast();
   const [paymentDialogData, setPaymentDialogData] = useState<{
     weekNumber: number;
@@ -885,36 +886,61 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     <>
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={selectedPlaza} onValueChange={handlePlazaChange}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Selecciona Plaza" /></SelectTrigger>
-              <SelectContent>
-                  {sortedPlazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-          </Select>
-          <Select value={selectedLocalidad} onValueChange={handleLocalidadChange} disabled={!selectedPlaza}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Selecciona Localidad" /></SelectTrigger>
-              <SelectContent>
-                  {filteredLocalidades.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-              </SelectContent>
-          </Select>
-          <Select value={selectedPromotora} onValueChange={handlePromotoraChange} disabled={!selectedLocalidad}>
-              <SelectTrigger className="w-[180px]"><SelectValue placeholder="Selecciona Promotora" /></SelectTrigger>
-              <SelectContent>
-                  {filteredPromotoras.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-              </SelectContent>
-          </Select>
+        <div className="flex flex-col md:flex-row items-center gap-2 w-full md:w-auto">
+            {/* Mobile Filter Toggle */}
+            <div className="md:hidden w-full">
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+                    className={cn(
+                        "w-full flex justify-between items-center h-10 border-2 font-black uppercase text-[10px] tracking-widest",
+                        isFiltersOpen ? "bg-zinc-100 border-zinc-300" : "bg-zinc-50"
+                    )}
+                >
+                    <div className="flex items-center gap-2">
+                        <Filter className="h-4 w-4 text-blue-600" />
+                        Seleccionar Ubicación
+                    </div>
+                    {isFiltersOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                </Button>
+            </div>
+
+            <div className={cn(
+                "flex flex-wrap items-center gap-2 w-full md:w-auto",
+                !isFiltersOpen && "hidden md:flex"
+            )}>
+                <Select value={selectedPlaza} onValueChange={handlePlazaChange}>
+                    <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Selecciona Plaza" /></SelectTrigger>
+                    <SelectContent>
+                        {sortedPlazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                <Select value={selectedLocalidad} onValueChange={handleLocalidadChange} disabled={!selectedPlaza}>
+                    <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Selecciona Localidad" /></SelectTrigger>
+                    <SelectContent>
+                        {filteredLocalidades.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+                <Select value={selectedPromotora} onValueChange={handlePromotoraChange} disabled={!selectedLocalidad}>
+                    <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Selecciona Promotora" /></SelectTrigger>
+                    <SelectContent>
+                        {filteredPromotoras.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                </Select>
+            </div>
         </div>
-        <div className="flex items-center gap-2">
+        
+        <div className="flex items-center gap-2 w-full md:w-auto justify-end">
             {appUser?.username === 'Cristobal' && (
-                <Button variant="default" onClick={() => setChangeDateDialogOpen(true)} disabled={selectedLoanIds.size === 0}>
+                <Button variant="default" onClick={() => setChangeDateDialogOpen(true)} disabled={selectedLoanIds.size === 0} className='hidden sm:flex'>
                     <CalendarCog className="mr-2 h-4 w-4" />
-                    Cambiar Fecha del Préstamo
+                    Mover Fecha
                 </Button>
             )}
-            <Button variant="outline" onClick={handleExportPDF} disabled={filteredLoans.length === 0}>
+            <Button variant="outline" onClick={handleExportPDF} disabled={filteredLoans.length === 0} className='flex-1 md:flex-none'>
                 <FileDown className="mr-2 h-4 w-4" />
-                Exportar a PDF
+                PDF
             </Button>
             <CreateLoanDialog
               clients={clients}
@@ -939,21 +965,23 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             </CardHeader>
             <CardContent className="p-0">
                 <div className="space-y-1 px-2 pb-2">
-                    {loanWeeks.map((week) => (
-                        <Button 
-                            key={week}
-                            variant={selectedWeek === week ? 'secondary' : 'ghost'}
-                            className="w-full justify-start h-8 px-2 text-xs"
-                            onClick={() => setSelectedWeek(week)}
-                            disabled={!selectedPromotora}
-                        >
-                            {formatDate(week)}
-                        </Button>
-                    ))}
+                    <ScrollArea className={cn("md:h-auto", loanWeeks.length > 3 ? "h-32" : "h-auto")}>
+                        {loanWeeks.map((week) => (
+                            <Button 
+                                key={week}
+                                variant={selectedWeek === week ? 'secondary' : 'ghost'}
+                                className="w-full justify-start h-8 px-2 text-xs"
+                                onClick={() => setSelectedWeek(week)}
+                                disabled={!selectedPromotora}
+                            >
+                                {formatDate(week)}
+                            </Button>
+                        ))}
+                    </ScrollArea>
                     {selectedPromotora && loanWeeks.length === 0 && (
-                        <p className="text-sm text-muted-foreground text-center p-4">No hay préstamos activos para esta promotora.</p>
+                        <p className="text-sm text-muted-foreground text-center p-4">No hay préstamos activos.</p>
                     )}
-                    {!selectedPromotora && <p className="text-sm text-muted-foreground text-center p-4">Selecciona una promotora para ver las semanas.</p>}
+                    {!selectedPromotora && <p className="text-sm text-muted-foreground text-center p-4">Selecciona promotora.</p>}
                 </div>
             </CardContent>
         </Card>
