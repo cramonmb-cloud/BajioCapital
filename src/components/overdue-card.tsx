@@ -7,8 +7,7 @@ import { Button } from '@/components/ui/button';
 import { 
     Phone, MessageSquare, MapPin, 
     Wallet, FileText, Shield, History as HistoryIcon, 
-    X, Home, ListTodo, AlertTriangle, User,
-    Map as MapIcon, Route
+    X, Home, ListTodo
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -259,14 +258,16 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     </span>
                                 </div>
                             </div>
-                            <div className="flex gap-1.5 shrink-0">
-                                <Button asChild variant="outline" className="h-8 w-8 p-0 rounded-full border-blue-200 text-blue-600 hover:bg-blue-50 shadow-sm" size="sm">
+                            <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                <Button asChild variant="outline" className="h-9 px-3 rounded-xl border-blue-200 text-blue-700 hover:bg-blue-50 shadow-md font-black text-xs" size="sm">
                                     <a href={`tel:${cleanPhone(client.phone)}`} title="Llamar Cliente">
-                                        <Phone className="h-4 w-4" />
+                                        <Phone className="h-3.5 w-3.5 mr-2" />
+                                        {client.phone}
                                     </a>
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-8 w-8 p-0 rounded-full border-green-200 text-green-600 hover:bg-green-50 shadow-sm">
-                                    <MessageSquare className="h-4 w-4" />
+                                <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-8 w-full border-green-200 text-green-700 hover:bg-green-50 shadow-sm rounded-xl font-black text-[10px]">
+                                    <MessageSquare className="h-3.5 w-3.5 mr-2" />
+                                    WHATSAPP
                                 </Button>
                             </div>
                         </div>
@@ -285,9 +286,10 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                             </div>
                             {avalPhone && (
-                                <Button asChild variant="outline" className="h-8 w-8 p-0 rounded-full border-zinc-300 text-zinc-600 hover:bg-white bg-white shadow-sm shrink-0" size="sm">
+                                <Button asChild variant="outline" className="h-9 px-3 rounded-xl border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md shrink-0 font-black text-[10px]" size="sm">
                                     <a href={`tel:${cleanPhone(avalPhone)}`} title="Llamar Aval">
-                                        <Phone className="h-4 w-4" />
+                                        <Phone className="h-3 w-3 mr-2" />
+                                        {avalPhone}
                                     </a>
                                 </Button>
                             )}
@@ -309,6 +311,20 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                         <div className="text-right bg-red-50 px-3 py-2 rounded-lg border border-red-100 min-w-[125px] shadow-inner">
                             <div className="flex flex-col">
+                                {isOverduePortfolio && (
+                                    <>
+                                        <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-zinc-500 uppercase">
+                                            <span>Saldo Fallos:</span>
+                                            <span>{formatCurrency(metrics.baseArrears)}</span>
+                                        </div>
+                                        {metrics.hasPenalty && (
+                                            <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-orange-600 uppercase border-b border-orange-200 pb-1 mb-1">
+                                                <span>Semana Extra:</span>
+                                                <span>+{formatCurrency(metrics.weeklyPayment)}</span>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
                                 <span className="text-[7px] font-black text-red-600 uppercase leading-none mb-0.5">Total a Deber</span>
                                 <span className="text-base font-black text-red-700 tracking-tighter leading-none">{formatCurrency(metrics.totalDue)}</span>
                             </div>
@@ -413,9 +429,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             <p className="font-black text-base uppercase leading-tight">{avalName}</p>
                                         </div>
                                         {avalPhone && (
-                                            <Button asChild className="bg-white text-zinc-900 hover:bg-zinc-100 font-black h-9 w-full text-xs rounded-lg shadow-md" size="sm">
+                                            <Button asChild className="bg-white text-zinc-900 hover:bg-zinc-100 font-black h-11 w-full text-xs rounded-xl shadow-md" size="sm">
                                                 <a href={`tel:${cleanPhone(avalPhone)}`}>
-                                                    <Phone className="mr-2 h-4 w-4" /> MARCAR AL AVAL
+                                                    <Phone className="mr-2 h-4 w-4 text-blue-600" /> {avalPhone}
                                                 </a>
                                             </Button>
                                         )}
