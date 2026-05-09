@@ -87,9 +87,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         }
     }
     
-    // REGLA: Semana Extra SOLO para préstamos vigentes con 2+ fallos.
-    // Cartera Vencida (isExpired) -> YA NO TIENE PENALIZACIÓN.
-    const hasPenalty = !isExpired && (registeredMissedCount >= 2);
+    // REGLA UNIFICADA: Semana Extra si tuvo 2 o más fallos (Vigente o Vencido)
+    const hasPenalty = registeredMissedCount >= 2;
 
     let penaltyArrear = 0;
     if (hasPenalty) {

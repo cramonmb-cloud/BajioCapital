@@ -59,8 +59,16 @@ export default async function CarteraVencidaPage() {
                 }
             }
 
-            // En Cartera Vencida ya NO cobramos semana extra por regla de negocio
-            const calculatedAmountDue = totalArrears;
+            // REGLA: Semana Extra si tuvo 2 o más fallos
+            const hasPenalty = missedCount >= 2;
+            let penaltyArrear = 0;
+            if (hasPenalty) {
+                const penaltyWeekNum = baseTerm + 1;
+                const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
+                penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
+            }
+
+            const calculatedAmountDue = totalArrears + penaltyArrear;
 
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
@@ -94,7 +102,7 @@ export default async function CarteraVencidaPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight text-red-700 uppercase">Cartera Vencida</h1>
                 <p className="text-muted-foreground font-bold">
-                    Préstamos con plazo base expirado. Solo se cobra el saldo de los abonos fallidos.
+                    Préstamos con plazo base expirado. Se incluye semana extra si hubo 2 o más fallos.
                 </p>
             </div>
             <OverduePortfolioClientPage 

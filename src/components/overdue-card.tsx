@@ -107,9 +107,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             }
         }
 
-        // Rule: Semana Extra ONLY for Pagos Pendientes with 2+ failures.
-        // For Cartera Vencida (isExpired), it's removed as per request.
-        const hasPenalty = isOverduePortfolio && (registeredMissedCount >= 2);
+        // REGLA UNIFICADA: Semana Extra si tuvo 2 o más fallos (Pendientes o Vencidos)
+        const hasPenalty = registeredMissedCount >= 2;
 
         let penaltyArrear = 0;
         if (hasPenalty) {
@@ -133,7 +132,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             totalDue,
             missedCount: registeredMissedCount
         };
-    }, [loan, loanPlan, isOverduePortfolio]);
+    }, [loan, loanPlan]);
 
     const { avalName, avalAddress, avalPhone } = useMemo(() => {
         const parts = client.endorsement.split('(');
@@ -259,13 +258,13 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                <Button asChild variant="outline" className="h-9 px-3 rounded-xl border-blue-200 text-blue-700 hover:bg-blue-50 shadow-md font-black text-xs" size="sm">
+                                <Button asChild variant="outline" className="h-9 px-3 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 shadow-md font-black text-xs" size="sm">
                                     <a href={`tel:${cleanPhone(client.phone)}`} title="Llamar Cliente">
                                         <Phone className="h-3.5 w-3.5 mr-2" />
                                         {client.phone}
                                     </a>
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-8 w-full border-green-200 text-green-700 hover:bg-green-50 shadow-sm rounded-xl font-black text-[10px]">
+                                <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-8 w-full border-green-200 text-green-700 hover:bg-green-50 shadow-sm rounded-full font-black text-[10px]">
                                     <MessageSquare className="h-3.5 w-3.5 mr-2" />
                                     WHATSAPP
                                 </Button>
@@ -286,7 +285,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                             </div>
                             {avalPhone && (
-                                <Button asChild variant="outline" className="h-9 px-3 rounded-xl border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md shrink-0 font-black text-[10px]" size="sm">
+                                <Button asChild variant="outline" className="h-9 px-3 rounded-full border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md shrink-0 font-black text-[10px]" size="sm">
                                     <a href={`tel:${cleanPhone(avalPhone)}`} title="Llamar Aval">
                                         <Phone className="h-3 w-3 mr-2" />
                                         {avalPhone}
@@ -311,21 +310,17 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                         <div className="text-right bg-red-50 px-3 py-2 rounded-lg border border-red-100 min-w-[125px] shadow-inner">
                             <div className="flex flex-col">
-                                {isOverduePortfolio && (
-                                    <>
-                                        <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-zinc-500 uppercase">
-                                            <span>Saldo Fallos:</span>
-                                            <span>{formatCurrency(metrics.baseArrears)}</span>
-                                        </div>
-                                        {metrics.hasPenalty && (
-                                            <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-orange-600 uppercase border-b border-orange-200 pb-1 mb-1">
-                                                <span>Semana Extra:</span>
-                                                <span>+{formatCurrency(metrics.weeklyPayment)}</span>
-                                            </div>
-                                        )}
-                                    </>
+                                <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-zinc-500 uppercase">
+                                    <span>Saldo Fallos:</span>
+                                    <span>{formatCurrency(metrics.baseArrears)}</span>
+                                </div>
+                                {metrics.hasPenalty && (
+                                    <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-orange-600 uppercase border-b border-orange-200 pb-1 mb-1">
+                                        <span>Semana Extra:</span>
+                                        <span>+{formatCurrency(metrics.weeklyPayment)}</span>
+                                    </div>
                                 )}
-                                <span className="text-[7px] font-black text-red-600 uppercase leading-none mb-0.5">Total a Deber</span>
+                                <span className="text-[7px] font-black text-red-600 uppercase leading-none mb-0.5 mt-1">Total a Deber</span>
                                 <span className="text-base font-black text-red-700 tracking-tighter leading-none">{formatCurrency(metrics.totalDue)}</span>
                             </div>
                         </div>
@@ -390,7 +385,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 <div className="space-y-5">
                                     <div className="space-y-2.5">
                                         <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
-                                            <FileText className="h-4 w-4 text-blue-600" /> Detalle del Adeudo
+                                            <FileText className="h-4 w-4 text-blue-600" /> Detalle del Adeudo adeudado
                                         </h4>
                                         <div className="p-5 rounded-2xl border bg-white space-y-3 shadow-inner">
                                             <div className="flex justify-between items-center text-xs">
