@@ -62,38 +62,45 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     if (!loanPlan) return null;
 
     const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
-    
     const today = new Date();
     const loanStartDate = new Date(activeLoan.startDate);
-    const timeDiff = today.getTime() - loanStartDate.getTime();
-    const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
     
     const baseTerm = loanPlan.termInWeeks;
-    let missedWeeksCount = 0;
-    let totalArrears = 0;
+    let registeredMissedCount = 0;
+    let baseArrears = 0;
 
-    // Calcular fallos y deuda acumulada
+    // Calcular deuda de semanas base (1 a baseTerm)
     for (let i = 1; i <= baseTerm; i++) {
-        const p = activeLoan.payments.find(p => p.weekNumber === i);
+        const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
         const amountPaid = p ? p.amount : 0;
         
+        const dueDate = new Date(loanStartDate);
+        dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
+        
         if (amountPaid < weeklyPayment) {
-            const dueDate = new Date(loanStartDate);
-            dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
-            
+            // Solo cuenta como deuda si ya pasó la fecha o si hubo abono parcial
             if (p || today > dueDate) {
-                missedWeeksCount++;
-                totalArrears += (weeklyPayment - amountPaid);
+                baseArrears += (weeklyPayment - amountPaid);
+                registeredMissedCount++;
             }
         }
     }
     
-    const hasPenalty = missedWeeksCount >= 2;
+    const hasPenalty = registeredMissedCount >= 2;
+    let penaltyArrear = 0;
+    if (hasPenalty) {
+        const penaltyWeekNum = baseTerm + 1;
+        const pExtra = (activeLoan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
+        const amountPaidExtra = pExtra ? pExtra.amount : 0;
+        penaltyArrear = weeklyPayment - amountPaidExtra;
+    }
+
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
+    const timeDiff = today.getTime() - loanStartDate.getTime();
+    const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
     const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
 
-    // REGLA DE NEGOCIO: Saldo = Suma de Arrears + Semana Extra si aplica
-    const totalBalance = totalArrears + (hasPenalty ? weeklyPayment : 0);
+    const totalBalance = baseArrears + penaltyArrear;
 
     let endorsementName = selectedClient.endorsement;
     let endorsementDetails = '';
@@ -115,8 +122,10 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
       endorsementName,
       endorsementDetails,
       termInWeeks: termInWeeks,
-      balance: totalBalance,
-      missedWeeks: missedWeeksCount,
+      baseArrears,
+      penaltyArrear,
+      totalBalance: totalBalance,
+      missedWeeks: registeredMissedCount,
       hasPenalty: hasPenalty,
       plazaName: plaza?.name || 'N/A',
       localidadName: localidad?.name || 'N/A',
@@ -141,12 +150,6 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
   };
   
   const formatCurrency = (amount: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-    const correctedDate = new Date(date.getTime() + userTimezoneOffset);
-    return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
-  };
 
   const fullAddress = selectedClient ? `${selectedClient.street}, ${selectedClient.neighborhood}, ${selectedClient.city}, ${selectedClient.postalCode}` : '';
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
@@ -263,29 +266,27 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                  </div>
                                   <div className="space-y-1">
                                     <p className="text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> Fallos</p>
-                                    <p className={cn("font-bold text-3xl", activeLoanDetails.missedWeeks > 0 ? 'text-red-500' : 'text-blue-500')}>
+                                    <p className={cn("font-bold text-3xl text-red-500")}>
                                         {activeLoanDetails.missedWeeks}
                                     </p>
                                  </div>
                              </div>
                             <Separator className="my-4"/>
-                            <h3 className="font-semibold text-xl flex items-center gap-2"><FileText className="text-primary"/> Detalles del Préstamo Activo</h3>
-                            <div className="grid grid-cols-2 gap-4 text-sm">
-                                <div className="space-y-1">
-                                    <p className="text-muted-foreground">Monto Solicitado</p>
-                                    <p className="font-bold text-lg">{formatCurrency(activeLoanDetails.loan.amount)}</p>
+                            <h3 className="font-semibold text-xl flex items-center gap-2"><FileText className="text-primary"/> Liquidación Detallada</h3>
+                            <div className="space-y-3 p-4 bg-muted/30 rounded-xl border border-muted-foreground/10">
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="font-medium text-muted-foreground uppercase text-[10px]">Saldo de Fallos</span>
+                                    <span className="font-bold">{formatCurrency(activeLoanDetails.baseArrears)}</span>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-muted-foreground">Plan</p>
-                                    <p className="font-semibold">{activeLoanDetails.loanPlan.name}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-muted-foreground">Fecha de Inicio</p>
-                                    <p className="font-semibold">{activeLoanDetails.loan.startDate.split('T')[0]}</p>
-                                </div>
-                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground">Saldo Pendiente</p>
-                                    <p className="font-bold text-red-600">{formatCurrency(activeLoanDetails.balance)}</p>
+                                {activeLoanDetails.hasPenalty && (
+                                    <div className="flex justify-between items-center text-sm border-b pb-2">
+                                        <span className="font-medium text-orange-600 uppercase text-[10px]">Semana Extra</span>
+                                        <span className="font-bold text-orange-600">+{formatCurrency(activeLoanDetails.penaltyArrear)}</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between items-center pt-1">
+                                    <span className="font-black text-red-700 uppercase text-xs">Total a Deber</span>
+                                    <span className="text-2xl font-black text-red-700 tracking-tighter">{formatCurrency(activeLoanDetails.totalBalance)}</span>
                                 </div>
                             </div>
                         </div>

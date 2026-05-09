@@ -55,7 +55,7 @@ const getSaturdayOfWeek = (d: Date) => {
 const cleanPhone = (phone: string) => phone.replace(/\D/g, '');
 
 export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isOverduePortfolio, whatsappTemplate, appName }: OverdueCardProps) {
-    const { client, loan, loanPlan, hierarchy, amountDue, missedPayments } = details;
+    const { client, loan, loanPlan, hierarchy } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
@@ -80,6 +80,59 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
     };
 
+    const metrics = useMemo(() => {
+        const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
+        const today = new Date();
+        const loanStartDate = new Date(loan.startDate);
+        
+        const baseTerm = loanPlan.termInWeeks;
+        let baseArrears = 0;
+        let registeredMissedCount = 0;
+
+        // Calcular abonos base y fallos
+        for (let i = 1; i <= baseTerm; i++) {
+            const p = (loan.payments || []).find(pay => pay.weekNumber === i);
+            const amountPaid = p ? p.amount : 0;
+            
+            const dueDate = new Date(loanStartDate);
+            dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
+            
+            if (amountPaid < weeklyPayment) {
+                // Solo cuenta como fallo si ya pasó la fecha o si hay un registro parcial
+                if (p || today > dueDate) {
+                    baseArrears += (weeklyPayment - amountPaid);
+                    registeredMissedCount++;
+                }
+            }
+        }
+
+        const hasPenalty = registeredMissedCount >= 2;
+        let penaltyArrear = 0;
+        if (hasPenalty) {
+            const penaltyWeekNum = baseTerm + 1;
+            const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
+            const amountPaidExtra = pExtra ? pExtra.amount : 0;
+            penaltyArrear = weeklyPayment - amountPaidExtra;
+        }
+
+        const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
+        const timeDiff = today.getTime() - loanStartDate.getTime();
+        const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+        const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
+
+        return {
+            weeklyPayment,
+            termInWeeks,
+            currentProgressWeek,
+            loanWeekDate: getSaturdayOfWeek(loanStartDate),
+            hasPenalty,
+            baseArrears,
+            penaltyArrear,
+            totalDue: baseArrears + penaltyArrear,
+            missedCount: registeredMissedCount
+        };
+    }, [loan, loanPlan]);
+
     const { avalName, avalAddress, avalPhone } = useMemo(() => {
         const parts = client.endorsement.split('(');
         const name = parts[0].trim();
@@ -102,26 +155,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         };
     }, [client.endorsement]);
 
-    const metrics = useMemo(() => {
-        const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-        const today = new Date();
-        const loanStartDate = new Date(loan.startDate);
-        const timeDiff = today.getTime() - loanStartDate.getTime();
-        const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
-        
-        const hasPenalty = missedPayments >= 2;
-        const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
-        const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
-
-        return {
-            weeklyPayment,
-            termInWeeks,
-            currentProgressWeek,
-            loanWeekDate: getSaturdayOfWeek(loanStartDate),
-            hasPenalty
-        };
-    }, [loan, loanPlan, missedPayments]);
-
     const loanHistoryData = useMemo(() => {
         const plan = loanPlan;
         const weeklyPayment = metrics.weeklyPayment;
@@ -139,12 +172,22 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             const isPast = today > dueDate;
             
             let statusText = '';
+            let statusType: 'PAID' | 'MISSED' | 'PENDING' = 'PENDING';
+
             if (isRegistered) {
-                statusText = formatDate(payment.date);
+                if (payment.amount >= weeklyPayment) {
+                    statusText = formatDate(payment.date);
+                    statusType = 'PAID';
+                } else {
+                    statusText = 'FALLO';
+                    statusType = 'MISSED';
+                }
             } else if (isPast) {
                 statusText = 'FALLO';
+                statusType = 'MISSED';
             } else {
                 statusText = 'PENDIENTE';
+                statusType = 'PENDING';
             }
             
             rows.push({
@@ -154,7 +197,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 importeRecibido: isRegistered ? payment.amount : 0,
                 fechaAbono: statusText,
                 isPenalty: i > plan.termInWeeks,
-                status: isRegistered ? 'PAID' : (isPast ? 'MISSED' : 'PENDING')
+                status: statusType
             });
         }
         return rows;
@@ -174,8 +217,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 '{{domicilio_aval}}': avalAddress.toUpperCase(),
                 '{{telefono_aval}}': avalPhone,
                 '{{monto_prestamo}}': formatCurrency(loan.amount),
-                '{{saldo_pendiente}}': formatCurrency(amountDue),
-                '{{fallos_registrados}}': missedPayments.toString(),
+                '{{saldo_pendiente}}': formatCurrency(metrics.totalDue),
+                '{{fallos_registrados}}': metrics.missedCount.toString(),
                 '{{nombre_negocio}}': appName || 'CREDICONTROL',
             };
 
@@ -223,7 +266,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                                 <div className="flex items-center gap-1">
                                     <Badge variant="outline" className="h-4 px-1.5 text-[8px] font-black bg-red-50 text-red-700 border-red-200">
-                                        {missedPayments} {missedPayments === 1 ? 'FALLO' : 'FALLOS'}
+                                        {metrics.missedCount} {metrics.missedCount === 1 ? 'FALLO' : 'FALLOS'}
                                     </Badge>
                                     {metrics.hasPenalty && (
                                         <Badge className="h-4 px-1.5 text-[8px] font-black bg-orange-500 text-white hover:bg-orange-600 border-none">
@@ -233,12 +276,24 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                             </div>
                         </div>
-                        <div className="text-right shrink-0">
-                            <div className="flex flex-col items-end gap-1">
-                                <p className={cn("text-[9px] font-black uppercase tracking-tighter", isOverduePortfolio ? 'text-orange-600' : 'text-red-600')}>Saldo Total</p>
-                                <p className={cn("font-black text-lg tracking-tighter leading-none", isOverduePortfolio ? 'text-orange-700' : 'text-red-700')}>
-                                    {formatCurrency(amountDue)}
-                                </p>
+                        
+                        {/* Breakdown de Deuda Solicitado */}
+                        <div className="text-right shrink-0 bg-zinc-50 p-2 rounded-lg border border-zinc-200">
+                            <div className="space-y-0.5 min-w-[90px]">
+                                <div className="flex justify-between gap-3">
+                                    <span className="text-[7px] font-black text-muted-foreground uppercase">Saldo Fallos</span>
+                                    <span className="text-[9px] font-black text-zinc-700">{formatCurrency(metrics.baseArrears)}</span>
+                                </div>
+                                {metrics.hasPenalty && (
+                                    <div className="flex justify-between gap-3 border-b border-zinc-200 pb-0.5">
+                                        <span className="text-[7px] font-black text-orange-600 uppercase">Semana Extra</span>
+                                        <span className="text-[9px] font-black text-orange-600">+{formatCurrency(metrics.penaltyArrear)}</span>
+                                    </div>
+                                )}
+                                <div className="flex flex-col items-end pt-1">
+                                    <span className="text-[7px] font-black text-red-700 uppercase leading-none">Total a Deber</span>
+                                    <span className="text-sm font-black text-red-700 tracking-tighter">{formatCurrency(metrics.totalDue)}</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -326,7 +381,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                                 <div className="p-2 rounded-lg bg-red-50 border-red-100 text-center">
                                     <p className="text-[7px] uppercase font-black text-red-600">Fallos</p>
-                                    <p className={cn("font-black text-sm", missedPayments > 0 ? "text-red-700" : "")}>{missedPayments}</p>
+                                    <p className={cn("font-black text-sm text-red-700")}>{metrics.missedCount}</p>
                                 </div>
                                 {metrics.hasPenalty && (
                                     <div className="p-2 rounded-lg bg-orange-500 border-orange-600 text-center flex flex-col justify-center">
@@ -357,17 +412,22 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                                     <div className="space-y-2">
                                         <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                                            <FileText className="h-3 w-3 text-blue-600" /> Liquidación
+                                            <FileText className="h-3 w-3 text-blue-600" /> Estado de Cuenta (Resumen)
                                         </h4>
-                                        <div className="p-3 rounded-lg border bg-white flex justify-between items-center relative overflow-hidden">
-                                            <span className="text-[9px] font-bold text-muted-foreground uppercase">Resta por Pagar</span>
-                                            <div className="flex flex-col items-end">
-                                                {metrics.hasPenalty && (
-                                                    <span className="text-[7px] font-black text-orange-600 uppercase mb-0.5 leading-none flex items-center gap-0.5">
-                                                        <AlertCircle className="h-2 w-2" /> Incluye Penalización
-                                                    </span>
-                                                )}
-                                                <span className="text-lg font-black text-red-700 leading-none">{formatCurrency(amountDue)}</span>
+                                        <div className="p-3 rounded-xl border bg-white space-y-2 relative overflow-hidden">
+                                            <div className="flex justify-between items-center text-xs">
+                                                <span className="font-bold text-muted-foreground uppercase text-[9px]">Saldo de Fallos</span>
+                                                <span className="font-black text-zinc-800">{formatCurrency(metrics.baseArrears)}</span>
+                                            </div>
+                                            {metrics.hasPenalty && (
+                                                <div className="flex justify-between items-center text-xs border-b pb-2">
+                                                    <span className="font-bold text-orange-600 uppercase text-[9px]">Semana Extra</span>
+                                                    <span className="font-black text-orange-600">+{formatCurrency(metrics.penaltyArrear)}</span>
+                                                </div>
+                                            )}
+                                            <div className="flex justify-between items-center pt-1">
+                                                <span className="font-black text-red-700 uppercase text-[10px]">Total a Deber</span>
+                                                <span className="text-xl font-black text-red-700 tracking-tighter">{formatCurrency(metrics.totalDue)}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -441,17 +501,17 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             <TableCell className="border-r border-blue-100 text-right py-1">{formatCurrency(row.importeAbono)}</TableCell>
                                             <TableCell className={cn(
                                                 "border-r border-blue-100 text-right py-1 font-black", 
-                                                row.status === 'PENDING' ? "text-blue-600 bg-blue-50/20" : 
-                                                row.importeRecibido >= row.importeAbono ? "bg-green-50 text-green-700" : 
-                                                "text-red-700 bg-red-50/10"
+                                                row.status === 'PAID' ? "bg-green-50 text-green-700" : 
+                                                row.status === 'MISSED' ? "bg-red-50 text-red-700" : 
+                                                "bg-blue-50 text-blue-700"
                                             )}>
                                                 {formatCurrency(row.importeRecibido)}
                                             </TableCell>
                                             <TableCell className={cn(
                                                 "text-center py-1 text-[10px] font-bold", 
-                                                row.status === 'PENDING' ? "text-blue-500" : 
+                                                row.status === 'PAID' ? "text-muted-foreground" : 
                                                 row.status === 'MISSED' ? "text-red-600" : 
-                                                "text-muted-foreground"
+                                                "text-blue-600"
                                             )}>
                                                 {row.fechaAbono}
                                             </TableCell>
@@ -460,9 +520,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </TableBody>
                                 <TableFooter className="bg-white border-t-2 border-blue-300">
                                     <TableRow>
-                                        <TableCell colSpan={2} className="text-right font-bold text-blue-900">TOTAL PAGADO</TableCell>
-                                        <TableCell className="text-right font-bold text-blue-900" colSpan={2}>
-                                            {formatCurrency((loan.payments || []).reduce((acc, p) => acc + p.amount, 0))}
+                                        <TableCell colSpan={2} className="text-right font-bold text-blue-900">DEUDA TOTAL CALCULADA</TableCell>
+                                        <TableCell className="text-right font-bold text-red-700" colSpan={2}>
+                                            {formatCurrency(metrics.totalDue)}
                                         </TableCell>
                                         <TableCell></TableCell>
                                     </TableRow>
@@ -484,7 +544,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 loanPlans={allLoanPlans}
                 weekNumber={metrics.currentProgressWeek}
                 weekDate={metrics.loanWeekDate}
-                initialAmount={amountDue > metrics.weeklyPayment ? metrics.weeklyPayment : amountDue}
+                initialAmount={metrics.totalDue > metrics.weeklyPayment ? metrics.weeklyPayment : metrics.totalDue}
                 onPaymentRegistered={() => {
                     if (typeof window !== 'undefined') window.location.reload();
                 }}
