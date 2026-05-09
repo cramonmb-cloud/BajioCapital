@@ -503,12 +503,11 @@ export async function syncWithSupervisorAppAction(
     apiKey: string, 
     promotoraId: string, 
     loanPlanId: string, 
-    amount: number, 
     startDateIso: string
 ) {
     if (!apiKey) return { success: false, message: 'La llave de acceso API (X-API-KEY) es obligatoria.' };
     if (!weekId) return { success: false, message: 'Debes seleccionar una semana (YYYY-WW) para importar.' };
-    if (!promotoraId || !loanPlanId || !amount || !startDateIso) {
+    if (!promotoraId || !loanPlanId || !startDateIso) {
         return { success: false, message: 'Faltan parámetros de asignación operativa (Plaza, Zona, Ruta, Plan o Fecha).' };
     }
 
@@ -544,6 +543,7 @@ export async function syncWithSupervisorAppAction(
 
         for (const ext of externalClients) {
             const externalId = ext.id || ext.uid || ext.client_id || `import_${syncedCount}_${Date.now()}`;
+            const loanAmount = Number(ext.creditAmount) || Number(ext.monto) || 1000; // Tomar de la API, fallback a 1000 si no existe
             
             // 1. Mapeo del Cliente
             const clientData: Omit<Client, 'id'> = {
@@ -568,7 +568,7 @@ export async function syncWithSupervisorAppAction(
                 clientId: String(externalId),
                 promotoraId: promotoraId,
                 loanPlanId: loanPlanId,
-                amount: amount,
+                amount: loanAmount,
                 startDate: loanStartDate.toISOString(),
                 status: 'Active',
                 payments: [],

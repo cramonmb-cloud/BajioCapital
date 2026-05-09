@@ -30,7 +30,7 @@ import {
     SelectTrigger, 
     SelectValue 
 } from '@/components/ui/select';
-import { CloudDownload, Loader2, KeyRound, CalendarDays, CheckCircle2, ShieldCheck, Database, Info, Landmark, Route, MapPin, Building } from 'lucide-react';
+import { CloudDownload, Loader2, KeyRound, CalendarDays, CheckCircle2, ShieldCheck, Database, Info, Landmark, Route, MapPin, Building, Sparkles } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { syncWithSupervisorAppAction } from '@/app/dashboard/settings/actions';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
@@ -46,7 +46,6 @@ const syncSchema = z.object({
   localidadId: z.string().min(1, 'Selecciona una localidad.'),
   promotoraId: z.string().min(1, 'Selecciona una promotora.'),
   loanPlanId: z.string().min(1, 'Selecciona un plan.'),
-  amount: z.coerce.number().min(100, 'El monto debe ser al menos $100.'),
   startDate: z.string().min(1, 'Selecciona una fecha de inicio.'),
 });
 
@@ -93,7 +92,6 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
             localidadId: '',
             promotoraId: '',
             loanPlanId: '',
-            amount: 1000,
             startDate: upcomingSaturdays[2], // Default to current Saturday
         },
     });
@@ -117,7 +115,6 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
                 values.apiKey,
                 values.promotoraId,
                 values.loanPlanId,
-                values.amount,
                 values.startDate
             );
             if (result.success) {
@@ -162,7 +159,8 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
                         <ShieldCheck className="h-5 w-5 text-blue-600" />
                         <AlertTitle className="font-bold">Conexión Segura</AlertTitle>
                         <AlertDescription className="text-xs">
-                            Define a dónde y cómo se asignarán los nuevos clientes antes de iniciar la descarga.
+                            Define a dónde y cómo se asignarán los nuevos clientes antes de iniciar la descarga. 
+                            <strong> Nota: El monto del préstamo se tomará automáticamente de la API externa (campo creditAmount).</strong>
                         </AlertDescription>
                     </Alert>
 
@@ -277,19 +275,13 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
                                         </FormItem>
                                         )}
                                     />
-                                    <FormField
-                                        control={form.control}
-                                        name="amount"
-                                        render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel className="font-bold uppercase text-[10px]">Monto del Préstamo ($)</FormLabel>
-                                            <FormControl>
-                                                <Input type="number" step="100" className="h-11 rounded-xl font-bold" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                        )}
-                                    />
+                                    <div className="flex flex-col gap-2 p-3 bg-muted/30 border rounded-xl border-dashed">
+                                        <div className="flex items-center gap-2">
+                                            <Sparkles className="h-3 w-3 text-blue-600" />
+                                            <span className="text-[10px] font-black uppercase text-muted-foreground">Monto del Préstamo</span>
+                                        </div>
+                                        <p className="text-xs font-bold text-blue-700 italic">Vinculado a "creditAmount" en la API</p>
+                                    </div>
                                     <FormField
                                         control={form.control}
                                         name="startDate"
@@ -325,7 +317,7 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
                                     {isSyncing ? 'IMPORTANDO Y ASIGNANDO...' : 'VINCULAR Y CREAR PRÉSTAMOS'}
                                 </Button>
                                 <p className="text-[10px] text-muted-foreground uppercase font-black tracking-widest text-center max-w-md">
-                                    Se crearán préstamos automáticos para todos los clientes nuevos encontrados en la API.
+                                    Se crearán préstamos individuales con el monto específico de cada cliente según la API externa.
                                 </p>
                             </div>
                         </form>
