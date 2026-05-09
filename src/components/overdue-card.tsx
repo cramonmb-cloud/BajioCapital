@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { 
     Phone, MessageSquare, MapPin, 
     Wallet, FileText, Shield, History as HistoryIcon, 
-    X, Home, AlertCircle
+    X, Home, AlertCircle, ListTodo
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -23,6 +23,15 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+    TableFooter,
+} from '@/components/ui/table';
 
 interface OverdueCardProps {
     details: OverdueLoanDetails;
@@ -49,15 +58,16 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
     const { client, loan, loanPlan, hierarchy, amountDue, missedPayments } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
+    const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
     const { appUser } = useAuth();
 
     useEffect(() => {
-        if (detailModalOpen) {
+        if (detailModalOpen || historyDialogOpen) {
             window.dispatchEvent(new CustomEvent('hide-mobile-nav'));
         } else {
             window.dispatchEvent(new CustomEvent('show-mobile-nav'));
         }
-    }, [detailModalOpen]);
+    }, [detailModalOpen, historyDialogOpen]);
 
     const formatCurrency = (amount: number) => {
         return new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
@@ -113,6 +123,33 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             hasPenalty
         };
     }, [loan, loanPlan, missedPayments]);
+
+    const loanHistoryData = useMemo(() => {
+        const plan = loanPlan;
+        const weeklyPayment = metrics.weeklyPayment;
+        const termInWeeks = metrics.termInWeeks;
+        const startDate = new Date(loan.startDate);
+        
+        const rows = [];
+        for(let i = 1; i <= termInWeeks; i++) {
+            const dueDate = new Date(startDate);
+            dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
+            
+            const payment = (loan.payments || []).find(p => p.weekNumber === i);
+            const isRegistered = !!payment;
+            const isPast = new Date() > dueDate;
+            
+            rows.push({
+                num: i,
+                vencimiento: dueDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+                importeAbono: weeklyPayment,
+                importeRecibido: isRegistered ? payment.amount : 0,
+                fechaAbono: isRegistered ? formatDate(payment.date) : (isPast ? 'FALLO' : 'PENDIENTE'),
+                isPenalty: i > plan.termInWeeks
+            });
+        }
+        return rows;
+    }, [loan, loanPlan, metrics]);
 
     const handleWhatsApp = (e?: React.MouseEvent) => {
         e?.stopPropagation();
@@ -240,8 +277,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1">
                             <HistoryIcon className="h-2.5 w-2.5" /> INICIÓ: {formatDate(metrics.loanWeekDate.toISOString())}
                         </div>
-                        <Button size="sm" onClick={() => setPaymentDialogOpen(true)} className="h-8 bg-foreground text-background font-black text-[10px] uppercase px-5 rounded-lg active:scale-95 shadow-md">
-                            <Wallet className="mr-1.5 h-4 w-4" /> Abonar
+                        <Button size="sm" onClick={() => setDetailModalOpen(true)} className="h-8 bg-foreground text-background font-black text-[10px] uppercase px-5 rounded-lg active:scale-95 shadow-md">
+                            <Wallet className="mr-1.5 h-4 w-4" /> Detalle
                         </Button>
                     </div>
                 </CardContent>
@@ -352,12 +389,70 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     </ScrollArea>
                     
                     <div className="p-4 bg-muted/30 border-t flex gap-2">
-                        <Button variant="outline" size="lg" onClick={() => handleWhatsApp()} className="font-black uppercase text-[10px] h-10 flex-1 rounded-lg">
-                            WhatsApp
+                        <Button variant="outline" onClick={() => setHistoryDialogOpen(true)} className="font-black uppercase text-[10px] h-10 flex-1 rounded-lg border-blue-200 bg-white">
+                            <ListTodo className="mr-1.5 h-4 w-4" /> Historial de Abonos
                         </Button>
                         <Button size="lg" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase text-[10px] h-10 flex-1 rounded-lg bg-blue-600 text-white shadow-lg">
-                            Registrar Abono
+                            <Wallet className="mr-1.5 h-4 w-4" /> Abonar
                         </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+                <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
+                    <DialogHeader className="p-6 pb-2 border-b shrink-0 flex flex-row items-center justify-between">
+                        <DialogTitle className="text-sm font-black uppercase text-center w-full">Detalle de los abonos del prestamo</DialogTitle>
+                        <DialogClose asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </DialogClose>
+                    </DialogHeader>
+                    <div className="flex-1 min-h-0">
+                        <ScrollArea className="h-full p-6">
+                            <Table className="border border-blue-200">
+                                <TableHeader className="bg-blue-100 sticky top-0 z-10">
+                                    <TableRow className="hover:bg-blue-100 border-blue-200">
+                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-center">Num Abono</TableHead>
+                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200">Fecha Vencimiento</TableHead>
+                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Abono</TableHead>
+                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Recibido</TableHead>
+                                        <TableHead className="text-blue-900 font-bold text-center">Fecha Abono</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {loanHistoryData.map((row) => (
+                                        <TableRow key={row.num} className={cn("border-blue-100 hover:bg-blue-50/50", row.isPenalty && "bg-orange-50/30")}>
+                                            <TableCell className="border-r border-blue-100 text-center py-1 font-bold">
+                                                {row.num}
+                                                {row.isPenalty && <span className="ml-1 text-[8px] text-orange-600 block leading-none">EXTRA</span>}
+                                            </TableCell>
+                                            <TableCell className="border-r border-blue-100 py-1 text-xs">{row.vencimiento}</TableCell>
+                                            <TableCell className="border-r border-blue-100 text-right py-1">{formatCurrency(row.importeAbono)}</TableCell>
+                                            <TableCell className={cn("border-r border-blue-100 text-right py-1 font-black", row.importeRecibido > 0 ? "bg-green-50 text-green-700" : "text-red-700")}>
+                                                {formatCurrency(row.importeRecibido)}
+                                            </TableCell>
+                                            <TableCell className={cn("text-center py-1 text-[10px] font-bold", row.fechaAbono === 'FALLO' ? "text-red-600" : "text-muted-foreground")}>
+                                                {row.fechaAbono}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                                <TableFooter className="bg-white border-t-2 border-blue-300">
+                                    <TableRow>
+                                        <TableCell colSpan={2} className="text-right font-bold text-blue-900">TOTAL PAGADO</TableCell>
+                                        <TableCell className="text-right font-bold text-blue-900" colSpan={2}>
+                                            {formatCurrency((loan.payments || []).reduce((acc, p) => acc + p.amount, 0))}
+                                        </TableCell>
+                                        <TableCell></TableCell>
+                                    </TableRow>
+                                </TableFooter>
+                            </Table>
+                        </ScrollArea>
+                    </div>
+                    <div className="p-4 border-t flex justify-end bg-muted/10 shrink-0">
+                        <Button variant="secondary" onClick={() => setHistoryDialogOpen(false)}>Cerrar Historial</Button>
                     </div>
                 </DialogContent>
             </Dialog>

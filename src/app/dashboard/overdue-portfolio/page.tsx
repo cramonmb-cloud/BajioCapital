@@ -49,7 +49,7 @@ export default async function OverduePortfolioPage() {
             const baseTerm = loanPlan.termInWeeks;
             let missedCount = 0;
 
-            // CONTAR FALLOS REALES (Semanas no pagadas o incompletas en el plazo base)
+            // CONTAR FALLOS REALES (Topado al plazo base)
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
@@ -63,13 +63,13 @@ export default async function OverduePortfolioPage() {
             const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
-            // CALCULO DE SALDO ABSOLUTO: (Total Semanas * Abono) - Total Pagado
+            // CALCULO DE SALDO REAL: (Plazo Total con Penalización * Abono) - Abonos Registrados Reales
             const totalExpectedAmount = totalTermInWeeks * weeklyPayment;
             const totalPaidAmount = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const totalBalance = Math.max(0, totalExpectedAmount - totalPaidAmount);
 
-            // 'Pagos Pendientes': Préstamos VIGENTES con 2 o más fallos
-            if (!isExpired && missedCount >= 2 && totalBalance > 0) {
+            // 'Pagos Pendientes': Préstamos VIGENTES con 2 o más fallos O saldo pendiente
+            if (!isExpired && totalBalance > 0) {
                 return {
                     loan,
                     client,
@@ -96,7 +96,7 @@ export default async function OverduePortfolioPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
                 <p className="text-muted-foreground">
-                    Préstamos vigentes con 2 o más fallos. El saldo incluye automáticamente la semana extra de penalización.
+                    Préstamos vigentes con saldo pendiente. El saldo incluye automáticamente la semana extra si hay 2 o más fallos.
                 </p>
             </div>
             <OverduePortfolioClientPage 

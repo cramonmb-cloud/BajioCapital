@@ -49,7 +49,7 @@ export default async function CarteraVencidaPage() {
             const baseTerm = loanPlan.termInWeeks;
             let missedCount = 0;
 
-            // CONTAR FALLOS REALES (Semanas no pagadas o incompletas en el plazo base)
+            // CONTAR FALLOS REALES (Topado al plazo base)
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
@@ -63,7 +63,7 @@ export default async function CarteraVencidaPage() {
             const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
-            // CALCULO DE SALDO ABSOLUTO: (Total Semanas * Abono) - Total Pagado
+            // CALCULO DE SALDO REAL: (Plazo Total con Penalización * Abono) - Abonos Registrados Reales
             const totalExpectedAmount = totalTermInWeeks * weeklyPayment;
             const totalPaidAmount = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const totalBalance = Math.max(0, totalExpectedAmount - totalPaidAmount);

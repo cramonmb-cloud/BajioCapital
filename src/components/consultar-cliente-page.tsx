@@ -85,7 +85,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
     const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
 
-    // CALCULO DE SALDO ABSOLUTO
+    // CALCULO DE SALDO REAL: (Plazo Total con Penalización * Abono) - Abonos Registrados
     const totalExpectedAmount = termInWeeks * weeklyPayment;
     const totalPaidAmount = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
     const totalBalance = Math.max(0, totalExpectedAmount - totalPaidAmount);
