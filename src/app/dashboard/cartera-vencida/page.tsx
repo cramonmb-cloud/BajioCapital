@@ -50,7 +50,7 @@ export default async function CarteraVencidaPage() {
             let missedCount = 0;
             let totalArrears = 0;
 
-            // Calcular fallos y deuda acumulada
+            // Calcular fallos reales en semanas base
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 const amountPaid = p ? p.amount : 0;
@@ -59,6 +59,7 @@ export default async function CarteraVencidaPage() {
                     const dueDate = new Date(loanStartDate);
                     dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
                     
+                    // En Cartera Vencida, todas las semanas base ya pasaron
                     if (p || today > dueDate) {
                         missedCount++;
                         totalArrears += (weeklyPayment - amountPaid);
@@ -70,8 +71,17 @@ export default async function CarteraVencidaPage() {
             const termWithPenalty = baseTerm + (hasPenalty ? 1 : 0);
             const isExpired = rawCurrentLoanWeek > termWithPenalty;
 
-            // REGLA DE NEGOCIO: Saldo = Suma de Arrears + Semana Extra si aplica
-            const calculatedAmountDue = totalArrears + (hasPenalty ? weeklyPayment : 0);
+            // Calcular deuda de la semana extra si aplica
+            let penaltyArrear = 0;
+            if (hasPenalty) {
+                const penaltyWeekNum = baseTerm + 1;
+                const pExtra = loan.payments.find(pay => pay.weekNumber === penaltyWeekNum);
+                const amountPaidExtra = pExtra ? pExtra.amount : 0;
+                penaltyArrear = weeklyPayment - amountPaidExtra;
+            }
+
+            // REGLA DE NEGOCIO: Saldo = Suma de Arrears + Deuda Semana Extra
+            const calculatedAmountDue = totalArrears + penaltyArrear;
 
             // 'Cartera Vencida': Préstamos EXPIRADOS con deuda
             if (isExpired && calculatedAmountDue > 0) {

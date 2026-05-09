@@ -127,6 +127,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const weeklyPayment = metrics.weeklyPayment;
         const termInWeeks = metrics.termInWeeks;
         const startDate = new Date(loan.startDate);
+        const today = new Date();
         
         const rows = [];
         for(let i = 1; i <= termInWeeks; i++) {
@@ -135,17 +136,25 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             
             const payment = (loan.payments || []).find(p => p.weekNumber === i);
             const isRegistered = !!payment;
+            const isPast = today > dueDate;
             
-            // Si la fecha actual ya pasó del vencimiento de esa semana, es un fallo potencial si no hay registro
-            const isPast = new Date() > dueDate;
+            let statusText = '';
+            if (isRegistered) {
+                statusText = formatDate(payment.date);
+            } else if (isPast) {
+                statusText = 'FALLO';
+            } else {
+                statusText = 'PENDIENTE';
+            }
             
             rows.push({
                 num: i,
                 vencimiento: dueDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' }),
                 importeAbono: weeklyPayment,
                 importeRecibido: isRegistered ? payment.amount : 0,
-                fechaAbono: isRegistered ? formatDate(payment.date) : (isPast ? 'FALLO' : 'PENDIENTE'),
-                isPenalty: i > plan.termInWeeks
+                fechaAbono: statusText,
+                isPenalty: i > plan.termInWeeks,
+                status: isRegistered ? 'PAID' : (isPast ? 'MISSED' : 'PENDING')
             });
         }
         return rows;
@@ -418,7 +427,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         <TableHead className="text-blue-900 font-bold border-r border-blue-200">Fecha Vencimiento</TableHead>
                                         <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Abono</TableHead>
                                         <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Recibido</TableHead>
-                                        <TableHead className="text-blue-900 font-bold text-center">Fecha Abono</TableHead>
+                                        <TableHead className="text-blue-900 font-bold text-center">Fecha / Estado</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -430,10 +439,20 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             </TableCell>
                                             <TableCell className="border-r border-blue-100 py-1 text-xs">{row.vencimiento}</TableCell>
                                             <TableCell className="border-r border-blue-100 text-right py-1">{formatCurrency(row.importeAbono)}</TableCell>
-                                            <TableCell className={cn("border-r border-blue-100 text-right py-1 font-black", row.importeRecibido > 0 ? "bg-green-50 text-green-700" : "text-red-700")}>
+                                            <TableCell className={cn(
+                                                "border-r border-blue-100 text-right py-1 font-black", 
+                                                row.status === 'PENDING' ? "text-blue-600 bg-blue-50/20" : 
+                                                row.importeRecibido >= row.importeAbono ? "bg-green-50 text-green-700" : 
+                                                "text-red-700 bg-red-50/10"
+                                            )}>
                                                 {formatCurrency(row.importeRecibido)}
                                             </TableCell>
-                                            <TableCell className={cn("text-center py-1 text-[10px] font-bold", row.fechaAbono === 'FALLO' ? "text-red-600" : "text-muted-foreground")}>
+                                            <TableCell className={cn(
+                                                "text-center py-1 text-[10px] font-bold", 
+                                                row.status === 'PENDING' ? "text-blue-500" : 
+                                                row.status === 'MISSED' ? "text-red-600" : 
+                                                "text-muted-foreground"
+                                            )}>
                                                 {row.fechaAbono}
                                             </TableCell>
                                         </TableRow>

@@ -50,13 +50,12 @@ export default async function OverduePortfolioPage() {
             let missedCount = 0;
             let totalArrears = 0;
 
-            // Calcular fallos y deuda acumulada
+            // Calcular fallos reales en semanas base
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 const amountPaid = p ? p.amount : 0;
                 
                 if (amountPaid < weeklyPayment) {
-                    // Si ya pasó la fecha de la semana o existe un registro incompleto
                     const dueDate = new Date(loanStartDate);
                     dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
                     
@@ -71,8 +70,17 @@ export default async function OverduePortfolioPage() {
             const termWithPenalty = baseTerm + (hasPenalty ? 1 : 0);
             const isExpired = rawCurrentLoanWeek > termWithPenalty;
 
-            // REGLA DE NEGOCIO: Saldo = Suma de Arrears + Semana Extra si aplica
-            const calculatedAmountDue = totalArrears + (hasPenalty ? weeklyPayment : 0);
+            // Calcular deuda de la semana extra si aplica
+            let penaltyArrear = 0;
+            if (hasPenalty) {
+                const penaltyWeekNum = baseTerm + 1;
+                const pExtra = loan.payments.find(pay => pay.weekNumber === penaltyWeekNum);
+                const amountPaidExtra = pExtra ? pExtra.amount : 0;
+                penaltyArrear = weeklyPayment - amountPaidExtra;
+            }
+
+            // REGLA DE NEGOCIO: Saldo = Suma de Arrears + Deuda Semana Extra
+            const calculatedAmountDue = totalArrears + penaltyArrear;
 
             // 'Pagos Pendientes': Solo 2 o más fallos Y NO expirados con deuda
             if (!isExpired && missedCount >= 2 && calculatedAmountDue > 0) {
