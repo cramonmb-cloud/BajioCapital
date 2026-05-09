@@ -1,3 +1,4 @@
+
 'use server';
 
 import type { Client, Loan, LoanPlan, AppUser } from '@/lib/types';
@@ -325,5 +326,80 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
     } catch (error: any) {
         console.error('Error paying off loan:', error);
         return { success: false, message: `Error al liquidar el préstamo: ${error.message}` };
+    }
+}
+
+export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?: string) {
+    try {
+        const today = new Date();
+        let totalAccumulated = 0;
+        let count = 0;
+
+        await runTransaction(db, async (transaction) => {
+            const walletRef = doc(db, 'wallet', 'main');
+            
+            for (const id of loanIds) {
+                const loanRef = doc(db, 'loans', id);
+                const loanSnap = await transaction.get(loanRef);
+                if (!loanSnap.exists()) continue;
+
+                const loan = loanSnap.data() as Loan;
+                const plan = await getLoanPlan(loan.loanPlanId);
+                if (!plan) continue;
+
+                const client = await getClient(loan.clientId);
+                const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
+                const loanStartDate = parseFirestoreDate(loan.startDate);
+                const timeDiff = today.getTime() - loanStartDate.getTime();
+                const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+                
+                // REGLA DE SEGURIDAD: Solo llenar hasta el plazo base (plan.termInWeeks)
+                // Nunca llenar automáticamente la semana extra.
+                const currentWeekToFill = Math.min(rawCurrentLoanWeek, plan.termInWeeks);
+                
+                const currentPayments = loan.payments || [];
+                let hasChanges = false;
+                const newPayments = [...currentPayments];
+
+                for (let w = 1; w <= currentWeekToFill; w++) {
+                    const exists = currentPayments.some(p => p.weekNumber === w);
+                    if (!exists) {
+                        newPayments.push({
+                            date: new Date().toISOString(),
+                            amount: weeklyPayment,
+                            weekNumber: w
+                        });
+                        totalAccumulated += weeklyPayment;
+                        count++;
+                        hasChanges = true;
+
+                        const txRef = doc(collection(db, 'walletTransactions'));
+                        transaction.set(txRef, {
+                            type: 'credit',
+                            amount: weeklyPayment,
+                            date: new Date(),
+                            description: `Abono asumido (Hoja) de ${client?.name || 'N/A'} - Sem ${w}`,
+                            loanId: id,
+                            clientId: loan.clientId,
+                            userId: userId || null
+                        });
+                    }
+                }
+
+                if (hasChanges) {
+                    transaction.update(loanRef, { payments: newPayments });
+                }
+            }
+            
+            if (totalAccumulated > 0) {
+                transaction.update(walletRef, { balance: increment(totalAccumulated) });
+            }
+        });
+
+        revalidatePath('/dashboard', 'layout');
+        return { success: true, message: `Se formalizaron ${count} abonos por un total de ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalAccumulated)}.` };
+    } catch (error: any) {
+        console.error('Error accumulating payments:', error);
+        return { success: false, message: `Error: ${error.message}` };
     }
 }

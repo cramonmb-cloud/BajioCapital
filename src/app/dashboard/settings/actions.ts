@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -100,24 +101,19 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
             const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
             const client = clients.find(c => c.id === loan.clientId);
             
-            // Penalty check
-            let missedWeeksCount = 0;
+            // REGLA DE SEGURIDAD: Solo procesar hasta el plazo base (loanPlan.termInWeeks)
+            // No autocompletar la semana extra en sincronización masiva.
+            const currentWeekToFill = Math.min(rawCurrentLoanWeek, loanPlan.termInWeeks);
+
             const currentPayments = (loan.payments || []).map((p: any) => ({
                 ...p,
                 date: parseFirestoreDate(p.date).toISOString()
             }));
 
-            for (let i = 1; i < rawCurrentLoanWeek; i++) {
-                const p = currentPayments.find((pay: any) => pay.weekNumber === i);
-                if (p && p.amount < weeklyPaymentAmount) missedWeeksCount++;
-            }
-            const termInWeeks = loanPlan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
-
             let updatedPayments = [...currentPayments];
             let loanChanged = false;
 
-            // Check every past week up to current (capped at term)
-            for (let weekNumber = 1; weekNumber <= Math.min(rawCurrentLoanWeek, termInWeeks); weekNumber++) {
+            for (let weekNumber = 1; weekNumber <= currentWeekToFill; weekNumber++) {
                 if (weekNumber <= 0) continue;
 
                 const paymentExists = updatedPayments.some((p: any) => p.weekNumber === weekNumber);
@@ -150,16 +146,15 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
             if (loanChanged) {
                 // Closing logic
                 let effectivePaid = 0;
-                for (let i = 1; i <= termInWeeks; i++) {
+                for (let i = 1; i <= loanPlan.termInWeeks; i++) {
                     const p = updatedPayments.find((pay: any) => pay.weekNumber === i);
                     if (p) effectivePaid += p.amount;
-                    else if (i < rawCurrentLoanWeek) effectivePaid += weeklyPaymentAmount;
                 }
 
-                const totalLoanAmount = weeklyPaymentAmount * termInWeeks;
+                const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
                 let newStatus = loan.status;
                 if (effectivePaid >= totalLoanAmount) {
-                    newStatus = (loan.status === 'Overdue' || rawCurrentLoanWeek > termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
+                    newStatus = (loan.status === 'Overdue' || rawCurrentLoanWeek > loanPlan.termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
                 }
 
                 batch.update(doc(db, 'loans', loan.id), { payments: updatedPayments, status: newStatus });
@@ -329,5 +324,97 @@ export async function migrateLocalidadAction(localidadId: string, targetPlazaId:
     } catch (error: any) {
         console.error('Error migrating locality:', error);
         return { success: false, message: `Error al migrar localidad: ${error.message}` };
+    }
+}
+
+/**
+ * REVERSIÓN DE EMERGENCIA: Limpia los abonos erróneos en semanas extras realizados por auto-llenado.
+ * Fecha de corte: 13/03/2026.
+ */
+export async function revertExtraWeekPaymentsAction() {
+    try {
+        const [loansSnap, plansSnap] = await Promise.all([
+            getDocs(collection(db, 'loans')),
+            getDocs(collection(db, 'loanPlans'))
+        ]);
+
+        const loanPlans = plansSnap.docs.map(d => ({ id: d.id, ...d.data() } as LoanPlan));
+        const loans = loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as Loan));
+
+        // Fecha de corte solicitada (Semana del 13/03/26)
+        const cutoffDate = new Date('2026-03-13T00:00:00Z');
+        let totalToRevert = 0;
+        let correctedCount = 0;
+        
+        let batch = writeBatch(db);
+        let batchCount = 0;
+
+        for (const loan of loans) {
+            const plan = loanPlans.find(p => p.id === loan.loanPlanId);
+            if (!plan) continue;
+
+            const baseTerm = plan.termInWeeks;
+            const currentPayments = loan.payments || [];
+            
+            // Detectar abonos en semanas EXTRA (> baseTerm) realizados después del corte
+            const extraPaymentsToRevert = currentPayments.filter(p => {
+                const pDate = new Date(p.date);
+                return p.weekNumber > baseTerm && pDate >= cutoffDate && p.amount > 0;
+            });
+
+            if (extraPaymentsToRevert.length > 0) {
+                const loanSum = extraPaymentsToRevert.reduce((s, p) => s + p.amount, 0);
+                totalToRevert += loanSum;
+                correctedCount += extraPaymentsToRevert.length;
+
+                // Ponemos los pagos en 0 para que vuelvan a aparecer como "Fallo"
+                const updatedPayments = currentPayments.map(p => {
+                    const pDate = new Date(p.date);
+                    if (p.weekNumber > baseTerm && pDate >= cutoffDate) {
+                        return { ...p, amount: 0 };
+                    }
+                    return p;
+                });
+
+                batch.update(doc(db, 'loans', loan.id), { 
+                    payments: updatedPayments,
+                    // Si el préstamo estaba liquidado erróneamente, vuelve a estar Vencido (Overdue)
+                    status: loan.status === 'Paid Off' || loan.status === 'Pagado desde CV' ? 'Overdue' : loan.status
+                });
+                batchCount++;
+            }
+
+            if (batchCount >= 450) {
+                await batch.commit();
+                batch = writeBatch(db);
+                batchCount = 0;
+            }
+        }
+
+        if (totalToRevert > 0) {
+            const walletRef = doc(db, 'wallet', 'main');
+            batch.update(walletRef, { balance: increment(-totalToRevert) });
+            
+            // Auditoría: Registrar la salida de dinero
+            const auditTxRef = doc(collection(db, 'walletTransactions'));
+            batch.set(auditTxRef, {
+                type: 'debit',
+                amount: totalToRevert,
+                date: new Date(),
+                description: `REVERSIÓN DE SEGURIDAD: Eliminación de ${correctedCount} abonos erróneos en Semanas Extras (Post 13/03/26).`,
+            });
+            
+            await batch.commit();
+        }
+
+        revalidatePath('/dashboard', 'layout');
+
+        return { 
+            success: true, 
+            message: `Limpieza completada. Se revirtieron ${correctedCount} pagos. Saldo de cartera ajustado en -${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(totalToRevert)}.` 
+        };
+    } catch (error: any) {
+        console.error('Error reverting extra payments:', error);
+        return { success: false, message: `Error crítico al revertir: ${error.message}` };
     }
 }
