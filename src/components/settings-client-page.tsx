@@ -41,7 +41,7 @@ import {
 } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck } from "lucide-react";
+import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck, MapPin, Route, Building } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction } from "@/app/dashboard/settings/actions";
 import { useRouter } from "next/navigation";
@@ -80,6 +80,9 @@ const AVAILABLE_TAGS = [
     { tag: '{{monto_prestamo}}', desc: 'Monto original solicitado' },
     { tag: '{{saldo_pendiente}}', desc: 'Monto total que debe a la fecha' },
     { tag: '{{fallos_registrados}}', desc: 'Número de pagos incompletos' },
+    { tag: '{{plaza}}', desc: 'Nombre de la Plaza' },
+    { tag: '{{localidad}}', desc: 'Nombre de la Localidad' },
+    { tag: '{{promotora}}', desc: 'Nombre de la Promotora' },
     { tag: '{{nombre_negocio}}', desc: 'Nombre de tu empresa' },
 ];
 

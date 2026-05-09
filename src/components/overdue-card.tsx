@@ -227,6 +227,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 '{{monto_prestamo}}': formatCurrency(loan.amount),
                 '{{saldo_pendiente}}': formatCurrency(metrics.totalDue),
                 '{{fallos_registrados}}': metrics.missedCount.toString(),
+                '{{plaza}}': hierarchy.plazaName.toUpperCase(),
+                '{{localidad}}': hierarchy.localidadName.toUpperCase(),
+                '{{promotora}}': hierarchy.promotoraName.toUpperCase(),
                 '{{nombre_negocio}}': appConfig?.appName || 'CREDICONTROL',
             };
             
