@@ -46,7 +46,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     }
     return clients.filter(client =>
       client.name.toLowerCase().includes(searchTerm.toLowerCase())
-    ).slice(0, 5); // Limit results for performance
+    ).slice(0, 5);
   }, [searchTerm, clients]);
 
   const activeLoanDetails = useMemo(() => {
@@ -69,16 +69,13 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     let registeredMissedCount = 0;
     let baseArrears = 0;
 
-    // Calcular deuda de semanas base (1 a baseTerm)
     for (let i = 1; i <= baseTerm; i++) {
         const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
         const amountPaid = p ? p.amount : 0;
-        
         const dueDate = new Date(loanStartDate);
         dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
         
         if (amountPaid < weeklyPayment) {
-            // Solo cuenta como deuda si ya pasó la fecha o si hubo abono parcial
             if (p || today > dueDate) {
                 baseArrears += (weeklyPayment - amountPaid);
                 registeredMissedCount++;
@@ -86,7 +83,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         }
     }
     
-    // REGLA: Si el préstamo EXPIRÓ (Cartera Vencida), la penalización es OBLIGATORIA
+    // REGLA: Si expiró el plazo base, la penalización es OBLIGATORIA
     const isExpired = today > new Date(loanStartDate.getTime() + (baseTerm * 7 * 24 * 60 * 60 * 1000));
     const hasPenalty = isExpired ? true : (registeredMissedCount >= 2);
 
@@ -94,8 +91,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     if (hasPenalty) {
         const penaltyWeekNum = baseTerm + 1;
         const pExtra = (activeLoan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
-        const amountPaidExtra = pExtra ? pExtra.amount : 0;
-        penaltyArrear = weeklyPayment - amountPaidExtra;
+        penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
     }
 
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
@@ -136,12 +132,6 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     };
   }, [selectedClient, loans, loanPlans, plazas, localidades, promotoras]);
   
-  useEffect(() => {
-    if (filteredClients.length === 1 && searchTerm === filteredClients[0].name) {
-       handleClientSelect(filteredClients[0]);
-    }
-  }, [searchTerm, filteredClients]);
-
   const handleClientSelect = (client: Client) => {
     setSearchTerm(client.name);
     setSelectedClient(client);
@@ -211,32 +201,26 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         </div>
 
         {selectedClient && (
-            <Card className="max-w-4xl mx-auto animate-in fade-in-50">
-                <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6">
+            <Card className="max-w-4xl mx-auto animate-in fade-in-50 border-2">
+                <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-6 bg-muted/20">
                     <div className="flex items-center gap-4">
-                        <Avatar className="h-20 w-20 border-2 border-primary">
+                        <Avatar className="h-20 w-20 border-2 border-primary shadow-sm">
                             <AvatarImage src={selectedClient.avatarUrl} alt={selectedClient.name} />
-                            <AvatarFallback className="text-3xl">{selectedClient.name.charAt(0)}</AvatarFallback>
+                            <AvatarFallback className="text-3xl font-bold bg-white text-primary">{selectedClient.name.charAt(0)}</AvatarFallback>
                         </Avatar>
                         <div>
-                            <CardTitle className="text-2xl">{selectedClient.name}</CardTitle>
-                            <CardDescription>ID de Cliente: {selectedClient.id}</CardDescription>
+                            <CardTitle className="text-2xl font-black uppercase">{selectedClient.name}</CardTitle>
+                            <CardDescription className="font-bold">ID: {selectedClient.id}</CardDescription>
                         </div>
                     </div>
-                     <div className="text-sm text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1">
-                        <div className="flex items-center gap-2"><Phone className="h-4 w-4" /> {selectedClient.phone}</div>
+                     <div className="text-xs font-bold text-muted-foreground grid grid-cols-2 gap-x-4 gap-y-1 uppercase">
+                        <div className="flex items-center gap-2"><Phone className="h-3.5 w-3.5 text-blue-600" /> {selectedClient.phone}</div>
                         <div className="flex items-center gap-2 col-span-2">
-                             {isMobile ? (
-                                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 hover:underline" style={{ color: '#005DC7' }}>
-                                    <Map className="h-4 w-4" /> {`${selectedClient.street}, ${selectedClient.neighborhood}`}
-                                </a>
-                            ) : (
-                                <><Home className="h-4 w-4" /> {`${selectedClient.street}, ${selectedClient.neighborhood}`}</>
-                            )}
+                             <Home className="h-3.5 w-3.5 text-blue-600" /> {`${selectedClient.street}, ${selectedClient.neighborhood}`}
                         </div>
                         {activeLoanDetails && (
                             <>
-                                <div className="flex items-center gap-2 col-span-2 text-xs">
+                                <div className="flex items-center gap-2 col-span-2 text-[10px] mt-1 text-zinc-500">
                                     <Building className="h-3 w-3" /> {activeLoanDetails.plazaName}
                                     <MapPin className="h-3 w-3 ml-2" /> {activeLoanDetails.localidadName}
                                     <User className="h-3 w-3 ml-2" /> {activeLoanDetails.promotoraName}
@@ -250,93 +234,80 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                 
                 {activeLoanDetails ? (
                     <CardContent className="p-6 grid md:grid-cols-2 gap-8">
-                        
-                         <div className="space-y-4">
+                         <div className="space-y-6">
                              <div className='flex items-center justify-between'>
-                                <h3 className="font-semibold text-xl flex items-center gap-2"><Wallet className="text-primary"/> Situación Financiera</h3>
+                                <h3 className="font-black text-lg uppercase flex items-center gap-2 tracking-tight text-zinc-800"><Wallet className="text-primary"/> Estado Financiero</h3>
                                 {activeLoanDetails.hasPenalty && (
-                                    <Badge className="bg-orange-500 hover:bg-orange-600 font-black text-[10px] px-3">S. EXTRA ACTIVA</Badge>
+                                    <Badge className="bg-orange-500 hover:bg-orange-600 font-black text-[10px] px-3 shadow-sm">S. EXTRA ACTIVA</Badge>
                                 )}
                              </div>
-                             <div className="grid grid-cols-3 gap-4 text-sm">
-                                <div className="space-y-1">
-                                    <p className="text-muted-foreground uppercase text-[10px] font-bold">Semana Actual</p>
-                                    <p className="font-black text-2xl">{activeLoanDetails.currentLoanWeek} / {activeLoanDetails.termInWeeks}</p>
+                             <div className="grid grid-cols-3 gap-2">
+                                <div className="p-3 rounded-xl bg-zinc-50 border text-center">
+                                    <p className="text-muted-foreground uppercase text-[8px] font-black tracking-widest mb-1">Semana</p>
+                                    <p className="font-black text-xl">{activeLoanDetails.currentLoanWeek} / {activeLoanDetails.termInWeeks}</p>
                                 </div>
-                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground uppercase text-[10px] font-bold">Abono</p>
-                                    <p className="font-black text-2xl" style={{ color: '#005DC7' }}>{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
+                                 <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 text-center">
+                                    <p className="text-blue-600 uppercase text-[8px] font-black tracking-widest mb-1">Abono</p>
+                                    <p className="font-black text-xl text-blue-700">{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
                                  </div>
-                                  <div className="space-y-1">
-                                    <p className="text-muted-foreground uppercase text-[10px] font-bold flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> Fallos</p>
-                                    <p className={cn("font-black text-2xl text-red-500")}>
-                                        {activeLoanDetails.missedWeeks}
-                                    </p>
+                                  <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-center">
+                                    <p className="text-red-600 uppercase text-[8px] font-black tracking-widest mb-1">Fallos</p>
+                                    <p className={cn("font-black text-xl text-red-700")}>{activeLoanDetails.missedWeeks}</p>
                                  </div>
                              </div>
-                            <Separator className="my-4"/>
-                            <h3 className="font-semibold text-xl flex items-center gap-2"><FileText className="text-primary"/> Detalle del Saldo</h3>
-                            <div className="space-y-3 p-4 bg-muted/30 rounded-xl border border-muted-foreground/10">
-                                <div className="flex justify-between items-center text-sm">
-                                    <span className="font-medium text-muted-foreground uppercase text-[10px]">Saldo de Fallos</span>
-                                    <span className="font-bold">{formatCurrency(activeLoanDetails.baseArrears)}</span>
+
+                            <div className="space-y-3 p-5 bg-zinc-100 rounded-2xl border-2 border-zinc-200">
+                                <div className="flex justify-between items-center text-xs">
+                                    <span className="font-black text-muted-foreground uppercase text-[9px]">Saldo de Fallos</span>
+                                    <span className="font-black text-zinc-800">{formatCurrency(activeLoanDetails.baseArrears)}</span>
                                 </div>
                                 {activeLoanDetails.hasPenalty && (
-                                    <div className="flex justify-between items-center text-sm border-b pb-2">
-                                        <span className="font-medium text-orange-600 uppercase text-[10px]">Semana Extra</span>
-                                        <span className="font-bold text-orange-600">+{formatCurrency(activeLoanDetails.penaltyArrear)}</span>
+                                    <div className="flex justify-between items-center text-xs border-b border-zinc-300 border-dashed pb-2">
+                                        <span className="font-black text-orange-600 uppercase text-[9px]">Semana Extra</span>
+                                        <span className="font-black text-orange-600">+{formatCurrency(activeLoanDetails.penaltyArrear)}</span>
                                     </div>
                                 )}
-                                <div className="flex justify-between items-center pt-1">
+                                <div className="flex justify-between items-center pt-2">
                                     <span className="font-black text-red-700 uppercase text-xs">Total a Deber</span>
-                                    <span className="text-2xl font-black text-red-700 tracking-tighter">{formatCurrency(activeLoanDetails.totalBalance)}</span>
+                                    <span className="text-3xl font-black text-red-700 tracking-tighter">{formatCurrency(activeLoanDetails.totalBalance)}</span>
                                 </div>
                             </div>
                         </div>
                         
-                         <div className="space-y-2 border-l md:pl-8">
-                             <Collapsible defaultOpen={true}>
-                                <CollapsibleTrigger className="w-full">
-                                    <div className="flex items-center justify-between w-full">
-                                        <h3 className="font-semibold text-xl flex items-center gap-2"><Shield className="text-primary"/> Información del Aval</h3>
-                                        <ChevronDown className="h-5 w-5 transition-transform [&[data-state=open]]:rotate-180" />
+                         <div className="space-y-4 md:border-l md:pl-8">
+                             <div className="flex items-center gap-2 mb-2">
+                                <Shield className="h-5 w-5 text-primary"/>
+                                <h3 className="font-black text-lg uppercase tracking-tight text-zinc-800">Garantía y Aval</h3>
+                             </div>
+                             <div className="space-y-4">
+                                <div className="p-4 rounded-xl bg-blue-600 text-white shadow-lg space-y-3">
+                                    <div>
+                                        <p className="text-[8px] font-black uppercase text-blue-200 tracking-widest mb-1">Responsable Solidario</p>
+                                        <p className="font-black text-lg uppercase leading-none">{activeLoanDetails.endorsementName}</p>
                                     </div>
-                                </CollapsibleTrigger>
-                                <CollapsibleContent>
-                                    <div className="space-y-3 text-sm mt-4">
-                                        <div className="space-y-1">
-                                            <p className="text-muted-foreground">Garantía</p>
-                                            <p className="font-semibold">{selectedClient.guarantee}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-muted-foreground">Nombre del Aval</p>
-                                            <p className="font-bold text-lg">{activeLoanDetails.endorsementName}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-muted-foreground">Contacto y Domicilio</p>
-                                            <p className="font-semibold">{activeLoanDetails.endorsementDetails || 'No especificado'}</p>
-                                        </div>
-                                    </div>
-                                </CollapsibleContent>
-                            </Collapsible>
+                                    <p className="text-[10px] font-bold uppercase leading-relaxed text-blue-50 opacity-90">{activeLoanDetails.endorsementDetails || 'SIN DIRECCIÓN REGISTRADA'}</p>
+                                </div>
+                                <div className="p-4 rounded-xl border-2 border-dashed bg-zinc-50 space-y-1">
+                                    <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">Garantía Registrada</p>
+                                    <p className="font-bold text-xs uppercase text-zinc-700">{selectedClient.guarantee}</p>
+                                </div>
+                             </div>
                          </div>
                     </CardContent>
                 ) : (
-                    <CardContent className="p-6 text-center">
-                        <p className="text-muted-foreground">Este cliente no tiene ningún préstamo activo o vencido actualmente.</p>
+                    <CardContent className="p-12 text-center">
+                        <div className="max-w-xs mx-auto space-y-4">
+                            <CircleDollarSign className="h-12 w-12 text-zinc-300 mx-auto" />
+                            <p className="text-zinc-500 font-bold uppercase text-sm">Este cliente no tiene préstamos activos actualmente.</p>
+                        </div>
                     </CardContent>
                 )}
             </Card>
         )}
         
         {!selectedClient && searchTerm && filteredClients.length === 0 && (
-             <div className="text-center mt-8 text-muted-foreground animate-in fade-in-50">
-                <p>No se encontraron clientes con ese nombre.</p>
-            </div>
-        )}
-
-        {!selectedClient && !searchTerm && (
-            <div className="text-center mt-8 text-muted-foreground animate-in fade-in-50">
+             <div className="text-center mt-8 p-12 border-2 border-dashed rounded-3xl animate-in fade-in-50">
+                <p className="text-zinc-500 font-bold uppercase text-sm">No se encontraron clientes con el nombre "{searchTerm}"</p>
             </div>
         )}
     </div>

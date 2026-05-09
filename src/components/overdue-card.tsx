@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { 
     Phone, MessageSquare, MapPin, 
     Wallet, FileText, Shield, History as HistoryIcon, 
-    X, Home, AlertCircle, ListTodo
+    X, Home, ListTodo
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -38,7 +38,7 @@ interface OverdueCardProps {
     allClients: Client[];
     allLoanPlans: LoanPlan[];
     plazaColor: string;
-    isOverduePortfolio?: boolean;
+    isOverduePortfolio?: boolean; // True para Pagos Pendientes, False para Cartera Vencida
     whatsappTemplate?: string;
     appName?: string;
 }
@@ -84,16 +84,15 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
         const today = new Date();
         const loanStartDate = new Date(loan.startDate);
-        
         const baseTerm = loanPlan.termInWeeks;
+        
         let baseArrears = 0;
         let registeredMissedCount = 0;
 
-        // Calcular abonos base y fallos
+        // Calcular deuda de semanas base
         for (let i = 1; i <= baseTerm; i++) {
             const p = (loan.payments || []).find(pay => pay.weekNumber === i);
             const amountPaid = p ? p.amount : 0;
-            
             const dueDate = new Date(loanStartDate);
             dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
             
@@ -105,16 +104,16 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             }
         }
 
-        // REGLA: En Cartera Vencida (isOverduePortfolio === false) la penalización es SIEMPRE OBLIGATORIA
-        const isExpired = today > new Date(loanStartDate.getTime() + (baseTerm * 7 * 24 * 60 * 60 * 1000));
-        const hasPenalty = isOverduePortfolio ? (registeredMissedCount >= 2) : true;
+        // DETERMINACIÓN DE PENALIZACIÓN
+        // Si es Cartera Vencida (isOverduePortfolio === false), SIEMPRE es obligatoria.
+        // Si es Pagos Pendientes (isOverduePortfolio === true), depende de si hay 2+ fallos.
+        const hasPenalty = !isOverduePortfolio ? true : (registeredMissedCount >= 2);
 
         let penaltyArrear = 0;
         if (hasPenalty) {
             const penaltyWeekNum = baseTerm + 1;
             const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
-            const amountPaidExtra = pExtra ? pExtra.amount : 0;
-            penaltyArrear = weeklyPayment - amountPaidExtra;
+            penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
         }
 
         const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
@@ -210,7 +209,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         if (client.phone) {
             const defaultTemplate = `Hola {{nombre_cliente}}, te contactamos de {{nombre_negocio}} para recordarte sobre tu préstamo pendiente de pago.`;
             let message = whatsappTemplate || defaultTemplate;
-
             const replacements: Record<string, string> = {
                 '{{nombre_cliente}}': client.name.toUpperCase(),
                 '{{domicilio_cliente}}': `${client.street}, ${client.neighborhood}`.toUpperCase(),
@@ -223,18 +221,13 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 '{{fallos_registrados}}': metrics.missedCount.toString(),
                 '{{nombre_negocio}}': appName || 'CREDICONTROL',
             };
-
             Object.keys(replacements).forEach(tag => {
                 const regex = new RegExp(tag, 'g');
                 message = message.replace(regex, replacements[tag]);
             });
-
             window.open(`https://wa.me/${client.phone}?text=${encodeURIComponent(message)}`, '_blank');
         }
     };
-
-    const fullAddress = `${client.street}, ${client.neighborhood}, ${client.city}, ${client.postalCode}`;
-    const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
 
     return (
         <>
@@ -244,14 +237,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         <Badge className="text-[8px] font-black uppercase px-1.5 h-4 shrink-0" style={{ backgroundColor: plazaColor }}>
                             PLAZA: {hierarchy.plazaName}
                         </Badge>
-                        <div className="px-1.5 h-4 border border-zinc-400 rounded flex items-center shrink-0">
+                        <div className="px-1.5 h-4 border border-zinc-300 rounded flex items-center shrink-0">
                             <span className="text-[8px] font-black text-zinc-600 uppercase whitespace-nowrap">
-                                LOCALIDAD: {hierarchy.localidadName}
-                            </span>
-                        </div>
-                        <div className="px-1.5 h-4 border border-zinc-400 rounded flex items-center shrink-0">
-                            <span className="text-[8px] font-black text-zinc-600 uppercase whitespace-nowrap">
-                                PROMOTORA: {hierarchy.promotoraName}
+                                ZONA: {hierarchy.localidadName}
                             </span>
                         </div>
                     </div>
@@ -259,13 +247,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     <div className="flex justify-between items-start gap-2">
                         <div className="cursor-pointer flex-1" onClick={() => setDetailModalOpen(true)}>
                             <h3 className="font-black text-sm uppercase leading-tight text-foreground">{client.name}</h3>
-                            <div className="flex flex-wrap items-center gap-2 mt-1">
-                                <div className="flex items-start gap-1 text-muted-foreground">
-                                    <MapPin className="h-3 w-3 text-blue-500 shrink-0 mt-0.5" />
-                                    <p className="text-[9px] font-bold uppercase leading-tight">
-                                        {client.street}, {client.neighborhood}
-                                    </p>
-                                </div>
+                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
                                 <div className="flex items-center gap-1">
                                     <Badge variant="outline" className="h-4 px-1.5 text-[8px] font-black bg-red-50 text-red-700 border-red-200">
                                         {metrics.missedCount} {metrics.missedCount === 1 ? 'FALLO' : 'FALLOS'}
@@ -280,15 +262,15 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </div>
                         
                         <div className="text-right shrink-0 bg-zinc-50 p-2 rounded-lg border border-zinc-200">
-                            <div className="space-y-0.5 min-w-[90px]">
-                                <div className="flex justify-between gap-3">
-                                    <span className="text-[7px] font-black text-muted-foreground uppercase">Saldo Fallos</span>
-                                    <span className="text-[9px] font-black text-zinc-700">{formatCurrency(metrics.baseArrears)}</span>
+                            <div className="space-y-0.5 min-w-[100px]">
+                                <div className="flex justify-between gap-3 text-[7px] font-black text-muted-foreground uppercase">
+                                    <span>Saldo Fallos</span>
+                                    <span>{formatCurrency(metrics.baseArrears)}</span>
                                 </div>
                                 {metrics.hasPenalty && (
-                                    <div className="flex justify-between gap-3 border-b border-zinc-200 pb-0.5">
-                                        <span className="text-[7px] font-black text-orange-600 uppercase">Semana Extra</span>
-                                        <span className="text-[9px] font-black text-orange-600">+{formatCurrency(metrics.penaltyArrear)}</span>
+                                    <div className="flex justify-between gap-3 text-[7px] font-black text-orange-600 uppercase border-b border-zinc-200 pb-0.5">
+                                        <span>Semana Extra</span>
+                                        <span>+{formatCurrency(metrics.penaltyArrear)}</span>
                                     </div>
                                 )}
                                 <div className="flex flex-col items-end pt-1">
@@ -300,7 +282,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     </div>
 
                     <div className="flex gap-2 items-center">
-                        <Button asChild className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] rounded-lg flex-1 shadow-sm" size="sm">
+                        <Button asChild className="h-8 bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] rounded-lg flex-1" size="sm">
                             <a href={`tel:${cleanPhone(client.phone)}`}>
                                 <Phone className="mr-2 h-3.5 w-3.5" /> {client.phone}
                             </a>
@@ -310,39 +292,11 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </Button>
                     </div>
 
-                    <div className="p-2.5 rounded-xl bg-blue-50/40 border border-blue-100 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-1 mb-0.5">
-                                    <Shield className="h-2.5 w-2.5 text-blue-600" />
-                                    <span className="text-[8px] font-black uppercase text-blue-700 tracking-widest">Responsable Solidario (Aval)</span>
-                                </div>
-                                <p className="text-[10px] font-black uppercase truncate text-blue-900">{avalName}</p>
-                            </div>
-                        </div>
-                        
-                        <div className="flex flex-col gap-1.5">
-                            <div className="flex items-start gap-1.5 opacity-90">
-                                <Home className="h-3 w-3 text-blue-400 shrink-0 mt-0.5" />
-                                <p className="text-[9px] font-bold uppercase text-blue-800 leading-tight">
-                                    {avalAddress}
-                                </p>
-                            </div>
-                            {avalPhone && (
-                                <Button asChild className="h-7 bg-blue-700 hover:bg-blue-800 text-white font-black text-[10px] w-full rounded-lg" size="sm">
-                                    <a href={`tel:${cleanPhone(avalPhone)}`}>
-                                        <Phone className="mr-2 h-3 w-3" /> {avalPhone}
-                                    </a>
-                                </Button>
-                            )}
-                        </div>
-                    </div>
-
                     <div className="flex items-center justify-between gap-3 pt-1 border-t border-dashed">
                         <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1">
                             <HistoryIcon className="h-2.5 w-2.5" /> INICIÓ: {formatDate(metrics.loanWeekDate.toISOString())}
                         </div>
-                        <Button size="sm" onClick={() => setDetailModalOpen(true)} className="h-8 bg-foreground text-background font-black text-[10px] uppercase px-5 rounded-lg active:scale-95 shadow-md">
+                        <Button size="sm" onClick={() => setDetailModalOpen(true)} className="h-8 bg-foreground text-background font-black text-[10px] uppercase px-5 rounded-lg shadow-md">
                             <Wallet className="mr-1.5 h-4 w-4" /> Detalle
                         </Button>
                     </div>
@@ -353,7 +307,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
                     <DialogHeader className="px-5 py-3 border-b shrink-0 flex flex-row items-center justify-between bg-muted/10">
                         <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10 border">
+                            <Avatar className="h-10 w-10 border shadow-sm">
                                 <AvatarImage src={client.avatarUrl} alt={client.name} />
                                 <AvatarFallback className="font-bold text-xs bg-blue-100 text-blue-700">{client.name.charAt(0)}</AvatarFallback>
                             </Avatar>
@@ -382,7 +336,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                                 <div className="p-2 rounded-lg bg-red-50 border-red-100 text-center">
                                     <p className="text-[7px] uppercase font-black text-red-600">Fallos</p>
-                                    <p className={cn("font-black text-sm text-red-700")}>{metrics.missedCount}</p>
+                                    <p className="font-black text-sm text-red-700">{metrics.missedCount}</p>
                                 </div>
                                 {metrics.hasPenalty && (
                                     <div className="p-2 rounded-lg bg-orange-500 border-orange-600 text-center flex flex-col justify-center">
@@ -396,40 +350,31 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 <div className="space-y-4">
                                     <div className="space-y-2">
                                         <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                                            <MapPin className="h-3 w-3 text-blue-600" /> Localización Cliente
+                                            <FileText className="h-3 w-3 text-blue-600" /> Detalle del Saldo Deudor
                                         </h4>
-                                        <div className="p-3 rounded-lg border text-xs space-y-2 bg-white">
-                                            <p className="font-bold uppercase">{fullAddress}</p>
-                                            <Button asChild className="h-8 bg-blue-600 text-white font-black text-[10px] w-full" size="sm">
-                                                <a href={`tel:${cleanPhone(client.phone)}`}>
-                                                    <Phone className="mr-1.5 h-3 w-3" /> {client.phone}
-                                                </a>
-                                            </Button>
-                                            <Button variant="secondary" className="w-full h-8 text-[10px] font-bold" asChild>
-                                                <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer">VER EN GOOGLE MAPS</a>
-                                            </Button>
-                                        </div>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                                            <FileText className="h-3 w-3 text-blue-600" /> Estado de Cuenta
-                                        </h4>
-                                        <div className="p-3 rounded-xl border bg-white space-y-2 relative overflow-hidden">
+                                        <div className="p-4 rounded-xl border bg-white space-y-2 shadow-inner">
                                             <div className="flex justify-between items-center text-xs">
-                                                <span className="font-bold text-muted-foreground uppercase text-[9px]">Saldo Fallos</span>
+                                                <span className="font-bold text-muted-foreground uppercase text-[9px]">Suma de Fallos</span>
                                                 <span className="font-black text-zinc-800">{formatCurrency(metrics.baseArrears)}</span>
                                             </div>
                                             {metrics.hasPenalty && (
-                                                <div className="flex justify-between items-center text-xs border-b pb-2">
-                                                    <span className="font-bold text-orange-600 uppercase text-[9px]">Semana Extra</span>
+                                                <div className="flex justify-between items-center text-xs border-b border-dashed pb-2">
+                                                    <span className="font-bold text-orange-600 uppercase text-[9px]">Semana de Penalización</span>
                                                     <span className="font-black text-orange-600">+{formatCurrency(metrics.penaltyArrear)}</span>
                                                 </div>
                                             )}
-                                            <div className="flex justify-between items-center pt-1">
-                                                <span className="font-black text-red-700 uppercase text-[10px]">Total a Deber</span>
+                                            <div className="flex justify-between items-center pt-2">
+                                                <span className="font-black text-red-700 uppercase text-[10px]">Total a Liquidar</span>
                                                 <span className="text-xl font-black text-red-700 tracking-tighter">{formatCurrency(metrics.totalDue)}</span>
                                             </div>
+                                        </div>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
+                                            <MapPin className="h-3 w-3 text-blue-600" /> Dirección Cliente
+                                        </h4>
+                                        <div className="p-3 rounded-lg border text-[10px] bg-muted/5 font-bold uppercase leading-tight">
+                                            {client.street}, {client.neighborhood}, {client.city}
                                         </div>
                                     </div>
                                 </div>
@@ -440,7 +385,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     </h4>
                                     <div className="p-4 rounded-xl bg-blue-600 text-white space-y-3 shadow-md">
                                         <div>
-                                            <p className="text-[7px] uppercase font-black text-blue-200">Titular Aval</p>
+                                            <p className="text-[7px] uppercase font-black text-blue-200">Responsable Solidario</p>
                                             <p className="font-black text-sm uppercase leading-tight">{avalName}</p>
                                         </div>
                                         {avalPhone && (
@@ -449,9 +394,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             </Button>
                                         )}
                                         <p className="text-[9px] font-bold uppercase leading-relaxed text-blue-50 opacity-80">{avalAddress}</p>
-                                    </div>
-                                    <div className="p-2 border border-dashed rounded-lg text-[9px] font-bold uppercase text-muted-foreground text-center">
-                                        Garantía: {client.guarantee || 'NO REGISTRADA'}
                                     </div>
                                 </div>
                             </div>
@@ -472,7 +414,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
                 <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
                     <DialogHeader className="p-6 pb-2 border-b shrink-0 flex flex-row items-center justify-between">
-                        <DialogTitle className="text-sm font-black uppercase text-center w-full">Detalle de los abonos del prestamo</DialogTitle>
+                        <DialogTitle className="text-sm font-black uppercase text-center w-full">Detalle de todos los abonos</DialogTitle>
                         <DialogClose asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
                                 <X className="h-4 w-4" />
@@ -485,33 +427,33 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 <TableHeader className="bg-blue-100 sticky top-0 z-10">
                                     <TableRow className="hover:bg-blue-100 border-blue-200">
                                         <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-center">Num Abono</TableHead>
-                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200">Fecha Vencimiento</TableHead>
-                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Abono</TableHead>
-                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Recibido</TableHead>
+                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200">Vencimiento</TableHead>
+                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Cuota</TableHead>
+                                        <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Pagado</TableHead>
                                         <TableHead className="text-blue-900 font-bold text-center">Estado / Fecha</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {loanHistoryData.map((row) => (
-                                        <TableRow key={row.num} className={cn("border-blue-100 hover:bg-blue-50/50", row.isPenalty && "bg-orange-50/30")}>
+                                        <TableRow key={row.num} className={cn("border-blue-100 hover:bg-blue-50/50", row.isPenalty && "bg-orange-50/40")}>
                                             <TableCell className="border-r border-blue-100 text-center py-1 font-bold">
                                                 {row.num}
-                                                {row.isPenalty && <span className="ml-1 text-[8px] text-orange-600 block leading-none">EXTRA</span>}
+                                                {row.isPenalty && <span className="ml-1 text-[8px] text-orange-600 block leading-none font-black">EXTRA</span>}
                                             </TableCell>
-                                            <TableCell className="border-r border-blue-100 py-1 text-xs">{row.vencimiento}</TableCell>
-                                            <TableCell className="border-r border-blue-100 text-right py-1">{formatCurrency(row.importeAbono)}</TableCell>
+                                            <TableCell className="border-r border-blue-100 py-1 text-[10px] font-bold">{row.vencimiento}</TableCell>
+                                            <TableCell className="border-r border-blue-100 text-right py-1 font-bold">{formatCurrency(row.importeAbono)}</TableCell>
                                             <TableCell className={cn(
                                                 "border-r border-blue-100 text-right py-1 font-black", 
                                                 row.status === 'PAID' ? "bg-green-50 text-green-700" : 
                                                 row.status === 'MISSED' ? "bg-red-50 text-red-700" : 
-                                                "bg-blue-50 text-blue-700"
+                                                "bg-blue-50/30 text-blue-600"
                                             )}>
                                                 {formatCurrency(row.importeRecibido)}
                                             </TableCell>
                                             <TableCell className={cn(
-                                                "text-center py-1 text-[10px] font-bold uppercase", 
-                                                row.status === 'PAID' ? "text-muted-foreground" : 
-                                                row.status === 'MISSED' ? "text-red-600" : 
+                                                "text-center py-1 text-[10px] font-black uppercase", 
+                                                row.status === 'PAID' ? "text-muted-foreground/80" : 
+                                                row.status === 'MISSED' ? "text-red-600 animate-pulse" : 
                                                 "text-blue-600"
                                             )}>
                                                 {row.fechaAbono}
@@ -519,10 +461,10 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         </TableRow>
                                     ))}
                                 </TableBody>
-                                <TableFooter className="bg-white border-t-2 border-blue-300">
+                                <TableFooter className="bg-zinc-50 border-t-2 border-blue-300">
                                     <TableRow>
-                                        <TableCell colSpan={2} className="text-right font-bold text-blue-900">DEUDA TOTAL CALCULADA</TableCell>
-                                        <TableCell className="text-right font-bold text-red-700" colSpan={2}>
+                                        <TableCell colSpan={2} className="text-right font-black text-blue-900 uppercase text-xs">Total Deuda Calculada</TableCell>
+                                        <TableCell className="text-right font-black text-red-700 text-sm" colSpan={2}>
                                             {formatCurrency(metrics.totalDue)}
                                         </TableCell>
                                         <TableCell></TableCell>
@@ -532,7 +474,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </ScrollArea>
                     </div>
                     <div className="p-4 border-t flex justify-end bg-muted/10 shrink-0">
-                        <Button variant="secondary" onClick={() => setHistoryDialogOpen(false)}>Cerrar Historial</Button>
+                        <Button variant="secondary" className="font-bold" onClick={() => setHistoryDialogOpen(false)}>Cerrar Historial</Button>
                     </div>
                 </DialogContent>
             </Dialog>

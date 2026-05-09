@@ -187,7 +187,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 transaction.update(walletRef, { balance: increment(walletAdjustment) });
             }
 
-            // Lógica de Penalización
+            // Lógica de Penalización Unificada
             const baseTerm = loanPlan.termInWeeks;
             const isExpired = rawCurrentLoanWeek > baseTerm;
             
@@ -201,7 +201,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
             }
 
-            // REGLA: Penalización obligatoria si está expirado, o dinámica si tiene 2+ fallos
+            // REGLA: Si expiró, penalización obligatoria. Si no, requiere 2+ fallos.
             const hasPenalty = isExpired ? true : (missedCount >= 2);
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             const totalExpected = totalTerm * weeklyPayment;
@@ -327,120 +327,5 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
     } catch (error: any) {
         console.error('Error paying off loan:', error);
         return { success: false, message: `Error al liquidar el préstamo: ${error.message}` };
-    }
-}
-
-
-export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?: string) {
-    if (!loanIds || loanIds.length === 0) {
-        return { success: false, message: 'No hay préstamos seleccionados.' };
-    }
-
-    try {
-        const batch = writeBatch(db);
-        const walletRef = doc(db, 'wallet', 'main');
-        
-        const [loansSnap, plansSnap, clientsSnap] = await Promise.all([
-            getDocs(query(collection(db, 'loans'), where('__name__', 'in', loanIds.slice(0, 30)))),
-            getDocs(collection(db, 'loanPlans')),
-            getDocs(collection(db, 'clients'))
-        ]);
-
-        const loanPlans = plansSnap.docs.map(d => ({ id: d.id, ...d.data() } as LoanPlan));
-        const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Client));
-        const loans = loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
-
-        const today = new Date();
-        let totalAccumulatedAmount = 0;
-        let paymentsAccumulatedCount = 0;
-
-        for (const loan of loans) {
-            const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
-            if (!loanPlan || loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') continue;
-
-            const loanStartDate = parseFirestoreDate(loan.startDate);
-            const timeDiff = today.getTime() - loanStartDate.getTime();
-            const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
-            
-            const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-            const currentPayments = (loan.payments || []).map((p: any) => ({
-                ...p,
-                date: parseFirestoreDate(p.date).toISOString()
-            }));
-            
-            let updatedPayments = [...currentPayments];
-            let loanChanged = false;
-
-            const baseTerm = loanPlan.termInWeeks;
-            for (let weekNumber = 1; weekNumber <= Math.min(rawCurrentLoanWeek, baseTerm); weekNumber++) {
-                const paymentExists = updatedPayments.some((p: any) => p.weekNumber === weekNumber);
-
-                if (!paymentExists) {
-                    const client = clients.find(c => c.id === loan.clientId);
-                    updatedPayments.push({
-                        date: new Date().toISOString(),
-                        amount: weeklyPaymentAmount,
-                        weekNumber: weekNumber,
-                    });
-                    
-                    const walletTransactionRef = doc(collection(db, 'walletTransactions'));
-                    batch.set(walletTransactionRef, {
-                        type: 'credit',
-                        amount: weeklyPaymentAmount,
-                        date: new Date(),
-                        description: `Abono (acumulado) de ${client?.name || 'N/A'} - Semana ${weekNumber}.`,
-                        loanId: loan.id,
-                        clientId: loan.clientId,
-                        userId: userId || null,
-                    });
-
-                    totalAccumulatedAmount += weeklyPaymentAmount;
-                    paymentsAccumulatedCount++;
-                    loanChanged = true;
-                }
-            }
-
-            if (loanChanged) {
-                let finalMissed = 0;
-                for (let i = 1; i <= baseTerm; i++) {
-                    const p = updatedPayments.find(pay => pay.weekNumber === i);
-                    if (p && p.amount < weeklyPaymentAmount) {
-                        finalMissed++;
-                    }
-                }
-                const isExpiredNow = rawCurrentLoanWeek > baseTerm;
-                const hasPenalty = isExpiredNow ? true : (finalMissed >= 2);
-                const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
-                const totalPaidNow = updatedPayments.reduce((acc, p) => acc + p.amount, 0);
-                const totalExpectedNow = totalTerm * weeklyPaymentAmount;
-
-                if (totalPaidNow >= totalExpectedNow) {
-                    const newStatus = (hasPenalty || rawCurrentLoanWeek > totalTerm) ? 'Pagado desde CV' : 'Paid Off';
-                    batch.update(doc(db, 'loans', loan.id), { payments: updatedPayments, status: newStatus });
-                } else {
-                    const newStatus = (isExpiredNow || rawCurrentLoanWeek > totalTerm) ? 'Overdue' : 'Active';
-                    batch.update(doc(db, 'loans', loan.id), { payments: updatedPayments, status: newStatus });
-                }
-            }
-        }
-
-        if (paymentsAccumulatedCount === 0) {
-            return { success: true, message: 'No había pagos asumidos para acumular.' };
-        }
-
-        batch.update(walletRef, { balance: increment(totalAccumulatedAmount) });
-        await batch.commit();
-
-        revalidatePath('/dashboard/loans');
-        revalidatePath('/dashboard/wallet');
-        revalidatePath('/dashboard');
-        
-        return { 
-            success: true, 
-            message: `Se acumularon ${paymentsAccumulatedCount} pagos exitosamente.` 
-        };
-    } catch (error: any) {
-        console.error('Error accumulating payments:', error);
-        return { success: false, message: `Error al acumular pagos: ${error.message}` };
     }
 }

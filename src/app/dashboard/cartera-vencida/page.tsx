@@ -50,7 +50,7 @@ export default async function CarteraVencidaPage() {
             let missedCount = 0;
             let totalArrears = 0;
 
-            // Calcular fallos reales en semanas base
+            // Calcular deuda de semanas base (1 a baseTerm)
             for (let i = 1; i <= baseTerm; i++) {
                 const p = (loan.payments || []).find(pay => pay.weekNumber === i);
                 const amountPaid = p ? p.amount : 0;
@@ -59,7 +59,7 @@ export default async function CarteraVencidaPage() {
                     const dueDate = new Date(loanStartDate);
                     dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
                     
-                    // En Cartera Vencida, todas las semanas base ya pasaron
+                    // En CV, todas las semanas base ya pasaron o están pasando
                     if (p || today > dueDate) {
                         missedCount++;
                         totalArrears += (weeklyPayment - amountPaid);
@@ -69,17 +69,17 @@ export default async function CarteraVencidaPage() {
 
             const isExpired = rawCurrentLoanWeek > baseTerm;
 
-            // REGLA DE NEGOCIO: En Cartera Vencida (Expirados), la penalización es SIEMPRE OBLIGATORIA
+            // REGLA DE NEGOCIO OBLIGATORIA: En Cartera Vencida la penalización es SIEMPRE OBLIGATORIA
             const hasPenalty = true; 
             const penaltyWeekNum = baseTerm + 1;
             const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
             const amountPaidExtra = pExtra ? pExtra.amount : 0;
             const penaltyArrear = weeklyPayment - amountPaidExtra;
 
-            // Saldo = Suma de Arrears + Deuda Semana Extra
+            // Saldo Final = Deuda Base + Semana Extra
             const calculatedAmountDue = totalArrears + penaltyArrear;
 
-            // 'Cartera Vencida': Préstamos EXPIRADOS con deuda
+            // Mostrar solo si expiró y tiene deuda (incluyendo la semana extra obligatoria)
             if (isExpired && calculatedAmountDue > 0) {
                 return {
                     loan,
@@ -105,9 +105,9 @@ export default async function CarteraVencidaPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Cartera Vencida</h1>
+                <h1 className="text-3xl font-bold tracking-tight text-red-700">Cartera Vencida</h1>
                 <p className="text-muted-foreground">
-                    Préstamos expirados con saldo pendiente. La semana extra se aplica automáticamente a todos los registros.
+                    Préstamos con plazo vencido. Se aplica 1 semana extra de penalización obligatoria a todos los registros.
                 </p>
             </div>
             <OverduePortfolioClientPage 
