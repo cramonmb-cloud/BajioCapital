@@ -157,7 +157,7 @@ export function OverduePortfolioClientPage({
                             </Select>
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Zona</label>
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Localidad</label>
                             <Select value={selectedLocalidad} onValueChange={(v) => { setSelectedLocalidad(v); setSelectedPromotora('all'); }}>
                                 <SelectTrigger className="h-8 text-[10px]"><SelectValue placeholder="Todas" /></SelectTrigger>
                                 <SelectContent>
@@ -167,7 +167,7 @@ export function OverduePortfolioClientPage({
                             </Select>
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Ruta</label>
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Promotora</label>
                             <Select value={selectedPromotora} onValueChange={setSelectedPromotora}>
                                 <SelectTrigger className="h-8 text-[10px]"><SelectValue placeholder="Todas" /></SelectTrigger>
                                 <SelectContent>

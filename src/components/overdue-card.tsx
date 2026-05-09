@@ -240,10 +240,10 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                             PLAZA: {hierarchy.plazaName}
                         </Badge>
                         <Badge variant="outline" className="text-[8px] font-black text-zinc-600 uppercase border-zinc-300 h-4 px-2">
-                            ZONA: {hierarchy.localidadName}
+                            LOCALIDAD: {hierarchy.localidadName}
                         </Badge>
                         <Badge variant="outline" className="text-[8px] font-black text-blue-600 uppercase border-blue-200 h-4 px-2 bg-blue-50/50">
-                            RUTA: {hierarchy.promotoraName}
+                            PROMOTORA: {hierarchy.promotoraName}
                         </Badge>
                     </div>
 
@@ -352,7 +352,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                             </Avatar>
                             <div>
                                 <DialogTitle className="text-sm font-black uppercase leading-none tracking-tight">{client.name}</DialogTitle>
-                                <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1.5">RUTA: {hierarchy.promotoraName} • ID: {client.id}</p>
+                                <p className="text-[9px] font-bold text-muted-foreground uppercase mt-1.5">PROMOTORA: {hierarchy.promotoraName} • ID: {client.id}</p>
                             </div>
                         </div>
                         <DialogClose asChild>

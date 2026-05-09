@@ -114,7 +114,7 @@ const permissionLabels: { id: keyof Omit<UserPermissions, 'showMobileNavBar' | '
 
 const granularSettingsLabels: { id: keyof UserPermissions; label: string; description: string; icon: any }[] = [
     { id: 'manageUsers', label: 'Gestionar Personal', description: 'Control de usuarios y permisos', icon: Users },
-    { id: 'manageZones', label: 'Gestionar Zonas y Rutas', description: 'Plazas, Localidades y Promotoras', icon: MapPin },
+    { id: 'manageZones', label: 'Gestionar Localidades y Promotoras', description: 'Plazas, Localidades y Promotoras', icon: MapPin },
     { id: 'manageMigration', label: 'Gestionar Migración', description: 'Traslado masivo de localidades', icon: ArrowRightLeft },
     { id: 'managePlans', label: 'Gestionar Planes', description: 'Creación de productos financieros', icon: Lock },
     { id: 'manageSystem', label: 'Gestionar Personalización', description: 'Nombre y Logo del negocio', icon: Edit },
@@ -547,7 +547,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                 <ShieldCheck className="h-6 w-6 text-primary" />
                                 Gestionar: {selectedUser?.username}
                             </DialogTitle>
-                            <DialogDescription>Ajusta el rol, contraseña y los privilegios específicos.</DialogDescription>
+                            <DialogHeader>Ajusta el rol, contraseña y los privilegios específicos.</DialogHeader>
                         </DialogHeader>
                         
                         <div className="space-y-8 py-2">

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -202,7 +201,7 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
 
                             {/* Sección 2: Asignación Operativa */}
                             <div className="space-y-6">
-                                <h3 className="text-sm font-black uppercase tracking-widest text-blue-600 border-b pb-2">2. Asignación de Ruta</h3>
+                                <h3 className="text-sm font-black uppercase tracking-widest text-blue-600 border-b pb-2">2. Asignación Operativa</h3>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                     <FormField
                                         control={form.control}
@@ -225,9 +224,9 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
                                         name="localidadId"
                                         render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="font-bold uppercase text-[10px] flex items-center gap-1.5"><MapPin className="h-3 w-3"/> Zona / Localidad</FormLabel>
+                                            <FormLabel className="font-bold uppercase text-[10px] flex items-center gap-1.5"><MapPin className="h-3 w-3"/> Localidad</FormLabel>
                                             <Select onValueChange={(v) => { field.onChange(v); form.setValue('promotoraId', ''); }} value={field.value} disabled={!selectedPlazaId}>
-                                                <FormControl><SelectTrigger className="h-11"><SelectValue placeholder="Selecciona Zona..." /></SelectTrigger></FormControl>
+                                                <FormControl><SelectTrigger className="h-11"><SelectValue placeholder="Selecciona Localidad..." /></SelectTrigger></FormControl>
                                                 <SelectContent>
                                                     {filteredLocalidades.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
                                                 </SelectContent>
@@ -241,9 +240,9 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
                                         name="promotoraId"
                                         render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="font-bold uppercase text-[10px] flex items-center gap-1.5"><Route className="h-3 w-3"/> Ruta / Promotora</FormLabel>
+                                            <FormLabel className="font-bold uppercase text-[10px] flex items-center gap-1.5"><Route className="h-3 w-3"/> Promotora</FormLabel>
                                             <Select onValueChange={field.onChange} value={field.value} disabled={!selectedLocalidadId}>
-                                                <FormControl><SelectTrigger className="h-11"><SelectValue placeholder="Selecciona Ruta..." /></SelectTrigger></FormControl>
+                                                <FormControl><SelectTrigger className="h-11"><SelectValue placeholder="Selecciona Promotora..." /></SelectTrigger></FormControl>
                                                 <SelectContent>
                                                     {filteredPromotoras.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                                                 </SelectContent>
@@ -327,4 +326,3 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
         </div>
     );
 }
-
