@@ -330,7 +330,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 {metrics.missedCount} FALLOS
                             </Badge>
                             {metrics.hasPenalty && (
-                                <Badge className="h-5 px-2 text-[9px] font-black bg-orange-500 text-white uppercase shadow-sm rounded-sm">
+                                <Badge className="h-5 px-2 text-[9px] font-black bg-orange-50/50 border border-orange-200 text-orange-700 uppercase shadow-sm rounded-sm">
                                     S. EXTRA
                                 </Badge>
                             )}
@@ -441,13 +441,13 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             </div>
                                         </div>
                                         <div className="flex gap-2">
-                                            <Button asChild variant="outline" className="h-9 flex-1 rounded-md border-blue-200 text-blue-700 hover:bg-blue-50 font-black text-xs shadow-sm" size="sm">
+                                            <Button asChild variant="outline" className="h-9 flex-1 rounded-md border-blue-100 text-blue-700 hover:bg-blue-50 font-black text-xs shadow-sm bg-blue-50/20" size="sm">
                                                 <a href={`tel:${cleanPhone(client.phone)}`}>
                                                     <Phone className="h-3.5 w-3.5 mr-2" />
                                                     {client.phone}
                                                 </a>
                                             </Button>
-                                            <Button variant="outline" onClick={() => handleWhatsApp('client')} className="h-9 flex-1 rounded-md border-green-200 text-green-700 hover:bg-green-50 font-black text-[10px] shadow-sm" size="sm">
+                                            <Button variant="outline" onClick={() => handleWhatsApp('client')} className="h-9 flex-1 rounded-md border-green-100 text-green-700 hover:bg-green-50 font-black text-[10px] shadow-sm bg-green-50/20" size="sm">
                                                 <MessageSquare className="h-3.5 w-3.5 mr-2" />
                                                 WA CLIENTE
                                             </Button>
@@ -496,7 +496,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         </div>
                                         <div className="flex gap-2">
                                             {avalPhone ? (
-                                                <Button asChild className="bg-blue-600 text-white hover:bg-blue-700 font-black h-9 flex-1 text-[10px] rounded-md shadow-md border-none" size="sm">
+                                                <Button asChild variant="outline" className="h-9 flex-1 rounded-md border-blue-200 text-blue-700 hover:bg-blue-50 font-black text-[10px] shadow-sm bg-white" size="sm">
                                                     <a href={`tel:${cleanPhone(avalPhone)}`}>
                                                         <Phone className="mr-1.5 h-3.5 w-3.5" /> {avalPhone}
                                                     </a>
@@ -505,7 +505,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                                 <div className="h-8 flex-1 rounded-md bg-zinc-100 flex items-center justify-center text-[8px] font-black text-zinc-400 uppercase border border-zinc-200">SIN TELÉFONO</div>
                                             )}
                                             {avalPhone && (
-                                                <Button onClick={() => handleWhatsApp('aval')} className="bg-green-600 hover:bg-green-700 text-white font-black h-9 flex-1 text-[10px] rounded-md shadow-md border-none" size="sm">
+                                                <Button variant="outline" onClick={() => handleWhatsApp('aval')} className="h-9 flex-1 rounded-md border-green-200 text-green-700 hover:bg-green-50 font-black text-[10px] shadow-sm bg-white" size="sm">
                                                     <MessageSquare className="mr-1.5 h-3.5 w-3.5" /> WA AVAL
                                                 </Button>
                                             )}
