@@ -117,6 +117,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
         }
 
+        // CORRECCIÓN: El total debe ser la suma de los fallos base más la deuda de la semana extra
         const totalDue = baseArrears + penaltyArrear;
         const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
         const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
@@ -178,6 +179,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 if (payment.amount >= weeklyPayment) {
                     statusText = formatDate(payment.date);
                     statusType = 'PAID';
+                } else if (payment.amount > 0) {
+                    statusText = 'PARCIAL';
+                    statusType = 'MISSED';
                 } else {
                     statusText = 'FALLO';
                     statusType = 'MISSED';
@@ -317,7 +321,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 {metrics.hasPenalty && (
                                     <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-orange-600 uppercase border-b border-orange-200 pb-1 mb-1">
                                         <span>Semana Extra:</span>
-                                        <span>+{formatCurrency(metrics.weeklyPayment)}</span>
+                                        <span>+{formatCurrency(metrics.penaltyArrear)}</span>
                                     </div>
                                 )}
                                 <span className="text-[7px] font-black text-red-600 uppercase leading-none mb-0.5 mt-1">Total a Deber</span>
@@ -385,7 +389,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 <div className="space-y-5">
                                     <div className="space-y-2.5">
                                         <h4 className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-2">
-                                            <FileText className="h-4 w-4 text-blue-600" /> Detalle del Adeudo adeudado
+                                            <FileText className="h-4 w-4 text-blue-600" /> Detalle del Adeudo
                                         </h4>
                                         <div className="p-5 rounded-2xl border bg-white space-y-3 shadow-inner">
                                             <div className="flex justify-between items-center text-xs">

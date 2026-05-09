@@ -99,6 +99,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
 
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
     const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
+    
+    // CORRECCIÓN: El total debe ser la suma matemática de los fallos base más la penalización
     const totalBalance = baseArrears + penaltyArrear;
 
     const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
