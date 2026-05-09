@@ -344,7 +344,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
             <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
                 <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
-                    <DialogHeader className="px-5 py-3 border-b shrink-0 flex flex-row items-center justify-between bg-muted/10">
+                    <DialogHeader className="px-5 py-3 border-b shrink-0 flex flex-row items-center bg-muted/10">
                         <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10 border-2 border-white shadow-lg">
                                 <AvatarImage src={client.avatarUrl} alt={client.name} />
@@ -358,11 +358,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                             </div>
                         </div>
-                        <DialogClose asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full hover:bg-zinc-200">
-                                <X className="h-4 w-4" />
-                            </Button>
-                        </DialogClose>
                     </DialogHeader>
 
                     <ScrollArea className="flex-1 overflow-y-auto">
@@ -504,15 +499,10 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
             <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
                 <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-2xl">
-                    <DialogHeader className="p-6 pb-4 border-b shrink-0 flex flex-row items-center justify-between bg-muted/5">
+                    <DialogHeader className="p-6 pb-4 border-b shrink-0 flex flex-row items-center bg-muted/5">
                         <DialogTitle className="text-sm font-black uppercase text-center w-full tracking-wider flex items-center justify-center gap-2">
                              <HistoryIcon className="h-4 w-4 text-primary" /> Reporte Detallado de Abonos
                         </DialogTitle>
-                        <DialogClose asChild>
-                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full">
-                                <X className="h-5 w-5" />
-                            </Button>
-                        </DialogClose>
                     </DialogHeader>
                     <div className="flex-1 min-h-0">
                         <ScrollArea className="h-full p-6">
