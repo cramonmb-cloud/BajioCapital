@@ -107,8 +107,10 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             }
         }
 
-        // REGLA UNIFICADA: Semana Extra si tuvo 2 o más fallos (Pendientes o Vencidos)
-        const hasPenalty = registeredMissedCount >= 2;
+        // REGLA DE PENALIZACIÓN:
+        // 1. En Cartera Vencida (isExpired) es SIEMPRE obligatoria.
+        // 2. En Pagos Pendientes (Vigente) es si tiene 2 o más fallos.
+        const hasPenalty = isExpired ? true : (registeredMissedCount >= 2);
 
         let penaltyArrear = 0;
         if (hasPenalty) {
@@ -117,7 +119,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
         }
 
-        // CORRECCIÓN: El total debe ser la suma de los fallos base más la deuda de la semana extra
+        // EL TOTAL DEBE SUMAR LOS DOS CONCEPTOS SIEMPRE
         const totalDue = baseArrears + penaltyArrear;
         const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
         const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
@@ -131,7 +133,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             baseArrears,
             penaltyArrear,
             totalDue,
-            missedCount: registeredMissedCount
+            missedCount: registeredMissedCount,
+            isExpired
         };
     }, [loan, loanPlan]);
 
@@ -262,14 +265,14 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                <Button asChild variant="outline" className="h-9 px-3 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 shadow-md font-black text-xs" size="sm">
+                                <Button asChild variant="outline" className="h-10 px-4 rounded-full border-blue-200 text-blue-700 hover:bg-blue-50 shadow-md font-black text-xs" size="sm">
                                     <a href={`tel:${cleanPhone(client.phone)}`} title="Llamar Cliente">
-                                        <Phone className="h-3.5 w-3.5 mr-2" />
+                                        <Phone className="h-4 w-4 mr-2" />
                                         {client.phone}
                                     </a>
                                 </Button>
-                                <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-8 w-full border-green-200 text-green-700 hover:bg-green-50 shadow-sm rounded-full font-black text-[10px]">
-                                    <MessageSquare className="h-3.5 w-3.5 mr-2" />
+                                <Button variant="outline" size="sm" onClick={handleWhatsApp} className="h-9 w-full border-green-200 text-green-700 hover:bg-green-50 shadow-sm rounded-full font-black text-[10px]">
+                                    <MessageSquare className="h-4 w-4 mr-2" />
                                     WHATSAPP
                                 </Button>
                             </div>
@@ -289,9 +292,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </div>
                             </div>
                             {avalPhone && (
-                                <Button asChild variant="outline" className="h-9 px-3 rounded-full border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md shrink-0 font-black text-[10px]" size="sm">
+                                <Button asChild variant="outline" className="h-10 px-4 rounded-full border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md shrink-0 font-black text-[10px]" size="sm">
                                     <a href={`tel:${cleanPhone(avalPhone)}`} title="Llamar Aval">
-                                        <Phone className="h-3 w-3 mr-2" />
+                                        <Phone className="h-4 w-4 mr-2" />
                                         {avalPhone}
                                     </a>
                                 </Button>
@@ -312,7 +315,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                             )}
                         </div>
 
-                        <div className="text-right bg-red-50 px-3 py-2 rounded-lg border border-red-100 min-w-[125px] shadow-inner">
+                        <div className="text-right bg-red-50 px-3 py-2 rounded-lg border border-red-100 min-w-[140px] shadow-inner">
                             <div className="flex flex-col">
                                 <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-zinc-500 uppercase">
                                     <span>Saldo Fallos:</span>
@@ -325,7 +328,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     </div>
                                 )}
                                 <span className="text-[7px] font-black text-red-600 uppercase leading-none mb-0.5 mt-1">Total a Deber</span>
-                                <span className="text-base font-black text-red-700 tracking-tighter leading-none">{formatCurrency(metrics.totalDue)}</span>
+                                <span className="text-lg font-black text-red-700 tracking-tighter leading-none">{formatCurrency(metrics.totalDue)}</span>
                             </div>
                         </div>
                     </div>
@@ -500,7 +503,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                                 "text-blue-600 animate-pulse"
                                             )}>
                                                 {row.status === 'PENDING' ? (
-                                                    <span className="text-blue-600">PENDIENTE</span>
+                                                    <span className="text-blue-600 font-black">PENDIENTE</span>
                                                 ) : row.fechaAbono}
                                             </TableCell>
                                         </TableRow>

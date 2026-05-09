@@ -45,6 +45,12 @@ export default async function CarteraVencidaPage() {
             const loanStartDate = new Date(loan.startDate);
             const baseTerm = loanPlan.termInWeeks;
             
+            const timeDiff = today.getTime() - loanStartDate.getTime();
+            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+            const isExpired = rawCurrentLoanWeek > baseTerm;
+
+            if (!isExpired) return null;
+
             let missedCount = 0;
             let totalArrears = 0;
 
@@ -59,23 +65,18 @@ export default async function CarteraVencidaPage() {
                 }
             }
 
-            // REGLA: Semana Extra si tuvo 2 o más fallos
-            const hasPenalty = missedCount >= 2;
-            let penaltyArrear = 0;
-            if (hasPenalty) {
-                const penaltyWeekNum = baseTerm + 1;
-                const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
-                penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
-            }
+            // REGLA CARTERA VENCIDA: Semana Extra es OBLIGATORIA por estar vencido
+            // No importa el número de fallos, el vencimiento activa la penalización.
+            const hasPenalty = true; 
+            const penaltyWeekNum = baseTerm + 1;
+            const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
+            const penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
 
+            // EL TOTAL ES LA SUMA MATEMÁTICA DE AMBOS
             const calculatedAmountDue = totalArrears + penaltyArrear;
 
-            const timeDiff = today.getTime() - loanStartDate.getTime();
-            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
-            const isExpired = rawCurrentLoanWeek > baseTerm;
-
-            // Mostrar solo si expiró y tiene deuda real
-            if (isExpired && calculatedAmountDue > 0) {
+            // Mostrar solo si tiene deuda real
+            if (calculatedAmountDue > 0) {
                 return {
                     loan,
                     client,
@@ -102,7 +103,7 @@ export default async function CarteraVencidaPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight text-red-700 uppercase">Cartera Vencida</h1>
                 <p className="text-muted-foreground font-bold">
-                    Préstamos con plazo base expirado. Se incluye semana extra si hubo 2 o más fallos.
+                    Préstamos con plazo expirado. Se incluye cobro obligatorio de semana extra por vencimiento.
                 </p>
             </div>
             <OverduePortfolioClientPage 

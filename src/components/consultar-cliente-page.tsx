@@ -87,8 +87,10 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         }
     }
     
-    // REGLA UNIFICADA: Semana Extra si tuvo 2 o más fallos (Vigente o Vencido)
-    const hasPenalty = registeredMissedCount >= 2;
+    // REGLA UNIFICADA: 
+    // 1. En Cartera Vencida (isExpired) es SÍ O SÍ obligatoria.
+    // 2. En Pagos Pendientes (Vigente) es si tiene 2 o más fallos.
+    const hasPenalty = isExpired ? true : (registeredMissedCount >= 2);
 
     let penaltyArrear = 0;
     if (hasPenalty) {
@@ -100,7 +102,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
     const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
     
-    // CORRECCIÓN: El total debe ser la suma matemática de los fallos base más la penalización
+    // SUMA MATEMÁTICA REAL DE AMBOS CONCEPTOS
     const totalBalance = baseArrears + penaltyArrear;
 
     const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
@@ -126,6 +128,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
       totalBalance,
       missedWeeks: registeredMissedCount,
       hasPenalty,
+      isExpired,
       endorsementName,
       endorsementDetails,
       plazaName: plaza?.name || 'N/A',
@@ -262,8 +265,12 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                 </div>
                                 {activeLoanDetails.hasPenalty && (
                                     <div className="flex justify-between items-center text-xs border-b border-zinc-300 border-dashed pb-2">
-                                        <span className="font-black text-orange-600 uppercase text-[9px]">Semana de Penalización</span>
-                                        <span className="font-black text-orange-600">+{formatCurrency(activeLoanDetails.penaltyArrear)}</span>
+                                        <span className={cn("font-black uppercase text-[9px]", activeLoanDetails.isExpired ? "text-red-600" : "text-orange-600")}>
+                                            Semana de Penalización {activeLoanDetails.isExpired ? '(VENCIDO)' : ''}
+                                        </span>
+                                        <span className={cn("font-black", activeLoanDetails.isExpired ? "text-red-600" : "text-orange-600")}>
+                                            +{formatCurrency(activeLoanDetails.penaltyArrear)}
+                                        </span>
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center pt-2">

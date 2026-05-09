@@ -188,7 +188,6 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 transaction.update(walletRef, { balance: increment(walletAdjustment) });
             }
 
-            // Lógica de Penalización UNIFICADA
             const baseTerm = loanPlan.termInWeeks;
             const isExpired = rawCurrentLoanWeek > baseTerm;
             
@@ -202,8 +201,10 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
             }
 
-            // REGLA UNIFICADA: 2+ fallos activa semana extra siempre (Vigente o Vencido)
-            const hasPenalty = missedCount >= 2;
+            // REGLA DE PENALIZACIÓN UNIFICADA: 
+            // 1. SIEMPRE en Cartera Vencida (isExpired)
+            // 2. Si tiene 2+ fallos en Vigente
+            const hasPenalty = isExpired ? true : (missedCount >= 2);
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             const totalExpected = totalTerm * weeklyPayment;
             
@@ -258,6 +259,8 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
             const baseTerm = loanPlan.termInWeeks;
+            const isExpired = rawCurrentLoanWeek > baseTerm;
+
             const currentPayments = (loan.payments || []).map(p => ({
                 ...p,
                 date: parseFirestoreDate(p.date).toISOString()
@@ -273,8 +276,8 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
                 }
             }
 
-            // REGLA UNIFICADA: 2+ fallos activa semana extra siempre (Vigente o Vencido)
-            const hasPenalty = missedCount >= 2;
+            // REGLA UNIFICADA: Semana extra obligatoria si está vencido o si tiene 2+ fallos
+            const hasPenalty = isExpired ? true : (missedCount >= 2);
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             
             const totalExpected = totalTerm * weeklyPayment;
