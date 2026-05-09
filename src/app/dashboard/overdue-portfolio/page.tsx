@@ -48,33 +48,39 @@ export default async function OverduePortfolioPage() {
             
             const baseTerm = loanPlan.termInWeeks;
             let missedCount = 0;
+            let totalArrears = 0;
 
-            // CONTAR FALLOS REALES (Topado al plazo base)
+            // Calcular fallos y deuda acumulada
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
-                if (p) {
-                    if (p.amount < weeklyPayment) missedCount++;
-                } else if (i < rawCurrentLoanWeek) {
-                    missedCount++;
+                const amountPaid = p ? p.amount : 0;
+                
+                if (amountPaid < weeklyPayment) {
+                    // Si ya pasó la fecha de la semana o existe un registro incompleto
+                    const dueDate = new Date(loanStartDate);
+                    dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
+                    
+                    if (p || today > dueDate) {
+                        missedCount++;
+                        totalArrears += (weeklyPayment - amountPaid);
+                    }
                 }
             }
 
             const hasPenalty = missedCount >= 2;
-            const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-            const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
+            const termWithPenalty = baseTerm + (hasPenalty ? 1 : 0);
+            const isExpired = rawCurrentLoanWeek > termWithPenalty;
 
-            // CALCULO DE SALDO REAL ABSOLUTO: (Plazo Total con Penalización * Abono) - Abonos Registrados Reales
-            const totalExpectedAmount = totalTermInWeeks * weeklyPayment;
-            const totalPaidAmount = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
-            const totalBalance = Math.max(0, totalExpectedAmount - totalPaidAmount);
+            // REGLA DE NEGOCIO: Saldo = Suma de Arrears + Semana Extra si aplica
+            const calculatedAmountDue = totalArrears + (hasPenalty ? weeklyPayment : 0);
 
-            // 'Pagos Pendientes': Solo 2 o más fallos Y NO expirados con saldo pendiente
-            if (!isExpired && missedCount >= 2 && totalBalance > 0) {
+            // 'Pagos Pendientes': Solo 2 o más fallos Y NO expirados con deuda
+            if (!isExpired && missedCount >= 2 && calculatedAmountDue > 0) {
                 return {
                     loan,
                     client,
                     loanPlan,
-                    amountDue: totalBalance,
+                    amountDue: calculatedAmountDue,
                     missedPayments: missedCount,
                     hierarchy: {
                         plazaId: plaza?.id || 'N/A',
@@ -96,7 +102,7 @@ export default async function OverduePortfolioPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
                 <p className="text-muted-foreground">
-                    Préstamos vigentes con 2 o más fallos. El saldo mostrado incluye la semana extra por mora.
+                    Préstamos vigentes con 2 o más fallos. El saldo incluye el monto de los fallos y la semana extra.
                 </p>
             </div>
             <OverduePortfolioClientPage 

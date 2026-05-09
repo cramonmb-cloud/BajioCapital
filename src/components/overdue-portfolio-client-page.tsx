@@ -44,7 +44,7 @@ export function OverduePortfolioClientPage({
     const [selectedFailures, setSelectedFailures] = useState('all');
 
     const isOverduePortfolio = title === "Pagos Pendientes";
-    const globalDebtLabel = isOverduePortfolio ? "Acumulado de Fallos (Filtro)" : "Deuda Pendiente (Filtro)";
+    const globalDebtLabel = isOverduePortfolio ? "Cobro de Mora (Filtro)" : "Deuda Pendiente (Filtro)";
 
     const appConfig = data?.config;
 
@@ -130,7 +130,7 @@ export function OverduePortfolioClientPage({
             <div className="bg-card p-3 rounded-lg border shadow-sm space-y-3">
                 <div className="flex flex-col gap-3">
                     <div className="w-full space-y-1">
-                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Buscar</label>
+                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Buscador</label>
                         <div className="relative">
                             <Input
                                 placeholder="Nombre, calle o teléfono..."
@@ -179,11 +179,11 @@ export function OverduePortfolioClientPage({
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Fallos</label>
                             <Select value={selectedFailures} onValueChange={setSelectedFailures}>
-                                <SelectTrigger className="h-8 text-[10px] border-blue-200 focus:ring-blue-500"><SelectValue placeholder="Todos" /></SelectTrigger>
+                                <SelectTrigger className="h-8 text-[10px] border-blue-200 focus:ring-blue-500"><SelectValue placeholder="Ver Todos" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Todos</SelectItem>
-                                    {Array.from({ length: 13 }, (_, i) => (
-                                        <SelectItem key={i} value={i.toString()}>{i} {i === 1 ? 'fallo' : 'fallos'}</SelectItem>
+                                    <SelectItem value="all">Ver Todos</SelectItem>
+                                    {Array.from({ length: 15 }, (_, i) => (
+                                        <SelectItem key={i + 2} value={(i + 2).toString()}>{i + 2} Fallos</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>

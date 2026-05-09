@@ -70,14 +70,21 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     
     const baseTerm = loanPlan.termInWeeks;
     let missedWeeksCount = 0;
+    let totalArrears = 0;
 
-    // CONTAR FALLOS REALES (Topado al plazo base)
+    // Calcular fallos y deuda acumulada
     for (let i = 1; i <= baseTerm; i++) {
         const p = activeLoan.payments.find(p => p.weekNumber === i);
-        if (p) {
-            if (p.amount < weeklyPayment) missedWeeksCount++;
-        } else if (i < rawCurrentLoanWeek) {
-            missedWeeksCount++;
+        const amountPaid = p ? p.amount : 0;
+        
+        if (amountPaid < weeklyPayment) {
+            const dueDate = new Date(loanStartDate);
+            dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
+            
+            if (p || today > dueDate) {
+                missedWeeksCount++;
+                totalArrears += (weeklyPayment - amountPaid);
+            }
         }
     }
     
@@ -85,10 +92,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
     const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
 
-    // CALCULO DE SALDO REAL ABSOLUTO: (Plazo Total con Penalización * Abono) - Abonos Registrados Reales
-    const totalExpectedAmount = termInWeeks * weeklyPayment;
-    const totalPaidAmount = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
-    const totalBalance = Math.max(0, totalExpectedAmount - totalPaidAmount);
+    // REGLA DE NEGOCIO: Saldo = Suma de Arrears + Semana Extra si aplica
+    const totalBalance = totalArrears + (hasPenalty ? weeklyPayment : 0);
 
     let endorsementName = selectedClient.endorsement;
     let endorsementDetails = '';
@@ -143,10 +148,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' });
   };
 
-
   const fullAddress = selectedClient ? `${selectedClient.street}, ${selectedClient.neighborhood}, ${selectedClient.city}, ${selectedClient.postalCode}` : '';
   const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fullAddress)}`;
-
 
   return (
     <div className="space-y-6">
