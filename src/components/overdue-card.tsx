@@ -233,36 +233,41 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         <>
             <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-3" style={{ borderLeftColor: plazaColor }}>
                 <CardContent className="p-3 space-y-2.5">
-                    <div className="flex flex-wrap items-center gap-1.5 border-b pb-1.5">
-                        <Badge className="text-[8px] font-black uppercase px-1.5 h-4 shrink-0" style={{ backgroundColor: plazaColor }}>
-                            PLAZA: {hierarchy.plazaName}
-                        </Badge>
-                        <div className="px-1.5 h-4 border border-zinc-300 rounded flex items-center shrink-0">
-                            <span className="text-[8px] font-black text-zinc-600 uppercase whitespace-nowrap">
-                                ZONA: {hierarchy.localidadName}
-                            </span>
+                    <div className="flex flex-wrap items-center justify-between gap-1.5 border-b pb-1.5">
+                        <div className='flex items-center gap-1.5'>
+                            <Badge className="text-[8px] font-black uppercase px-1.5 h-4 shrink-0" style={{ backgroundColor: plazaColor }}>
+                                PLAZA: {hierarchy.plazaName}
+                            </Badge>
+                            <div className="px-1.5 h-4 border border-zinc-300 rounded flex items-center shrink-0">
+                                <span className="text-[8px] font-black text-zinc-600 uppercase whitespace-nowrap">
+                                    ZONA: {hierarchy.localidadName}
+                                </span>
+                            </div>
                         </div>
+                        {metrics.hasPenalty && (
+                            <Badge className="h-4 px-1.5 text-[8px] font-black bg-orange-500 text-white animate-pulse">
+                                S. EXTRA ACTIVA
+                            </Badge>
+                        )}
                     </div>
 
                     <div className="flex justify-between items-start gap-2">
                         <div className="cursor-pointer flex-1" onClick={() => setDetailModalOpen(true)}>
                             <h3 className="font-black text-sm uppercase leading-tight text-foreground">{client.name}</h3>
                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                <div className="flex items-center gap-1">
-                                    <Badge variant="outline" className="h-4 px-1.5 text-[8px] font-black bg-red-50 text-red-700 border-red-200">
-                                        {metrics.missedCount} {metrics.missedCount === 1 ? 'FALLO' : 'FALLOS'}
+                                <Badge variant="outline" className="h-4 px-1.5 text-[8px] font-black bg-red-50 text-red-700 border-red-200">
+                                    {metrics.missedCount} {metrics.missedCount === 1 ? 'FALLO' : 'FALLOS'}
+                                </Badge>
+                                {metrics.hasPenalty && (
+                                    <Badge className="h-4 px-1.5 text-[8px] font-black bg-orange-100 text-orange-700 border-orange-200">
+                                        S. EXTRA
                                     </Badge>
-                                    {metrics.hasPenalty && (
-                                        <Badge className="h-4 px-1.5 text-[8px] font-black bg-orange-500 text-white hover:bg-orange-600 border-none">
-                                            S. EXTRA
-                                        </Badge>
-                                    )}
-                                </div>
+                                )}
                             </div>
                         </div>
                         
-                        <div className="text-right shrink-0 bg-zinc-50 p-2 rounded-lg border border-zinc-200">
-                            <div className="space-y-0.5 min-w-[100px]">
+                        <div className="text-right shrink-0 bg-zinc-50 p-2 rounded-lg border border-zinc-200 min-w-[110px]">
+                            <div className="space-y-0.5">
                                 <div className="flex justify-between gap-3 text-[7px] font-black text-muted-foreground uppercase">
                                     <span>Saldo Fallos</span>
                                     <span>{formatCurrency(metrics.baseArrears)}</span>
@@ -270,7 +275,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 {metrics.hasPenalty && (
                                     <div className="flex justify-between gap-3 text-[7px] font-black text-orange-600 uppercase border-b border-zinc-200 pb-0.5">
                                         <span>Semana Extra</span>
-                                        <span>+{formatCurrency(metrics.penaltyArrear)}</span>
+                                        <span>+{formatCurrency(metrics.weeklyPayment)}</span>
                                     </div>
                                 )}
                                 <div className="flex flex-col items-end pt-1">
@@ -360,7 +365,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             {metrics.hasPenalty && (
                                                 <div className="flex justify-between items-center text-xs border-b border-dashed pb-2">
                                                     <span className="font-bold text-orange-600 uppercase text-[9px]">Semana de Penalización</span>
-                                                    <span className="font-black text-orange-600">+{formatCurrency(metrics.penaltyArrear)}</span>
+                                                    <span className="font-black text-orange-600">+{formatCurrency(metrics.weeklyPayment)}</span>
                                                 </div>
                                             )}
                                             <div className="flex justify-between items-center pt-2">

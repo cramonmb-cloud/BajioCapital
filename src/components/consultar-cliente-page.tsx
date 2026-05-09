@@ -264,7 +264,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                 {activeLoanDetails.hasPenalty && (
                                     <div className="flex justify-between items-center text-xs border-b border-zinc-300 border-dashed pb-2">
                                         <span className="font-black text-orange-600 uppercase text-[9px]">Semana Extra</span>
-                                        <span className="font-black text-orange-600">+{formatCurrency(activeLoanDetails.penaltyArrear)}</span>
+                                        <span className="font-black text-orange-600">+{formatCurrency(activeLoanDetails.weeklyPayment)}</span>
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center pt-2">

@@ -156,6 +156,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 date: parseFirestoreDate(p.date).toISOString()
             }));
 
+            // Reemplazar o añadir el pago de la semana específica
             const allPayments = currentPayments.filter(p => p.weekNumber !== startingWeekNumber);
             allPayments.push({
                 date: new Date().toISOString(),
@@ -187,7 +188,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 transaction.update(walletRef, { balance: increment(walletAdjustment) });
             }
 
-            // Lógica de Penalización Unificada
+            // Lógica de Penalización REFORZADA
             const baseTerm = loanPlan.termInWeeks;
             const isExpired = rawCurrentLoanWeek > baseTerm;
             
@@ -201,10 +202,13 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
             }
 
-            // REGLA: Si expiró, penalización obligatoria. Si no, requiere 2+ fallos.
+            // REGLA ABSOLUTA: Si el plazo base expiró, la penalización es OBLIGATORIA (hasPenalty = true)
+            // Si está vigente, requiere 2 fallos.
             const hasPenalty = isExpired ? true : (missedCount >= 2);
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             const totalExpected = totalTerm * weeklyPayment;
+            
+            // Saldo absoluto incluyendo la penalización
             const balance = Math.max(0, totalExpected - newTotalPaid);
 
             let newStatus: Loan['status'] = loan.status;
@@ -220,11 +224,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             });
         });
 
-        revalidatePath('/dashboard/loans');
-        revalidatePath('/dashboard/wallet');
-        revalidatePath('/dashboard');
-        revalidatePath('/dashboard/overdue-portfolio');
-        revalidatePath('/dashboard/cartera-vencida');
+        revalidatePath('/dashboard', 'layout');
         
         return { success: true, message: 'Pago registrado con éxito.' };
 
@@ -275,6 +275,7 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             }
 
             const isExpired = rawCurrentLoanWeek > baseTerm;
+            // REGLA ABSOLUTA: Si expiró, penalización fija.
             const hasPenalty = isExpired ? true : (missedCount >= 2);
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             
@@ -289,10 +290,11 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
                 return { success: true, message: "Este préstamo ya estaba liquidado." };
             }
 
+            // Registrar el pago de liquidación final
             const newPayments = [...currentPayments, {
                 date: new Date().toISOString(),
                 amount: settlementAmount,
-                weekNumber: -1, // Liquidación completa
+                weekNumber: -1, // Marca de liquidación total
             }];
             
             const walletRef = doc(db, 'wallet', 'main');
@@ -301,7 +303,7 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
                 type: 'credit',
                 amount: settlementAmount,
                 date: new Date(),
-                description: `Liquidación de préstamo de ${client?.name || 'N/A'}.`,
+                description: `Liquidación total de préstamo de ${client?.name || 'N/A'}.`,
                 loanId: loanId,
                 clientId: loan.clientId,
                 userId: userId || null,
@@ -316,11 +318,7 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             return { success: true, message: "Préstamo liquidado con éxito." };
         });
 
-        revalidatePath('/dashboard/loans');
-        revalidatePath('/dashboard/wallet');
-        revalidatePath('/dashboard');
-        revalidatePath('/dashboard/clients');
-        revalidatePath('/dashboard/cartera-vencida');
+        revalidatePath('/dashboard', 'layout');
 
         return result;
 
