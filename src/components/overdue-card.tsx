@@ -109,10 +109,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const timeDiff = today.getTime() - loanStartDate.getTime();
         const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
         
-        const baseTerm = loanPlan.termInWeeks;
         const hasPenalty = missedPayments >= 2;
-        const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-        
+        const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
         const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
 
         return {
@@ -137,6 +135,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             
             const payment = (loan.payments || []).find(p => p.weekNumber === i);
             const isRegistered = !!payment;
+            
+            // Si la fecha actual ya pasó del vencimiento de esa semana, es un fallo potencial si no hay registro
             const isPast = new Date() > dueDate;
             
             rows.push({

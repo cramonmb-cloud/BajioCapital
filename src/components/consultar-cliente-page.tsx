@@ -85,7 +85,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
     const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
 
-    // CALCULO DE SALDO REAL: (Plazo Total con Penalización * Abono) - Abonos Registrados
+    // CALCULO DE SALDO REAL ABSOLUTO: (Plazo Total con Penalización * Abono) - Abonos Registrados Reales
     const totalExpectedAmount = termInWeeks * weeklyPayment;
     const totalPaidAmount = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
     const totalBalance = Math.max(0, totalExpectedAmount - totalPaidAmount);
@@ -278,7 +278,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-muted-foreground">Fecha de Inicio</p>
-                                    <p className="font-semibold">{formatDate(activeLoanDetails.loan.startDate)}</p>
+                                    <p className="font-semibold">{activeLoanDetails.loan.startDate.split('T')[0]}</p>
                                 </div>
                                  <div className="space-y-1">
                                     <p className="text-muted-foreground">Saldo Pendiente</p>

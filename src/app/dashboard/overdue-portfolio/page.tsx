@@ -63,12 +63,12 @@ export default async function OverduePortfolioPage() {
             const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
-            // CALCULO DE SALDO REAL: (Plazo Total con Penalización * Abono) - Abonos Registrados Reales
+            // CALCULO DE SALDO REAL ABSOLUTO: (Plazo Total con Penalización * Abono) - Abonos Registrados Reales
             const totalExpectedAmount = totalTermInWeeks * weeklyPayment;
             const totalPaidAmount = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const totalBalance = Math.max(0, totalExpectedAmount - totalPaidAmount);
 
-            // 'Pagos Pendientes': Préstamos VIGENTES con 2 o más fallos O saldo pendiente
+            // 'Pagos Pendientes': Préstamos VIGENTES con saldo pendiente
             if (!isExpired && totalBalance > 0) {
                 return {
                     loan,
@@ -96,7 +96,7 @@ export default async function OverduePortfolioPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
                 <p className="text-muted-foreground">
-                    Préstamos vigentes con saldo pendiente. El saldo incluye automáticamente la semana extra si hay 2 o más fallos.
+                    Préstamos vigentes con saldo pendiente. El saldo mostrado incluye la semana extra por mora.
                 </p>
             </div>
             <OverduePortfolioClientPage 

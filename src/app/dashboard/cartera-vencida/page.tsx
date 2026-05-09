@@ -63,7 +63,7 @@ export default async function CarteraVencidaPage() {
             const totalTermInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             const isExpired = rawCurrentLoanWeek > totalTermInWeeks;
 
-            // CALCULO DE SALDO REAL: (Plazo Total con Penalización * Abono) - Abonos Registrados Reales
+            // CALCULO DE SALDO REAL ABSOLUTO: (Plazo Total con Penalización * Abono) - Abonos Registrados Reales
             const totalExpectedAmount = totalTermInWeeks * weeklyPayment;
             const totalPaidAmount = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const totalBalance = Math.max(0, totalExpectedAmount - totalPaidAmount);
@@ -96,7 +96,7 @@ export default async function CarteraVencidaPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Cartera Vencida</h1>
                 <p className="text-muted-foreground">
-                    Préstamos expirados con saldo pendiente. Se incluye automáticamente la semana extra si el cliente tuvo 2 o más fallos.
+                    Préstamos expirados con saldo pendiente. El saldo mostrado incluye la semana extra por mora.
                 </p>
             </div>
             <OverduePortfolioClientPage 
