@@ -40,7 +40,7 @@ import type { Plaza, Localidad, Promotora, LoanPlan } from '@/lib/types';
 
 const syncSchema = z.object({
   apiKey: z.string().min(5, 'La llave de acceso es demasiado corta.'),
-  weekId: z.string().regex(/^\d{4}-\d{2}$/, 'El formato debe ser YYYY-WW (ej. 2024-18)'),
+  weekId: z.string().min(1, 'El ID de la semana es obligatorio.'),
   // Asignación
   plazaId: z.string().min(1, 'Selecciona una plaza.'),
   localidadId: z.string().min(1, 'Selecciona una localidad.'),
@@ -87,7 +87,7 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
         resolver: zodResolver(syncSchema),
         defaultValues: {
             apiKey: '',
-            weekId: new Date().getFullYear() + '-' + String(Math.ceil((new Date().getDate() / 7))).padStart(2, '0'),
+            weekId: '',
             plazaId: '',
             localidadId: '',
             promotoraId: '',
@@ -188,11 +188,11 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
                                         name="weekId"
                                         render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="font-bold uppercase text-[10px]">Semana a Importar (API)</FormLabel>
+                                            <FormLabel className="font-bold uppercase text-[10px]">ID de la Semana (API)</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Ej: 2024-18" className="h-11 rounded-xl font-bold text-center" {...field} />
+                                                <Input placeholder="Ej: W-1777701600000-..." className="h-11 rounded-xl font-bold text-center" {...field} />
                                             </FormControl>
-                                            <FormDescription className="text-[9px]">Semana en el servidor externo.</FormDescription>
+                                            <FormDescription className="text-[9px]">Pega el ID largo proporcionado por el sistema externo.</FormDescription>
                                             <FormMessage />
                                         </FormItem>
                                         )}
@@ -327,3 +327,4 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
         </div>
     );
 }
+
