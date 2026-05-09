@@ -4,7 +4,7 @@
 import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc, increment, Timestamp, updateDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
-import type { Plaza, Localidad, Promotora, AppUser, AppConfig, Loan, LoanPlan, Client } from '@/lib/types';
+import type { Plaza, Localidad, Promotora, AppUser, AppConfig, Loan, LoanPlan, Client, WalletTransaction } from '@/lib/types';
 
 // Helper to handle Firestore dates consistently in server actions
 const parseFirestoreDate = (date: any): Date => {
@@ -416,5 +416,81 @@ export async function revertExtraWeekPaymentsAction() {
     } catch (error: any) {
         console.error('Error reverting extra payments:', error);
         return { success: false, message: `Error crítico al revertir: ${error.message}` };
+    }
+}
+
+/**
+ * IMPORTACIÓN DE RESPALDO: Borra los datos actuales e inserta los datos del archivo JSON.
+ */
+export async function importBackupAction(backupData: any) {
+    try {
+        // 1. Borrar datos actuales (excepto configuración base si se desea, pero el backup la incluye)
+        await deleteAllDataAction();
+
+        let batch = writeBatch(db);
+        let batchCount = 0;
+
+        const collections = [
+            'plazas', 'localidades', 'promotoras', 'loanPlans', 'clients', 'loans', 'walletTransactions', 'users'
+        ];
+
+        for (const colName of collections) {
+            const items = backupData[colName] || [];
+            for (const item of items) {
+                const { id, ...data } = item;
+                
+                // Conversión de fechas ISO a Timestamp para Firestore
+                const dataToSave = { ...data };
+                for (const key in dataToSave) {
+                    if (typeof dataToSave[key] === 'string' && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(dataToSave[key])) {
+                        dataToSave[key] = Timestamp.fromDate(new Date(dataToSave[key]));
+                    }
+                    if (key === 'payments' && Array.isArray(dataToSave[key])) {
+                        dataToSave[key] = dataToSave[key].map((p: any) => ({
+                            ...p,
+                            date: Timestamp.fromDate(new Date(p.date))
+                        }));
+                    }
+                    if (key === 'startDate' && typeof dataToSave[key] === 'string') {
+                        dataToSave[key] = Timestamp.fromDate(new Date(dataToSave[key]));
+                    }
+                }
+
+                const docRef = doc(db, colName, id);
+                batch.set(docRef, dataToSave);
+                batchCount++;
+
+                if (batchCount >= 450) {
+                    await batch.commit();
+                    batch = writeBatch(db);
+                    batchCount = 0;
+                }
+            }
+        }
+
+        // Importar Cartera
+        if (backupData.wallet) {
+            const walletRef = doc(db, 'wallet', 'main');
+            batch.set(walletRef, { balance: backupData.wallet.balance || 0 });
+            batchCount++;
+        }
+
+        // Importar Configuración
+        if (backupData.config) {
+            const configRef = doc(db, 'config', 'main');
+            batch.set(configRef, backupData.config);
+            batchCount++;
+        }
+
+        if (batchCount > 0) {
+            await batch.commit();
+        }
+
+        revalidatePath('/dashboard', 'layout');
+
+        return { success: true, message: 'El respaldo ha sido restaurado exitosamente.' };
+    } catch (error: any) {
+        console.error('Error importing backup:', error);
+        return { success: false, message: `Error crítico al restaurar: ${error.message}` };
     }
 }

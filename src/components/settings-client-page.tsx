@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -36,14 +36,15 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle } from "lucide-react";
+import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction } from "@/app/dashboard/settings/actions";
+import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction } from "@/app/dashboard/settings/actions";
 import { useRouter } from "next/navigation";
 import type { AppConfig } from "@/lib/types";
 import { Separator } from "./ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { Badge } from "./ui/badge";
+import { useRealtimeData } from "@/hooks/use-realtime-data";
 
 const appNameSchema = z.object({
   appName: z.string().min(3, 'Mínimo 3 caracteres.'),
@@ -82,9 +83,13 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
     const [isSaving, setIsSaving] = useState(false);
     const [isAccumulating, setIsAccumulating] = useState(false);
     const [isReverting, setIsReverting] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    
     const { toast } = useToast();
     const router = useRouter();
     const { appUser } = useAuth();
+    const { data: systemData } = useRealtimeData();
 
     const appNameForm = useForm<AppNameFormValues>({
         resolver: zodResolver(appNameSchema),
@@ -144,6 +149,56 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
         } finally {
             setIsReverting(false);
         }
+    };
+
+    const handleExportBackup = () => {
+        if (!systemData) return;
+        
+        try {
+            const backup = {
+                version: '1.0',
+                date: new Date().toISOString(),
+                ...systemData
+            };
+            
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `RESPALDO_CREDICONTROL_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            toast({ title: "Respaldo Generado", description: "El archivo se ha descargado correctamente." });
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: "Error de Exportación", description: error.message });
+        }
+    };
+
+    const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsImporting(true);
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            try {
+                const json = JSON.parse(event.target?.result as string);
+                const result = await importBackupAction(json);
+                if (result.success) {
+                    toast({ title: "Restauración Exitosa", description: result.message });
+                    router.refresh();
+                } else throw new Error(result.message);
+            } catch (error: any) {
+                toast({ variant: 'destructive', title: "Error de Restauración", description: error.message });
+            } finally {
+                setIsImporting(false);
+                if (fileInputRef.current) fileInputRef.current.value = '';
+            }
+        };
+        reader.readAsText(file);
     };
 
     const onSaveAppNameSubmit = async (values: AppNameFormValues) => {
@@ -374,6 +429,77 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="shadow-lg border-zinc-200 overflow-hidden">
+                <CardHeader className="bg-zinc-50 border-b">
+                    <CardTitle className="flex items-center gap-2 text-xl">
+                        <FileJson className="h-5 w-5 text-zinc-700" /> Respaldo y Restauración de Sistema
+                    </CardTitle>
+                    <CardDescription>Resguarda toda la información de clientes, préstamos y finanzas en un archivo externo.</CardDescription>
+                </CardHeader>
+                <CardContent className="pt-8 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Exportar */}
+                        <div className="p-6 border-2 border-dashed rounded-3xl space-y-4 flex flex-col items-center text-center bg-zinc-50/50">
+                            <div className="p-3 bg-white rounded-full shadow-sm">
+                                <Download className="h-8 w-8 text-blue-600" />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="font-bold text-lg">Exportar Base de Datos</h3>
+                                <p className="text-xs text-muted-foreground">Descarga un archivo JSON con toda la información actual del sistema.</p>
+                            </div>
+                            <Button onClick={handleExportBackup} className="w-full h-12 font-bold rounded-xl" variant="outline">
+                                Generar Respaldo Full
+                            </Button>
+                        </div>
+
+                        {/* Importar */}
+                        <div className="p-6 border-2 border-dashed border-blue-100 rounded-3xl space-y-4 flex flex-col items-center text-center bg-blue-50/10">
+                            <div className="p-3 bg-white rounded-full shadow-sm">
+                                <Upload className="h-8 w-8 text-blue-600" />
+                            </div>
+                            <div className="space-y-1">
+                                <h3 className="font-bold text-lg">Importar Respaldo</h3>
+                                <p className="text-xs text-muted-foreground">Carga un respaldo previo para restaurar el sistema. <strong>¡Esto borrará los datos actuales!</strong></p>
+                            </div>
+                            <input 
+                                type="file" 
+                                accept=".json" 
+                                className="hidden" 
+                                ref={fileInputRef} 
+                                onChange={handleImportFile} 
+                            />
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button className="w-full h-12 font-bold rounded-xl bg-blue-600 hover:bg-blue-700" disabled={isImporting}>
+                                        {isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileJson className="mr-2 h-4 w-4" />}
+                                        Subir Archivo de Respaldo
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="rounded-3xl p-8">
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle className="text-2xl font-bold flex items-center gap-2">
+                                            <AlertTriangle className="h-6 w-6 text-red-600" /> ¿Restaurar Base de Datos?
+                                        </AlertDialogTitle>
+                                        <AlertDialogDescription className="text-base py-4 text-red-700">
+                                            Esta acción reemplazará <strong>TODOS</strong> los datos actuales (clientes, préstamos, cartera) con los del archivo. Los usuarios del personal deben ser registrados previamente en el sistema para vincular sus permisos.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter className="gap-2">
+                                        <AlertDialogCancel className="rounded-xl h-12">Cancelar</AlertDialogCancel>
+                                        <AlertDialogAction 
+                                            onClick={() => fileInputRef.current?.click()} 
+                                            className="bg-red-600 hover:bg-red-700 rounded-xl h-12 px-8"
+                                        >
+                                            Entendido, Proceder
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
