@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useRef, useEffect } from "react";
@@ -257,7 +256,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
         }
     };
 
-    const onSaveWhatsappSubmit = async (values: WhatsappTemplatesFormValues) => {
+    const onSaveWhatsAppSubmit = async (values: WhatsappTemplatesFormValues) => {
         setIsSaving(true);
         try {
             const templates: WhatsAppTemplates = {
