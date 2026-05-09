@@ -86,6 +86,10 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const loanStartDate = new Date(loan.startDate);
         const baseTerm = loanPlan.termInWeeks;
         
+        const timeDiff = today.getTime() - loanStartDate.getTime();
+        const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+        const isExpired = rawCurrentLoanWeek > baseTerm;
+
         let baseArrears = 0;
         let registeredMissedCount = 0;
 
@@ -96,7 +100,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
             
             if (amountPaid < weeklyPayment) {
-                if (p || today > dueDate) {
+                if (isExpired || today > dueDate) {
                     baseArrears += (weeklyPayment - amountPaid);
                     registeredMissedCount++;
                 }
@@ -104,10 +108,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         }
 
         // REGLA DE PENALIZACIÓN UNIFICADA Y OBLIGATORIA
-        // Si es Cartera Vencida (!isOverduePortfolio), la penalización es SIEMPRE TRUE.
-        // Si es Pagos Pendientes (isOverduePortfolio), se activa con 2 o más fallos.
-        const isCarteraVencida = !isOverduePortfolio;
-        const hasPenalty = isCarteraVencida || (registeredMissedCount >= 2);
+        // Cartera Vencida (!isOverduePortfolio) -> PENALIZACIÓN SIEMPRE OBLIGATORIA.
+        // Pagos Pendientes (isOverduePortfolio) -> Requiere 2+ fallos.
+        const hasPenalty = !isOverduePortfolio || (registeredMissedCount >= 2);
 
         let penaltyArrear = 0;
         if (hasPenalty) {
@@ -118,9 +121,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
         const totalDue = baseArrears + penaltyArrear;
         const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-        
-        const timeDiff = today.getTime() - loanStartDate.getTime();
-        const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
         const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
 
         return {
@@ -159,7 +159,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
     }, [client.endorsement]);
 
     const loanHistoryData = useMemo(() => {
-        const plan = loanPlan;
         const weeklyPayment = metrics.weeklyPayment;
         const termInWeeks = metrics.termInWeeks;
         const startDate = new Date(loan.startDate);
@@ -199,7 +198,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 importeAbono: weeklyPayment,
                 importeRecibido: isRegistered ? payment.amount : 0,
                 fechaAbono: statusText,
-                isPenalty: i > plan.termInWeeks,
+                isPenalty: i > loanPlan.termInWeeks,
                 status: statusType
             });
         }

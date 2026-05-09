@@ -66,6 +66,10 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const loanStartDate = new Date(activeLoan.startDate);
     const baseTerm = loanPlan.termInWeeks;
     
+    const timeDiff = today.getTime() - loanStartDate.getTime();
+    const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+    const isExpired = rawCurrentLoanWeek > baseTerm;
+
     let baseArrears = 0;
     let registeredMissedCount = 0;
 
@@ -76,7 +80,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
         
         if (amountPaid < weeklyPayment) {
-            if (p || today > dueDate) {
+            if (isExpired || today > dueDate) {
                 baseArrears += (weeklyPayment - amountPaid);
                 registeredMissedCount++;
             }
@@ -84,12 +88,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     }
     
     // REGLA DE NEGOCIO UNIFICADA: 
-    // Si expiró el plazo base (Cartera Vencida) -> PENALIZACIÓN SIEMPRE.
-    // Si sigue vigente pero tiene 2+ fallos -> PENALIZACIÓN ACTIVA.
-    const timeDiff = today.getTime() - loanStartDate.getTime();
-    const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
-    const isExpired = rawCurrentLoanWeek > baseTerm;
-    
+    // Cartera Vencida (isExpired) -> PENALIZACIÓN SIEMPRE OBLIGATORIA.
+    // Pagos Pendientes -> Requiere 2+ fallos.
     const hasPenalty = isExpired || (registeredMissedCount >= 2);
 
     let penaltyArrear = 0;

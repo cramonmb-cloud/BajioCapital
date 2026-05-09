@@ -54,19 +54,13 @@ export default async function CarteraVencidaPage() {
                 const amountPaid = p ? p.amount : 0;
                 
                 if (amountPaid < weeklyPayment) {
-                    const dueDate = new Date(loanStartDate);
-                    dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
-                    
-                    // En Cartera Vencida, si no está pagado al 100%, es deuda.
-                    if (p || today > dueDate) {
-                        missedCount++;
-                        totalArrears += (weeklyPayment - amountPaid);
-                    }
+                    // En Cartera Vencida, todas las semanas base están vencidas
+                    missedCount++;
+                    totalArrears += (weeklyPayment - amountPaid);
                 }
             }
 
             // 2. REGLA ABSOLUTA: En Cartera Vencida la penalización es SIEMPRE OBLIGATORIA
-            // No importa el número de fallos, el vencimiento activa la semana extra.
             const penaltyWeekNum = baseTerm + 1;
             const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
             const amountPaidExtra = pExtra ? pExtra.amount : 0;
@@ -79,7 +73,7 @@ export default async function CarteraVencidaPage() {
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             const isExpired = rawCurrentLoanWeek > baseTerm;
 
-            // Mostrar solo si expiró y tiene deuda (incluyendo la semana extra obligatoria)
+            // Mostrar solo si expiró y tiene deuda real
             if (isExpired && calculatedAmountDue > 0) {
                 return {
                     loan,
