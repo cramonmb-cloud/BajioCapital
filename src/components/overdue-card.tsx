@@ -80,7 +80,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
     };
 
-    // MOTOR FINANCIERO IMPLACABLE
+    // MOTOR FINANCIERO UNIFICADO (LÓGICA EN CASCADA)
     const metrics = useMemo(() => {
         const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
         const today = new Date();
@@ -89,52 +89,41 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         
         const timeDiff = today.getTime() - loanStartDate.getTime();
         const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
-        
-        // REGLA 1: Determinar si el plazo base ya venció
         const isExpired = rawCurrentLoanWeek > baseTerm;
 
-        // REGLA 2: Deuda semanas base
-        let baseArrears = 0;
-        let registeredMissedCount = 0;
+        // Conteo de fallos base
+        let missedCount = 0;
         for (let i = 1; i <= baseTerm; i++) {
             const p = (loan.payments || []).find(pay => pay.weekNumber === i);
-            const amountPaid = p ? p.amount : 0;
-            const dueDate = new Date(loanStartDate);
-            dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
-            
-            if (amountPaid < weeklyPayment) {
-                if (isExpired || today > dueDate) {
-                    baseArrears += (weeklyPayment - amountPaid);
-                    registeredMissedCount++;
-                }
+            if (!p || p.amount < weeklyPayment) {
+                const dueDate = new Date(loanStartDate);
+                dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
+                if (isExpired || today > dueDate) missedCount++;
             }
         }
 
-        // REGLA 3: Penalización Obligatoria (Si venció O si tiene 2+ fallos)
-        const hasPenalty = isExpired || (registeredMissedCount >= 2);
+        // Determinar si aplica penalización
+        const hasPenalty = isExpired || (missedCount >= 2);
+        
+        // Cálculo de deuda real (Cascada)
+        const totalPaid = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
+        const totalExpected = (baseTerm + (hasPenalty ? 1 : 0)) * weeklyPayment;
+        const totalDue = Math.max(0, totalExpected - totalPaid);
 
-        let penaltyArrear = 0;
-        if (hasPenalty) {
-            const penaltyWeekNum = baseTerm + 1;
-            const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
-            penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
-        }
-
-        // REGLA 4: Suma total de ambos conceptos (Mandatoria)
-        const totalDue = baseArrears + penaltyArrear;
-        const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-        const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
+        // Desglose visual: Los fallos base se pagan primero
+        const baseArrears = Math.max(0, (baseTerm * weeklyPayment) - totalPaid);
+        const penaltyArrear = totalDue - baseArrears;
 
         return {
             weeklyPayment,
-            termInWeeks,
-            currentProgressWeek,
+            termInWeeks: baseTerm + (hasPenalty ? 1 : 0),
+            currentProgressWeek: Math.min(rawCurrentLoanWeek, baseTerm + (hasPenalty ? 1 : 0)),
             loanWeekDate: getSaturdayOfWeek(loanStartDate),
             hasPenalty,
             baseArrears,
             penaltyArrear,
             totalDue,
-            missedCount: registeredMissedCount,
+            missedCount,
             isExpired
         };
     }, [loan, loanPlan]);
@@ -183,9 +172,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 if (payment.amount >= weeklyPayment) {
                     statusText = formatDate(payment.date);
                     statusType = 'PAID';
-                } else if (payment.amount > 0) {
-                    statusText = 'PARCIAL';
-                    statusType = 'MISSED';
                 } else {
                     statusText = 'FALLO';
                     statusType = 'MISSED';
@@ -303,7 +289,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </div>
                     </div>
 
-                    {/* FINANCIAL SUMMARY - CORREGIDO PARA SUMAR SIEMPRE */}
+                    {/* FINANCIAL SUMMARY */}
                     <div className="flex items-end justify-between gap-4 pt-1">
                         <div className="flex flex-wrap gap-1.5">
                             <Badge variant="destructive" className="h-5 px-2 text-[9px] font-black uppercase shadow-sm">

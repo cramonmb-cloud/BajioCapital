@@ -72,38 +72,30 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     // REGLA 1: Determinar vencimiento base
     const isExpired = rawCurrentLoanWeek > baseTerm;
 
-    let baseArrears = 0;
     let registeredMissedCount = 0;
-
     for (let i = 1; i <= baseTerm; i++) {
         const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
-        const amountPaid = p ? p.amount : 0;
-        const dueDate = new Date(loanStartDate);
-        dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
-        
-        if (amountPaid < weeklyPayment) {
-            if (isExpired || today > dueDate) {
-                baseArrears += (weeklyPayment - amountPaid);
-                registeredMissedCount++;
-            }
+        if (!p || p.amount < weeklyPayment) {
+            const dueDate = new Date(loanStartDate);
+            dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
+            if (isExpired || today > dueDate) registeredMissedCount++;
         }
     }
     
-    // REGLA 2: Penalización Obligatoria (Si venció O si tiene 2+ fallos)
+    // REGLA 2: Penalización (Si venció O si tiene 2+ fallos)
     const hasPenalty = isExpired || (registeredMissedCount >= 2);
 
-    let penaltyArrear = 0;
-    if (hasPenalty) {
-        const penaltyWeekNum = baseTerm + 1;
-        const pExtra = (activeLoan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
-        penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
-    }
-
+    // REGLA 3: TOTAL EN CASCADA
+    const totalPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
+    const totalExpected = termInWeeks * weeklyPayment;
+    const totalDue = Math.max(0, totalExpected - totalPaid);
+
+    // Desglose visual
+    const baseArrears = Math.max(0, (baseTerm * weeklyPayment) - totalPaid);
+    const penaltyArrear = totalDue - baseArrears;
+
     const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
-    
-    // REGLA 3: TOTAL FINAL ES LA SUMA MATEMÁTICA DE AMBOS
-    const totalBalance = baseArrears + penaltyArrear;
 
     const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
     const localidad = localidades.find(l => l.id === promotora?.localidadId);
@@ -125,7 +117,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
       termInWeeks,
       baseArrears,
       penaltyArrear,
-      totalBalance,
+      totalBalance: totalDue,
       missedWeeks: registeredMissedCount,
       hasPenalty,
       isExpired,

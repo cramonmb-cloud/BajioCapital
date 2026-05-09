@@ -6,8 +6,8 @@ export type OverdueLoanDetails = {
     loan: Loan;
     client: Client;
     loanPlan: LoanPlan;
-    amountDue: number; // TOTAL FINAL (Fallos + S. Extra)
-    baseArrears: number; // Solo Fallos
+    amountDue: number; // TOTAL FINAL
+    baseArrears: number; // Solo Fallos base
     penaltyArrear: number; // Solo S. Extra
     missedPayments: number;
     hasPenalty: boolean;
@@ -51,57 +51,47 @@ export default async function CarteraVencidaPage() {
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
             
-            // REGLA CARTERA VENCIDA: Si la semana actual supera el plazo base, está vencido
-            const isExpired = rawCurrentLoanWeek > baseTerm;
+            // CARTERA VENCIDA: Préstamo expirado
+            if (rawCurrentLoanWeek <= baseTerm) return null;
 
-            if (!isExpired) return null;
+            const totalPaid = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
+            
+            // REGLA DE ORO: En Cartera Vencida la penalización es SIEMPRE obligatoria
+            const hasPenalty = true;
+            const totalExpected = (baseTerm + 1) * weeklyPayment;
+            const totalDue = Math.max(0, totalExpected - totalPaid);
 
+            if (totalDue <= 0) return null;
+
+            // Cálculo en cascada para el desglose visual
+            const baseArrears = Math.max(0, (baseTerm * weeklyPayment) - totalPaid);
+            const penaltyArrear = totalDue - baseArrears;
+
+            // Conteo de fallos reales para el reporte
             let missedCount = 0;
-            let baseArrears = 0;
-
-            // 1. Calcular deuda de semanas base (1 a baseTerm)
             for (let i = 1; i <= baseTerm; i++) {
                 const p = (loan.payments || []).find(pay => pay.weekNumber === i);
-                const amountPaid = p ? p.amount : 0;
-                
-                if (amountPaid < weeklyPayment) {
-                    missedCount++;
-                    baseArrears += (weeklyPayment - amountPaid);
+                if (!p || p.amount < weeklyPayment) missedCount++;
+            }
+
+            return {
+                loan,
+                client,
+                loanPlan,
+                amountDue: totalDue,
+                baseArrears,
+                penaltyArrear,
+                missedPayments: missedCount,
+                hasPenalty: true,
+                hierarchy: {
+                    plazaId: plaza?.id || 'N/A',
+                    plazaName: plaza?.name || 'N/A',
+                    localidadId: localidad?.id || 'N/A',
+                    localidadName: localidad?.name || 'N/A',
+                    promotoraId: promotora?.id || 'N/A',
+                    promotoraName: promotora?.name || 'N/A',
                 }
-            }
-
-            // REGLA CARTERA VENCIDA: La semana extra es OBLIGATORIA al 100%
-            const hasPenalty = true; 
-            const penaltyWeekNum = baseTerm + 1;
-            const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
-            const penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
-
-            // EL TOTAL ES LA SUMA MATEMÁTICA REAL DE AMBOS
-            const calculatedTotalDue = baseArrears + penaltyArrear;
-
-            // Mostrar solo si tiene deuda real pendiente
-            if (calculatedTotalDue > 0) {
-                return {
-                    loan,
-                    client,
-                    loanPlan,
-                    amountDue: calculatedTotalDue,
-                    baseArrears,
-                    penaltyArrear,
-                    missedPayments: missedCount,
-                    hasPenalty: true,
-                    hierarchy: {
-                        plazaId: plaza?.id || 'N/A',
-                        plazaName: plaza?.name || 'N/A',
-                        localidadId: localidad?.id || 'N/A',
-                        localidadName: localidad?.name || 'N/A',
-                        promotoraId: promotora?.id || 'N/A',
-                        promotoraName: promotora?.name || 'N/A',
-                    }
-                };
-            }
-            
-            return null;
+            };
         })
         .filter((details): details is OverdueLoanDetails => details !== null);
 
