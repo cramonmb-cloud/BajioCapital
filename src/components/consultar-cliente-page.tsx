@@ -86,7 +86,10 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         }
     }
     
-    const hasPenalty = registeredMissedCount >= 2;
+    // REGLA: Si el préstamo EXPIRÓ (Cartera Vencida), la penalización es OBLIGATORIA
+    const isExpired = today > new Date(loanStartDate.getTime() + (baseTerm * 7 * 24 * 60 * 60 * 1000));
+    const hasPenalty = isExpired ? true : (registeredMissedCount >= 2);
+
     let penaltyArrear = 0;
     if (hasPenalty) {
         const penaltyWeekNum = baseTerm + 1;
@@ -250,29 +253,29 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                         
                          <div className="space-y-4">
                              <div className='flex items-center justify-between'>
-                                <h3 className="font-semibold text-xl flex items-center gap-2"><Wallet className="text-primary"/> Progreso del Pago</h3>
+                                <h3 className="font-semibold text-xl flex items-center gap-2"><Wallet className="text-primary"/> Situación Financiera</h3>
                                 {activeLoanDetails.hasPenalty && (
                                     <Badge className="bg-orange-500 hover:bg-orange-600 font-black text-[10px] px-3">S. EXTRA ACTIVA</Badge>
                                 )}
                              </div>
                              <div className="grid grid-cols-3 gap-4 text-sm">
                                 <div className="space-y-1">
-                                    <p className="text-muted-foreground">Semana Actual</p>
-                                    <p className="font-bold text-3xl">{activeLoanDetails.currentLoanWeek} <span className="text-lg text-muted-foreground">de {activeLoanDetails.termInWeeks}</span></p>
+                                    <p className="text-muted-foreground uppercase text-[10px] font-bold">Semana Actual</p>
+                                    <p className="font-black text-2xl">{activeLoanDetails.currentLoanWeek} / {activeLoanDetails.termInWeeks}</p>
                                 </div>
                                  <div className="space-y-1">
-                                    <p className="text-muted-foreground">Abono</p>
-                                    <p className="font-bold text-3xl" style={{ color: '#005DC7' }}>{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
+                                    <p className="text-muted-foreground uppercase text-[10px] font-bold">Abono</p>
+                                    <p className="font-black text-2xl" style={{ color: '#005DC7' }}>{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
                                  </div>
                                   <div className="space-y-1">
-                                    <p className="text-muted-foreground flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> Fallos</p>
-                                    <p className={cn("font-bold text-3xl text-red-500")}>
+                                    <p className="text-muted-foreground uppercase text-[10px] font-bold flex items-center gap-1"><AlertTriangle className="h-4 w-4" /> Fallos</p>
+                                    <p className={cn("font-black text-2xl text-red-500")}>
                                         {activeLoanDetails.missedWeeks}
                                     </p>
                                  </div>
                              </div>
                             <Separator className="my-4"/>
-                            <h3 className="font-semibold text-xl flex items-center gap-2"><FileText className="text-primary"/> Liquidación Detallada</h3>
+                            <h3 className="font-semibold text-xl flex items-center gap-2"><FileText className="text-primary"/> Detalle del Saldo</h3>
                             <div className="space-y-3 p-4 bg-muted/30 rounded-xl border border-muted-foreground/10">
                                 <div className="flex justify-between items-center text-sm">
                                     <span className="font-medium text-muted-foreground uppercase text-[10px]">Saldo de Fallos</span>

@@ -52,7 +52,7 @@ export default async function CarteraVencidaPage() {
 
             // Calcular fallos reales en semanas base
             for (let i = 1; i <= baseTerm; i++) {
-                const p = loan.payments.find(pay => pay.weekNumber === i);
+                const p = (loan.payments || []).find(pay => pay.weekNumber === i);
                 const amountPaid = p ? p.amount : 0;
                 
                 if (amountPaid < weeklyPayment) {
@@ -67,20 +67,16 @@ export default async function CarteraVencidaPage() {
                 }
             }
 
-            const hasPenalty = missedCount >= 2;
-            const termWithPenalty = baseTerm + (hasPenalty ? 1 : 0);
-            const isExpired = rawCurrentLoanWeek > termWithPenalty;
+            const isExpired = rawCurrentLoanWeek > baseTerm;
 
-            // Calcular deuda de la semana extra si aplica
-            let penaltyArrear = 0;
-            if (hasPenalty) {
-                const penaltyWeekNum = baseTerm + 1;
-                const pExtra = loan.payments.find(pay => pay.weekNumber === penaltyWeekNum);
-                const amountPaidExtra = pExtra ? pExtra.amount : 0;
-                penaltyArrear = weeklyPayment - amountPaidExtra;
-            }
+            // REGLA DE NEGOCIO: En Cartera Vencida (Expirados), la penalización es SIEMPRE OBLIGATORIA
+            const hasPenalty = true; 
+            const penaltyWeekNum = baseTerm + 1;
+            const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
+            const amountPaidExtra = pExtra ? pExtra.amount : 0;
+            const penaltyArrear = weeklyPayment - amountPaidExtra;
 
-            // REGLA DE NEGOCIO: Saldo = Suma de Arrears + Deuda Semana Extra
+            // Saldo = Suma de Arrears + Deuda Semana Extra
             const calculatedAmountDue = totalArrears + penaltyArrear;
 
             // 'Cartera Vencida': Préstamos EXPIRADOS con deuda
@@ -111,7 +107,7 @@ export default async function CarteraVencidaPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Cartera Vencida</h1>
                 <p className="text-muted-foreground">
-                    Préstamos expirados con saldo pendiente. El saldo incluye el monto de los fallos y la semana extra.
+                    Préstamos expirados con saldo pendiente. La semana extra se aplica automáticamente a todos los registros.
                 </p>
             </div>
             <OverduePortfolioClientPage 

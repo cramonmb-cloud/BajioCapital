@@ -98,7 +98,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
             
             if (amountPaid < weeklyPayment) {
-                // Solo cuenta como fallo si ya pasó la fecha o si hay un registro parcial
                 if (p || today > dueDate) {
                     baseArrears += (weeklyPayment - amountPaid);
                     registeredMissedCount++;
@@ -106,7 +105,10 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             }
         }
 
-        const hasPenalty = registeredMissedCount >= 2;
+        // REGLA: En Cartera Vencida (isOverduePortfolio === false) la penalización es SIEMPRE OBLIGATORIA
+        const isExpired = today > new Date(loanStartDate.getTime() + (baseTerm * 7 * 24 * 60 * 60 * 1000));
+        const hasPenalty = isOverduePortfolio ? (registeredMissedCount >= 2) : true;
+
         let penaltyArrear = 0;
         if (hasPenalty) {
             const penaltyWeekNum = baseTerm + 1;
@@ -131,7 +133,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             totalDue: baseArrears + penaltyArrear,
             missedCount: registeredMissedCount
         };
-    }, [loan, loanPlan]);
+    }, [loan, loanPlan, isOverduePortfolio]);
 
     const { avalName, avalAddress, avalPhone } = useMemo(() => {
         const parts = client.endorsement.split('(');
@@ -277,7 +279,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                             </div>
                         </div>
                         
-                        {/* Breakdown de Deuda Solicitado */}
                         <div className="text-right shrink-0 bg-zinc-50 p-2 rounded-lg border border-zinc-200">
                             <div className="space-y-0.5 min-w-[90px]">
                                 <div className="flex justify-between gap-3">
@@ -412,11 +413,11 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                                     <div className="space-y-2">
                                         <h4 className="text-[9px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                                            <FileText className="h-3 w-3 text-blue-600" /> Estado de Cuenta (Resumen)
+                                            <FileText className="h-3 w-3 text-blue-600" /> Estado de Cuenta
                                         </h4>
                                         <div className="p-3 rounded-xl border bg-white space-y-2 relative overflow-hidden">
                                             <div className="flex justify-between items-center text-xs">
-                                                <span className="font-bold text-muted-foreground uppercase text-[9px]">Saldo de Fallos</span>
+                                                <span className="font-bold text-muted-foreground uppercase text-[9px]">Saldo Fallos</span>
                                                 <span className="font-black text-zinc-800">{formatCurrency(metrics.baseArrears)}</span>
                                             </div>
                                             {metrics.hasPenalty && (
@@ -487,7 +488,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                         <TableHead className="text-blue-900 font-bold border-r border-blue-200">Fecha Vencimiento</TableHead>
                                         <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Abono</TableHead>
                                         <TableHead className="text-blue-900 font-bold border-r border-blue-200 text-right">Importe Recibido</TableHead>
-                                        <TableHead className="text-blue-900 font-bold text-center">Fecha / Estado</TableHead>
+                                        <TableHead className="text-blue-900 font-bold text-center">Estado / Fecha</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -508,7 +509,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                                 {formatCurrency(row.importeRecibido)}
                                             </TableCell>
                                             <TableCell className={cn(
-                                                "text-center py-1 text-[10px] font-bold", 
+                                                "text-center py-1 text-[10px] font-bold uppercase", 
                                                 row.status === 'PAID' ? "text-muted-foreground" : 
                                                 row.status === 'MISSED' ? "text-red-600" : 
                                                 "text-blue-600"
