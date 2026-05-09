@@ -27,7 +27,7 @@ interface ControlClientPageProps {
     initialPromotoras: Promotora[];
 }
 
-// Función centralizada para detectar penalización
+// Función centralizada para detectar penalización por fallos (VIGENTES)
 const checkPenalty = (loan: Loan, loanPlan: LoanPlan) => {
     const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
     let missedWeeksCount = 0;
@@ -108,8 +108,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
             if (!loanPlan) return;
 
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-            const hasPenalty = checkPenalty(loan, loanPlan);
-            const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
+            const baseTerm = loanPlan.termInWeeks;
 
             // Calcular semana actual para detectar expiración
             const today = new Date();
@@ -117,13 +116,14 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
-            // Total expected including penalty if triggered
-            const totalExpected = weeklyPayment * termInWeeks;
             const actualTotalPaid = (loan.payments || []).reduce((sum, p) => sum + p.amount, 0);
 
-            // DETECCIÓN DE CARTERA VENCIDA
-            if (rawCurrentLoanWeek > termInWeeks) {
-                const balanceRemainingAbsolute = Math.max(0, totalExpected - actualTotalPaid);
+            // DETECCIÓN DE CARTERA VENCIDA (PRÉSTAMO EXPIRADO)
+            if (rawCurrentLoanWeek > baseTerm) {
+                // REGLA DE ORO: En Cartera Vencida la penalización es SIEMPRE obligatoria (+1 semana)
+                const totalExpectedWithPenalty = weeklyPayment * (baseTerm + 1);
+                const balanceRemainingAbsolute = Math.max(0, totalExpectedWithPenalty - actualTotalPaid);
+                
                 if (balanceRemainingAbsolute > 0) {
                     if (statsByPlaza[plazaId]) {
                         statsByPlaza[plazaId].carteraVencida += balanceRemainingAbsolute;
@@ -134,7 +134,12 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
             }
 
             // CAPITAL PENDIENTE (VIGENTE)
-            // For active loans, we use the "Assumed Payments" logic to see what is PENDING registration
+            // Para vigentes, usamos la regla de 2+ fallos para la penalización
+            const hasPenalty = checkPenalty(loan, loanPlan);
+            const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
+            const totalExpected = weeklyPayment * termInWeeks;
+
+            // Para préstamos activos, calculamos lo que debería estar pagado según la semana actual
             let effectivePaidForStats = 0;
             for (let i = 1; i <= termInWeeks; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
