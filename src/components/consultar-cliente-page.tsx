@@ -83,7 +83,9 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         }
     }
     
-    // REGLA DE NEGOCIO: En consulta, si expiró el plazo base O si tiene 2+ fallos, aplica penalización
+    // REGLA DE NEGOCIO UNIFICADA: 
+    // Si expiró el plazo base (Cartera Vencida) -> PENALIZACIÓN SIEMPRE.
+    // Si sigue vigente pero tiene 2+ fallos -> PENALIZACIÓN ACTIVA.
     const timeDiff = today.getTime() - loanStartDate.getTime();
     const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
     const isExpired = rawCurrentLoanWeek > baseTerm;
@@ -147,7 +149,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
   return (
     <div className="space-y-6">
         <div className="text-center">
-            <h1 className="text-3xl font-bold tracking-tight">Consultar Detalle del Cliente</h1>
+            <h1 className="text-3xl font-bold tracking-tight uppercase">Consultar Detalle del Cliente</h1>
         </div>
       
         <div className="relative max-w-lg mx-auto">
@@ -163,7 +165,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                             setSelectedClient(null);
                         }
                     }}
-                    className="pl-10 pr-10 h-12 text-lg rounded-full shadow-lg focus-visible:ring-primary/50"
+                    className="pl-10 pr-10 h-12 text-lg rounded-full shadow-lg focus-visible:ring-primary/50 uppercase"
                 />
                  {searchTerm && (
                     <Button 
@@ -188,7 +190,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                 <AvatarImage src={client.avatarUrl} alt={client.name} />
                                 <AvatarFallback>{client.name.charAt(0)}</AvatarFallback>
                             </Avatar>
-                            <span className="font-medium">{client.name}</span>
+                            <span className="font-bold uppercase text-sm">{client.name}</span>
                         </li>
                         ))}
                     </ul>
@@ -235,7 +237,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                              <div className='flex items-center justify-between'>
                                 <h3 className="font-black text-lg uppercase flex items-center gap-2 tracking-tight text-zinc-800"><Wallet className="text-primary"/> Estado Financiero</h3>
                                 {activeLoanDetails.hasPenalty && (
-                                    <Badge className="bg-orange-500 hover:bg-orange-600 font-black text-[10px] px-3 shadow-sm">S. EXTRA ACTIVA</Badge>
+                                    <Badge className="bg-orange-500 hover:bg-orange-600 font-black text-[10px] px-3 shadow-sm uppercase">S. EXTRA ACTIVA</Badge>
                                 )}
                              </div>
                              <div className="grid grid-cols-3 gap-2">
@@ -255,7 +257,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
 
                             <div className="space-y-3 p-5 bg-zinc-100 rounded-2xl border-2 border-zinc-200 shadow-inner">
                                 <div className="flex justify-between items-center text-xs">
-                                    <span className="font-black text-muted-foreground uppercase text-[9px]">Saldo Fallos Acumulado</span>
+                                    <span className="font-black text-muted-foreground uppercase text-[9px]">Suma de Fallos</span>
                                     <span className="font-black text-zinc-800">{formatCurrency(activeLoanDetails.baseArrears)}</span>
                                 </div>
                                 {activeLoanDetails.hasPenalty && (

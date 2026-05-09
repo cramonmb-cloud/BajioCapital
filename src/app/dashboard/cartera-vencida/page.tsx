@@ -48,7 +48,7 @@ export default async function CarteraVencidaPage() {
             let missedCount = 0;
             let totalArrears = 0;
 
-            // Calcular deuda de semanas base (1 a baseTerm)
+            // 1. Calcular deuda de semanas base (1 a baseTerm)
             for (let i = 1; i <= baseTerm; i++) {
                 const p = (loan.payments || []).find(pay => pay.weekNumber === i);
                 const amountPaid = p ? p.amount : 0;
@@ -57,6 +57,7 @@ export default async function CarteraVencidaPage() {
                     const dueDate = new Date(loanStartDate);
                     dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
                     
+                    // En Cartera Vencida, si no está pagado al 100%, es deuda.
                     if (p || today > dueDate) {
                         missedCount++;
                         totalArrears += (weeklyPayment - amountPaid);
@@ -64,7 +65,8 @@ export default async function CarteraVencidaPage() {
                 }
             }
 
-            // REGLA ABSOLUTA: En Cartera Vencida la penalización es SIEMPRE OBLIGATORIA
+            // 2. REGLA ABSOLUTA: En Cartera Vencida la penalización es SIEMPRE OBLIGATORIA
+            // No importa el número de fallos, el vencimiento activa la semana extra.
             const penaltyWeekNum = baseTerm + 1;
             const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
             const amountPaidExtra = pExtra ? pExtra.amount : 0;
@@ -103,9 +105,9 @@ export default async function CarteraVencidaPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight text-red-700">Cartera Vencida</h1>
-                <p className="text-muted-foreground">
-                    Préstamos con plazo base expirado. Se aplica 1 semana extra de penalización obligatoria.
+                <h1 className="text-3xl font-bold tracking-tight text-red-700 uppercase">Cartera Vencida</h1>
+                <p className="text-muted-foreground font-bold">
+                    Préstamos con plazo base expirado. Se aplica 1 semana extra de penalización OBLIGATORIA.
                 </p>
             </div>
             <OverduePortfolioClientPage 

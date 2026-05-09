@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { 
     Phone, MessageSquare, MapPin, 
     Wallet, FileText, Shield, History as HistoryIcon, 
-    X, Home, ListTodo
+    X, Home, ListTodo, AlertTriangle
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -89,7 +89,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         let baseArrears = 0;
         let registeredMissedCount = 0;
 
-        // Calcular deuda de semanas base (1 a baseTerm)
         for (let i = 1; i <= baseTerm; i++) {
             const p = (loan.payments || []).find(pay => pay.weekNumber === i);
             const amountPaid = p ? p.amount : 0;
@@ -97,7 +96,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
             
             if (amountPaid < weeklyPayment) {
-                // Se considera fallo si ya pasó la fecha o si ya hay un registro de pago incompleto
                 if (p || today > dueDate) {
                     baseArrears += (weeklyPayment - amountPaid);
                     registeredMissedCount++;
@@ -105,10 +103,11 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             }
         }
 
-        // REGLA DE PENALIZACIÓN UNIFICADA
-        // Si es Cartera Vencida (isOverduePortfolio === false), la penalización es obligatoria (SIEMPRE).
-        // Si es Pagos Pendientes (isOverduePortfolio === true), se activa con 2 o más fallos.
-        const hasPenalty = !isOverduePortfolio ? true : (registeredMissedCount >= 2);
+        // REGLA DE PENALIZACIÓN UNIFICADA Y OBLIGATORIA
+        // Si es Cartera Vencida (!isOverduePortfolio), la penalización es SIEMPRE TRUE.
+        // Si es Pagos Pendientes (isOverduePortfolio), se activa con 2 o más fallos.
+        const isCarteraVencida = !isOverduePortfolio;
+        const hasPenalty = isCarteraVencida || (registeredMissedCount >= 2);
 
         let penaltyArrear = 0;
         if (hasPenalty) {
@@ -247,43 +246,38 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                 </span>
                             </div>
                         </div>
-                        {metrics.hasPenalty && (
-                            <Badge className="h-4 px-1.5 text-[8px] font-black bg-orange-500 text-white animate-pulse">
-                                S. EXTRA ACTIVA
-                            </Badge>
-                        )}
                     </div>
 
                     <div className="flex justify-between items-start gap-2">
                         <div className="cursor-pointer flex-1" onClick={() => setDetailModalOpen(true)}>
                             <h3 className="font-black text-sm uppercase leading-tight text-foreground">{client.name}</h3>
                             <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                <Badge variant="outline" className="h-4 px-1.5 text-[8px] font-black bg-red-50 text-red-700 border-red-200">
+                                <Badge variant="outline" className="h-5 px-2 text-[9px] font-black bg-red-50 text-red-700 border-red-200 uppercase">
                                     {metrics.missedCount} {metrics.missedCount === 1 ? 'FALLO' : 'FALLOS'}
                                 </Badge>
                                 {metrics.hasPenalty && (
-                                    <Badge className="h-4 px-1.5 text-[8px] font-black bg-orange-100 text-orange-700 border-orange-200">
+                                    <Badge className="h-5 px-2 text-[9px] font-black bg-orange-500 text-white shadow-sm uppercase">
                                         S. EXTRA
                                     </Badge>
                                 )}
                             </div>
                         </div>
                         
-                        <div className="text-right shrink-0 bg-zinc-50 p-2 rounded-lg border border-zinc-200 min-w-[110px]">
+                        <div className="text-right shrink-0 bg-zinc-50 p-2 rounded-lg border border-zinc-200 min-w-[115px]">
                             <div className="space-y-0.5">
-                                <div className="flex justify-between gap-3 text-[7px] font-black text-muted-foreground uppercase">
+                                <div className="flex justify-between gap-2 text-[7px] font-black text-muted-foreground uppercase">
                                     <span>Saldo Fallos</span>
                                     <span>{formatCurrency(metrics.baseArrears)}</span>
                                 </div>
                                 {metrics.hasPenalty && (
-                                    <div className="flex justify-between gap-3 text-[7px] font-black text-orange-600 uppercase border-b border-zinc-200 pb-0.5">
+                                    <div className="flex justify-between gap-2 text-[7px] font-black text-orange-600 uppercase border-b border-zinc-200 pb-0.5">
                                         <span>Semana Extra</span>
                                         <span>+{formatCurrency(metrics.penaltyArrear)}</span>
                                     </div>
                                 )}
                                 <div className="flex flex-col items-end pt-1">
-                                    <span className="text-[7px] font-black text-red-700 uppercase leading-none">Total a Deber</span>
-                                    <span className="text-sm font-black text-red-700 tracking-tighter">{formatCurrency(metrics.totalDue)}</span>
+                                    <span className="text-[7px] font-black text-red-700 uppercase leading-none mb-0.5">Total a Deber</span>
+                                    <span className="text-sm font-black text-red-700 tracking-tighter leading-none">{formatCurrency(metrics.totalDue)}</span>
                                 </div>
                             </div>
                         </div>
@@ -460,9 +454,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             </TableCell>
                                             <TableCell className={cn(
                                                 "text-center py-1 text-[10px] font-black uppercase", 
-                                                row.status === 'PAID' ? "text-muted-foreground/80" : 
-                                                row.status === 'MISSED' ? "text-red-600 animate-pulse" : 
-                                                "text-blue-600"
+                                                row.status === 'PAID' ? "text-muted-foreground/80 font-bold" : 
+                                                row.status === 'MISSED' ? "text-red-600 animate-pulse font-black" : 
+                                                "text-blue-600 font-bold"
                                             )}>
                                                 {row.fechaAbono}
                                             </TableCell>

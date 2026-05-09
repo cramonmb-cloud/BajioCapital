@@ -64,7 +64,7 @@ export default async function OverduePortfolioPage() {
                 }
             }
 
-            // REGLA: Si tiene 2 o más fallos se activa la penalización
+            // REGLA: Si tiene 2 o más fallos se activa la penalización (1 semana extra)
             const hasPenalty = missedCount >= 2;
             let penaltyArrear = 0;
             if (hasPenalty) {
@@ -81,7 +81,10 @@ export default async function OverduePortfolioPage() {
             const termWithPenalty = baseTerm + (hasPenalty ? 1 : 0);
             const isExpired = rawCurrentLoanWeek > termWithPenalty;
 
-            // REGLA DE FILTRO: Solo vigente con 2+ fallos y saldo pendiente
+            // REGLA DE FILTRO PARA PAGOS PENDIENTES: 
+            // 1. Debe estar vigente (no expirado el plazo total)
+            // 2. Debe tener 2 o más fallos registrados
+            // 3. Debe tener saldo pendiente
             if (!isExpired && missedCount >= 2 && calculatedAmountDue > 0) {
                 return {
                     loan,
@@ -107,8 +110,8 @@ export default async function OverduePortfolioPage() {
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
-                <p className="text-muted-foreground">
+                <h1 className="text-3xl font-bold tracking-tight uppercase">Pagos Pendientes</h1>
+                <p className="text-muted-foreground font-bold">
                     Préstamos vigentes con 2 o más fallos. Se incluye cobro de semana extra.
                 </p>
             </div>
