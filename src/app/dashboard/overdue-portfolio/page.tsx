@@ -68,8 +68,8 @@ export default async function OverduePortfolioPage() {
             const totalPaidAmount = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const totalBalance = Math.max(0, totalExpectedAmount - totalPaidAmount);
 
-            // 'Pagos Pendientes': Préstamos VIGENTES con saldo pendiente
-            if (!isExpired && totalBalance > 0) {
+            // 'Pagos Pendientes': Solo 2 o más fallos Y NO expirados con saldo pendiente
+            if (!isExpired && missedCount >= 2 && totalBalance > 0) {
                 return {
                     loan,
                     client,
@@ -96,7 +96,7 @@ export default async function OverduePortfolioPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Pagos Pendientes</h1>
                 <p className="text-muted-foreground">
-                    Préstamos vigentes con saldo pendiente. El saldo mostrado incluye la semana extra por mora.
+                    Préstamos vigentes con 2 o más fallos. El saldo mostrado incluye la semana extra por mora.
                 </p>
             </div>
             <OverduePortfolioClientPage 
