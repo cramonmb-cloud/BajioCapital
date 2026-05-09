@@ -14,7 +14,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Edit, ListTodo } from 'lucide-react';
+import { Edit, ListTodo, PencilLine } from 'lucide-react';
 import { EditLoanDialog } from '@/components/edit-loan-dialog';
 import {
     Dialog,
@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { ManualPaymentAdjustmentDialog } from '@/components/manual-payment-adjustment-dialog';
 
 
 // Helper to get the Saturday of the week for a given date
@@ -53,8 +54,13 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
   const [loanForDetails, setLoanForDetails] = useState<Loan | null>(null);
+  
+  // State for manual adjustment
+  const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
+  const [adjustData, setAdjustData] = useState<{ weekNumber: number, amount: number } | null>(null);
 
-  const canEdit = useMemo(() => appUser?.username === 'Cristobal', [appUser]);
+  const isCristobal = useMemo(() => appUser?.username.toUpperCase() === 'CRISTOBAL', [appUser]);
+  const canEdit = useMemo(() => isCristobal, [isCristobal]);
   
   // Sort loans: Active/Overdue first, then by startDate descending
   const sortedLoans = useMemo(() => {
@@ -130,7 +136,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
 
       const weeklyPayment = (loanForDetails.amount / 1000) * plan.weeklyPaymentRate;
       
-      // Calculate missed weeks for penalty (only registered failures count)
+      // Calculate missed weeks for penalty
       let missedWeeksCount = 0;
       const today = new Date();
       const startDate = new Date(loanForDetails.startDate);
@@ -142,10 +148,11 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
           if (p && p.amount < weeklyPayment) missedWeeksCount++;
       }
       
-      const termInWeeks = plan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
+      const isExpired = currentWeekAtOpening > plan.termInWeeks;
+      const hasPenalty = isExpired || (missedWeeksCount >= 2);
+      const termInWeeks = plan.termInWeeks + (hasPenalty ? 1 : 0);
       const isLiquidated = loanForDetails.status === 'Paid Off' || loanForDetails.status === 'Pagado desde CV';
       
-      // Find the last week that had a real payment
       const normalPayments = loanForDetails.payments.filter(p => p.weekNumber > 0);
       const lastNormalWeek = normalPayments.length > 0 
         ? Math.max(...normalPayments.map(p => p.weekNumber)) 
@@ -164,7 +171,6 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
           let note = '';
           let dateStr = isRegistered ? formatDate(payment.date) : '';
 
-          // If liquidated and this is a future week beyond the last actual payment
           if (!isRegistered && isLiquidated && i > lastNormalWeek) {
               received = weeklyPayment;
               note = 'AD';
@@ -185,6 +191,12 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
 
   const totalAbono = loanDetailsData.reduce((acc, r) => acc + r.importeAbono, 0);
   const totalRecibido = loanDetailsData.reduce((acc, r) => acc + (r.importeRecibido || 0), 0);
+
+  const handleAdjustClick = (weekNumber: number, currentAmount: number) => {
+    if (!isCristobal) return;
+    setAdjustData({ weekNumber, amount: currentAmount });
+    setIsAdjustDialogOpen(true);
+  };
 
   return (
     <>
@@ -261,10 +273,20 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
                                         <TableCell className="border-r border-blue-100 text-center py-1">{row.num}</TableCell>
                                         <TableCell className="border-r border-blue-100 py-1">{row.vencimiento}</TableCell>
                                         <TableCell className="border-r border-blue-100 text-right py-1">{formatCurrency(row.importeAbono)}</TableCell>
-                                        <TableCell className={cn("border-r border-blue-100 text-right py-1 font-semibold", row.importeRecibido !== null ? "bg-green-100 text-green-800" : "")}>
+                                        <TableCell 
+                                            className={cn(
+                                                "border-r border-blue-100 text-right py-1 font-semibold relative group", 
+                                                row.importeRecibido !== null ? "bg-green-100 text-green-800" : "",
+                                                isCristobal && "cursor-pointer hover:bg-green-200 transition-colors"
+                                            )}
+                                            onClick={() => isCristobal && row.importeRecibido !== null && handleAdjustClick(row.num, row.importeRecibido)}
+                                        >
                                             <div className="flex items-center justify-end gap-2">
                                                 {row.importeRecibido !== null ? formatCurrency(row.importeRecibido) : ''}
                                                 {row.note === 'AD' && <Badge variant="secondary" className="bg-blue-200 text-blue-800 text-[10px] h-4">AD</Badge>}
+                                                {isCristobal && row.importeRecibido !== null && row.note !== 'AD' && (
+                                                    <PencilLine className="h-3 w-3 opacity-0 group-hover:opacity-100 text-blue-600 shrink-0" />
+                                                )}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-center py-1 text-xs text-muted-foreground">{row.fechaAbono}</TableCell>
@@ -299,6 +321,20 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
           plazas={plazas}
           localidades={localidades}
           promotoras={promotoras}
+        />
+      )}
+
+      {loanForDetails && adjustData && (
+        <ManualPaymentAdjustmentDialog
+          isOpen={isAdjustDialogOpen}
+          onOpenChange={setIsAdjustDialogOpen}
+          loan={loanForDetails}
+          weekNumber={adjustData.weekNumber}
+          currentAmount={adjustData.amount}
+          onSuccess={() => {
+              // No es ideal, pero fuerza el refresco de los datos tras el ajuste manual
+              if (typeof window !== 'undefined') window.location.reload();
+          }}
         />
       )}
     </>

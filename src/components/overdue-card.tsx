@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { 
     Phone, MessageSquare, MapPin, 
     Wallet, FileText, Shield, History as HistoryIcon, 
-    X, Home, ListTodo
+    X, Home, ListTodo, PencilLine
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/cartera-vencida/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -32,6 +32,7 @@ import {
     TableRow,
     TableFooter,
 } from '@/components/ui/table';
+import { ManualPaymentAdjustmentDialog } from './manual-payment-adjustment-dialog';
 
 interface OverdueCardProps {
     details: OverdueLoanDetails;
@@ -59,7 +60,13 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
     const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+    
+    // State for manual adjustment
+    const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
+    const [adjustData, setAdjustData] = useState<{ weekNumber: number, amount: number } | null>(null);
+
     const { appUser } = useAuth();
+    const isCristobal = useMemo(() => appUser?.username.toUpperCase() === 'CRISTOBAL', [appUser]);
 
     useEffect(() => {
         if (detailModalOpen || historyDialogOpen) {
@@ -80,7 +87,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
     };
 
-    // MOTOR FINANCIERO UNIFICADO (LÓGICA EN CASCADA)
     const metrics = useMemo(() => {
         const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
         const today = new Date();
@@ -91,7 +97,6 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
         const isExpired = rawCurrentLoanWeek > baseTerm;
 
-        // Conteo de fallos base
         let missedCount = 0;
         for (let i = 1; i <= baseTerm; i++) {
             const p = (loan.payments || []).find(pay => pay.weekNumber === i);
@@ -102,15 +107,12 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             }
         }
 
-        // Determinar si aplica penalización
         const hasPenalty = isExpired || (missedCount >= 2);
         
-        // Cálculo de deuda real (Cascada)
         const totalPaid = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
         const totalExpected = (baseTerm + (hasPenalty ? 1 : 0)) * weeklyPayment;
         const totalDue = Math.max(0, totalExpected - totalPaid);
 
-        // Desglose visual: Los fallos base se pagan primero
         const baseArrears = Math.max(0, (baseTerm * weeklyPayment) - totalPaid);
         const penaltyArrear = totalDue - baseArrears;
 
@@ -220,6 +222,12 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             });
             window.open(`https://wa.me/${client.phone}?text=${encodeURIComponent(message)}`, '_blank');
         }
+    };
+
+    const handleAdjustClick = (weekNumber: number, currentAmount: number) => {
+      if (!isCristobal) return;
+      setAdjustData({ weekNumber, amount: currentAmount });
+      setIsAdjustDialogOpen(true);
     };
 
     return (
@@ -479,13 +487,22 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             </TableCell>
                                             <TableCell className="border-r border-zinc-100 py-2 text-[10px] font-bold text-zinc-600">{row.vencimiento}</TableCell>
                                             <TableCell className="border-r border-zinc-100 text-right py-2 font-bold text-zinc-800">{formatCurrency(row.importeAbono)}</TableCell>
-                                            <TableCell className={cn(
-                                                "border-r border-zinc-100 text-right py-2 font-black", 
-                                                row.status === 'PAID' ? "bg-green-50 text-green-700" : 
-                                                row.status === 'MISSED' ? "bg-red-50 text-red-700" : 
-                                                "bg-blue-50/20 text-blue-600"
-                                            )}>
-                                                {formatCurrency(row.importeRecibido)}
+                                            <TableCell 
+                                                className={cn(
+                                                    "border-r border-zinc-100 text-right py-2 font-black relative group", 
+                                                    row.status === 'PAID' ? "bg-green-50 text-green-700" : 
+                                                    row.status === 'MISSED' ? "bg-red-50 text-red-700" : 
+                                                    "bg-blue-50/20 text-blue-600",
+                                                    isCristobal && "cursor-pointer hover:bg-zinc-200 transition-colors"
+                                                )}
+                                                onClick={() => isCristobal && handleAdjustClick(row.num, row.importeRecibido)}
+                                            >
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {formatCurrency(row.importeRecibido)}
+                                                    {isCristobal && (
+                                                        <PencilLine className="h-3 w-3 opacity-0 group-hover:opacity-100 text-blue-600 shrink-0" />
+                                                    )}
+                                                </div>
                                             </TableCell>
                                             <TableCell className={cn(
                                                 "text-center py-2 text-[10px] font-black uppercase tracking-tight", 
@@ -531,6 +548,19 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     if (typeof window !== 'undefined') window.location.reload();
                 }}
             />
+
+            {adjustData && (
+                <ManualPaymentAdjustmentDialog
+                    isOpen={isAdjustDialogOpen}
+                    onOpenChange={setIsAdjustDialogOpen}
+                    loan={loan}
+                    weekNumber={adjustData.weekNumber}
+                    currentAmount={adjustData.amount}
+                    onSuccess={() => {
+                        if (typeof window !== 'undefined') window.location.reload();
+                    }}
+                />
+            )}
         </>
     );
 }
