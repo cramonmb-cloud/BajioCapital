@@ -68,6 +68,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     
     const timeDiff = today.getTime() - loanStartDate.getTime();
     const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+    
+    // REGLA 1: Determinar vencimiento base
     const isExpired = rawCurrentLoanWeek > baseTerm;
 
     let baseArrears = 0;
@@ -87,10 +89,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         }
     }
     
-    // REGLA UNIFICADA: 
-    // 1. En Cartera Vencida (isExpired) es SÍ O SÍ obligatoria.
-    // 2. En Pagos Pendientes (Vigente) es si tiene 2 o más fallos.
-    const hasPenalty = isExpired ? true : (registeredMissedCount >= 2);
+    // REGLA 2: Penalización Obligatoria (Si venció O si tiene 2+ fallos)
+    const hasPenalty = isExpired || (registeredMissedCount >= 2);
 
     let penaltyArrear = 0;
     if (hasPenalty) {
@@ -102,7 +102,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
     const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
     
-    // SUMA MATEMÁTICA REAL DE AMBOS CONCEPTOS
+    // REGLA 3: TOTAL FINAL ES LA SUMA MATEMÁTICA DE AMBOS
     const totalBalance = baseArrears + penaltyArrear;
 
     const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
@@ -275,7 +275,9 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                 )}
                                 <div className="flex justify-between items-center pt-2">
                                     <span className="font-black text-red-700 uppercase text-xs">Total a Liquidar</span>
-                                    <span className="text-3xl font-black text-red-700 tracking-tighter">{formatCurrency(activeLoanDetails.totalBalance)}</span>
+                                    <span className="text-3xl font-black text-red-700 tracking-tighter">
+                                        {formatCurrency(activeLoanDetails.totalBalance)}
+                                    </span>
                                 </div>
                             </div>
                         </div>

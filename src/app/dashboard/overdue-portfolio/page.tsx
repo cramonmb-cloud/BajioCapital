@@ -1,22 +1,7 @@
 import { getClients, getLoanPlans, getLoans, getPlazas, getLocalidades, getPromotoras, getAppConfig } from '@/lib/firestore-data';
 import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { OverduePortfolioClientPage } from '@/components/overdue-portfolio-client-page';
-
-export type OverdueLoanDetails = {
-    loan: Loan;
-    client: Client;
-    loanPlan: LoanPlan;
-    amountDue: number;
-    missedPayments: number;
-    hierarchy: {
-        plazaId: string;
-        plazaName: string;
-        localidadId: string;
-        localidadName: string;
-        promotoraId: string;
-        promotoraName: string;
-    };
-};
+import type { OverdueLoanDetails } from '../cartera-vencida/page';
 
 export default async function OverduePortfolioPage() {
     const [loans, clients, loanPlans, plazas, localidades, promotoras, config] = await Promise.all([
@@ -46,7 +31,7 @@ export default async function OverduePortfolioPage() {
             const baseTerm = loanPlan.termInWeeks;
             
             let missedCount = 0;
-            let totalArrears = 0;
+            let baseArrears = 0;
 
             // Calcular fallos reales en semanas base
             for (let i = 1; i <= baseTerm; i++) {
@@ -59,12 +44,12 @@ export default async function OverduePortfolioPage() {
                     
                     if (p || today > dueDate) {
                         missedCount++;
-                        totalArrears += (weeklyPayment - amountPaid);
+                        baseArrears += (weeklyPayment - amountPaid);
                     }
                 }
             }
 
-            // REGLA: Si tiene 2 o más fallos se activa la penalización (1 semana extra)
+            // REGLA PENDIENTES: 2 o más fallos activa penalización
             const hasPenalty = missedCount >= 2;
             let penaltyArrear = 0;
             if (hasPenalty) {
@@ -73,25 +58,24 @@ export default async function OverduePortfolioPage() {
                 penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
             }
 
-            // Saldo Final = Arrears base + Arrear de penalización
-            const calculatedAmountDue = totalArrears + penaltyArrear;
+            const calculatedTotalDue = baseArrears + penaltyArrear;
 
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
-            const termWithPenalty = baseTerm + (hasPenalty ? 1 : 0);
-            const isExpired = rawCurrentLoanWeek > termWithPenalty;
+            
+            // IMPORTANTE: Un préstamo en esta sección debe estar vigente (no expirado)
+            const isExpired = rawCurrentLoanWeek > baseTerm;
 
-            // REGLA DE FILTRO PARA PAGOS PENDIENTES: 
-            // 1. Debe estar vigente (no expirado el plazo total)
-            // 2. Debe tener 2 o más fallos registrados
-            // 3. Debe tener saldo pendiente
-            if (!isExpired && missedCount >= 2 && calculatedAmountDue > 0) {
+            if (!isExpired && missedCount >= 2 && calculatedTotalDue > 0) {
                 return {
                     loan,
                     client,
                     loanPlan,
-                    amountDue: calculatedAmountDue,
+                    amountDue: calculatedTotalDue,
+                    baseArrears,
+                    penaltyArrear,
                     missedPayments: missedCount,
+                    hasPenalty: true,
                     hierarchy: {
                         plazaId: plaza?.id || 'N/A',
                         plazaName: plaza?.name || 'N/A',
@@ -112,7 +96,7 @@ export default async function OverduePortfolioPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight uppercase">Pagos Pendientes</h1>
                 <p className="text-muted-foreground font-bold">
-                    Préstamos vigentes con 2 o más fallos. Se incluye cobro de semana extra.
+                    Préstamos vigentes con 2 o más fallos. Incluye cobro de semana extra.
                 </p>
             </div>
             <OverduePortfolioClientPage 

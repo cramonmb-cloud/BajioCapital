@@ -189,8 +189,8 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             }
 
             const baseTerm = loanPlan.termInWeeks;
-            const isExpired = rawCurrentLoanWeek > baseTerm;
             
+            // REGLA UNIFICADA DE CARTERA VENCIDA Y PENALIZACIÓN
             let missedCount = 0;
             for (let i = 1; i <= baseTerm; i++) {
                 const p = allPayments.find(pay => pay.weekNumber === i);
@@ -201,14 +201,13 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
             }
 
-            // REGLA DE PENALIZACIÓN UNIFICADA: 
-            // 1. SIEMPRE en Cartera Vencida (isExpired)
-            // 2. Si tiene 2+ fallos en Vigente
-            const hasPenalty = isExpired ? true : (missedCount >= 2);
+            const isExpired = rawCurrentLoanWeek > baseTerm;
+            // SIEMPRE penalización si venció O si tiene 2+ fallos
+            const hasPenalty = isExpired || (missedCount >= 2);
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             const totalExpected = totalTerm * weeklyPayment;
             
-            // Saldo absoluto
+            // Saldo absoluto incluyendo semana extra
             const balance = Math.max(0, totalExpected - newTotalPaid);
 
             let newStatus: Loan['status'] = loan.status;
@@ -276,8 +275,8 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
                 }
             }
 
-            // REGLA UNIFICADA: Semana extra obligatoria si está vencido o si tiene 2+ fallos
-            const hasPenalty = isExpired ? true : (missedCount >= 2);
+            // REGLA UNIFICADA: Penalización obligatoria si está vencido o si tiene 2+ fallos
+            const hasPenalty = isExpired || (missedCount >= 2);
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             
             const totalExpected = totalTerm * weeklyPayment;

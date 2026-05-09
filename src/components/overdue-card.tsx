@@ -9,7 +9,7 @@ import {
     Wallet, FileText, Shield, History as HistoryIcon, 
     X, Home, ListTodo
 } from 'lucide-react';
-import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
+import type { OverdueLoanDetails } from '@/app/dashboard/cartera-vencida/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
 import type { Client, LoanPlan } from '@/lib/types';
 import { useAuth } from '@/hooks/use-auth';
@@ -38,7 +38,7 @@ interface OverdueCardProps {
     allClients: Client[];
     allLoanPlans: LoanPlan[];
     plazaColor: string;
-    isOverduePortfolio?: boolean; // True para Pagos Pendientes, False para Cartera Vencida
+    isOverduePortfolio?: boolean; 
     whatsappTemplate?: string;
     appName?: string;
 }
@@ -80,6 +80,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
       return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })
     };
 
+    // MOTOR FINANCIERO IMPLACABLE
     const metrics = useMemo(() => {
         const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
         const today = new Date();
@@ -88,11 +89,13 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         
         const timeDiff = today.getTime() - loanStartDate.getTime();
         const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+        
+        // REGLA 1: Determinar si el plazo base ya venció
         const isExpired = rawCurrentLoanWeek > baseTerm;
 
+        // REGLA 2: Deuda semanas base
         let baseArrears = 0;
         let registeredMissedCount = 0;
-
         for (let i = 1; i <= baseTerm; i++) {
             const p = (loan.payments || []).find(pay => pay.weekNumber === i);
             const amountPaid = p ? p.amount : 0;
@@ -107,10 +110,8 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             }
         }
 
-        // REGLA DE PENALIZACIÓN:
-        // 1. En Cartera Vencida (isExpired) es SIEMPRE obligatoria.
-        // 2. En Pagos Pendientes (Vigente) es si tiene 2 o más fallos.
-        const hasPenalty = isExpired ? true : (registeredMissedCount >= 2);
+        // REGLA 3: Penalización Obligatoria (Si venció O si tiene 2+ fallos)
+        const hasPenalty = isExpired || (registeredMissedCount >= 2);
 
         let penaltyArrear = 0;
         if (hasPenalty) {
@@ -119,7 +120,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
         }
 
-        // EL TOTAL DEBE SUMAR LOS DOS CONCEPTOS SIEMPRE
+        // REGLA 4: Suma total de ambos conceptos (Mandatoria)
         const totalDue = baseArrears + penaltyArrear;
         const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
         const currentProgressWeek = Math.min(rawCurrentLoanWeek, termInWeeks);
@@ -302,7 +303,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </div>
                     </div>
 
-                    {/* FINANCIAL SUMMARY */}
+                    {/* FINANCIAL SUMMARY - CORREGIDO PARA SUMAR SIEMPRE */}
                     <div className="flex items-end justify-between gap-4 pt-1">
                         <div className="flex flex-wrap gap-1.5">
                             <Badge variant="destructive" className="h-5 px-2 text-[9px] font-black uppercase shadow-sm">
@@ -328,7 +329,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                     </div>
                                 )}
                                 <span className="text-[7px] font-black text-red-600 uppercase leading-none mb-0.5 mt-1">Total a Deber</span>
-                                <span className="text-lg font-black text-red-700 tracking-tighter leading-none">{formatCurrency(metrics.totalDue)}</span>
+                                <span className="text-lg font-black text-red-700 tracking-tighter leading-none">
+                                    {formatCurrency(metrics.totalDue)}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -407,7 +410,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                                             )}
                                             <div className="flex justify-between items-center pt-1">
                                                 <span className="font-black text-red-700 uppercase text-[10px]">Total a Liquidar</span>
-                                                <span className="text-2xl font-black text-red-700 tracking-tighter">{formatCurrency(metrics.totalDue)}</span>
+                                                <span className="text-2xl font-black text-red-700 tracking-tighter">
+                                                    {formatCurrency(metrics.totalDue)}
+                                                </span>
                                             </div>
                                         </div>
                                     </div>

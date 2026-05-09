@@ -6,8 +6,11 @@ export type OverdueLoanDetails = {
     loan: Loan;
     client: Client;
     loanPlan: LoanPlan;
-    amountDue: number;
+    amountDue: number; // TOTAL FINAL (Fallos + S. Extra)
+    baseArrears: number; // Solo Fallos
+    penaltyArrear: number; // Solo S. Extra
     missedPayments: number;
+    hasPenalty: boolean;
     hierarchy: {
         plazaId: string;
         plazaName: string;
@@ -47,12 +50,14 @@ export default async function CarteraVencidaPage() {
             
             const timeDiff = today.getTime() - loanStartDate.getTime();
             const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+            
+            // REGLA CARTERA VENCIDA: Si la semana actual supera el plazo base, está vencido
             const isExpired = rawCurrentLoanWeek > baseTerm;
 
             if (!isExpired) return null;
 
             let missedCount = 0;
-            let totalArrears = 0;
+            let baseArrears = 0;
 
             // 1. Calcular deuda de semanas base (1 a baseTerm)
             for (let i = 1; i <= baseTerm; i++) {
@@ -61,28 +66,30 @@ export default async function CarteraVencidaPage() {
                 
                 if (amountPaid < weeklyPayment) {
                     missedCount++;
-                    totalArrears += (weeklyPayment - amountPaid);
+                    baseArrears += (weeklyPayment - amountPaid);
                 }
             }
 
-            // REGLA CARTERA VENCIDA: Semana Extra es OBLIGATORIA por estar vencido
-            // No importa el número de fallos, el vencimiento activa la penalización.
+            // REGLA CARTERA VENCIDA: La semana extra es OBLIGATORIA al 100%
             const hasPenalty = true; 
             const penaltyWeekNum = baseTerm + 1;
             const pExtra = (loan.payments || []).find(pay => pay.weekNumber === penaltyWeekNum);
             const penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
 
-            // EL TOTAL ES LA SUMA MATEMÁTICA DE AMBOS
-            const calculatedAmountDue = totalArrears + penaltyArrear;
+            // EL TOTAL ES LA SUMA MATEMÁTICA REAL DE AMBOS
+            const calculatedTotalDue = baseArrears + penaltyArrear;
 
-            // Mostrar solo si tiene deuda real
-            if (calculatedAmountDue > 0) {
+            // Mostrar solo si tiene deuda real pendiente
+            if (calculatedTotalDue > 0) {
                 return {
                     loan,
                     client,
                     loanPlan,
-                    amountDue: calculatedAmountDue,
+                    amountDue: calculatedTotalDue,
+                    baseArrears,
+                    penaltyArrear,
                     missedPayments: missedCount,
+                    hasPenalty: true,
                     hierarchy: {
                         plazaId: plaza?.id || 'N/A',
                         plazaName: plaza?.name || 'N/A',
@@ -103,7 +110,7 @@ export default async function CarteraVencidaPage() {
             <div>
                 <h1 className="text-3xl font-bold tracking-tight text-red-700 uppercase">Cartera Vencida</h1>
                 <p className="text-muted-foreground font-bold">
-                    Préstamos con plazo expirado. Se incluye cobro obligatorio de semana extra por vencimiento.
+                    Préstamos expirados. Cobro OBLIGATORIO de semana extra por vencimiento.
                 </p>
             </div>
             <OverduePortfolioClientPage 
