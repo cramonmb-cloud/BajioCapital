@@ -1,3 +1,4 @@
+
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -495,11 +496,21 @@ export async function importBackupAction(backupData: any) {
 }
 
 /**
- * INTEGRACIÓN SUPERVISORAPP: Importa clientes desde una API externa.
+ * INTEGRACIÓN SUPERVISORAPP: Importa clientes desde una API externa y les asigna un préstamo inicial.
  */
-export async function syncWithSupervisorAppAction(weekId: string, apiKey: string) {
+export async function syncWithSupervisorAppAction(
+    weekId: string, 
+    apiKey: string, 
+    promotoraId: string, 
+    loanPlanId: string, 
+    amount: number, 
+    startDateIso: string
+) {
     if (!apiKey) return { success: false, message: 'La llave de acceso API (X-API-KEY) es obligatoria.' };
     if (!weekId) return { success: false, message: 'Debes seleccionar una semana (YYYY-WW) para importar.' };
+    if (!promotoraId || !loanPlanId || !amount || !startDateIso) {
+        return { success: false, message: 'Faltan parámetros de asignación operativa (Plaza, Zona, Ruta, Plan o Fecha).' };
+    }
 
     try {
         const response = await fetch(`https://coorporativo.online/api/v1/clients?weekId=${weekId}`, {
@@ -529,10 +540,12 @@ export async function syncWithSupervisorAppAction(weekId: string, apiKey: string
         let batch = writeBatch(db);
         let batchCount = 0;
 
+        const loanStartDate = new Date(startDateIso);
+
         for (const ext of externalClients) {
-            // Mapeo inteligente basado en las especificaciones y campos comunes
             const externalId = ext.id || ext.uid || ext.client_id || `import_${syncedCount}_${Date.now()}`;
             
+            // 1. Mapeo del Cliente
             const clientData: Omit<Client, 'id'> = {
                 name: (ext.name || ext.nombre || 'CLIENTE IMPORTADO').toUpperCase(),
                 email: ext.email || ext.correo || `${externalId}@supervisorapp.com`,
@@ -549,8 +562,21 @@ export async function syncWithSupervisorAppAction(weekId: string, apiKey: string
             const clientRef = doc(db, 'clients', String(externalId));
             batch.set(clientRef, clientData, { merge: true });
             
+            // 2. Creación Automática del Préstamo
+            const loanRef = doc(collection(db, 'loans'));
+            const newLoan: Omit<Loan, 'id'> = {
+                clientId: String(externalId),
+                promotoraId: promotoraId,
+                loanPlanId: loanPlanId,
+                amount: amount,
+                startDate: loanStartDate.toISOString(),
+                status: 'Active',
+                payments: [],
+            };
+            batch.set(loanRef, newLoan);
+
             syncedCount++;
-            batchCount++;
+            batchCount += 2; // Dos operaciones por cliente (Client + Loan)
 
             if (batchCount >= 450) {
                 await batch.commit();
@@ -563,12 +589,11 @@ export async function syncWithSupervisorAppAction(weekId: string, apiKey: string
             await batch.commit();
         }
 
-        revalidatePath('/dashboard/clients');
-        revalidatePath('/dashboard/consultar-cliente');
+        revalidatePath('/dashboard', 'layout');
 
         return { 
             success: true, 
-            message: `Importación finalizada con éxito. Se sincronizaron ${syncedCount} clientes de la semana ${weekId}.` 
+            message: `Sincronización finalizada. Se importaron ${syncedCount} clientes y se les asignó un préstamo bajo la ruta seleccionada.` 
         };
 
     } catch (error: any) {

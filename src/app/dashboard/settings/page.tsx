@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useRealtimeData } from "@/hooks/use-realtime-data";
@@ -155,7 +156,12 @@ export default function SettingsPage() {
                 {permissions.sync && (
                     <TabsContent value="sync" className="mt-0 focus-visible:outline-none">
                         <div className="animate-in fade-in-50 duration-500">
-                            <SupervisorAppSync />
+                            <SupervisorAppSync 
+                                plazas={plazas} 
+                                localidades={localidades} 
+                                promotoras={promotoras} 
+                                loanPlans={loanPlans} 
+                            />
                         </div>
                     </TabsContent>
                 )}
