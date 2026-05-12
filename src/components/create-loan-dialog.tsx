@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -42,8 +41,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { Client, Loan, LoanPlan, Promotora, Plaza, Localidad } from '@/lib/types';
-import { PlusCircle, Loader2, AlertTriangle, BadgeDollarSign, Calendar } from 'lucide-react';
+import { PlusCircle, Loader2, AlertTriangle, BadgeDollarSign, Calendar, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createLoanAction, payOffLoanAction } from '@/app/dashboard/actions';
 import { useRouter } from 'next/navigation';
@@ -296,11 +297,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             });
             return;
         }
-        if (!selectedClient) {
-            // If new client, ensure fields are clean if they weren't before
-            const currentName = form.getValues('clientName');
-            // If the user typed a name that wasn't in DB, selectedClient is null, which is correct
-        }
         setStep(2);
     }
   };
@@ -316,12 +312,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                 description: 'El préstamo ha sido liquidado exitosamente. Ahora puede proceder con el nuevo registro.'
             });
             setActiveLoanDetails(null);
-            // We refresh the local state by looking at the selected client again (if any)
-            if (selectedClient) {
-                // Since data is realtime, the 'loans' prop will update soon. 
-                // But for immediate feedback, we clear manually
-                setActiveLoanDetails(null);
-            }
         } else {
             throw new Error(result.message);
         }

@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
 import { auth, db } from '@/lib/firebase';
 import { 
   onAuthStateChanged, 
@@ -25,19 +26,19 @@ interface AuthContextType {
   signOut: () => Promise<void>;
 }
 
-const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = React.useState<User | null>(null);
-  const [appUser, setAppUser] = React.useState<AppUser | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [appUser, setAppUser] = useState<AppUser | null>(null);
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  React.useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
-      if (user) {
-        const userDocRef = doc(db, 'users', user.uid);
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      setUser(firebaseUser);
+      if (firebaseUser) {
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
         try {
             const userDocSnap = await getDoc(userDocRef).catch(async (err) => {
                 const permissionError = new FirestorePermissionError({
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             if (userDocSnap.exists()) {
               setAppUser({ id: userDocSnap.id, ...userDocSnap.data() } as AppUser);
             } else {
-              const username = user.email?.split('@')[0] || 'admin';
+              const username = firebaseUser.email?.split('@')[0] || 'admin';
               const defaultAdminPermissions: UserPermissions = {
                 dashboard: true,
                 clients: true,
@@ -88,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   errorEmitter.emit('permission-error', permissionError);
                   throw permissionError;
               });
-              setAppUser({ id: user.uid, ...newAppUser } as AppUser);
+              setAppUser({ id: firebaseUser.uid, ...newAppUser } as AppUser);
             }
         } catch (err: any) {
             // Error handling is centralized
@@ -135,7 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useAuth() {
-  const context = React.useContext(AuthContext);
+  const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
