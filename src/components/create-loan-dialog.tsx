@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -42,7 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Client, Loan, LoanPlan, Promotora, Plaza, Localidad } from '@/lib/types';
-import { PlusCircle, Loader2, AlertTriangle, BadgeDollarSign } from 'lucide-react';
+import { PlusCircle, Loader2, AlertTriangle, BadgeDollarSign, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { createLoanAction, payOffLoanAction } from '@/app/dashboard/actions';
 import { useRouter } from 'next/navigation';
@@ -96,6 +97,7 @@ interface ActiveLoanDetails {
     loan: Loan;
     settlementAmount: number;
     weeksRemaining: number;
+    planName: string;
     hierarchy: {
         plazaName: string;
         localidadName: string;
@@ -186,33 +188,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     };
   };
 
-  const handleClientNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const name = e.target.value;
-    form.setValue('clientName', name);
-    setSelectedClient(null);
-    setActiveLoanDetails(null);
-
-    if (name.length >= 2) {
-      const matches = clients.filter((client) =>
-        client.name.toLowerCase().includes(name.toLowerCase())
-      );
-      setMatchingClients(matches);
-    } else {
-      setMatchingClients([]);
-    }
-  };
-
-  const selectClient = (client: Client) => {
-    form.setValue('clientName', client.name);
-    form.setValue('phone', client.phone);
-    form.setValue('street', client.street);
-    form.setValue('neighborhood', client.neighborhood);
-    form.setValue('postalCode', client.postalCode);
-    form.setValue('city', client.city);
-    form.setValue('guarantee', client.guarantee);
-    setSelectedClient(client);
-    setMatchingClients([]);
-    
+  const checkActiveLoanForClient = (client: Client) => {
     const activeLoan = loans.find(
       (loan) => loan.clientId === client.id && (loan.status === 'Active' || loan.status === 'Overdue')
     );
@@ -228,7 +204,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
 
             const baseTerm = loanPlan.termInWeeks;
             let missedWeeksCount = 0;
-            for (let i = 1; i < currentLoanWeek; i++) {
+            for (let i = 1; i < rawCurrentLoanWeek; i++) {
                 const p = activeLoan.payments.find(p => p.weekNumber === i);
                 if (p && p.amount < weeklyPayment) missedWeeksCount++;
             }
@@ -236,7 +212,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             const hasPenalty = missedWeeksCount >= 2;
             const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
             
-            // CÁLCULO DE SALDO EXPLICITO
             let effectivePaidBase = 0;
             for (let i = 1; i <= baseTerm; i++) {
                 const p = activeLoan.payments.find(pay => pay.weekNumber === i);
@@ -263,12 +238,51 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                 loan: activeLoan,
                 settlementAmount: settlementAmount,
                 weeksRemaining: Math.ceil(futureWeeksCount),
+                planName: loanPlan.name,
                 hierarchy: hierarchy
             });
         }
     } else {
         setActiveLoanDetails(null);
     }
+  };
+
+  const handleClientNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value.toUpperCase();
+    form.setValue('clientName', name);
+    
+    // Check for exact match automatically
+    const exactMatch = clients.find(c => c.name.toUpperCase() === name);
+    if (exactMatch) {
+        setSelectedClient(exactMatch);
+        checkActiveLoanForClient(exactMatch);
+        setMatchingClients([]);
+    } else {
+        setSelectedClient(null);
+        setActiveLoanDetails(null);
+
+        if (name.length >= 2) {
+          const matches = clients.filter((client) =>
+            client.name.toUpperCase().includes(name)
+          );
+          setMatchingClients(matches);
+        } else {
+          setMatchingClients([]);
+        }
+    }
+  };
+
+  const selectClient = (client: Client) => {
+    form.setValue('clientName', client.name.toUpperCase());
+    form.setValue('phone', client.phone);
+    form.setValue('street', client.street);
+    form.setValue('neighborhood', client.neighborhood);
+    form.setValue('postalCode', client.postalCode);
+    form.setValue('city', client.city);
+    form.setValue('guarantee', client.guarantee);
+    setSelectedClient(client);
+    setMatchingClients([]);
+    checkActiveLoanForClient(client);
   };
   
   const handleNextStep = async () => {
@@ -278,23 +292,14 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             toast({
                 variant: 'destructive',
                 title: 'Cliente con préstamo activo',
-                description: 'Este cliente ya tiene un préstamo activo o vencido y no puede solicitar uno nuevo.',
+                description: 'Este cliente ya tiene un préstamo activo o vencido. Debe liquidarlo antes de solicitar uno nuevo.',
             });
             return;
         }
         if (!selectedClient) {
-            form.setValue('phone', '');
-            form.setValue('street', '');
-            form.setValue('neighborhood', '');
-            form.setValue('postalCode', '');
-            form.setValue('city', '');
-            form.setValue('guarantee', '');
-            form.setValue('endorsement', '');
-            form.setValue('endorsementStreet', '');
-            form.setValue('endorsementNeighborhood', '');
-            form.setValue('endorsementPostalCode', '');
-            form.setValue('endorsementCity', '');
-            form.setValue('endorsementPhone', '');
+            // If new client, ensure fields are clean if they weren't before
+            const currentName = form.getValues('clientName');
+            // If the user typed a name that wasn't in DB, selectedClient is null, which is correct
         }
         setStep(2);
     }
@@ -308,10 +313,15 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         if (result.success) {
             toast({
                 title: 'Préstamo Liquidado',
-                description: 'El préstamo ha sido liquidado. Ahora puede crear uno nuevo.'
+                description: 'El préstamo ha sido liquidado exitosamente. Ahora puede proceder con el nuevo registro.'
             });
             setActiveLoanDetails(null);
-            router.refresh();
+            // We refresh the local state by looking at the selected client again (if any)
+            if (selectedClient) {
+                // Since data is realtime, the 'loans' prop will update soon. 
+                // But for immediate feedback, we clear manually
+                setActiveLoanDetails(null);
+            }
         } else {
             throw new Error(result.message);
         }
@@ -437,11 +447,11 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
   };
 
     const handleDataExtracted = (data: Partial<IdDataOutput>) => {
-        if (data.name) form.setValue('clientName', data.name);
-        if (data.street) form.setValue('street', data.street);
-        if (data.neighborhood) form.setValue('neighborhood', data.neighborhood);
-        if (data.postalCode) form.setValue('postalCode', data.postalCode);
-        if (data.city) form.setValue('city', data.city);
+        if (data.name) form.setValue('clientName', data.name.toUpperCase());
+        if (data.street) form.setValue('street', data.street.toUpperCase());
+        if (data.neighborhood) form.setValue('neighborhood', data.neighborhood.toUpperCase());
+        if (data.postalCode) form.setValue('postalCode', data.postalCode.toUpperCase());
+        if (data.city) form.setValue('city', data.city.toUpperCase());
 
         setSelectedClient(null);
         setActiveLoanDetails(null);
@@ -456,11 +466,11 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
           Crear Préstamo
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent className="sm:max-w-[650px] max-h-[95vh] overflow-y-auto">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <DialogHeader>
-              <DialogTitle>Crear Nuevo Préstamo - Paso {step} de 2</DialogTitle>
+              <DialogTitle className="uppercase font-black tracking-tight">Crear Nuevo Préstamo - Paso {step} de 2</DialogTitle>
               <DialogDescription>
                 {step === 1 ? 'Completa la información inicial del préstamo.' : 'Completa los datos del cliente y su aval (opcional).'}
               </DialogDescription>
@@ -470,16 +480,16 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
               <div className="space-y-4 py-4">
                 <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
                     <FormItem>
-                        <FormLabel>Plaza</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Plaza</FormLabel>
                         <Select onValueChange={handlePlazaChange} value={selectedPlaza} disabled={!!initialSelection?.plazaId}>
                             <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecciona una plaza" />
+                            <SelectTrigger className="h-11 uppercase font-bold">
+                                <SelectValue placeholder="Selecciona..." />
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                             {sortedPlazas.map((plaza) => (
-                                <SelectItem key={plaza.id} value={plaza.id}>
+                                <SelectItem key={plaza.id} value={plaza.id} className="uppercase font-bold">
                                 {plaza.name}
                                 </SelectItem>
                             ))}
@@ -487,16 +497,16 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                         </Select>
                     </FormItem>
                     <FormItem>
-                        <FormLabel>Localidad</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Localidad</FormLabel>
                         <Select onValueChange={handleLocalidadChange} value={selectedLocalidad} disabled={!selectedPlaza || !!initialSelection?.localidadId}>
                             <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecciona una localidad" />
+                            <SelectTrigger className="h-11 uppercase font-bold">
+                                <SelectValue placeholder="Selecciona..." />
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                             {filteredLocalidades.map((localidad) => (
-                                <SelectItem key={localidad.id} value={localidad.id}>
+                                <SelectItem key={localidad.id} value={localidad.id} className="uppercase font-bold">
                                 {localidad.name}
                                 </SelectItem>
                             ))}
@@ -508,16 +518,16 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                         name="promotoraId"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>Promotora</FormLabel>
+                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Promotora</FormLabel>
                             <Select onValueChange={field.onChange} value={field.value} disabled={!selectedLocalidad || !!initialSelection?.promotoraId}>
                                 <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Selecciona una promotora" />
+                                <SelectTrigger className="h-11 uppercase font-bold">
+                                    <SelectValue placeholder="Selecciona..." />
                                 </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
                                 {filteredPromotoras.map((promotora) => (
-                                    <SelectItem key={promotora.id} value={promotora.id}>
+                                    <SelectItem key={promotora.id} value={promotora.id} className="uppercase font-bold">
                                     {promotora.name}
                                     </SelectItem>
                                 ))}
@@ -534,16 +544,16 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     name="loanPlanId"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Tipo de Préstamo</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Tipo de Préstamo</FormLabel>
                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecciona un plan" />
+                            <SelectTrigger className="h-11 uppercase font-bold">
+                                <SelectValue placeholder="Selecciona..." />
                             </SelectTrigger>
                             </FormControl>
                             <SelectContent>
                             {sortedLoanPlans.map((plan) => (
-                                <SelectItem key={plan.id} value={plan.id}>
+                                <SelectItem key={plan.id} value={plan.id} className="uppercase font-bold">
                                 {plan.name}
                                 </SelectItem>
                             ))}
@@ -558,9 +568,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     name="amount"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Monto del Préstamo ($)</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Monto del Préstamo ($)</FormLabel>
                         <FormControl>
-                            <Input type="number" placeholder="Ej: 1000" {...field} />
+                            <Input type="number" placeholder="Ej: 1000" {...field} className="h-11 font-bold text-lg" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -571,59 +581,87 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                   control={form.control}
                   name="clientName"
                   render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nombre del Cliente</FormLabel>
+                    <FormItem className="relative">
+                      <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Nombre del Cliente</FormLabel>
                         <div className="flex items-center gap-2">
                           <FormControl>
-                            <Input placeholder="Busca o registra un cliente" {...field} onChange={handleClientNameChange} className="uppercase flex-grow" />
+                            <Input placeholder="Busca o registra un cliente" {...field} onChange={handleClientNameChange} autoComplete="off" className="uppercase h-11 font-bold flex-grow" />
                           </FormControl>
                           <IdScanner onDataExtracted={handleDataExtracted} />
                         </div>
                        {matchingClients.length > 0 && (
-                        <div className="relative">
-                            <ul className="absolute z-10 w-full bg-card border rounded-md shadow-lg max-h-40 overflow-y-auto">
+                        <Card className="absolute z-50 w-full mt-1 shadow-2xl border-2">
+                            <ul className="max-h-60 overflow-y-auto divide-y">
                                 {matchingClients.map(client => (
                                     <li key={client.id}
-                                        className="px-3 py-2 cursor-pointer hover:bg-accent"
+                                        className="px-4 py-3 cursor-pointer hover:bg-blue-50 flex items-center justify-between transition-colors"
                                         onClick={() => selectClient(client)}>
-                                        {client.name}
+                                        <div className="flex flex-col">
+                                            <span className="font-black text-xs uppercase text-blue-900">{client.name}</span>
+                                            <span className="text-[9px] font-bold text-muted-foreground uppercase">{client.street}, {client.neighborhood}</span>
+                                        </div>
+                                        <Badge variant="outline" className="text-[8px] font-black border-blue-200 text-blue-600 bg-blue-50">REGISTRADO</Badge>
                                     </li>
                                 ))}
                             </ul>
-                        </div>
+                        </Card>
                        )}
+
                         {activeLoanDetails && (
-                            <Card className="mt-4 bg-destructive/10 border-destructive/50">
+                            <Card className="mt-4 bg-red-50 border-2 border-red-200 animate-in fade-in zoom-in-95 duration-300">
                                 <CardContent className="p-4">
                                     <div className="flex items-start gap-4">
-                                        <AlertTriangle className="h-6 w-6 text-destructive flex-shrink-0" />
-                                        <div className="flex-grow">
-                                            <h3 className="font-semibold text-destructive">Cliente con Préstamo Activo</h3>
-                                            <p className="text-sm text-destructive/90">
-                                                Este cliente no puede solicitar un nuevo préstamo hasta que el actual sea liquidado.
-                                            </p>
-                                            <div className="mt-2 text-sm grid grid-cols-2 gap-x-4 gap-y-1">
-                                                <div>
-                                                    <p><strong>Monto Original:</strong> {formatCurrency(activeLoanDetails.loan.amount)}</p>
-                                                    <p><strong>Saldo para Liquidar:</strong> <span className="font-bold">{formatCurrency(activeLoanDetails.settlementAmount)}</span></p>
-                                                    <p><strong>Semanas Restantes:</strong> {activeLoanDetails.weeksRemaining}</p>
+                                        <AlertTriangle className="h-8 w-8 text-red-600 flex-shrink-0 mt-1" />
+                                        <div className="flex-grow space-y-3">
+                                            <div>
+                                                <h3 className="font-black text-red-700 uppercase text-sm tracking-tight">¡Atención! Cliente con Préstamo Activo</h3>
+                                                <p className="text-[10px] font-bold text-red-600 uppercase">
+                                                    No se puede crear un nuevo crédito mientras el actual no esté liquidado.
+                                                </p>
+                                            </div>
+
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white/60 p-3 rounded-lg border border-red-100 shadow-inner">
+                                                <div className="space-y-1.5">
+                                                    <div className="flex justify-between text-[9px] font-black uppercase text-zinc-500">
+                                                        <span>Plan:</span>
+                                                        <span className="text-zinc-800">{activeLoanDetails.planName}</span>
+                                                    </div>
+                                                    <div className="flex justify-between text-[9px] font-black uppercase text-zinc-500">
+                                                        <span>Monto Orig:</span>
+                                                        <span className="text-zinc-800">{formatCurrency(activeLoanDetails.loan.amount)}</span>
+                                                    </div>
+                                                    <div className="flex justify-between text-[9px] font-black uppercase text-zinc-500">
+                                                        <span>Semanas Pend:</span>
+                                                        <span className="text-zinc-800">{activeLoanDetails.weeksRemaining}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center pt-1 border-t border-red-100">
+                                                        <span className="text-[10px] font-black text-red-700 uppercase">Saldo Liquidar:</span>
+                                                        <span className="text-sm font-black text-red-700">{formatCurrency(activeLoanDetails.settlementAmount)}</span>
+                                                    </div>
                                                 </div>
-                                                <div className='border-l border-destructive/30 pl-4'>
-                                                  <p><strong>Plaza:</strong> {activeLoanDetails.hierarchy.plazaName}</p>
-                                                  <p><strong>Localidad:</strong> {activeLoanDetails.hierarchy.localidadName}</p>
-                                                  <p><strong>Promotora:</strong> {activeLoanDetails.hierarchy.promotoraName}</p>
+                                                <div className='border-l border-red-100 pl-4 space-y-1'>
+                                                  <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-zinc-500">
+                                                    <PlusCircle className="h-3 w-3 text-red-400" /> Plaza: <span className="text-zinc-800">{activeLoanDetails.hierarchy.plazaName}</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-zinc-500">
+                                                    <PlusCircle className="h-3 w-3 text-red-400" /> Localidad: <span className="text-zinc-800">{activeLoanDetails.hierarchy.localidadName}</span>
+                                                  </div>
+                                                  <div className="flex items-center gap-1.5 text-[9px] font-black uppercase text-zinc-500">
+                                                    <PlusCircle className="h-3 w-3 text-red-400" /> Promotora: <span className="text-zinc-800">{activeLoanDetails.hierarchy.promotoraName}</span>
+                                                  </div>
                                                 </div>
                                             </div>
+
                                              <Button 
                                                 type="button" 
                                                 variant="destructive" 
                                                 size="sm" 
-                                                className="mt-3"
+                                                className="w-full h-10 font-black uppercase text-xs shadow-lg"
                                                 onClick={handlePayOffLoan}
                                                 disabled={isPayingOff}
                                             >
                                                 {isPayingOff ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeDollarSign className="mr-2 h-4 w-4" />}
-                                                Liquidar Préstamo
+                                                {isPayingOff ? 'Liquidando...' : 'Liquidar Préstamo Ahora'}
                                             </Button>
                                         </div>
                                     </div>
@@ -631,9 +669,11 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                             </Card>
                         )}
                        {!activeLoanDetails && selectedClient && (
-                           <FormDescription className="text-primary">
-                               Cliente seleccionado. Puede continuar.
-                           </FormDescription>
+                           <Alert className="mt-3 bg-blue-50 border-blue-200">
+                                <CheckCircle2 className="h-4 w-4 text-blue-600" />
+                                <AlertTitle className="text-xs font-black uppercase text-blue-800">Cliente Verificado</AlertTitle>
+                                <AlertDescription className="text-[10px] font-bold text-blue-700 uppercase">Sin deudas activas. Puede continuar con el registro.</AlertDescription>
+                           </Alert>
                        )}
                       <FormMessage />
                     </FormItem>
@@ -644,15 +684,15 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             
             {step === 2 && (
               <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
-                 <h3 className="text-lg font-medium">Datos del Cliente</h3>
+                 <h3 className="text-sm font-black uppercase tracking-widest text-primary border-b pb-1">Datos del Cliente</h3>
                  <FormField
                     control={form.control}
                     name="phone"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Teléfono</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Teléfono</FormLabel>
                         <FormControl>
-                            <Input placeholder="Ej: 555-0101" {...field} value={field.value || ''} className="uppercase" />
+                            <Input placeholder="Ej: 311-000-0000" {...field} value={field.value || ''} className="uppercase font-bold" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -663,9 +703,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     name="street"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Calle y Número</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Calle y Número</FormLabel>
                         <FormControl>
-                            <Input placeholder="Ej: Av. Siempreviva 742" {...field} value={field.value || ''} className="uppercase" />
+                            <Input placeholder="Ej: Av. Principal 123" {...field} value={field.value || ''} className="uppercase font-bold" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -677,9 +717,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                         name="neighborhood"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>Colonia</FormLabel>
+                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Colonia</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Springfield" {...field} value={field.value || ''} className="uppercase" />
+                                <Input placeholder="Centro" {...field} value={field.value || ''} className="uppercase font-bold" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -690,9 +730,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                         name="postalCode"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>C.P.</FormLabel>
+                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">C.P.</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: 12345" {...field} value={field.value || ''} className="uppercase" />
+                                <Input placeholder="63000" {...field} value={field.value || ''} className="uppercase font-bold" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -703,9 +743,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                         name="city"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>Ciudad</FormLabel>
+                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Ciudad</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Springfield" {...field} value={field.value || ''} className="uppercase" />
+                                <Input placeholder="Tepic" {...field} value={field.value || ''} className="uppercase font-bold" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -717,9 +757,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     name="guarantee"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Garantías</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Garantías</FormLabel>
                         <FormControl>
-                            <Textarea placeholder="Describe las garantías del cliente (nómina, propiedad, etc.)" {...field} value={field.value || ''} className="uppercase" />
+                            <Textarea placeholder="Describe las garantías..." {...field} value={field.value || ''} className="uppercase font-bold min-h-[60px]" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -728,15 +768,15 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
 
                  <hr className="my-6"/>
 
-                 <h3 className="text-lg font-medium">Datos del Aval</h3>
+                 <h3 className="text-sm font-black uppercase tracking-widest text-blue-600 border-b pb-1">Datos del Responsable (Aval)</h3>
                  <FormField
                     control={form.control}
                     name="endorsement"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Nombre del Aval</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Nombre del Aval</FormLabel>
                         <FormControl>
-                            <Input placeholder="Nombre completo del aval" {...field} value={field.value || ''} className="uppercase" />
+                            <Input placeholder="Nombre completo del aval" {...field} value={field.value || ''} className="uppercase font-bold" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -747,9 +787,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     name="endorsementPhone"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Teléfono del Aval</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Teléfono del Aval</FormLabel>
                         <FormControl>
-                            <Input placeholder="Teléfono de contacto del aval" {...field} value={field.value || ''} className="uppercase" />
+                            <Input placeholder="Teléfono de contacto" {...field} value={field.value || ''} className="uppercase font-bold" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -760,9 +800,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     name="endorsementStreet"
                     render={({ field }) => (
                         <FormItem>
-                        <FormLabel>Calle y Número del Aval</FormLabel>
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Calle y Número del Aval</FormLabel>
                         <FormControl>
-                             <Input placeholder="Domicilio del aval" {...field} value={field.value || ''} className="uppercase" />
+                             <Input placeholder="Domicilio del aval" {...field} value={field.value || ''} className="uppercase font-bold" />
                         </FormControl>
                         <FormMessage />
                         </FormItem>
@@ -774,9 +814,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                         name="endorsementNeighborhood"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>Colonia</FormLabel>
+                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Colonia</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Centro" {...field} value={field.value || ''} className="uppercase" />
+                                <Input placeholder="Centro" {...field} value={field.value || ''} className="uppercase font-bold" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -787,9 +827,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                         name="endorsementPostalCode"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>C.P.</FormLabel>
+                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">C.P.</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: 54321" {...field} value={field.value || ''} className="uppercase" />
+                                <Input placeholder="63000" {...field} value={field.value || ''} className="uppercase font-bold" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -800,9 +840,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                         name="endorsementCity"
                         render={({ field }) => (
                             <FormItem>
-                            <FormLabel>Ciudad</FormLabel>
+                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Ciudad</FormLabel>
                             <FormControl>
-                                <Input placeholder="Ej: Shelbyville" {...field} value={field.value || ''} className="uppercase" />
+                                <Input placeholder="Tepic" {...field} value={field.value || ''} className="uppercase font-bold" />
                             </FormControl>
                             <FormMessage />
                             </FormItem>
@@ -812,16 +852,16 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
               </div>
             )}
 
-            <DialogFooter>
+            <DialogFooter className="gap-2 sm:gap-0">
                 {step === 1 && (
-                     <Button type="button" onClick={handleNextStep} disabled={!!activeLoanDetails}>Siguiente</Button>
+                     <Button type="button" onClick={handleNextStep} disabled={!!activeLoanDetails} className="w-full sm:w-auto font-black uppercase h-11 px-8">Siguiente Paso</Button>
                 )}
                 {step === 2 && (
                     <>
-                        <Button type="button" variant="outline" onClick={() => setStep(1)}>Anterior</Button>
-                        <Button type="submit" disabled={isSubmitting}>
+                        <Button type="button" variant="outline" onClick={() => setStep(1)} className="font-black uppercase h-11">Atrás</Button>
+                        <Button type="submit" disabled={isSubmitting} className="font-black uppercase h-11 px-8">
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Crear Préstamo
+                            Confirmar y Crear Crédito
                         </Button>
                     </>
                 )}
@@ -831,17 +871,17 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
       </DialogContent>
     </Dialog>
     <AlertDialog open={showConfirmation} onOpenChange={setShowConfirmation}>
-        <AlertDialogContent>
+        <AlertDialogContent className="rounded-xl">
             <AlertDialogHeader>
-                <AlertDialogTitle>¿Continuar con datos incompletos?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    No se han registrado todos los datos del cliente y/o aval. ¿Deseas crear el préstamo de todos modos?
+                <AlertDialogTitle className="font-black uppercase tracking-tight">¿Continuar con datos incompletos?</AlertDialogTitle>
+                <AlertDialogDescription className="font-bold text-xs">
+                    No se han registrado todos los datos del cliente o del aval (dirección, teléfono, garantías). ¿Deseas crear el préstamo de todos modos con la información actual?
                 </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setFormValues(null)}>Cancelar</AlertDialogCancel>
-                <AlertDialogAction onClick={() => { if (formValues) proceedWithSubmission(formValues); }}>
-                    Continuar
+            <AlertDialogFooter className="gap-2">
+                <AlertDialogCancel onClick={() => setFormValues(null)} className="rounded-lg font-bold">Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={() => { if (formValues) proceedWithSubmission(formValues); }} className="rounded-lg font-bold bg-blue-600">
+                    Sí, Crear Préstamo
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
