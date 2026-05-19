@@ -67,33 +67,57 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const baseTerm = loanPlan.termInWeeks;
     
     const timeDiff = today.getTime() - loanStartDate.getTime();
-    const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
     
-    // REGLA 1: Determinar vencimiento base
-    const isExpired = rawCurrentLoanWeek > baseTerm;
+    // La semana solo cambia cuando el sábado termina (Domingo 00:00). 
+    // Restamos 1ms para que el Sábado a las 23:59:59 siga siendo la semana actual.
+    const rawCurrentLoanWeek = Math.max(1, Math.floor((timeDiff - 1) / (1000 * 3600 * 24 * 7)) + 1);
+    
+    // REGLA 1: Determinar vencimiento base (Es Domingo posterior al último Sábado de plazo)
+    const lastSat = new Date(loanStartDate);
+    lastSat.setUTCDate(lastSat.getUTCDate() + (baseTerm * 7));
+    const expirationThreshold = new Date(lastSat);
+    expirationThreshold.setUTCDate(expirationThreshold.getUTCDate() + 1);
+    expirationThreshold.setUTCHours(0, 0, 0, 0);
+    
+    const isExpired = today >= expirationThreshold;
 
     let registeredMissedCount = 0;
+    let baseArrears = 0;
     for (let i = 1; i <= baseTerm; i++) {
         const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
-        if (!p || p.amount < weeklyPayment) {
-            const dueDate = new Date(loanStartDate);
-            dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
-            if (isExpired || today > dueDate) registeredMissedCount++;
+        const amountPaid = p ? p.amount : 0;
+        
+        const dueDate = new Date(loanStartDate);
+        dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
+        
+        // Un fallo solo se cuenta si el Sábado de vencimiento ya pasó completamente (hoy es Domingo o posterior)
+        const deadline = new Date(dueDate);
+        deadline.setUTCDate(deadline.getUTCDate() + 1);
+        deadline.setUTCHours(0, 0, 0, 0);
+
+        if (amountPaid < weeklyPayment) {
+            if (today >= deadline) {
+                registeredMissedCount++;
+                baseArrears += (weeklyPayment - amountPaid);
+            }
         }
     }
     
-    // REGLA 2: Penalización (Si venció O si tiene 2+ fallos)
+    // REGLA 2: Penalización (Si venció O si tiene 2+ fallos reales confirmados tras el vencimiento de sus semanas)
     const hasPenalty = isExpired || (registeredMissedCount >= 2);
 
-    // REGLA 3: TOTAL EN CASCADA
+    // REGLA 3: TOTALES
     const totalPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
     const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
     const totalExpected = termInWeeks * weeklyPayment;
     const totalDue = Math.max(0, totalExpected - totalPaid);
 
-    // Desglose visual
-    const baseArrears = Math.max(0, (baseTerm * weeklyPayment) - totalPaid);
-    const penaltyArrear = totalDue - baseArrears;
+    // Desglose de penalización
+    let penaltyArrear = 0;
+    if (hasPenalty) {
+        const pExtra = (activeLoan.payments || []).find(pay => pay.weekNumber === baseTerm + 1);
+        penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
+    }
 
     const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
 
