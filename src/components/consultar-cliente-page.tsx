@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -63,23 +64,23 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
 
     const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
     const today = new Date();
+    // Normalizar 'hoy' a inicio del día local para comparaciones precisas de vencimiento
+    const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    
     const loanStartDate = new Date(activeLoan.startDate);
     const baseTerm = loanPlan.termInWeeks;
     
     const timeDiff = today.getTime() - loanStartDate.getTime();
     
     // La semana solo cambia cuando el sábado termina (Domingo 00:00). 
-    // Restamos 1ms para que el Sábado a las 23:59:59 siga siendo la semana actual.
     const rawCurrentLoanWeek = Math.max(1, Math.floor((timeDiff - 1) / (1000 * 3600 * 24 * 7)) + 1);
     
     // REGLA 1: Determinar vencimiento base (Es Domingo posterior al último Sábado de plazo)
     const lastSat = new Date(loanStartDate);
     lastSat.setUTCDate(lastSat.getUTCDate() + (baseTerm * 7));
-    const expirationThreshold = new Date(lastSat);
-    expirationThreshold.setUTCDate(expirationThreshold.getUTCDate() + 1);
-    expirationThreshold.setUTCHours(0, 0, 0, 0);
+    const expirationThreshold = new Date(lastSat.getUTCFullYear(), lastSat.getUTCMonth(), lastSat.getUTCDate() + 1);
     
-    const isExpired = today >= expirationThreshold;
+    const isExpired = todayLocal >= expirationThreshold;
 
     let registeredMissedCount = 0;
     let baseArrears = 0;
@@ -90,20 +91,18 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         const dueDate = new Date(loanStartDate);
         dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
         
-        // Un fallo solo se cuenta si el Sábado de vencimiento ya pasó completamente (hoy es Domingo o posterior)
-        const deadline = new Date(dueDate);
-        deadline.setUTCDate(deadline.getUTCDate() + 1);
-        deadline.setUTCHours(0, 0, 0, 0);
+        // Un fallo solo se cuenta si el Sábado de vencimiento ya pasó completamente (hoy es Domingo o posterior Local)
+        const deadline = new Date(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate() + 1);
 
         if (amountPaid < weeklyPayment) {
-            if (today >= deadline) {
+            if (todayLocal >= deadline) {
                 registeredMissedCount++;
                 baseArrears += (weeklyPayment - amountPaid);
             }
         }
     }
     
-    // REGLA 2: Penalización (Si venció O si tiene 2+ fallos reales confirmados tras el vencimiento de sus semanas)
+    // REGLA 2: Penalización (Si venció O si tiene 2+ fallos reales confirmados)
     const hasPenalty = isExpired || (registeredMissedCount >= 2);
 
     // REGLA 3: TOTALES

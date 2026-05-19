@@ -331,30 +331,44 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
 
 export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?: string) {
     try {
-        const today = new Date();
+        // 1. Lecturas externas primero (fuera de la transacción para evitar mezclar)
+        const [plansSnap, clientsSnap] = await Promise.all([
+            getDocs(collection(db, 'loanPlans')),
+            getDocs(collection(db, 'clients'))
+        ]);
+        const loanPlans = plansSnap.docs.map(d => ({ id: d.id, ...d.data() } as LoanPlan));
+        const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Client));
+
         let totalAccumulated = 0;
         let count = 0;
 
         await runTransaction(db, async (transaction) => {
             const walletRef = doc(db, 'wallet', 'main');
             
-            for (const id of loanIds) {
-                const loanRef = doc(db, 'loans', id);
-                const loanSnap = await transaction.get(loanRef);
+            // 2. TODAS las lecturas que participan en la transacción al inicio
+            const loanSnapshots = await Promise.all(
+                loanIds.map(id => transaction.get(doc(db, 'loans', id)))
+            );
+
+            // Preparar operaciones de escritura
+            const updateOps: { ref: any, data: any }[] = [];
+            const txOps: any[] = [];
+
+            for (const loanSnap of loanSnapshots) {
                 if (!loanSnap.exists()) continue;
 
                 const loan = loanSnap.data() as Loan;
-                const plan = await getLoanPlan(loan.loanPlanId);
+                const plan = loanPlans.find(p => p.id === loan.loanPlanId);
                 if (!plan) continue;
 
-                const client = await getClient(loan.clientId);
+                const client = clients.find(c => c.id === loan.clientId);
                 const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
                 const loanStartDate = parseFirestoreDate(loan.startDate);
+                const today = new Date();
                 const timeDiff = today.getTime() - loanStartDate.getTime();
                 const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
                 
                 // REGLA DE SEGURIDAD: Solo llenar hasta el plazo base (plan.termInWeeks)
-                // Nunca llenar automáticamente la semana extra.
                 const currentWeekToFill = Math.min(rawCurrentLoanWeek, plan.termInWeeks);
                 
                 const currentPayments = loan.payments || [];
@@ -373,13 +387,12 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
                         count++;
                         hasChanges = true;
 
-                        const txRef = doc(collection(db, 'walletTransactions'));
-                        transaction.set(txRef, {
+                        txOps.push({
                             type: 'credit',
                             amount: weeklyPayment,
                             date: new Date(),
                             description: `Abono asumido (Hoja) de ${client?.name || 'N/A'} - Sem ${w}`,
-                            loanId: id,
+                            loanId: loanSnap.id,
                             clientId: loan.clientId,
                             userId: userId || null
                         });
@@ -387,10 +400,17 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
                 }
 
                 if (hasChanges) {
-                    transaction.update(loanRef, { payments: newPayments });
+                    updateOps.push({ ref: loanSnap.ref, data: { payments: newPayments } });
                 }
             }
             
+            // 3. TODAS las escrituras al final
+            updateOps.forEach(op => transaction.update(op.ref, op.data));
+            txOps.forEach(op => {
+                const txRef = doc(collection(db, 'walletTransactions'));
+                transaction.set(txRef, op);
+            });
+
             if (totalAccumulated > 0) {
                 transaction.update(walletRef, { balance: increment(totalAccumulated) });
             }
