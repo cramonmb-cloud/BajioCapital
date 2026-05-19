@@ -289,8 +289,8 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                     </div>
                                 )}
                                 <div className="flex justify-between items-center pt-2">
-                                    <span className="font-black text-red-700 uppercase text-xs">Total a Liquidar</span>
-                                    <span className="text-3xl font-black text-red-700 tracking-tighter">
+                                    <span className={cn("font-black uppercase text-xs", activeLoanDetails.totalBalance <= 0 ? "text-green-700" : "text-red-700")}>Total a Liquidar</span>
+                                    <span className={cn("text-3xl font-black tracking-tighter", activeLoanDetails.totalBalance <= 0 ? "text-green-700" : "text-red-700")}>
                                         {formatCurrency(activeLoanDetails.totalBalance)}
                                     </span>
                                 </div>
