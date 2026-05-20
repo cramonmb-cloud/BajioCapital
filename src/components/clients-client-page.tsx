@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { PlusCircle, ChevronLeft, ChevronRight, List } from 'lucide-react';
+import { PlusCircle, ChevronLeft, ChevronRight, List, Search, Filter, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -41,7 +41,9 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
             return initialClients;
         }
         return initialClients.filter(client => 
-            client.name.toLowerCase().includes(searchTerm.toLowerCase())
+            client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            client.street.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            client.neighborhood.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [searchTerm, initialClients]);
 
@@ -91,17 +93,17 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
                 <CardContent>
                     <div className="mb-4">
                         <Input 
-                            placeholder="Buscar cliente por nombre..."
+                            placeholder="Buscar cliente por nombre o dirección..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="max-w-sm"
+                            className="max-w-sm uppercase"
                         />
                     </div>
                     <Table>
                         <TableHeader>
                         <TableRow>
                             <TableHead>Nombre</TableHead>
-                            <TableHead className="hidden md:table-cell">Email</TableHead>
+                            <TableHead className="hidden md:table-cell">Dirección</TableHead>
                             <TableHead className="hidden md:table-cell">Teléfono</TableHead>
                             <TableHead>Préstamos</TableHead>
                             <TableHead>
@@ -118,16 +120,18 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
                                     <AvatarImage src={client.avatarUrl} alt={client.name} />
                                     <AvatarFallback>{client.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
-                                <Link href={`/dashboard/clients/${client.id}`} className="hover:underline">
+                                <Link href={`/dashboard/clients/${client.id}`} className="hover:underline uppercase font-bold text-xs">
                                     {client.name}
                                 </Link>
                                 </div>
                             </TableCell>
-                            <TableCell className="hidden md:table-cell text-muted-foreground">{client.email}</TableCell>
-                            <TableCell className="hidden md:table-cell text-muted-foreground">{client.phone}</TableCell>
-                            <TableCell>{getClientLoanCount(client.id)}</TableCell>
+                            <TableCell className="hidden md:table-cell text-muted-foreground uppercase text-[10px] font-medium">
+                                {client.street}, {client.neighborhood}
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell text-muted-foreground text-xs">{client.phone}</TableCell>
+                            <TableCell className="text-xs font-bold">{getClientLoanCount(client.id)}</TableCell>
                             <TableCell className="text-right">
-                                <Button asChild variant="outline" size="sm">
+                                <Button asChild variant="outline" size="sm" className="h-8 text-[10px] font-bold uppercase">
                                     <Link href={`/dashboard/clients/${client.id}`}>Ver detalles</Link>
                                 </Button>
                             </TableCell>
