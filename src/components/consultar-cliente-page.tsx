@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -264,7 +263,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                     <CardContent className="p-6 grid md:grid-cols-2 gap-8">
                          <div className="space-y-6">
                              <div className='flex items-center justify-between'>
-                                <h3 className="font-black text-lg uppercase flex items-center gap-2 tracking-tight text-zinc-800"><Wallet className="text-primary"/> Estado Financiero</h3>
+                                <h3 className="font-black text-lg uppercase flex items-center gap-2 tracking-tight text-zinc-800"><Wallet className="text-primary"/> DETALLES:</h3>
                                 {activeLoanDetails.hasPenalty && (
                                     <Badge className="bg-orange-500 hover:bg-orange-600 font-black text-[10px] px-3 shadow-sm uppercase">S. EXTRA ACTIVA</Badge>
                                 )}
