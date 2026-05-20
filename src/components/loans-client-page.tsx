@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2, CalendarCog, BadgeDollarSign, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2, CalendarCog, BadgeDollarSign, Filter, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -68,7 +68,7 @@ import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { accumulateAssumedPaymentsAction, changeLoansDateAction, payOffLoanAction } from '@/app/dashboard/actions';
+import { accumulateAssumedPaymentsAction, changeLoansDateAction, payOffLoanAction, revertPaymentsForWeekAction } from '@/app/dashboard/actions';
 import { format as formatDateFns } from 'date-fns';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import Loading from '../app/dashboard/loading';
@@ -118,10 +118,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   const [selectedLoanIds, setSelectedLoanIds] = useState<Set<string>>(new Set());
   const { appUser } = useAuth();
   const [isAccumulating, setIsAccumulating] = useState(false);
+  const [isReverting, setIsReverting] = useState(false);
   const [isChangingDate, setIsChangingDate] = useState(false);
   const [isPayingOff, setIsPayingOff] = useState(false);
   const [loanToPayOff, setLoanToPayOff] = useState<Loan | null>(null);
   const [changeDateDialogOpen, setChangeDateDialogOpen] = useState(false);
+  const [revertDialogOpen, setRevertDialogOpen] = useState(false);
   const [targetWeek, setTargetWeek] = useState<string>('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
   const { toast } = useToast();
@@ -279,6 +281,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         weeklyFailures,
         weeklyCollected,
         hasAssumedPayments,
+        hasPaymentsToRevert,
         loansWithPenalty
     } = useMemo(() => {
         if (dataLoading || filteredLoans.length === 0) {
@@ -287,6 +290,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 weeklyFailures: [],
                 weeklyCollected: [],
                 hasAssumedPayments: false,
+                hasPaymentsToRevert: false,
                 loansWithPenalty: {}
             };
         }
@@ -387,7 +391,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const failures = calculateTotals(maxWeeks, 'failures');
         const collected = calculateTotals(maxWeeks, 'collected');
 
-        // REVISED logic: check ANY week from 1 to current (capped at term) that lacks a record
         const hasAssumed = filteredLoans.some(loan => {
             if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') return false;
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
@@ -396,7 +399,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             const loanTimeDiff = todayDate.getTime() - new Date(loan.startDate).getTime();
             const rawCurrentLoanWeek = Math.floor(loanTimeDiff / (1000 * 3600 * 24 * 7)) + 1;
             
-            // Penalty check for term
             let missedCount = 0;
             const wp = getWeeklyPaymentAmount(loan);
             for (let i = 1; i < rawCurrentLoanWeek; i++) {
@@ -406,7 +408,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             const term = loanPlan.termInWeeks + (missedCount >= 2 ? 1 : 0);
             const currentWeek = Math.min(rawCurrentLoanWeek, term);
 
-            // Check weeks 1 to currentWeek for any missing payment
             for (let w = 1; w <= currentWeek; w++) {
                 const exists = (loan.payments || []).some(p => p.weekNumber === w);
                 if (!exists) return true;
@@ -414,7 +415,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             return false;
         });
 
-        return { currentGroupWeek, weeklyFailures: failures, weeklyCollected: collected, hasAssumedPayments: hasAssumed, loansWithPenalty: newLoansWithPenalty };
+        // Detect if any loan in this sheet has a payment record for the currentGroupWeek
+        const hasRevertible = filteredLoans.some(loan => 
+            (loan.payments || []).some(p => p.weekNumber === currentGroupWeek)
+        );
+
+        return { currentGroupWeek, weeklyFailures: failures, weeklyCollected: collected, hasAssumedPayments: hasAssumed, hasPaymentsToRevert: hasRevertible, loansWithPenalty: newLoansWithPenalty };
 
     }, [dataLoading, filteredLoans, loanPlans, clients]);
 
@@ -506,6 +512,33 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             });
         } finally {
             setIsAccumulating(false);
+        }
+    };
+
+    const handleRevertPayments = async () => {
+        if (filteredLoans.length === 0 || currentGroupWeek <= 0) return;
+        
+        setIsReverting(true);
+        try {
+            const loanIds = filteredLoans.map(l => l.id);
+            const result = await revertPaymentsForWeekAction(loanIds, currentGroupWeek, appUser?.id);
+            if (result && result.success) {
+                toast({
+                    title: 'Reversión Completada',
+                    description: result.message,
+                });
+                setRevertDialogOpen(false);
+            } else {
+                throw new Error(result?.message || 'Ocurrió un error al intentar pasar a pendiente.');
+            }
+        } catch (error: any) {
+            toast({
+                variant: 'destructive',
+                title: 'Error al Revertir',
+                description: error.message,
+            });
+        } finally {
+            setIsReverting(false);
         }
     };
 
@@ -615,7 +648,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         doc.text(plazaName.toUpperCase(), rightColumnX + 50, topMargin + 22);
         doc.text(formatCurrency(totalAmount), rightColumnX + 50, topMargin + 34);
 
-        // Pre-calculating weekly header texts
         const weekDatesHeader = Array.from({ length: maxWeeksToShow }).map((_, i) => {
             const weekNumber = i + 1;
             const groupStartDate = getSaturdayOfWeek(new Date(selectedWeek!));
@@ -970,7 +1002,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                             <Button 
                                 key={week}
                                 variant={selectedWeek === week ? 'secondary' : 'ghost'}
-                                className="w-full justify-start h-8 px-2 text-xs"
+                                className="full justify-start h-8 px-2 text-xs"
                                 onClick={() => setSelectedWeek(week)}
                                 disabled={!selectedPromotora}
                             >
@@ -1210,7 +1242,20 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             </TooltipProvider>
           </CardContent>
            {filteredLoans.length > 0 && (
-                <CardFooter className="justify-end p-2 border-t">
+                <CardFooter className="justify-end p-2 border-t gap-2">
+                    {appUser?.username === 'Cristobal' && hasPaymentsToRevert && (
+                         <Button 
+                            variant="outline"
+                            onClick={() => setRevertDialogOpen(true)} 
+                            disabled={isReverting}
+                            className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                        >
+                            {isReverting ? (
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            ) : <RotateCcw className="mr-2 h-4 w-4" />}
+                            Pasar a Pendiente
+                        </Button>
+                    )}
                     <Button 
                         onClick={handleAccumulatePayments} 
                         disabled={!hasAssumedPayments || isAccumulating}
@@ -1287,6 +1332,26 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 <AlertDialogAction onClick={handlePayOffLoan} disabled={isPayingOff} className="bg-blue-600 hover:bg-blue-700">
                     {isPayingOff ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeDollarSign className="mr-2 h-4 w-4" />}
                     Confirmar Liquidación
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+
+    <AlertDialog open={revertDialogOpen} onOpenChange={setRevertDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>¿Revertir abonos de la semana?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Estás a punto de eliminar todos los pagos registrados para la **Semana {currentGroupWeek}** en este grupo. 
+                    <br /><br />
+                    El dinero correspondiente se restará automáticamente del saldo de la cartera. Esta acción es para corregir acumulaciones erróneas.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel disabled={isReverting}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction onClick={handleRevertPayments} disabled={isReverting} className="bg-orange-600 hover:bg-orange-700">
+                    {isReverting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-2 h-4 w-4" />}
+                    Confirmar Reversión
                 </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
