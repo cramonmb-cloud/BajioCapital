@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -873,10 +872,6 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         doc.save(fileName);
     };
 
-    if (dataLoading) {
-        return <Loading />;
-    }
-
     const handlePlazaChange = (plazaId: string) => {
         setSelectedPlaza(plazaId);
         setSelectedLocalidad('');
@@ -996,19 +991,21 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 <CardTitle className="text-base">Semanas Activas</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-                <div className="space-y-1 px-2 pb-2">
+                <div className="px-2 pb-2">
                     <ScrollArea className={cn("md:h-auto", loanWeeks.length > 3 ? "h-32" : "h-auto")}>
-                        {loanWeeks.map((week) => (
-                            <Button 
-                                key={week}
-                                variant={selectedWeek === week ? 'secondary' : 'ghost'}
-                                className="full justify-start h-8 px-2 text-xs"
-                                onClick={() => setSelectedWeek(week)}
-                                disabled={!selectedPromotora}
-                            >
-                                {formatDate(week)}
-                            </Button>
-                        ))}
+                        <div className="flex flex-col gap-1">
+                            {loanWeeks.map((week) => (
+                                <Button 
+                                    key={week}
+                                    variant={selectedWeek === week ? 'secondary' : 'ghost'}
+                                    className="w-full justify-start h-8 px-2 text-xs"
+                                    onClick={() => setSelectedWeek(week)}
+                                    disabled={!selectedPromotora}
+                                >
+                                    {formatDate(week)}
+                                </Button>
+                            ))}
+                        </div>
                     </ScrollArea>
                     {selectedPromotora && loanWeeks.length === 0 && (
                         <p className="text-sm text-muted-foreground text-center p-4">No hay préstamos activos.</p>
