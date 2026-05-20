@@ -149,6 +149,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
       plazaName: plaza?.name || 'N/A',
       localidadName: localidad?.name || 'N/A',
       promotoraName: promotora?.name || 'N/A',
+      loanStartDate: activeLoan.startDate,
     };
   }, [selectedClient, loans, loanPlans, plazas, localidades, promotoras]);
   
@@ -163,6 +164,13 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
   };
   
   const formatCurrency = (amount: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+    const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+    return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
 
   return (
     <div className="space-y-6">
@@ -241,6 +249,9 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                     <Building className="h-3 w-3" /> {activeLoanDetails.plazaName}
                                     <MapPin className="h-3 w-3 ml-2" /> {activeLoanDetails.localidadName}
                                     <User className="h-3 w-3 ml-2" /> {activeLoanDetails.promotoraName}
+                                </div>
+                                <div className="flex items-center gap-2 col-span-2 text-[10px] font-black text-blue-700 mt-0.5">
+                                    <Calendar className="h-3 w-3" /> FECHA PRÉSTAMO: {formatDate(activeLoanDetails.loanStartDate)}
                                 </div>
                             </>
                         )}
