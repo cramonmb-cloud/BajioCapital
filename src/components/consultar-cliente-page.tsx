@@ -91,7 +91,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
         
         // Un fallo solo se cuenta si el Sábado de vencimiento ya pasó completamente (hoy es Domingo o posterior Local)
-        const deadline = new Date(dueDate.getUTCFullYear(), deadline.getUTCMonth(), deadline.getUTCDate() + 1);
+        const deadline = new Date(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate() + 1);
 
         if (amountPaid < weeklyPayment) {
             if (todayLocal >= deadline) {
