@@ -209,11 +209,15 @@ export async function deleteUserAction(uid: string) {
 }
 
 // Plaza Actions
-export async function savePlazaAction(name: string) {
+export async function savePlazaAction(name: string, id?: string) {
     try {
-        await addDoc(collection(db, 'plazas'), { name });
+        if (id) {
+            await setDoc(doc(db, 'plazas', id), { name }, { merge: true });
+        } else {
+            await addDoc(collection(db, 'plazas'), { name });
+        }
         revalidatePath('/dashboard/settings');
-        return { success: true, message: 'Plaza guardada con éxito.' };
+        return { success: true, message: id ? 'Plaza actualizada con éxito.' : 'Plaza guardada con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar plaza: ${error.message}` };
     }
@@ -230,11 +234,15 @@ export async function deletePlazaAction(id: string) {
 }
 
 // Localidad Actions
-export async function saveLocalidadAction(data: Omit<Localidad, 'id'>) {
+export async function saveLocalidadAction(data: Omit<Localidad, 'id'>, id?: string) {
     try {
-        await addDoc(collection(db, 'localidades'), data);
+        if (id) {
+            await setDoc(doc(db, 'localidades', id), data, { merge: true });
+        } else {
+            await addDoc(collection(db, 'localidades'), data);
+        }
         revalidatePath('/dashboard/settings');
-        return { success: true, message: 'Localidad guardada con éxito.' };
+        return { success: true, message: id ? 'Localidad actualizada con éxito.' : 'Localidad guardada con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar localidad: ${error.message}` };
     }
@@ -251,11 +259,15 @@ export async function deleteLocalidadAction(id: string) {
 }
 
 // Promotora Actions
-export async function savePromotoraAction(data: Omit<Promotora, 'id'>) {
+export async function savePromotoraAction(data: Omit<Promotora, 'id'>, id?: string) {
     try {
-        await addDoc(collection(db, 'promotoras'), data);
+        if (id) {
+            await setDoc(doc(db, 'promotoras', id), data, { merge: true });
+        } else {
+            await addDoc(collection(db, 'promotoras'), data);
+        }
         revalidatePath('/dashboard/settings');
-        return { success: true, message: 'Promotora guardada con éxito.' };
+        return { success: true, message: id ? 'Promotora actualizada con éxito.' : 'Promotora guardada con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar promotora: ${error.message}` };
     }

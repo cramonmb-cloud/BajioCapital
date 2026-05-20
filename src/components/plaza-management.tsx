@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -36,7 +37,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { PlusCircle, Trash, Loader2, Building, MapPin, User, Route } from 'lucide-react';
+import { PlusCircle, Trash, Loader2, Building, MapPin, User, Pencil, X, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Plaza, Localidad, Promotora } from '@/lib/types';
 import { savePlazaAction, deletePlazaAction, saveLocalidadAction, deleteLocalidadAction, savePromotoraAction, deletePromotoraAction } from '@/app/dashboard/settings/actions';
@@ -67,6 +68,10 @@ interface PlazaManagementProps {
 
 export function PlazaManagement({ initialPlazas, initialLocalidades, initialPromotoras }: PlazaManagementProps) {
   const [isSaving, setIsSaving] = useState(false);
+  const [editingPlazaId, setEditingPlazaId] = useState<string | null>(null);
+  const [editingLocalidadId, setEditingLocalidadId] = useState<string | null>(null);
+  const [editingPromotoraId, setEditingPromotoraId] = useState<string | null>(null);
+
   const { data, loading } = useRealtimeData();
   const { toast } = useToast();
 
@@ -78,13 +83,16 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
   const localidadForm = useForm<LocalidadFormValues>({ resolver: zodResolver(localidadSchema), defaultValues: { name: '', plazaId: '' } });
   const promotoraForm = useForm<PromotoraFormValues>({ resolver: zodResolver(promotoraSchema), defaultValues: { name: '', localidadId: '' } });
 
-  const handleAction = async (action: Promise<{success: boolean, message: string}>, formToReset?: any) => {
+  const handleAction = async (action: Promise<{success: boolean, message: string}>, formToReset?: any, entity?: 'plaza' | 'localidad' | 'promotora') => {
     setIsSaving(true);
     try {
       const result = await action;
       if (result.success) {
         toast({ title: 'Completado', description: result.message });
         formToReset?.reset();
+        if (entity === 'plaza') setEditingPlazaId(null);
+        if (entity === 'localidad') setEditingLocalidadId(null);
+        if (entity === 'promotora') setEditingPromotoraId(null);
       } else {
         throw new Error(result.message);
       }
@@ -117,15 +125,20 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
         </CardHeader>
         <CardContent className="space-y-6">
           <Form {...plazaForm}>
-            <form onSubmit={plazaForm.handleSubmit((v) => handleAction(savePlazaAction(v.name), plazaForm))} className="space-y-3">
+            <form onSubmit={plazaForm.handleSubmit((v) => handleAction(savePlazaAction(v.name, editingPlazaId || undefined), plazaForm, 'plaza'))} className="space-y-3">
               <FormField control={plazaForm.control} name="name" render={({ field }) => (
                 <FormItem>
-                    <FormLabel className="text-xs font-bold uppercase">Nombre de Plaza</FormLabel>
+                    <FormLabel className="text-xs font-bold uppercase">{editingPlazaId ? 'Editando Plaza' : 'Nombre de Plaza'}</FormLabel>
                     <div className="flex gap-2">
                         <FormControl><Input placeholder="EJ: MATRIZ" {...field} className="uppercase h-9" /></FormControl>
                         <Button type="submit" size="sm" disabled={isSaving} className="h-9 px-3">
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : editingPlazaId ? <Check className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
                         </Button>
+                        {editingPlazaId && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingPlazaId(null); plazaForm.reset(); }} className="h-9 px-2">
+                                <X className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                     <FormMessage />
                 </FormItem>
@@ -138,7 +151,13 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
                 {plazas.map(p => (
                     <TableRow key={p.id} className="h-10">
                         <TableCell className="font-medium uppercase py-2">{p.name}</TableCell>
-                        <TableCell className="text-right py-2">
+                        <TableCell className="text-right py-2 flex justify-end gap-1">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => {
+                                setEditingPlazaId(p.id);
+                                plazaForm.reset({ name: p.name });
+                            }}>
+                                <Pencil className="h-4 w-4" />
+                            </Button>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleAction(deletePlazaAction(p.id))}>
                                 <Trash className="h-4 w-4" />
                             </Button>
@@ -161,9 +180,9 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
         </CardHeader>
         <CardContent className="space-y-6">
           <Form {...localidadForm}>
-            <form onSubmit={localidadForm.handleSubmit((v) => handleAction(saveLocalidadAction(v), localidadForm))} className="space-y-4">
+            <form onSubmit={localidadForm.handleSubmit((v) => handleAction(saveLocalidadAction(v, editingLocalidadId || undefined), localidadForm, 'localidad'))} className="space-y-4">
                <FormField control={localidadForm.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel className="text-xs font-bold uppercase">Nombre Localidad</FormLabel><FormControl><Input placeholder="ZONA CENTRO" {...field} className="uppercase h-9" /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel className="text-xs font-bold uppercase">{editingLocalidadId ? 'Editando Localidad' : 'Nombre Localidad'}</FormLabel><FormControl><Input placeholder="ZONA CENTRO" {...field} className="uppercase h-9" /></FormControl><FormMessage /></FormItem>
               )} />
                <FormField control={localidadForm.control} name="plazaId" render={({ field }) => (
                 <FormItem>
@@ -174,8 +193,13 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
                             <SelectContent>{plazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
                         </Select>
                         <Button type="submit" size="sm" disabled={isSaving} className="h-9 px-3">
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : editingLocalidadId ? <Check className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
                         </Button>
+                        {editingLocalidadId && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingLocalidadId(null); localidadForm.reset(); }} className="h-9 px-2">
+                                <X className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                     <FormMessage />
                 </FormItem>
@@ -193,7 +217,13 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
                                     <span className="text-[10px] text-muted-foreground uppercase">{plazas.find(p => p.id === l.plazaId)?.name}</span>
                                 </div>
                             </TableCell>
-                            <TableCell className="text-right py-2">
+                            <TableCell className="text-right py-2 flex justify-end gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => {
+                                    setEditingLocalidadId(l.id);
+                                    localidadForm.reset({ name: l.name, plazaId: l.plazaId });
+                                }}>
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleAction(deleteLocalidadAction(l.id))}>
                                     <Trash className="h-4 w-4" />
                                 </Button>
@@ -216,9 +246,9 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
         </CardHeader>
         <CardContent className="space-y-6">
           <Form {...promotoraForm}>
-            <form onSubmit={promotoraForm.handleSubmit((v) => handleAction(savePromotoraAction(v), promotoraForm))} className="space-y-4">
+            <form onSubmit={promotoraForm.handleSubmit((v) => handleAction(savePromotoraAction(v, editingPromotoraId || undefined), promotoraForm, 'promotora'))} className="space-y-4">
                <FormField control={promotoraForm.control} name="name" render={({ field }) => (
-                <FormItem><FormLabel className="text-xs font-bold uppercase">Nombre Promotora</FormLabel><FormControl><Input placeholder="EJ: MARIA G." {...field} className="uppercase h-9" /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel className="text-xs font-bold uppercase">{editingPromotoraId ? 'Editando Promotora' : 'Nombre Promotora'}</FormLabel><FormControl><Input placeholder="EJ: MARIA G." {...field} className="uppercase h-9" /></FormControl><FormMessage /></FormItem>
               )} />
                <FormField control={promotoraForm.control} name="localidadId" render={({ field }) => (
                 <FormItem>
@@ -235,8 +265,13 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
                             </SelectContent>
                         </Select>
                         <Button type="submit" size="sm" disabled={isSaving} className="h-9 px-3">
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <PlusCircle className="h-4 w-4" />}
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : editingPromotoraId ? <Check className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
                         </Button>
+                        {editingPromotoraId && (
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingPromotoraId(null); promotoraForm.reset(); }} className="h-9 px-2">
+                                <X className="h-4 w-4" />
+                            </Button>
+                        )}
                     </div>
                     <FormMessage />
                 </FormItem>
@@ -254,7 +289,13 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
                                     <span className="text-[10px] text-muted-foreground uppercase">{localidades.find(l => l.id === p.localidadId)?.name}</span>
                                 </div>
                             </TableCell>
-                            <TableCell className="text-right py-2">
+                            <TableCell className="text-right py-2 flex justify-end gap-1">
+                                <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => {
+                                    setEditingPromotoraId(p.id);
+                                    promotoraForm.reset({ name: p.name, localidadId: p.localidadId });
+                                }}>
+                                    <Pencil className="h-4 w-4" />
+                                </Button>
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => handleAction(deletePromotoraAction(p.id))}>
                                     <Trash className="h-4 w-4" />
                                 </Button>
