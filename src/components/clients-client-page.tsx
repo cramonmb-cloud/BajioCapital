@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useMemo } from 'react';
-import { PlusCircle } from 'lucide-react';
+import { useState, useMemo, useEffect } from 'react';
+import { PlusCircle, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -23,6 +24,8 @@ import Link from 'next/link';
 import type { Client, Loan } from '@/lib/types';
 import { Input } from './ui/input';
 
+const ITEMS_PER_PAGE = 20;
+
 interface ClientsClientPageProps {
     initialClients: Client[];
     initialLoans: Loan[];
@@ -30,6 +33,8 @@ interface ClientsClientPageProps {
 
 export function ClientsClientPage({ initialClients, initialLoans }: ClientsClientPageProps) {
     const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [showAll, setShowAll] = useState(false);
 
     const filteredClients = useMemo(() => {
         if (!searchTerm) {
@@ -40,6 +45,19 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
         );
     }, [searchTerm, initialClients]);
 
+    const totalPages = Math.ceil(filteredClients.length / ITEMS_PER_PAGE);
+
+    const visibleClients = useMemo(() => {
+        if (showAll) return filteredClients;
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredClients.slice(start, start + ITEMS_PER_PAGE);
+    }, [filteredClients, currentPage, showAll]);
+
+    // Reset to page 1 when searching
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm]);
+
     const getClientLoanCount = (clientId: string) => {
         return initialLoans.filter(loan => loan.clientId === clientId).length;
     };
@@ -47,14 +65,28 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
     return (
         <div className="space-y-6">
             <Card>
-                <CardHeader>
-                    <CardTitle>Lista de Clientes</CardTitle>
-                    <CardDescription>
-                        {searchTerm 
-                            ? `Mostrando ${filteredClients.length} de ${initialClients.length} clientes.`
-                            : `Un total de ${initialClients.length} clientes registrados.`
-                        }
-                    </CardDescription>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <div className="space-y-1">
+                        <CardTitle>Lista de Clientes</CardTitle>
+                        <CardDescription>
+                            {searchTerm 
+                                ? `Mostrando ${filteredClients.length} de ${initialClients.length} clientes.`
+                                : `Un total de ${initialClients.length} clientes registrados.`
+                            }
+                        </CardDescription>
+                    </div>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                            setShowAll(!showAll);
+                            setCurrentPage(1);
+                        }}
+                        className="gap-2"
+                    >
+                        <List className="h-4 w-4" />
+                        {showAll ? "Ver paginado" : "Mostrar todo"}
+                    </Button>
                 </CardHeader>
                 <CardContent>
                     <div className="mb-4">
@@ -78,7 +110,7 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
                         </TableRow>
                         </TableHeader>
                         <TableBody>
-                        {filteredClients.map((client) => (
+                        {visibleClients.map((client) => (
                             <TableRow key={client.id}>
                             <TableCell className="font-medium">
                                 <div className="flex items-center gap-3">
@@ -101,7 +133,7 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
                             </TableCell>
                             </TableRow>
                         ))}
-                        {filteredClients.length === 0 && (
+                        {visibleClients.length === 0 && (
                             <TableRow>
                                 <TableCell colSpan={5} className="h-24 text-center">
                                     No se encontraron clientes que coincidan con la búsqueda.
@@ -111,6 +143,45 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
                         </TableBody>
                     </Table>
                 </CardContent>
+                {!showAll && totalPages > 1 && (
+                    <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 border-t">
+                        <div className="text-sm text-muted-foreground">
+                            Mostrando {visibleClients.length} de {filteredClients.length} clientes
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <span className="text-sm font-medium">
+                                Página {currentPage} de {totalPages}
+                            </span>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                >
+                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    Anterior
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                >
+                                    Siguiente
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </div>
+                        </div>
+                    </CardFooter>
+                )}
+                {showAll && filteredClients.length > ITEMS_PER_PAGE && (
+                    <CardFooter className="py-4 border-t justify-center">
+                        <p className="text-sm text-muted-foreground font-medium">
+                            Mostrando lista completa ({filteredClients.length} clientes)
+                        </p>
+                    </CardFooter>
+                )}
             </Card>
         </div>
     );
