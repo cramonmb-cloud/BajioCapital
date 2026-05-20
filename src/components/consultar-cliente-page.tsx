@@ -310,7 +310,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                          <div className="space-y-4 md:border-l md:pl-8">
                              <div className="flex items-center gap-2 mb-2">
                                 <Shield className="h-5 w-5 text-primary"/>
-                                <h3 className="font-black text-lg uppercase tracking-tight text-zinc-800">Garantía y Aval</h3>
+                                <h3 className="font-black text-lg uppercase tracking-tight text-zinc-800">DATOS DE AVAL</h3>
                              </div>
                              <div className="space-y-4">
                                 <div className="p-4 rounded-xl bg-blue-600 text-white shadow-lg space-y-3">
