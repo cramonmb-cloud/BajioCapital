@@ -40,6 +40,14 @@ import {
     AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -988,23 +996,39 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
       <div className="grid gap-4 md:grid-cols-[200px_1fr]">
         <Card>
             <CardHeader className="p-2 pt-4">
-                <CardTitle className="text-base">Semanas Activas</CardTitle>
+                <CardTitle className="text-base uppercase font-black text-zinc-500 text-[10px] tracking-widest px-2">Semanas Activas</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
                 <div className="px-2 pb-2">
-                    <ScrollArea className={cn("md:h-auto", loanWeeks.length > 3 ? "h-32" : "h-auto")}>
-                        <div className="flex flex-col gap-1">
-                            {loanWeeks.map((week) => (
-                                <Button 
-                                    key={week}
-                                    variant={selectedWeek === week ? 'secondary' : 'ghost'}
-                                    className="w-full justify-start h-8 px-2 text-xs"
-                                    onClick={() => setSelectedWeek(week)}
-                                    disabled={!selectedPromotora}
-                                >
-                                    {formatDate(week)}
-                                </Button>
-                            ))}
+                    <ScrollArea className={cn("md:h-auto", loanWeeks.length > 3 ? "h-64" : "h-auto")}>
+                        <div className="flex flex-col gap-1.5 p-1.5 bg-muted/20 rounded-2xl border border-border/40 shadow-inner">
+                            {loanWeeks.map((week) => {
+                                const isSelected = selectedWeek === week;
+                                return (
+                                    <Button 
+                                        key={week}
+                                        variant="ghost"
+                                        className={cn(
+                                            "w-full justify-start h-10 px-4 text-xs font-bold transition-all duration-300 rounded-full relative overflow-hidden active:scale-95",
+                                            isSelected 
+                                                ? "bg-background text-foreground shadow-md ring-1 ring-border/50 -translate-y-[1px]" 
+                                                : "text-muted-foreground hover:bg-background/50"
+                                        )}
+                                        onClick={() => setSelectedWeek(week)}
+                                        disabled={!selectedPromotora}
+                                    >
+                                        <span className={cn(
+                                            "transition-all duration-300",
+                                            isSelected ? "opacity-100" : "opacity-80"
+                                        )}>
+                                            {formatDate(week)}
+                                        </span>
+                                        {isSelected && (
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                        )}
+                                    </Button>
+                                )
+                            })}
                         </div>
                     </ScrollArea>
                     {selectedPromotora && loanWeeks.length === 0 && (
