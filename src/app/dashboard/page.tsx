@@ -4,6 +4,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardFooter,
 } from '@/components/ui/card';
 import {
   Table,
@@ -17,7 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import { useAuth } from '@/hooks/use-auth';
 import { getAppConfig } from '@/lib/firestore-data';
-import { Users, Landmark, Banknote, ArrowRight, TrendingUp, Receipt } from 'lucide-react';
+import { Users, Landmark, Banknote, ArrowRight, TrendingUp, Receipt, ChevronLeft, ChevronRight, List } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { Loan } from '@/lib/types';
@@ -26,10 +27,16 @@ import { ClientesConFallos } from '@/components/clientes-con-fallos';
 import { useEffect, useState, useMemo } from 'react';
 import Loading from './loading';
 
+const ITEMS_PER_PAGE = 20;
+
 export default function DashboardPage() {
     const { data, loading: dataLoading } = useRealtimeData();
     const { appUser, loading: authLoading } = useAuth();
     const [config, setConfig] = useState<{logoUrl?: string} | null>(null);
+    
+    // Pagination state for Overdue Loans
+    const [currentPage, setCurrentPage] = useState(1);
+    const [showAll, setShowAll] = useState(false);
 
     useEffect(() => {
         getAppConfig().then(setConfig);
@@ -105,6 +112,22 @@ export default function DashboardPage() {
             totalPaymentsThisWeek
         };
     }, [clients, loans, loanPlans, appUser, data]);
+
+    const overdueLoans = stats?.overdueLoans || [];
+    const totalPages = Math.ceil(overdueLoans.length / ITEMS_PER_PAGE);
+
+    const visibleOverdueLoans = useMemo(() => {
+        if (showAll) return overdueLoans;
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return overdueLoans.slice(start, start + ITEMS_PER_PAGE);
+    }, [overdueLoans, currentPage, showAll]);
+
+    // Reset pagination when data changes
+    useEffect(() => {
+        if (currentPage > totalPages && totalPages > 0) {
+            setCurrentPage(totalPages);
+        }
+    }, [totalPages, currentPage]);
 
     if (dataLoading || authLoading || !data || !appUser || !stats) {
         return <Loading />;
@@ -200,7 +223,21 @@ export default function DashboardPage() {
             <ClientesConFallos loans={loans} clients={clients} loanPlans={loanPlans} />
 
             <Card>
-                <CardHeader><CardTitle>Préstamos en Cartera Vencida</CardTitle></CardHeader>
+                <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle>Préstamos en Cartera Vencida</CardTitle>
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={() => {
+                            setShowAll(!showAll);
+                            setCurrentPage(1);
+                        }}
+                        className="gap-2"
+                    >
+                        <List className="h-4 w-4" />
+                        {showAll ? "Ver paginado" : "Mostrar todo"}
+                    </Button>
+                </CardHeader>
                 <CardContent>
                     <Table>
                         <TableHeader>
@@ -213,8 +250,8 @@ export default function DashboardPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {stats.overdueLoans.length > 0 ? (
-                                stats.overdueLoans.map((loan) => (
+                            {visibleOverdueLoans.length > 0 ? (
+                                visibleOverdueLoans.map((loan) => (
                                     <TableRow key={loan.id}>
                                         <TableCell className="font-medium">
                                             {clients.find(c => c.id === loan.clientId)?.name || 'N/A'}
@@ -237,6 +274,45 @@ export default function DashboardPage() {
                         </TableBody>
                     </Table>
                 </CardContent>
+                {!showAll && totalPages > 1 && (
+                    <CardFooter className="flex flex-col sm:flex-row items-center justify-between gap-4 py-4 border-t">
+                        <div className="text-sm text-muted-foreground">
+                            Mostrando {visibleOverdueLoans.length} de {overdueLoans.length} registros
+                        </div>
+                        <div className="flex items-center gap-4">
+                            <span className="text-sm font-medium">
+                                Página {currentPage} de {totalPages}
+                            </span>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    disabled={currentPage === 1}
+                                >
+                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    Anterior
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    disabled={currentPage === totalPages}
+                                >
+                                    Siguiente
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </div>
+                        </div>
+                    </CardFooter>
+                )}
+                {showAll && overdueLoans.length > ITEMS_PER_PAGE && (
+                    <CardFooter className="py-4 border-t justify-center">
+                        <p className="text-sm text-muted-foreground">
+                            Mostrando lista completa ({overdueLoans.length} registros)
+                        </p>
+                    </CardFooter>
+                )}
             </Card>
         </div>
     );
