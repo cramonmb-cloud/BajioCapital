@@ -5,7 +5,7 @@ import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X, Map, AlertTriangle, Building, MapPin, Landmark } from 'lucide-react';
+import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X, Map, AlertTriangle, Building, MapPin, Tv } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from './ui/separator';
 import {
@@ -91,7 +91,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
         
         // Un fallo solo se cuenta si el Sábado de vencimiento ya pasó completamente (hoy es Domingo o posterior Local)
-        const deadline = new Date(dueDate.getUTCFullYear(), dueDate.getUTCMonth(), dueDate.getUTCDate() + 1);
+        const deadline = new Date(dueDate.getUTCFullYear(), deadline.getUTCMonth(), deadline.getUTCDate() + 1);
 
         if (amountPaid < weeklyPayment) {
             if (todayLocal >= deadline) {
@@ -324,7 +324,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
 
                              <div className="space-y-4">
                                 <div className="flex items-center gap-2">
-                                    <Landmark className="h-5 w-5 text-primary"/>
+                                    <Tv className="h-5 w-5 text-primary"/>
                                     <h3 className="font-black text-lg uppercase tracking-tight text-zinc-800">GARANTÍA DEL CLIENTE</h3>
                                 </div>
                                 <div className="p-4 rounded-xl border-2 border-dashed bg-zinc-50">
