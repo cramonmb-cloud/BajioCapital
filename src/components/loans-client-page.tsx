@@ -48,13 +48,6 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -1011,7 +1004,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                                         className={cn(
                                             "w-full justify-start h-10 px-4 text-xs font-bold transition-all duration-300 rounded-full relative overflow-hidden active:scale-95",
                                             isSelected 
-                                                ? "bg-background text-foreground shadow-md ring-1 ring-border/50 -translate-y-[1px]" 
+                                                ? "bg-blue-50 text-blue-900 shadow-md ring-1 ring-blue-200 -translate-y-[1px]" 
                                                 : "text-muted-foreground hover:bg-background/50"
                                         )}
                                         onClick={() => setSelectedWeek(week)}
@@ -1024,7 +1017,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                                             {formatDate(week)}
                                         </span>
                                         {isSelected && (
-                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse" />
                                         )}
                                     </Button>
                                 )
