@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Logo } from '@/components/logo';
@@ -25,7 +24,7 @@ const allLinks = [
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans' },
   { href: '/dashboard/overdue-portfolio', label: 'Pendientes', id: 'overduePortfolio'},
   { href: '/dashboard/cartera-vencida', label: 'Vencida', id: 'carteraVencida'},
-  { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet' },
+  { href: '/dashboard/wallet', label: 'Bitacora', id: 'wallet' },
   { href: '/dashboard/control', label: 'Control', id: 'control' },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings' },
 ] as const;

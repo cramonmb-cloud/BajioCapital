@@ -14,7 +14,7 @@ const allLinks: { href: string; label: string; id: string, icon: LucideIcon, col
   { href: '/dashboard/loans', label: 'Pagos', id: 'loans', icon: Landmark, color: '#3b82f6' },
   { href: '/dashboard/overdue-portfolio', label: 'Pendientes', id: 'overduePortfolio', icon: FileWarning, color: '#f97316' },
   { href: '/dashboard/cartera-vencida', label: 'Vencida', id: 'carteraVencida', icon: History, color: '#dc2626' },
-  { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet', icon: Wallet, color: '#3b82f6' },
+  { href: '/dashboard/wallet', label: 'Bitacora', id: 'wallet', icon: Wallet, color: '#3b82f6' },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity, color: '#2563eb' },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings', icon: Settings, color: '#3b82f6' },
 ];

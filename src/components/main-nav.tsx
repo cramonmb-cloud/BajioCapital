@@ -14,7 +14,7 @@ const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: 
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans', icon: Landmark },
   { href: '/dashboard/overdue-portfolio', label: 'Pendientes', id: 'overduePortfolio', icon: FileWarning },
   { href: '/dashboard/cartera-vencida', label: 'Vencida', id: 'carteraVencida', icon: History },
-  { href: '/dashboard/wallet', label: 'Cartera', id: 'wallet', icon: Wallet },
+  { href: '/dashboard/wallet', label: 'Bitacora', id: 'wallet', icon: Wallet },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings', icon: Settings },
 ];
