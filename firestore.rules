@@ -24,12 +24,20 @@ service cloud.firestore {
       return isSignedIn() && getUserData().role == 'admin';
     }
 
+    function isCristobal() {
+      return isSignedIn() && getUserData().username.upper() == 'CRISTOBAL';
+    }
+
     function isSupervisor() {
       return isSignedIn() && getUserData().role == 'supervisor';
     }
 
     function isStaff() {
-      return isAdmin() || isSupervisor();
+      return isAdmin() || isSupervisor() || isCristobal();
+    }
+
+    function canEditZones() {
+      return isAdmin() || isCristobal();
     }
 
     function isOwner(userId) {
@@ -40,45 +48,45 @@ service cloud.firestore {
 
     // Perfiles de usuario: Los administradores controlan todo, los usuarios ven su propio perfil
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
+      allow get: if isOwner(userId) || isAdmin() || isCristobal();
+      allow list: if isAdmin() || isCristobal();
       allow create: if isOwner(userId); // Permitir creación durante el primer login
-      allow update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
+      allow update: if isOwner(userId) || isAdmin() || isCristobal();
+      allow delete: if isAdmin() || isCristobal();
     }
 
-    // Clientes: Acceso total para Staff, eliminación solo Admin
+    // Clientes: Acceso total para Staff, eliminación solo Admin/Cristobal
     match /clients/{clientId} {
       allow read: if isStaff();
       allow create, update: if isStaff();
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isCristobal();
     }
 
-    // Préstamos: Acceso total para Staff, eliminación solo Admin
+    // Préstamos: Acceso total para Staff, eliminación solo Admin/Cristobal
     match /loans/{loanId} {
       allow read: if isStaff();
       allow create, update: if isStaff();
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isCristobal();
     }
 
-    // Planes de préstamo: Lectura para todos, edición solo Admin
+    // Planes de préstamo: Lectura para todos, edición solo Admin/Cristobal
     match /loanPlans/{planId} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isCristobal();
     }
 
     // Estructura Operativa (Plazas, Localidades, Promotoras)
     match /plazas/{id} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if canEditZones();
     }
     match /localidades/{id} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if canEditZones();
     }
     match /promotoras/{id} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if canEditZones();
     }
 
     // Cartera y Finanzas: Necesario para registrar pagos y ver saldo
@@ -89,13 +97,13 @@ service cloud.firestore {
     match /walletTransactions/{id} {
       allow read: if isStaff();
       allow create: if isStaff();
-      allow update, delete: if isAdmin();
+      allow update, delete: if isAdmin() || isCristobal();
     }
 
     // Configuración Global (Nombre de App, Logo)
     match /config/{id} {
       allow read: if isStaff();
-      allow write: if isAdmin();
+      allow write: if isAdmin() || isCristobal();
     }
   }
 }

@@ -19,7 +19,10 @@ export default function SettingsPage() {
 
     const permissions = useMemo(() => {
         if (!appUser) return null;
-        if (appUser.role === 'admin') {
+        
+        const isCristobal = appUser.username.toUpperCase() === 'CRISTOBAL';
+
+        if (appUser.role === 'admin' || isCristobal) {
             return {
                 users: true,
                 zones: true,
