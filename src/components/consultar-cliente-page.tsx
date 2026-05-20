@@ -5,7 +5,7 @@ import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X, Map, AlertTriangle, Building, MapPin } from 'lucide-react';
+import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X, Map, AlertTriangle, Building, MapPin, Landmark } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from './ui/separator';
 import {
@@ -307,12 +307,12 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                             </div>
                         </div>
                         
-                         <div className="space-y-4 md:border-l md:pl-8">
-                             <div className="flex items-center gap-2 mb-2">
-                                <Shield className="h-5 w-5 text-primary"/>
-                                <h3 className="font-black text-lg uppercase tracking-tight text-zinc-800">DATOS DE AVAL</h3>
-                             </div>
+                         <div className="space-y-6 md:border-l md:pl-8">
                              <div className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <Shield className="h-5 w-5 text-primary"/>
+                                    <h3 className="font-black text-lg uppercase tracking-tight text-zinc-800">DATOS DE AVAL</h3>
+                                </div>
                                 <div className="p-4 rounded-xl bg-blue-600 text-white shadow-lg space-y-3">
                                     <div>
                                         <p className="text-[8px] font-black uppercase text-blue-200 tracking-widest mb-1">Responsable Solidario</p>
@@ -320,8 +320,14 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                     </div>
                                     <p className="text-[10px] font-bold uppercase leading-relaxed text-blue-50 opacity-90">{activeLoanDetails.endorsementDetails || 'SIN DIRECCIÓN REGISTRADA'}</p>
                                 </div>
-                                <div className="p-4 rounded-xl border-2 border-dashed bg-zinc-50 space-y-1">
-                                    <p className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">Garantía Registrada</p>
+                             </div>
+
+                             <div className="space-y-4">
+                                <div className="flex items-center gap-2">
+                                    <Landmark className="h-5 w-5 text-primary"/>
+                                    <h3 className="font-black text-lg uppercase tracking-tight text-zinc-800">GARANTÍA DEL CLIENTE</h3>
+                                </div>
+                                <div className="p-4 rounded-xl border-2 border-dashed bg-zinc-50">
                                     <p className="font-bold text-xs uppercase text-zinc-700">{selectedClient.guarantee}</p>
                                 </div>
                              </div>
