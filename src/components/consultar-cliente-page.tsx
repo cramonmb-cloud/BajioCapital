@@ -108,11 +108,15 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   }, [allPromotoras, allLocalidades, filterLocalidad, filterPlaza, allowedLocalidades, isAdmin]);
 
   const weekOptions = useMemo(() => {
-    const weeks = Array.from(new Set(loans.map(l => {
-        const d = new Date(l.startDate);
-        return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString();
-    }))).sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
-    return weeks;
+    // Mostrar únicamente las fechas de inicio de préstamos que aún no han sido liquidados
+    const activeWeeks = Array.from(new Set(loans
+        .filter(l => l.status !== 'Paid Off' && l.status !== 'Pagado desde CV')
+        .map(l => {
+            const d = new Date(l.startDate);
+            return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString();
+        })
+    )).sort((a,b) => new Date(b).getTime() - new Date(a).getTime());
+    return activeWeeks;
   }, [loans]);
 
   // Listado filtrado
@@ -175,6 +179,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
     const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
     
+    // Lógica para determinar la semana actual para Jalisco (México)
     const now = new Date();
     const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const loanStartDate = new Date(activeLoan.startDate);
@@ -189,6 +194,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     let registeredMissedCount = 0;
     let baseArrears = 0;
     
+    // Cálculo coherente con la Hoja Semanal: Solo fallos registrados cuentan
     (activeLoan.payments || []).forEach(p => {
         if (p.weekNumber > 0 && p.weekNumber <= baseTerm && p.amount < weeklyPayment) {
             registeredMissedCount++;
@@ -201,6 +207,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
     const actualTotalPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
     
+    // Cálculo de saldo basado en semanas restantes reales (asumiendo que las pasadas sin fallo están pagadas)
     let assumedPaidAmount = 0;
     for (let i = 1; i < currentWeekSafe; i++) {
         if (i > baseTerm) break; 
@@ -334,11 +341,11 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                             </Select>
                         </div>
                         <div className="space-y-1.5">
-                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Semana de Inicio</label>
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Semana de Inicio (Semanas Activas)</label>
                             <Select value={filterWeek} onValueChange={setFilterWeek}>
                                 <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="SEMANA" /></SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">CUALQUIER FECHA</SelectItem>
+                                    <SelectItem value="all">CUALQUIER FECHA ACTIVA</SelectItem>
                                     {weekOptions.map(iso => (
                                         <SelectItem key={iso} value={iso}>{formatDate(iso)}</SelectItem>
                                     ))}
