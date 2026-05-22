@@ -218,7 +218,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     const currentLoanWeekDisplay = Math.min(currentWeekSafe, totalTerm);
     const promotora = allPromotoras.find(p => p.id === activeLoan.promotoraId);
     const localidad = allLocalidades.find(l => l.id === promotora?.localidadId);
-    const plaza = plazas.find(p => p.id === localidad?.plazaId);
+    const plaza = allPlazas.find(p => p.id === localidad?.plazaId);
 
     return {
       loan: activeLoan,
