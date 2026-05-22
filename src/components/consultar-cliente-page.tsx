@@ -271,14 +271,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
         </div>
 
         <Card className="shadow-lg border-2">
-            <CardHeader className="p-4 border-b bg-muted/20">
-                <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                    <Search className="h-4 w-4 text-primary" /> Panel de Búsqueda
-                </CardTitle>
-                <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">
-                    Escribe el nombre del cliente para buscar directamente o activa filtros avanzados.
-                </CardDescription>
-            </CardHeader>
             <CardContent className="p-4 space-y-4">
                 <div className="flex flex-col md:flex-row gap-4 items-end">
                     <div className="relative flex-1 w-full">
