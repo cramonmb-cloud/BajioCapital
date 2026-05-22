@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, type LucideIcon } from 'lucide-react';
 
 const allLinks: { href: string; label: string; id: string, icon: LucideIcon, color: string }[] = [
@@ -22,18 +22,42 @@ const allLinks: { href: string; label: string; id: string, icon: LucideIcon, col
 export function MobileNavBar() {
   const pathname = usePathname();
   const { appUser } = useAuth();
-  const [isVisible, setIsVisible] = useState(true);
+  
+  const [isForcedHidden, setIsForcedHidden] = useState(false);
+  const [isScrollHidden, setIsScrollHidden] = useState(false);
+  const lastScrollY = useRef(0);
 
   useEffect(() => {
-    const handleHide = () => setIsVisible(false);
-    const handleShow = () => setIsVisible(true);
+    const handleHide = () => setIsForcedHidden(true);
+    const handleShow = () => setIsForcedHidden(false);
 
     window.addEventListener('hide-mobile-nav', handleHide);
     window.addEventListener('show-mobile-nav', handleShow);
 
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+      
+      // Threshold para evitar parpadeos en scrolls mínimos
+      if (Math.abs(currentScrollY - lastScrollY.current) < 5) return;
+
+      // Si bajamos y no estamos arriba, ocultar
+      if (currentScrollY > lastScrollY.current && currentScrollY > 80) {
+        setIsScrollHidden(true);
+      } 
+      // Si subimos O estamos muy cerca del tope, mostrar
+      else if (currentScrollY < lastScrollY.current || currentScrollY <= 10) {
+        setIsScrollHidden(false);
+      }
+      
+      lastScrollY.current = currentScrollY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
     return () => {
       window.removeEventListener('hide-mobile-nav', handleHide);
       window.removeEventListener('show-mobile-nav', handleShow);
+      window.removeEventListener('scroll', handleScroll);
     };
   }, []);
 
@@ -45,6 +69,8 @@ export function MobileNavBar() {
   const linksToShow = allLinks.filter(link => mobileSections.includes(link.id)).slice(0, 5);
 
   if (linksToShow.length === 0) return null;
+
+  const isVisible = !isForcedHidden && !isScrollHidden;
 
   return (
     <div 
