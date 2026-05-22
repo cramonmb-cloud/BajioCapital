@@ -108,7 +108,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   }, [allPromotoras, allLocalidades, filterLocalidad, filterPlaza, allowedLocalidades, isAdmin]);
 
   const weekOptions = useMemo(() => {
-    // Mostrar únicamente las fechas de inicio de préstamos que aún no han sido liquidados
     const activeWeeks = Array.from(new Set(loans
         .filter(l => l.status !== 'Paid Off' && l.status !== 'Pagado desde CV')
         .map(l => {
@@ -120,7 +119,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   }, [loans]);
 
   // Listado filtrado
-  // Ahora canShowList es true si hay término de búsqueda O filtros de zona activos
   const canShowList = searchTerm.trim().length > 0 || (filterPlaza !== 'all' && filterLocalidad !== 'all');
 
   const filteredList = useMemo(() => {
@@ -131,14 +129,14 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
         return { loan, client };
     }).filter(item => item.client !== undefined);
 
-    // Apply Search (Independiente de filtros)
+    // Apply Search
     if (searchTerm) {
         result = result.filter(item => 
             item.client!.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }
 
-    // Apply Filters (solo si se han seleccionado y no estamos en búsqueda global o si se combinan)
+    // Apply Filters
     if (filterPlaza !== 'all') {
         result = result.filter(item => {
             const p = allPromotoras.find(prom => prom.id === item.loan.promotoraId);
@@ -194,7 +192,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     let registeredMissedCount = 0;
     let baseArrears = 0;
     
-    // Cálculo coherente con la Hoja Semanal: Solo fallos registrados cuentan
     (activeLoan.payments || []).forEach(p => {
         if (p.weekNumber > 0 && p.weekNumber <= baseTerm && p.amount < weeklyPayment) {
             registeredMissedCount++;
@@ -207,7 +204,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
     const actualTotalPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
     
-    // Cálculo de saldo basado en semanas restantes reales (asumiendo que las pasadas sin fallo están pagadas)
     let assumedPaidAmount = 0;
     for (let i = 1; i < currentWeekSafe; i++) {
         if (i > baseTerm) break; 
@@ -367,70 +363,110 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader className="bg-muted/50">
-                            <TableRow>
-                                <TableHead className="w-[80px]"></TableHead>
-                                <TableHead className="text-[10px] font-black uppercase tracking-wider py-4">Cliente</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase tracking-wider">Dirección</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase tracking-wider">Monto</TableHead>
-                                <TableHead className="text-[10px] font-black uppercase tracking-wider">Estado</TableHead>
-                                <TableHead className="text-right pr-6"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {filteredList.map(({ loan, client }) => (
-                                <TableRow 
-                                    key={loan.id} 
-                                    className="hover:bg-muted/30 cursor-pointer group transition-colors"
-                                    onClick={() => handleClientSelect(client!)}
-                                >
-                                    <TableCell className="pl-6">
-                                        <Avatar className="h-9 w-9 border shadow-sm group-hover:scale-110 transition-transform">
+                    {filteredList.length > 0 ? (
+                        <>
+                            {/* VISTA DESKTOP: TABLA */}
+                            <div className="hidden md:block">
+                                <Table>
+                                    <TableHeader className="bg-muted/50">
+                                        <TableRow>
+                                            <TableHead className="w-[80px]"></TableHead>
+                                            <TableHead className="text-[10px] font-black uppercase tracking-wider py-4">Cliente</TableHead>
+                                            <TableHead className="text-[10px] font-black uppercase tracking-wider">Dirección</TableHead>
+                                            <TableHead className="text-[10px] font-black uppercase tracking-wider">Monto</TableHead>
+                                            <TableHead className="text-[10px] font-black uppercase tracking-wider">Estado</TableHead>
+                                            <TableHead className="text-right pr-6"></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredList.map(({ loan, client }) => (
+                                            <TableRow 
+                                                key={loan.id} 
+                                                className="hover:bg-muted/30 cursor-pointer group transition-colors"
+                                                onClick={() => handleClientSelect(client!)}
+                                            >
+                                                <TableCell className="pl-6">
+                                                    <Avatar className="h-9 w-9 border shadow-sm group-hover:scale-110 transition-transform">
+                                                        <AvatarImage src={client?.avatarUrl} alt={client?.name} />
+                                                        <AvatarFallback className="text-[10px] font-bold">{client?.name.charAt(0)}</AvatarFallback>
+                                                    </Avatar>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-[11px] font-black uppercase group-hover:text-blue-700">{client?.name}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <MapPin className="h-3 w-3 text-muted-foreground" />
+                                                        <span className="text-[10px] font-bold uppercase text-zinc-600 truncate max-w-[250px]">{client?.street}, {client?.neighborhood}</span>
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="text-[11px] font-black text-zinc-900">{formatCurrency(loan.amount)}</span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant={loan.status === 'Overdue' ? 'destructive' : 'outline'} className="text-[8px] font-black uppercase h-4 px-2">
+                                                        {loan.status === 'Overdue' ? 'VENCIDO' : 'ACTIVO'}
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell className="text-right pr-6">
+                                                    <Button variant="ghost" size="sm" className="h-8 rounded-full hover:bg-primary hover:text-white group-hover:px-6 transition-all duration-300">
+                                                        <span className="hidden group-hover:inline text-[9px] font-black uppercase mr-2">Consultar</span>
+                                                        <ArrowRight className="h-4 w-4" />
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+
+                            {/* VISTA MÓVIL: LISTADO DE TARJETAS */}
+                            <div className="md:hidden divide-y">
+                                {filteredList.map(({ loan, client }) => (
+                                    <div 
+                                        key={loan.id} 
+                                        className="p-4 active:bg-muted/50 flex items-start gap-3 transition-colors"
+                                        onClick={() => handleClientSelect(client!)}
+                                    >
+                                        <Avatar className="h-10 w-10 border shrink-0">
                                             <AvatarImage src={client?.avatarUrl} alt={client?.name} />
-                                            <AvatarFallback className="text-[10px] font-bold">{client?.name.charAt(0)}</AvatarFallback>
+                                            <AvatarFallback className="text-xs font-black">{client?.name.charAt(0)}</AvatarFallback>
                                         </Avatar>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex flex-col">
-                                            <span className="text-[11px] font-black uppercase group-hover:text-blue-700">{client?.name}</span>
-                                            <span className="text-[9px] text-muted-foreground font-bold">ID: {client?.id}</span>
+                                        <div className="flex-1 min-w-0 space-y-1">
+                                            <div className="flex justify-between items-start gap-2">
+                                                <h4 className="text-[11px] font-black uppercase text-zinc-900 leading-tight">{client?.name}</h4>
+                                                <Badge variant={loan.status === 'Overdue' ? 'destructive' : 'outline'} className="text-[7px] font-black uppercase h-3.5 px-1 shrink-0">
+                                                    {loan.status === 'Overdue' ? 'VENCIDO' : 'ACTIVO'}
+                                                </Badge>
+                                            </div>
+                                            <div className="flex items-start gap-1 text-muted-foreground">
+                                                <MapPin className="h-3 w-3 mt-0.5 shrink-0" />
+                                                <p className="text-[9px] font-bold uppercase leading-tight">
+                                                    {client?.street}, {client?.neighborhood}, {client?.city}
+                                                </p>
+                                            </div>
+                                            <div className="flex items-center gap-1.5 pt-0.5">
+                                                <CircleDollarSign className="h-3 w-3 text-blue-600" />
+                                                <span className="text-[10px] font-black text-blue-700">{formatCurrency(loan.amount)}</span>
+                                            </div>
                                         </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-1.5">
-                                            <MapPin className="h-3 w-3 text-muted-foreground" />
-                                            <span className="text-[10px] font-bold uppercase text-zinc-600 truncate max-w-[250px]">{client?.street}, {client?.neighborhood}</span>
+                                        <div className="self-center pl-2">
+                                            <ChevronRight className="h-4 w-4 text-zinc-300" />
                                         </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <span className="text-[11px] font-black text-zinc-900">{formatCurrency(loan.amount)}</span>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant={loan.status === 'Overdue' ? 'destructive' : 'outline'} className="text-[8px] font-black uppercase h-4 px-2">
-                                            {loan.status === 'Overdue' ? 'VENCIDO' : 'ACTIVO'}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="text-right pr-6">
-                                        <Button variant="ghost" size="sm" className="h-8 rounded-full hover:bg-primary hover:text-white group-hover:px-6 transition-all duration-300">
-                                            <span className="hidden group-hover:inline text-[9px] font-black uppercase mr-2">Consultar</span>
-                                            <ArrowRight className="h-4 w-4" />
-                                        </Button>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                            {filteredList.length === 0 && (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="h-48 text-center">
-                                        <div className="max-w-xs mx-auto space-y-2">
-                                            <Info className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-                                            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sin coincidencias para los criterios actuales.</p>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            )}
-                        </TableBody>
-                    </Table>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <div className="h-48 flex items-center justify-center text-center">
+                            <div className="max-w-xs mx-auto space-y-2">
+                                <Info className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sin coincidencias para los criterios actuales.</p>
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
         ) : (
