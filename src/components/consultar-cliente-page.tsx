@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -14,7 +14,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from './ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
 
 interface ConsultarClientePageProps {
   clients: Client[];
@@ -38,6 +38,15 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
   const { appUser } = useAuth();
   const isAdmin = appUser?.role === 'admin' || appUser?.username.toUpperCase() === 'CRISTOBAL';
+
+  // Ocultar barra de navegación móvil cuando el modal está abierto
+  useEffect(() => {
+    if (isModalOpen) {
+      window.dispatchEvent(new CustomEvent('hide-mobile-nav'));
+    } else {
+      window.dispatchEvent(new CustomEvent('show-mobile-nav'));
+    }
+  }, [isModalOpen]);
 
   // Lógica de restricción de datos por usuario
   const allowedPlazas = useMemo(() => {
@@ -437,25 +446,34 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
             </div>
         )}
 
-        {/* MODAL DE DETALLE DEL CLIENTE - COMPACTO */}
+        {/* MODAL DE DETALLE DEL CLIENTE - REDISEÑO PARA MÓVIL */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm">
+                {/* Botón de cierre azul personalizado */}
+                <div className="absolute right-4 top-4 z-50">
+                    <DialogClose asChild>
+                        <Button variant="ghost" size="icon" className="h-10 w-10 text-blue-600 hover:bg-blue-50 rounded-full shadow-lg bg-white/80 backdrop-blur-sm">
+                            <X className="h-6 w-6 stroke-[3]" />
+                        </Button>
+                    </DialogClose>
+                </div>
+
                 {selectedClient && (
-                    <div className="bg-white flex flex-col">
-                        {/* Cabecera Estilo Imagen - Compacta */}
-                        <div className="p-5 flex flex-col md:flex-row justify-between gap-4 border-b bg-muted/5">
-                            <div className="flex items-center gap-4">
-                                <Avatar className="h-16 w-16 border-2 border-white shadow-md rounded-full overflow-hidden shrink-0">
+                    <div className="bg-white flex flex-col h-full">
+                        {/* Cabecera Estilo Imagen - Compacta y Responsiva */}
+                        <div className="p-4 md:p-5 flex flex-col md:flex-row justify-between gap-4 border-b bg-muted/5 pr-14 md:pr-16">
+                            <div className="flex items-center gap-3 md:gap-4">
+                                <Avatar className="h-12 w-12 md:h-16 md:w-16 border-2 border-white shadow-md rounded-full overflow-hidden shrink-0">
                                     <AvatarImage src={selectedClient.avatarUrl} alt={selectedClient.name} className="object-cover" />
-                                    <AvatarFallback className="text-2xl font-black bg-zinc-100 text-zinc-400">{selectedClient.name.charAt(0)}</AvatarFallback>
+                                    <AvatarFallback className="text-xl md:text-2xl font-black bg-zinc-100 text-zinc-400">{selectedClient.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
-                                <div className="space-y-0.5">
-                                    <h2 className="text-xl font-black uppercase tracking-tight text-zinc-900 leading-tight">{selectedClient.name}</h2>
-                                    <p className="text-[10px] font-black text-zinc-500 uppercase">ID CLIENTE: {selectedClient.id}</p>
+                                <div className="min-w-0 flex-1">
+                                    <h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-zinc-900 leading-tight break-words">{selectedClient.name}</h2>
+                                    <p className="text-[9px] md:text-[10px] font-black text-zinc-500 uppercase">ID CLIENTE: {selectedClient.id}</p>
                                 </div>
                             </div>
                             
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 min-w-[300px]">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 min-w-0 md:min-w-[300px]">
                                 <div className="flex items-center gap-2 text-blue-600">
                                     <Phone className="h-3.5 w-3.5" />
                                     <span className="text-xs font-black tracking-tight">{selectedClient.phone}</span>
@@ -464,11 +482,11 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                                     <Calendar className="h-3.5 w-3.5" />
                                     <span className="text-[10px] font-black uppercase">Inició: {activeLoanDetails ? formatDate(activeLoanDetails.loanStartDate) : 'N/A'}</span>
                                 </div>
-                                <div className="flex items-center gap-2 text-blue-600 col-span-2">
+                                <div className="flex items-center gap-2 text-blue-600 sm:col-span-2">
                                     <Home className="h-3.5 w-3.5 shrink-0" />
-                                    <span className="text-[10px] font-black uppercase truncate">{selectedClient.street}, {selectedClient.neighborhood}</span>
+                                    <span className="text-[10px] font-black uppercase line-clamp-2 md:truncate">{selectedClient.street}, {selectedClient.neighborhood}</span>
                                 </div>
-                                <div className="flex items-center gap-3 text-zinc-500 col-span-2 pt-1">
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-zinc-500 sm:col-span-2 pt-1">
                                     <div className="flex items-center gap-1">
                                         <Building className="h-3 w-3" />
                                         <span className="text-[9px] font-black uppercase">{activeLoanDetails?.plazaName}</span>
@@ -485,87 +503,89 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                             </div>
                         </div>
 
-                        {/* Cuerpo en dos columnas - Compacto */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-x divide-zinc-100">
-                            {/* Columna Izquierda: DETALLES */}
-                            <div className="p-5 space-y-6 bg-zinc-50/30">
-                                <div className="flex items-center gap-2">
-                                    <Wallet className="h-4 w-4 text-blue-500" />
-                                    <h3 className="text-base font-black uppercase tracking-tight text-zinc-800">Estado de Cuenta</h3>
-                                </div>
+                        {/* Cuerpo con ScrollArea para asegurar que todo sea visible en móviles */}
+                        <ScrollArea className="flex-1 max-h-[calc(95vh-160px)]">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x divide-zinc-100">
+                                {/* Columna Izquierda: DETALLES */}
+                                <div className="p-4 md:p-5 space-y-6 bg-zinc-50/30">
+                                    <div className="flex items-center gap-2">
+                                        <Wallet className="h-4 w-4 text-blue-500" />
+                                        <h3 className="text-base font-black uppercase tracking-tight text-zinc-800">Estado de Cuenta</h3>
+                                    </div>
 
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="bg-white border rounded-xl p-3 text-center shadow-sm">
-                                        <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Semana</p>
-                                        <p className="text-xl font-black text-zinc-900 leading-none">
-                                            {activeLoanDetails?.currentLoanWeek} <span className="text-zinc-300 text-sm">/ {activeLoanDetails?.termInWeeks}</span>
-                                        </p>
-                                    </div>
-                                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center shadow-sm">
-                                        <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">Abono</p>
-                                        <p className="text-xl font-black text-blue-600 leading-none">{activeLoanDetails ? formatCurrency(activeLoanDetails.weeklyPayment) : '$0.00'}</p>
-                                    </div>
-                                    <div className="bg-red-50 border border-red-100 rounded-xl p-3 text-center shadow-sm">
-                                        <p className="text-[8px] font-black text-red-500 uppercase tracking-widest mb-1">Fallos</p>
-                                        <p className="text-xl font-black text-red-600 leading-none">{activeLoanDetails?.missedWeeks || 0}</p>
-                                    </div>
-                                </div>
-
-                                <div className="bg-zinc-100/80 rounded-2xl p-6 space-y-4 border border-zinc-200/50">
-                                    <div className="flex justify-between items-center px-2">
-                                        <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Saldo de Fallos</span>
-                                        <span className="text-base font-black text-zinc-800">{activeLoanDetails ? formatCurrency(activeLoanDetails.baseArrears) : '$0.00'}</span>
-                                    </div>
-                                    <div className="flex justify-between items-end pt-4 border-t border-zinc-200 px-2">
-                                        <div className="space-y-0.5">
-                                            <span className="text-[10px] font-black text-red-700 uppercase tracking-widest block">Total a Liquidar</span>
-                                            <span className="text-[8px] font-bold text-red-600 uppercase opacity-70">Incluye cuotas vigentes + penalización</span>
+                                    <div className="grid grid-cols-3 gap-2 md:gap-3">
+                                        <div className="bg-white border rounded-xl p-2 md:p-3 text-center shadow-sm">
+                                            <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Semana</p>
+                                            <p className="text-lg md:text-xl font-black text-zinc-900 leading-none">
+                                                {activeLoanDetails?.currentLoanWeek} <span className="text-zinc-300 text-sm">/ {activeLoanDetails?.termInWeeks}</span>
+                                            </p>
                                         </div>
-                                        <span className="text-4xl font-black text-red-700 tracking-tighter leading-none">
-                                            {activeLoanDetails ? formatCurrency(activeLoanDetails.totalBalance) : '$0.00'}
-                                        </span>
+                                        <div className="bg-blue-50 border border-blue-100 rounded-xl p-2 md:p-3 text-center shadow-sm">
+                                            <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">Abono</p>
+                                            <p className="text-lg md:text-xl font-black text-blue-600 leading-none">{activeLoanDetails ? formatCurrency(activeLoanDetails.weeklyPayment) : '$0.00'}</p>
+                                        </div>
+                                        <div className="bg-red-50 border border-red-100 rounded-xl p-2 md:p-3 text-center shadow-sm">
+                                            <p className="text-[8px] font-black text-red-500 uppercase tracking-widest mb-1">Fallos</p>
+                                            <p className="text-lg md:text-xl font-black text-red-600 leading-none">{activeLoanDetails?.missedWeeks || 0}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-zinc-100/80 rounded-2xl p-4 md:p-6 space-y-4 border border-zinc-200/50">
+                                        <div className="flex justify-between items-center px-2">
+                                            <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Saldo de Fallos</span>
+                                            <span className="text-base font-black text-zinc-800">{activeLoanDetails ? formatCurrency(activeLoanDetails.baseArrears) : '$0.00'}</span>
+                                        </div>
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end pt-4 border-t border-zinc-200 px-2 gap-2">
+                                            <div className="space-y-0.5">
+                                                <span className="text-[10px] font-black text-red-700 uppercase tracking-widest block">Total a Liquidar</span>
+                                                <span className="text-[8px] font-bold text-red-600 uppercase opacity-70">Incluye cuotas vigentes + penalización</span>
+                                            </div>
+                                            <span className="text-3xl md:text-4xl font-black text-red-700 tracking-tighter leading-none">
+                                                {activeLoanDetails ? formatCurrency(activeLoanDetails.totalBalance) : '$0.00'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Columna Derecha: AVAL Y GARANTÍAS */}
+                                <div className="p-4 md:p-5 space-y-6 md:space-y-8">
+                                    <div className="space-y-4">
+                                        <div className="flex items-center gap-2">
+                                            <Shield className="h-4 w-4 text-blue-500" />
+                                            <h3 className="text-base font-black uppercase tracking-tight text-zinc-800">Aval y Garantía</h3>
+                                        </div>
+                                        <div className="bg-blue-600 rounded-xl p-4 text-white shadow-lg shadow-blue-900/10 space-y-2 relative overflow-hidden group">
+                                            <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:rotate-12 transition-transform">
+                                                <UserCheck className="h-16 w-16" />
+                                            </div>
+                                            <p className="text-[8px] font-bold uppercase text-blue-200 tracking-widest">Responsable Solidario</p>
+                                            <h4 className="text-lg font-black uppercase leading-tight">{selectedClient.endorsement.split('(')[0].trim()}</h4>
+                                            <p className="text-[10px] font-medium leading-tight opacity-90 line-clamp-3">
+                                                {selectedClient.endorsement.match(/\((.*)\)/)?.[1] || 'SIN DIRECCIÓN REGISTRADA'}
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-3 pb-4">
+                                        <div className="flex items-center gap-2">
+                                            <Monitor className="h-4 w-4 text-zinc-500" />
+                                            <span className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Garantías Registradas</span>
+                                        </div>
+                                        <div className="border-2 border-dashed border-zinc-200 rounded-xl p-4 bg-zinc-50/50 min-h-[80px] flex items-center justify-center">
+                                            <p className="text-[11px] font-black uppercase text-zinc-600 leading-snug tracking-wide text-center italic">
+                                                {selectedClient.guarantee || 'SIN GARANTÍAS'}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
+                        </ScrollArea>
 
-                            {/* Columna Derecha: AVAL Y GARANTÍAS */}
-                            <div className="p-5 space-y-8">
-                                <div className="space-y-4">
-                                    <div className="flex items-center gap-2">
-                                        <Shield className="h-4 w-4 text-blue-500" />
-                                        <h3 className="text-base font-black uppercase tracking-tight text-zinc-800">Aval y Garantía</h3>
-                                    </div>
-                                    <div className="bg-blue-600 rounded-xl p-4 text-white shadow-lg shadow-blue-900/10 space-y-2 relative overflow-hidden group">
-                                        <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:rotate-12 transition-transform">
-                                            <UserCheck className="h-16 w-16" />
-                                        </div>
-                                        <p className="text-[8px] font-bold uppercase text-blue-200 tracking-widest">Responsable Solidario</p>
-                                        <h4 className="text-lg font-black uppercase leading-tight">{selectedClient.endorsement.split('(')[0].trim()}</h4>
-                                        <p className="text-[10px] font-medium leading-tight opacity-90 line-clamp-2">
-                                            {selectedClient.endorsement.match(/\((.*)\)/)?.[1] || 'SIN DIRECCIÓN REGISTRADA'}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-2">
-                                        <Monitor className="h-4 w-4 text-zinc-500" />
-                                        <span className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Garantías Registradas</span>
-                                    </div>
-                                    <div className="border-2 border-dashed border-zinc-200 rounded-xl p-4 bg-zinc-50/50 min-h-[80px] flex items-center justify-center">
-                                        <p className="text-[11px] font-black uppercase text-zinc-600 leading-snug tracking-wide text-center italic">
-                                            {selectedClient.guarantee || 'SIN GARANTÍAS'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Footer de acción - Compacto */}
-                        <div className="p-4 bg-zinc-50 border-t flex justify-end gap-2">
+                        {/* Footer de acción - Siempre visible */}
+                        <div className="p-4 bg-zinc-50 border-t flex justify-end gap-2 shrink-0">
                             <Button 
                                 variant="outline" 
-                                className="h-10 px-8 rounded-lg font-black uppercase text-[10px] tracking-widest border-2 hover:bg-zinc-100" 
+                                className="h-10 px-8 rounded-lg font-black uppercase text-[10px] tracking-widest border-2 hover:bg-zinc-100 w-full sm:w-auto" 
                                 onClick={() => setIsModalOpen(false)}
                             >
                                 Cerrar Expediente
