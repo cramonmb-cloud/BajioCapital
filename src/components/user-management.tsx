@@ -47,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound, Building } from 'lucide-react';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound, Building, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -218,8 +218,6 @@ export function UserManagement({ users }: UserManagementProps) {
     const email = `${values.username.toLowerCase()}@${DUMMY_DOMAIN}`;
     try {
         const userCredential = await signUp(email, values.password, values.role, values.username, values.permissions);
-        // El signUp ya llama a saveUserAction internamente con la password, pero nos faltan las zonas.
-        // Vamos a actualizarlo con las zonas asignadas.
         await saveUserAction(userCredential.user.uid, {
             username: values.username,
             role: values.role,
@@ -352,7 +350,6 @@ export function UserManagement({ users }: UserManagementProps) {
                             />
                         </div>
 
-                        {/* SECCIÓN DE ASIGNACIÓN DE ZONAS */}
                         <div className="space-y-6 pt-4 border-t">
                             <div className="flex items-center gap-2 border-b pb-2">
                                 <MapPin className="h-4 w-4 text-blue-600" />
@@ -363,83 +360,112 @@ export function UserManagement({ users }: UserManagementProps) {
                                 <FormField
                                     control={addUserForm.control}
                                     name="assignedPlazaIds"
-                                    render={() => (
+                                    render={({ field }) => {
+                                        const allPlazasSelected = plazas.length > 0 && plazas.every(p => field.value?.includes(p.id));
+                                        return (
                                         <FormItem className="space-y-4">
-                                            <div className="flex items-center gap-2">
-                                                <Building className="h-4 w-4 text-blue-500" />
-                                                <FormLabel className="font-black text-xs uppercase">Plazas Permitidas</FormLabel>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <Building className="h-4 w-4 text-blue-500" />
+                                                    <FormLabel className="font-black text-xs uppercase">Plazas Permitidas</FormLabel>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 pr-2">
+                                                    <Checkbox 
+                                                        id="select-all-plazas-add"
+                                                        checked={allPlazasSelected}
+                                                        onCheckedChange={(checked) => {
+                                                            if (checked) field.onChange(plazas.map(p => p.id));
+                                                            else {
+                                                                field.onChange([]);
+                                                                addUserForm.setValue('assignedLocalidadIds', []);
+                                                            }
+                                                        }}
+                                                    />
+                                                    <label htmlFor="select-all-plazas-add" className="text-[10px] font-black uppercase cursor-pointer text-blue-600">Todas</label>
+                                                </div>
                                             </div>
                                             <div className="grid grid-cols-2 gap-2 p-4 bg-muted/20 rounded-xl border">
                                                 {plazas.map((plaza) => (
-                                                    <FormField
-                                                        key={plaza.id}
-                                                        control={addUserForm.control}
-                                                        name="assignedPlazaIds"
-                                                        render={({ field }) => (
-                                                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                                <FormControl>
-                                                                    <Checkbox
-                                                                        checked={field.value?.includes(plaza.id)}
-                                                                        onCheckedChange={(checked) => {
-                                                                            const current = field.value || [];
-                                                                            return checked
-                                                                                ? field.onChange([...current, plaza.id])
-                                                                                : field.onChange(current.filter((val) => val !== plaza.id));
-                                                                        }}
-                                                                    />
-                                                                </FormControl>
-                                                                <FormLabel className="text-[10px] font-bold uppercase cursor-pointer">{plaza.name}</FormLabel>
-                                                            </FormItem>
-                                                        )}
-                                                    />
+                                                    <div key={plaza.id} className="flex flex-row items-center space-x-3 space-y-0">
+                                                        <Checkbox
+                                                            checked={field.value?.includes(plaza.id)}
+                                                            onCheckedChange={(checked) => {
+                                                                const current = field.value || [];
+                                                                if (checked) {
+                                                                    field.onChange([...current, plaza.id]);
+                                                                } else {
+                                                                    field.onChange(current.filter((val) => val !== plaza.id));
+                                                                    // Limpiar localidades de esta plaza
+                                                                    const locsInPlaza = localidades.filter(l => l.plazaId === plaza.id).map(l => l.id);
+                                                                    const currentLocs = addUserForm.getValues('assignedLocalidadIds') || [];
+                                                                    addUserForm.setValue('assignedLocalidadIds', currentLocs.filter(id => !locsInPlaza.includes(id)));
+                                                                }
+                                                            }}
+                                                        />
+                                                        <span className="text-[10px] font-bold uppercase cursor-pointer">{plaza.name}</span>
+                                                    </div>
                                                 ))}
                                             </div>
-                                            <FormDescription className="text-[9px]">Selecciona las plazas donde este usuario podrá realizar consultas.</FormDescription>
                                         </FormItem>
-                                    )}
+                                    )}}
                                 />
 
                                 <FormField
                                     control={addUserForm.control}
                                     name="assignedLocalidadIds"
-                                    render={() => (
+                                    render={({ field }) => {
+                                        const selectedPlazaIds = addUserForm.watch('assignedPlazaIds') || [];
+                                        const availableLocalidades = localidades.filter(l => selectedPlazaIds.includes(l.plazaId));
+                                        const allLocalidadesSelected = availableLocalidades.length > 0 && availableLocalidades.every(l => field.value?.includes(l.id));
+
+                                        return (
                                         <FormItem className="space-y-4">
-                                            <div className="flex items-center gap-2">
-                                                <MapPin className="h-4 w-4 text-blue-500" />
-                                                <FormLabel className="font-black text-xs uppercase">Localidades Específicas</FormLabel>
+                                            <div className="flex items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="h-4 w-4 text-blue-500" />
+                                                    <FormLabel className="font-black text-xs uppercase">Localidades Específicas</FormLabel>
+                                                </div>
+                                                {availableLocalidades.length > 0 && (
+                                                    <div className="flex items-center gap-1.5 pr-2">
+                                                        <Checkbox 
+                                                            id="select-all-localidades-add"
+                                                            checked={allLocalidadesSelected}
+                                                            onCheckedChange={(checked) => {
+                                                                const current = field.value || [];
+                                                                if (checked) {
+                                                                    const newIds = Array.from(new Set([...current, ...availableLocalidades.map(l => l.id)]));
+                                                                    field.onChange(newIds);
+                                                                } else {
+                                                                    const remaining = current.filter(id => !availableLocalidades.some(al => al.id === id));
+                                                                    field.onChange(remaining);
+                                                                }
+                                                            }}
+                                                        />
+                                                        <label htmlFor="select-all-localidades-add" className="text-[10px] font-black uppercase cursor-pointer text-blue-600">Todas</label>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="grid grid-cols-2 gap-2 p-4 bg-muted/20 rounded-xl border max-h-[150px] overflow-y-auto">
-                                                {localidades
-                                                    .filter(l => addUserForm.watch('assignedPlazaIds')?.includes(l.plazaId))
-                                                    .map((loc) => (
-                                                    <FormField
-                                                        key={loc.id}
-                                                        control={addUserForm.control}
-                                                        name="assignedLocalidadIds"
-                                                        render={({ field }) => (
-                                                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                                <FormControl>
-                                                                    <Checkbox
-                                                                        checked={field.value?.includes(loc.id)}
-                                                                        onCheckedChange={(checked) => {
-                                                                            const current = field.value || [];
-                                                                            return checked
-                                                                                ? field.onChange([...current, loc.id])
-                                                                                : field.onChange(current.filter((val) => val !== loc.id));
-                                                                        }}
-                                                                    />
-                                                                </FormControl>
-                                                                <FormLabel className="text-[10px] font-bold uppercase cursor-pointer">{loc.name}</FormLabel>
-                                                            </FormItem>
-                                                        )}
-                                                    />
+                                                {availableLocalidades.map((loc) => (
+                                                    <div key={loc.id} className="flex flex-row items-center space-x-3 space-y-0">
+                                                        <Checkbox
+                                                            checked={field.value?.includes(loc.id)}
+                                                            onCheckedChange={(checked) => {
+                                                                const current = field.value || [];
+                                                                return checked
+                                                                    ? field.onChange([...current, loc.id])
+                                                                    : field.onChange(current.filter((val) => val !== loc.id));
+                                                            }}
+                                                        />
+                                                        <span className="text-[10px] font-bold uppercase cursor-pointer">{loc.name}</span>
+                                                    </div>
                                                 ))}
-                                                {localidades.filter(l => addUserForm.watch('assignedPlazaIds')?.includes(l.plazaId)).length === 0 && (
+                                                {availableLocalidades.length === 0 && (
                                                     <p className="text-[9px] text-muted-foreground uppercase col-span-2 text-center py-4 italic">Selecciona una Plaza primero para ver sus localidades.</p>
                                                 )}
                                             </div>
                                         </FormItem>
-                                    )}
+                                    )}}
                                 />
                             </div>
                         </div>
@@ -665,7 +691,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                 <ShieldCheck className="h-6 w-6 text-primary" />
                                 Gestionar: {selectedUser?.username}
                             </DialogTitle>
-                            <DialogHeader>Ajusta el rol, contraseña y los privilegios específicos.</DialogHeader>
+                            <DialogDescription>Ajusta el rol, contraseña y los privilegios específicos.</DialogDescription>
                         </DialogHeader>
                         
                         <div className="space-y-8 py-2">
@@ -709,7 +735,6 @@ export function UserManagement({ users }: UserManagementProps) {
                                 />
                             </div>
 
-                            {/* ASIGNACIÓN DE ZONAS EN EDICIÓN */}
                             <div className="space-y-6 pt-4 border-t">
                                 <div className="flex items-center gap-2 border-b pb-2">
                                     <MapPin className="h-4 w-4 text-blue-600" />
@@ -720,79 +745,108 @@ export function UserManagement({ users }: UserManagementProps) {
                                     <FormField
                                         control={editUserForm.control}
                                         name="assignedPlazaIds"
-                                        render={() => (
+                                        render={({ field }) => {
+                                            const allPlazasSelected = plazas.length > 0 && plazas.every(p => field.value?.includes(p.id));
+                                            return (
                                             <FormItem className="space-y-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Building className="h-4 w-4 text-blue-500" />
-                                                    <FormLabel className="font-black text-xs uppercase">Plazas Permitidas</FormLabel>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <Building className="h-4 w-4 text-blue-500" />
+                                                        <FormLabel className="font-black text-xs uppercase">Plazas Permitidas</FormLabel>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 pr-2">
+                                                        <Checkbox 
+                                                            id="select-all-plazas-edit"
+                                                            checked={allPlazasSelected}
+                                                            onCheckedChange={(checked) => {
+                                                                if (checked) field.onChange(plazas.map(p => p.id));
+                                                                else {
+                                                                    field.onChange([]);
+                                                                    editUserForm.setValue('assignedLocalidadIds', []);
+                                                                }
+                                                            }}
+                                                        />
+                                                        <label htmlFor="select-all-plazas-edit" className="text-[10px] font-black uppercase cursor-pointer text-blue-600">Todas</label>
+                                                    </div>
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2 p-4 bg-muted/20 rounded-xl border">
                                                     {plazas.map((plaza) => (
-                                                        <FormField
-                                                            key={plaza.id}
-                                                            control={editUserForm.control}
-                                                            name="assignedPlazaIds"
-                                                            render={({ field }) => (
-                                                                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                                    <FormControl>
-                                                                        <Checkbox
-                                                                            checked={field.value?.includes(plaza.id)}
-                                                                            onCheckedChange={(checked) => {
-                                                                                const current = field.value || [];
-                                                                                return checked
-                                                                                    ? field.onChange([...current, plaza.id])
-                                                                                    : field.onChange(current.filter((val) => val !== plaza.id));
-                                                                            }}
-                                                                        />
-                                                                    </FormControl>
-                                                                    <FormLabel className="text-[10px] font-bold uppercase cursor-pointer">{plaza.name}</FormLabel>
-                                                                </FormItem>
-                                                            )}
-                                                        />
+                                                        <div key={plaza.id} className="flex flex-row items-center space-x-3 space-y-0">
+                                                            <Checkbox
+                                                                checked={field.value?.includes(plaza.id)}
+                                                                onCheckedChange={(checked) => {
+                                                                    const current = field.value || [];
+                                                                    if (checked) {
+                                                                        field.onChange([...current, plaza.id]);
+                                                                    } else {
+                                                                        field.onChange(current.filter((val) => val !== plaza.id));
+                                                                        const locsInPlaza = localidades.filter(l => l.plazaId === plaza.id).map(l => l.id);
+                                                                        const currentLocs = editUserForm.getValues('assignedLocalidadIds') || [];
+                                                                        editUserForm.setValue('assignedLocalidadIds', currentLocs.filter(id => !locsInPlaza.includes(id)));
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <span className="text-[10px] font-bold uppercase cursor-pointer">{plaza.name}</span>
+                                                        </div>
                                                     ))}
                                                 </div>
                                             </FormItem>
-                                        )}
+                                        )}}
                                     />
 
                                     <FormField
                                         control={editUserForm.control}
                                         name="assignedLocalidadIds"
-                                        render={() => (
+                                        render={({ field }) => {
+                                            const selectedPlazaIds = editUserForm.watch('assignedPlazaIds') || [];
+                                            const availableLocalidades = localidades.filter(l => selectedPlazaIds.includes(l.plazaId));
+                                            const allLocalidadesSelected = availableLocalidades.length > 0 && availableLocalidades.every(l => field.value?.includes(l.id));
+
+                                            return (
                                             <FormItem className="space-y-4">
-                                                <div className="flex items-center gap-2">
-                                                    <MapPin className="h-4 w-4 text-blue-500" />
-                                                    <FormLabel className="font-black text-xs uppercase">Localidades Permitidas</FormLabel>
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <div className="flex items-center gap-2">
+                                                        <MapPin className="h-4 w-4 text-blue-500" />
+                                                        <FormLabel className="font-black text-xs uppercase">Localidades Permitidas</FormLabel>
+                                                    </div>
+                                                    {availableLocalidades.length > 0 && (
+                                                        <div className="flex items-center gap-1.5 pr-2">
+                                                            <Checkbox 
+                                                                id="select-all-localidades-edit"
+                                                                checked={allLocalidadesSelected}
+                                                                onCheckedChange={(checked) => {
+                                                                    const current = field.value || [];
+                                                                    if (checked) {
+                                                                        const newIds = Array.from(new Set([...current, ...availableLocalidades.map(l => l.id)]));
+                                                                        field.onChange(newIds);
+                                                                    } else {
+                                                                        const remaining = current.filter(id => !availableLocalidades.some(al => al.id === id));
+                                                                        field.onChange(remaining);
+                                                                    }
+                                                                }}
+                                                            />
+                                                            <label htmlFor="select-all-localidades-edit" className="text-[10px] font-black uppercase cursor-pointer text-blue-600">Todas</label>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="grid grid-cols-2 gap-2 p-4 bg-muted/20 rounded-xl border max-h-[150px] overflow-y-auto">
-                                                    {localidades
-                                                        .filter(l => editUserForm.watch('assignedPlazaIds')?.includes(l.plazaId))
-                                                        .map((loc) => (
-                                                        <FormField
-                                                            key={loc.id}
-                                                            control={editUserForm.control}
-                                                            name="assignedLocalidadIds"
-                                                            render={({ field }) => (
-                                                                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
-                                                                    <FormControl>
-                                                                        <Checkbox
-                                                                            checked={field.value?.includes(loc.id)}
-                                                                            onCheckedChange={(checked) => {
-                                                                                const current = field.value || [];
-                                                                                return checked
-                                                                                    ? field.onChange([...current, loc.id])
-                                                                                    : field.onChange(current.filter((val) => val !== loc.id));
-                                                                            }}
-                                                                        />
-                                                                    </FormControl>
-                                                                    <FormLabel className="text-[10px] font-bold uppercase cursor-pointer">{loc.name}</FormLabel>
-                                                                </FormItem>
-                                                            )}
-                                                        />
+                                                    {availableLocalidades.map((loc) => (
+                                                        <div key={loc.id} className="flex flex-row items-center space-x-3 space-y-0">
+                                                            <Checkbox
+                                                                checked={field.value?.includes(loc.id)}
+                                                                onCheckedChange={(checked) => {
+                                                                    const current = field.value || [];
+                                                                    return checked
+                                                                        ? field.onChange([...current, loc.id])
+                                                                        : field.onChange(current.filter((val) => val !== loc.id));
+                                                                }}
+                                                            />
+                                                            <span className="text-[10px] font-bold uppercase cursor-pointer">{loc.name}</span>
+                                                        </div>
                                                     ))}
                                                 </div>
                                             </FormItem>
-                                        )}
+                                        )}}
                                     />
                                 </div>
                             </div>
