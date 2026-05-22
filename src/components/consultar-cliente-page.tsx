@@ -6,14 +6,8 @@ import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, User, FileText, Calendar, Wallet, Hash, Clock, CircleDollarSign, Shield, Phone, Home, ChevronDown, X, Map, AlertTriangle, Building, MapPin, Tv } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Search, User, Wallet, Calendar, Shield, Phone, Home, X, CircleDollarSign, Building, MapPin, Tv } from 'lucide-react';
 import { Separator } from './ui/separator';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible"
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
 import { Badge } from './ui/badge';
@@ -30,16 +24,6 @@ interface ConsultarClientePageProps {
 export function ConsultarClientePage({ clients, loans, loanPlans, plazas, localidades, promotoras }: ConsultarClientePageProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768);
-    };
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
-  }, []);
 
   const filteredClients = useMemo(() => {
     if (!searchTerm) {
@@ -63,34 +47,38 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     if (!loanPlan) return null;
 
     const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
+    
+    // LÓGICA CRONOLÓGICA DE DÍAS CALENDARIO
     const today = new Date();
+    const loanStartDate = new Date(activeLoan.startDate); // Guardada como UTC 00:00 del Sábado
     
-    const loanStartDate = new Date(activeLoan.startDate);
-    const baseTerm = loanPlan.termInWeeks;
+    // Normalizamos ambas fechas al inicio del día (00:00) para comparar días transcurridos exactos
+    // startNominal: El día del préstamo (Sábado)
+    const startNominal = new Date(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate());
+    // todayNominal: El día que vive el usuario localmente
+    const todayNominal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     
-    // Normalizar fechas a días completos UTC para evitar desfases por zona horaria local
-    // El desfase de zona horaria (ej. México UTC-6) puede mover el 00:00 UTC del Sábado al Viernes 18:00 Local.
-    // Usar getUTC... asegura que trabajamos con el día nominal almacenado.
-    const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
-    const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-    
-    const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+    const diffInMs = todayNominal.getTime() - startNominal.getTime();
+    const daysDiff = Math.round(diffInMs / (1000 * 3600 * 24));
     
     // REGLA DE SEMANAS:
-    // La semana 1 dura desde el día del préstamo (Sábado) hasta el siguiente Sábado (7 días después).
-    // Solo cambia a Semana 2 cuando inicia el Domingo (Día 8).
+    // El periodo de cobranza es el Sábado (día 7, 14, 21...).
+    // Una semana se considera "vencida" y candidata a fallo solo si ya pasó ese Sábado (hoy es Domingo o posterior).
+    // daysDiff 0-7: Semana 1 (Pendiente/Cobrando)
+    // daysDiff 8-14: Semana 2...
     const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
     
-    // Un préstamo está expirado si la semana actual calculada supera el plazo base.
+    const baseTerm = loanPlan.termInWeeks;
     const isExpired = rawCurrentLoanWeek > baseTerm;
 
     let registeredMissedCount = 0;
     let baseArrears = 0;
     
-    // Solo revisamos fallos de las semanas que YA HAN CONCLUIDO (i < rawCurrentLoanWeek)
-    // Esto asegura que la semana en curso (Sábado de cobranza) no se marque como fallo antes de tiempo.
+    // Revisamos semanas que YA HAN CONCLUIDO (Plazo vencido)
     for (let i = 1; i <= baseTerm; i++) {
-        if (i < rawCurrentLoanWeek) {
+        const weekDeadlineInDays = i * 7;
+        // Solo cuenta como fallo si hoy es estrictamente después del Sábado de vencimiento (día 8, 15, etc.)
+        if (daysDiff > weekDeadlineInDays) {
             const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
             const amountPaid = p ? p.amount : 0;
             
@@ -101,50 +89,38 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         }
     }
     
-    // REGLA 2: Penalización (Si venció O si tiene 2+ fallos reales confirmados de semanas pasadas)
+    // REGLA PENALIZACIÓN: Vencido O 2+ fallos reales
     const hasPenalty = isExpired || (registeredMissedCount >= 2);
 
-    // REGLA 3: TOTALES
     const totalPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
-    const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
-    const totalExpected = termInWeeks * weeklyPayment;
+    const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
+    const totalExpected = totalTerm * weeklyPayment;
     const totalDue = Math.max(0, totalExpected - totalPaid);
 
-    // Desglose de penalización si aplica
     let penaltyArrear = 0;
     if (hasPenalty) {
         const pExtra = (activeLoan.payments || []).find(pay => pay.weekNumber === baseTerm + 1);
         penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
     }
 
-    const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, termInWeeks);
+    const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, totalTerm);
 
     const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
     const localidad = localidades.find(l => l.id === promotora?.localidadId);
     const plaza = plazas.find(p => p.id === localidad?.plazaId);
-
-    let endorsementName = selectedClient.endorsement;
-    let endorsementDetails = '';
-    const endorsementMatch = selectedClient.endorsement.match(/(.*) \((.*)\)/);
-    if (endorsementMatch) {
-        endorsementName = endorsementMatch[1];
-        endorsementDetails = endorsementMatch[2];
-    }
 
     return {
       loan: activeLoan,
       loanPlan,
       weeklyPayment,
       currentLoanWeek: currentLoanWeekDisplay,
-      termInWeeks,
+      termInWeeks: totalTerm,
       baseArrears,
       penaltyArrear,
       totalBalance: totalDue,
       missedWeeks: registeredMissedCount,
       hasPenalty,
       isExpired,
-      endorsementName,
-      endorsementDetails,
       plazaName: plaza?.name || 'N/A',
       localidadName: localidad?.name || 'N/A',
       promotoraName: promotora?.name || 'N/A',
@@ -316,9 +292,9 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
                                 <div className="p-4 rounded-xl bg-blue-600 text-white shadow-lg space-y-3">
                                     <div>
                                         <p className="text-[8px] font-black uppercase text-blue-200 tracking-widest mb-1">Responsable Solidario</p>
-                                        <p className="font-black text-lg uppercase leading-none">{activeLoanDetails.endorsementName}</p>
+                                        <p className="font-black text-lg uppercase leading-none">{selectedClient.endorsement.split('(')[0].trim()}</p>
                                     </div>
-                                    <p className="text-[10px] font-bold uppercase leading-relaxed text-blue-50 opacity-90">{activeLoanDetails.endorsementDetails || 'SIN DIRECCIÓN REGISTRADA'}</p>
+                                    <p className="text-[10px] font-bold uppercase leading-relaxed text-blue-50 opacity-90">{selectedClient.endorsement.match(/\((.*)\)/)?.[1] || 'SIN DIRECCIÓN REGISTRADA'}</p>
                                 </div>
                              </div>
 
