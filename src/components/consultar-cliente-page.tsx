@@ -5,7 +5,7 @@ import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, User, Wallet, Calendar, Shield, Phone, Home, X, CircleDollarSign, Building, MapPin, Tv, Filter, List, ChevronRight } from 'lucide-react';
+import { Search, User, Wallet, Calendar, Shield, Phone, Home, X, CircleDollarSign, Building, MapPin, Tv, Filter, List, ChevronRight, UserCheck } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
@@ -55,7 +55,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     // Filtrar clientes que tienen algún préstamo en las zonas permitidas
     const allowedLocIds = allowedLocalidades.map(l => l.id);
     const allowedPromotoras = allPromotoras.filter(p => allowedLocIds.includes(p.localidadId));
-    const allowedPromotoraIds = allowedPromotoras.map(p => p.id);
+    const allowedPromotoraIds = allowedPromotoraIndices.map(p => p.id);
     
     const clientIdsInZones = new Set(allLoans
         .filter(l => l.promotoraId && allowedPromotoraIds.includes(l.promotoraId))
@@ -185,8 +185,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
         const dueDate = new Date(startLocal.getTime());
         dueDate.setDate(startLocal.getDate() + (i * 7));
         
-        // Un fallo solo se cuenta si el Sábado de vencimiento ya pasó completamente (hoy es Domingo o posterior Local)
-        // Pero en tu negocio, las semanas sin registro se asumen pagadas a menos que registres fallo.
+        // Un fallo solo se cuenta si el Sábado de vencimiento ya pasó completamente
         if (paymentRecord) {
             if (amountPaid < weeklyPayment) {
                 registeredMissedCount++;
@@ -205,8 +204,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
 
     // --- CÁLCULO DE SALDO TOTAL (SOLO LO PENDIENTE REAL) ---
-    // El saldo real a liquidar es: 
-    // (Total de semanas del contrato * Abono) - (Total Real Pagado) - (Total Asumido Pagado)
     const actualTotalPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
     const totalExpectedContract = totalTerm * weeklyPayment;
     
