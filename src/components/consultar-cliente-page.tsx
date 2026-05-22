@@ -4,8 +4,8 @@ import { useState, useMemo } from 'react';
 import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Search, User, Wallet, Calendar, Shield, Phone, Home, X, CircleDollarSign, Building, MapPin, Tv, Filter, List, ChevronRight, UserCheck, Smartphone, Info } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Search, Wallet, Calendar, Shield, Phone, Home, X, CircleDollarSign, Building, MapPin, List, ChevronRight, UserCheck, Smartphone, Info, Route, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from './ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface ConsultarClientePageProps {
   clients: Client[];
@@ -27,6 +28,7 @@ interface ConsultarClientePageProps {
 export function ConsultarClientePage({ clients: allClients, loans: allLoans, loanPlans, plazas: allPlazas, localidades: allLocalidades, promotoras: allPromotoras }: ConsultarClientePageProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   // Filtros
   const [filterPlaza, setFilterPlaza] = useState('all');
@@ -103,8 +105,12 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     return weeks;
   }, [loans]);
 
-  // Listado filtrado unificado (Search + Filtros)
+  // Listado filtrado
+  const canShowList = filterPlaza !== 'all' && filterLocalidad !== 'all';
+
   const filteredList = useMemo(() => {
+    if (!canShowList) return [];
+
     let result = loans.map(loan => {
         const client = clients.find(c => c.id === loan.clientId);
         return { loan, client };
@@ -141,8 +147,8 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
         });
     }
 
-    return result.slice(0, searchTerm ? 20 : 50); // Limit for performance
-  }, [loans, clients, searchTerm, filterPlaza, filterLocalidad, filterPromotora, filterWeek, allLocalidades, allPromotoras]);
+    return result;
+  }, [loans, clients, searchTerm, filterPlaza, filterLocalidad, filterPromotora, filterWeek, allLocalidades, allPromotoras, canShowList]);
 
   const activeLoanDetails = useMemo(() => {
     if (!selectedClient) return null;
@@ -238,295 +244,387 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
-  return (
-    <div className="flex flex-col h-[calc(100vh-120px)] overflow-hidden">
-        <div className="flex-1 grid lg:grid-cols-[380px_1fr] gap-4 min-h-0">
-            
-            {/* COLUMNA IZQUIERDA: BUSCADOR Y LISTADO */}
-            <div className="flex flex-col gap-4 min-h-0">
-                <Card className="shadow-sm border-2 shrink-0">
-                    <CardHeader className="p-3 border-b bg-muted/20">
-                        <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                            <Search className="h-3 w-3 text-primary" /> Búsqueda y Filtros
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-3 space-y-3">
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                                placeholder="NOMBRE DEL CLIENTE..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-9 h-9 text-xs rounded-xl shadow-sm uppercase font-bold border-2"
-                            />
-                            {searchTerm && (
-                                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7" onClick={() => setSearchTerm('')}>
-                                    <X className="h-3 w-3" />
-                                </Button>
-                            )}
-                        </div>
-                        
-                        <div className="grid grid-cols-2 gap-2">
-                            <Select value={filterPlaza} onValueChange={(v) => { setFilterPlaza(v); setFilterLocalidad('all'); setFilterPromotora('all'); }}>
-                                <SelectTrigger className="h-8 text-[9px] font-black uppercase border-2"><SelectValue placeholder="PLAZA" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">TODAS LAS PLAZAS</SelectItem>
-                                    {plazaOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <Select value={filterLocalidad} onValueChange={(v) => { setFilterLocalidad(v); setFilterPromotora('all'); }} disabled={filterPlaza === 'all' && !isAdmin}>
-                                <SelectTrigger className="h-8 text-[9px] font-black uppercase border-2"><SelectValue placeholder="LOCALIDAD" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">TODAS LAS ZONAS</SelectItem>
-                                    {localidadOptions.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <Select value={filterPromotora} onValueChange={setFilterPromotora} disabled={filterLocalidad === 'all' && !isAdmin}>
-                                <SelectTrigger className="h-8 text-[9px] font-black uppercase border-2"><SelectValue placeholder="PROMOTORA" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">TODAS LAS RUTAS</SelectItem>
-                                    {promotoraOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <Select value={filterWeek} onValueChange={setFilterWeek}>
-                                <SelectTrigger className="h-8 text-[9px] font-black uppercase border-2"><SelectValue placeholder="SEMANA" /></SelectTrigger>
-                                <SelectContent>
-                                    <SelectItem value="all">CUALQUIER FECHA</SelectItem>
-                                    {weekOptions.map(iso => (
-                                        <SelectItem key={iso} value={iso}>{formatDate(iso)}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    </CardContent>
-                </Card>
+  const handleClientSelect = (client: Client) => {
+      setSelectedClient(client);
+      setIsModalOpen(true);
+  };
 
-                <Card className="shadow-sm border-2 flex-1 min-h-0 overflow-hidden">
-                    <CardHeader className="p-3 border-b bg-muted/20 flex flex-row items-center justify-between">
-                        <CardTitle className="text-[10px] font-black uppercase tracking-widest flex items-center gap-2">
-                            <List className="h-3 w-3 text-blue-600" /> Resultados ({filteredList.length})
+  return (
+    <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <h1 className="text-3xl font-bold tracking-tight uppercase">Buscador Inteligente</h1>
+            <div className="flex items-center gap-2">
+                <Badge variant="outline" className="h-6 font-black uppercase text-[10px] tracking-widest border-primary/20">
+                    Sincronizado: {new Date().toLocaleTimeString()}
+                </Badge>
+            </div>
+        </div>
+
+        <Card className="shadow-lg border-2">
+            <CardHeader className="p-4 border-b bg-muted/20">
+                <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                    <Search className="h-4 w-4 text-primary" /> Parámetros de Búsqueda
+                </CardTitle>
+                <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">
+                    Selecciona Plaza y Localidad para visualizar el listado de clientes.
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Plaza (Obligatorio)</label>
+                        <Select value={filterPlaza} onValueChange={(v) => { setFilterPlaza(v); setFilterLocalidad('all'); setFilterPromotora('all'); }}>
+                            <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="PLAZA" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">TODAS LAS PLAZAS</SelectItem>
+                                {plazaOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Localidad (Obligatorio)</label>
+                        <Select value={filterLocalidad} onValueChange={(v) => { setFilterLocalidad(v); setFilterPromotora('all'); }} disabled={filterPlaza === 'all' && !isAdmin}>
+                            <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="LOCALIDAD" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">TODAS LAS ZONAS</SelectItem>
+                                {localidadOptions.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Promotora (Opcional)</label>
+                        <Select value={filterPromotora} onValueChange={setFilterPromotora} disabled={filterLocalidad === 'all' && !isAdmin}>
+                            <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="PROMOTORA" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">TODAS LAS RUTAS</SelectItem>
+                                {promotoraOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-1.5">
+                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Semana de Inicio</label>
+                        <Select value={filterWeek} onValueChange={setFilterWeek}>
+                            <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="SEMANA" /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">CUALQUIER FECHA</SelectItem>
+                                {weekOptions.map(iso => (
+                                    <SelectItem key={iso} value={iso}>{formatDate(iso)}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                </div>
+
+                <div className="relative">
+                    <label className="text-[9px] font-black uppercase text-muted-foreground ml-1 mb-1 block">Buscar por Nombre</label>
+                    <div className="relative">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="ESCRIBE EL NOMBRE DEL CLIENTE..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 h-11 text-xs rounded-xl shadow-sm uppercase font-bold border-2"
+                        />
+                        {searchTerm && (
+                            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => setSearchTerm('')}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        )}
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+
+        {canShowList ? (
+            <Card className="shadow-lg border-2 overflow-hidden">
+                <CardHeader className="p-4 border-b bg-primary/5 flex flex-row items-center justify-between">
+                    <div>
+                        <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                            <List className="h-4 w-4 text-blue-600" /> Resultados de Consulta ({filteredList.length})
                         </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0 h-full">
-                        <ScrollArea className="h-full">
-                            <div className="divide-y">
-                                {filteredList.map(({ loan, client }) => (
-                                    <div 
-                                        key={loan.id} 
-                                        className={cn(
-                                            "flex items-center gap-3 p-3 cursor-pointer transition-colors group",
-                                            selectedClient?.id === client?.id ? "bg-primary/10" : "hover:bg-muted/30"
-                                        )}
-                                        onClick={() => setSelectedClient(client!)}
-                                    >
-                                        <Avatar className="h-8 w-8 border shrink-0">
+                        <CardDescription className="text-[9px] font-bold uppercase mt-0.5">
+                            Mostrando todos los clientes para la localidad seleccionada.
+                        </CardDescription>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <Table>
+                        <TableHeader className="bg-muted/50">
+                            <TableRow>
+                                <TableHead className="w-[80px]"></TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider py-4">Cliente</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider">Dirección</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider">Monto</TableHead>
+                                <TableHead className="text-[10px] font-black uppercase tracking-wider">Estado</TableHead>
+                                <TableHead className="text-right pr-6"></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {filteredList.map(({ loan, client }) => (
+                                <TableRow 
+                                    key={loan.id} 
+                                    className="hover:bg-muted/30 cursor-pointer group transition-colors"
+                                    onClick={() => handleClientSelect(client!)}
+                                >
+                                    <TableCell className="pl-6">
+                                        <Avatar className="h-9 w-9 border shadow-sm group-hover:scale-110 transition-transform">
                                             <AvatarImage src={client?.avatarUrl} alt={client?.name} />
                                             <AvatarFallback className="text-[10px] font-bold">{client?.name.charAt(0)}</AvatarFallback>
                                         </Avatar>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center justify-between gap-2">
-                                                <span className="text-[10px] font-black uppercase truncate group-hover:text-blue-700">{client?.name}</span>
-                                                <Badge variant={loan.status === 'Overdue' ? 'destructive' : 'outline'} className="text-[7px] h-3.5 px-1 font-black shrink-0">
-                                                    {loan.status === 'Overdue' ? 'VENCIDO' : 'ACTIVO'}
-                                                </Badge>
-                                            </div>
-                                            <div className="flex justify-between items-center mt-0.5">
-                                                <span className="text-[8px] font-bold text-muted-foreground truncate uppercase">{client?.street}</span>
-                                                <span className="text-[9px] font-black text-zinc-900">{formatCurrency(loan.amount)}</span>
-                                            </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex flex-col">
+                                            <span className="text-[11px] font-black uppercase group-hover:text-blue-700">{client?.name}</span>
+                                            <span className="text-[9px] text-muted-foreground font-bold">ID: {client?.id}</span>
                                         </div>
-                                        <ChevronRight className={cn("h-3 w-3 text-muted-foreground shrink-0 transition-transform", selectedClient?.id === client?.id && "translate-x-1 text-primary")} />
-                                    </div>
-                                ))}
-                                {filteredList.length === 0 && (
-                                    <div className="p-8 text-center">
-                                        <Info className="h-8 w-8 text-muted-foreground/30 mx-auto mb-2" />
-                                        <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest leading-tight">No se encontraron clientes con los criterios actuales.</p>
-                                    </div>
-                                )}
-                            </div>
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
+                                    </TableCell>
+                                    <TableCell>
+                                        <div className="flex items-center gap-1.5">
+                                            <MapPin className="h-3 w-3 text-muted-foreground" />
+                                            <span className="text-[10px] font-bold uppercase text-zinc-600 truncate max-w-[250px]">{client?.street}, {client?.neighborhood}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <span className="text-[11px] font-black text-zinc-900">{formatCurrency(loan.amount)}</span>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant={loan.status === 'Overdue' ? 'destructive' : 'outline'} className="text-[8px] font-black uppercase h-4 px-2">
+                                            {loan.status === 'Overdue' ? 'VENCIDO' : 'ACTIVO'}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-right pr-6">
+                                        <Button variant="ghost" size="sm" className="h-8 rounded-full hover:bg-primary hover:text-white group-hover:px-6 transition-all duration-300">
+                                            <span className="hidden group-hover:inline text-[9px] font-black uppercase mr-2">Consultar</span>
+                                            <ArrowRight className="h-4 w-4" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                            {filteredList.length === 0 && (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="h-48 text-center">
+                                        <div className="max-w-xs mx-auto space-y-2">
+                                            <Info className="h-8 w-8 text-muted-foreground/30 mx-auto" />
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sin coincidencias para los filtros actuales.</p>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+        ) : (
+            <div className="py-24 flex flex-col items-center justify-center border-4 border-dashed rounded-[3rem] bg-zinc-50/50 space-y-6">
+                <div className="relative">
+                    <div className="absolute inset-0 bg-primary/20 blur-3xl rounded-full scale-150 animate-pulse" />
+                    <Smartphone className="h-24 w-24 text-primary/40 relative" />
+                </div>
+                <div className="text-center space-y-2 max-w-sm">
+                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-zinc-400">Panel de Consulta</h3>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase leading-relaxed px-8">
+                        Selecciona una Plaza y una Localidad en la parte superior para cargar el listado de clientes y comenzar la supervisión.
+                    </p>
+                </div>
             </div>
+        )}
 
-            {/* COLUMNA DERECHA: DETALLE DEL CLIENTE */}
-            <div className="min-h-0">
-                {selectedClient ? (
-                    <ScrollArea className="h-full pr-1">
-                        <div className="space-y-4 pb-4">
-                            <Card className="border-2 shadow-md relative overflow-hidden">
-                                <div className="absolute top-0 left-0 w-full h-1 bg-primary" />
-                                <CardHeader className="p-4 bg-zinc-50/50">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                        <div className="flex items-center gap-4">
-                                            <Avatar className="h-16 w-16 border-2 border-white shadow-md rounded-2xl">
-                                                <AvatarImage src={selectedClient.avatarUrl} alt={selectedClient.name} />
-                                                <AvatarFallback className="text-2xl font-black bg-white text-primary rounded-xl">{selectedClient.name.charAt(0)}</AvatarFallback>
-                                            </Avatar>
-                                            <div>
-                                                <CardTitle className="text-xl font-black uppercase tracking-tighter text-zinc-900 leading-tight">{selectedClient.name}</CardTitle>
-                                                <div className="flex flex-wrap items-center gap-2 mt-1">
-                                                    <Badge variant="outline" className="font-black text-[8px] uppercase border-primary/30 text-primary bg-primary/5 h-4 px-1.5">ID: {selectedClient.id}</Badge>
-                                                    {activeLoanDetails && (
-                                                        <Badge variant="outline" className="font-black text-[8px] uppercase border-blue-200 text-blue-600 bg-blue-50 h-4 px-1.5">{activeLoanDetails.loanPlan.name}</Badge>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="grid grid-cols-2 md:grid-cols-1 gap-x-4 gap-y-1 bg-white p-3 rounded-xl border shadow-inner">
-                                            <div className="flex items-center gap-2 text-[10px] font-bold text-zinc-800"><Phone className="h-3 w-3 text-blue-600" /> {selectedClient.phone}</div>
-                                            <div className="flex items-start gap-2 text-[10px] font-bold text-zinc-800">
-                                                <Home className="h-3 w-3 text-blue-600 shrink-0 mt-0.5" /> 
-                                                <span className="truncate max-w-[150px] md:max-w-none uppercase">{selectedClient.street}, {selectedClient.neighborhood}</span>
-                                            </div>
+        {/* MODAL DE DETALLE DEL CLIENTE */}
+        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+            <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0 border-0 shadow-2xl rounded-3xl">
+                {selectedClient && (
+                    <div className="flex flex-col relative">
+                        <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-blue-600 to-primary/80 z-0" />
+                        
+                        <div className="px-6 pt-12 z-10 space-y-6 mb-8">
+                            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                                <div className="flex items-center gap-6">
+                                    <Avatar className="h-24 w-24 border-4 border-white shadow-2xl rounded-3xl">
+                                        <AvatarImage src={selectedClient.avatarUrl} alt={selectedClient.name} />
+                                        <AvatarFallback className="text-3xl font-black bg-white text-primary rounded-3xl">{selectedClient.name.charAt(0)}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="space-y-1">
+                                        <h2 className="text-2xl font-black uppercase tracking-tight text-white drop-shadow-sm leading-none">{selectedClient.name}</h2>
+                                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                                            <Badge className="bg-white/20 text-white hover:bg-white/30 border-0 font-black text-[9px] uppercase backdrop-blur-md">ID: {selectedClient.id}</Badge>
+                                            {activeLoanDetails && (
+                                                <Badge className="bg-blue-900/40 text-blue-50 border-0 font-black text-[9px] uppercase backdrop-blur-md">{activeLoanDetails.loanPlan.name}</Badge>
+                                            )}
                                         </div>
                                     </div>
-                                </CardHeader>
+                                </div>
+                                <div className="grid grid-cols-1 gap-2 shrink-0">
+                                    <Button asChild variant="secondary" className="h-10 px-6 rounded-xl font-black text-xs uppercase shadow-lg border-b-4 border-zinc-200">
+                                        <a href={`tel:${selectedClient.phone}`}><Phone className="h-4 w-4 mr-2 text-blue-600" /> {selectedClient.phone}</a>
+                                    </Button>
+                                </div>
+                            </div>
 
-                                <Separator />
-                                
-                                {activeLoanDetails ? (
-                                    <CardContent className="p-4 grid md:grid-cols-[1fr_300px] gap-6">
-                                        <div className="space-y-6">
-                                            <div className="grid grid-cols-3 gap-2">
-                                                <div className="p-3 rounded-xl bg-zinc-100/50 border border-zinc-200 text-center shadow-sm">
-                                                    <p className="text-muted-foreground uppercase text-[8px] font-black tracking-widest mb-1">Semana</p>
-                                                    <p className="font-black text-lg tracking-tighter text-zinc-900">{activeLoanDetails.currentLoanWeek} / {activeLoanDetails.termInWeeks}</p>
-                                                </div>
-                                                <div className="p-3 rounded-xl bg-blue-50 border border-blue-100 text-center shadow-sm">
-                                                    <p className="text-blue-600 uppercase text-[8px] font-black tracking-widest mb-1">Abono</p>
-                                                    <p className="font-black text-lg tracking-tighter text-blue-800">{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
-                                                </div>
-                                                <div className="p-3 rounded-xl bg-red-50 border border-red-100 text-center shadow-sm relative overflow-hidden">
-                                                    <p className="text-red-600 uppercase text-[8px] font-black tracking-widest mb-1">Fallos</p>
-                                                    <p className="font-black text-lg tracking-tighter text-red-700">{activeLoanDetails.missedWeeks}</p>
-                                                    {activeLoanDetails.hasPenalty && (
-                                                        <div className="absolute top-0 right-0 p-0.5 bg-orange-500 text-[6px] text-white font-black uppercase rotate-45 translate-x-2 translate-y-[-2px] w-12 text-center shadow-sm">+1</div>
-                                                    )}
-                                                </div>
+                            {activeLoanDetails ? (
+                                <div className="grid md:grid-cols-[1fr_300px] gap-6">
+                                    <div className="space-y-6">
+                                        {/* INDICADORES FINANCIEROS */}
+                                        <div className="grid grid-cols-3 gap-3">
+                                            <div className="p-4 rounded-3xl bg-zinc-100 border-2 border-zinc-200 text-center shadow-sm">
+                                                <p className="text-muted-foreground uppercase text-[8px] font-black tracking-widest mb-1">Progreso</p>
+                                                <p className="font-black text-xl tracking-tighter text-zinc-900">{activeLoanDetails.currentLoanWeek} / {activeLoanDetails.termInWeeks}</p>
+                                                <p className="text-[8px] font-bold text-zinc-500 uppercase">SEMANAS</p>
                                             </div>
+                                            <div className="p-4 rounded-3xl bg-blue-50 border-2 border-blue-100 text-center shadow-sm">
+                                                <p className="text-blue-600 uppercase text-[8px] font-black tracking-widest mb-1">Cuota</p>
+                                                <p className="font-black text-xl tracking-tighter text-blue-800">{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
+                                                <p className="text-[8px] font-bold text-blue-400 uppercase">ABONO FIJO</p>
+                                            </div>
+                                            <div className={cn(
+                                                "p-4 rounded-3xl text-center shadow-sm relative overflow-hidden border-2",
+                                                activeLoanDetails.missedWeeks > 0 ? "bg-red-50 border-red-100" : "bg-green-50 border-green-100"
+                                            )}>
+                                                <p className={cn("uppercase text-[8px] font-black tracking-widest mb-1", activeLoanDetails.missedWeeks > 0 ? "text-red-600" : "text-green-600")}>Incidencias</p>
+                                                <p className={cn("font-black text-xl tracking-tighter", activeLoanDetails.missedWeeks > 0 ? "text-red-700" : "text-green-700")}>{activeLoanDetails.missedWeeks}</p>
+                                                <p className="text-[8px] font-bold opacity-70 uppercase">{activeLoanDetails.missedWeeks === 1 ? 'FALLO DETECTADO' : activeLoanDetails.missedWeeks > 1 ? 'FALLOS ACUMULADOS' : 'SIN FALLOS'}</p>
+                                                {activeLoanDetails.hasPenalty && (
+                                                    <div className="absolute top-0 right-0 p-1 bg-orange-500 text-[7px] text-white font-black uppercase rotate-45 translate-x-3 translate-y-[-2px] w-14 text-center shadow-sm">+1 SEM</div>
+                                                )}
+                                            </div>
+                                        </div>
 
-                                            <div className="space-y-3 p-5 bg-zinc-900 rounded-[1.5rem] border-4 border-zinc-800 shadow-xl relative overflow-hidden">
-                                                <div className="absolute top-0 right-0 p-3 opacity-5">
-                                                    <Wallet className="h-16 w-16 text-white" />
-                                                </div>
-                                                <div className="flex justify-between items-center text-zinc-400">
-                                                    <span className="font-black text-[9px] uppercase tracking-widest">Deuda por Fallos</span>
+                                        {/* TARJETA DE LIQUIDACIÓN */}
+                                        <div className="p-6 bg-zinc-900 rounded-[2.5rem] border-8 border-zinc-800 shadow-2xl relative overflow-hidden">
+                                            <div className="absolute top-0 right-0 p-4 opacity-5">
+                                                <CircleDollarSign className="h-32 w-32 text-white" />
+                                            </div>
+                                            <div className="space-y-4 relative z-10">
+                                                <div className="flex justify-between items-center text-zinc-500 border-b border-zinc-800 pb-3 border-dashed">
+                                                    <div className="flex items-center gap-2">
+                                                        <AlertTriangle className="h-4 w-4 text-red-500" />
+                                                        <span className="font-black text-[10px] uppercase tracking-widest">Adeudo por Fallos Registrados</span>
+                                                    </div>
                                                     <span className="font-black text-sm text-white">{formatCurrency(activeLoanDetails.baseArrears)}</span>
                                                 </div>
+                                                
                                                 {activeLoanDetails.hasPenalty && (
-                                                    <div className="flex justify-between items-center border-b border-zinc-800 border-dashed pb-2">
-                                                        <span className={cn("font-black uppercase text-[9px] tracking-widest", activeLoanDetails.isExpired ? "text-red-400" : "text-orange-400")}>
-                                                            Semana Extra {activeLoanDetails.isExpired ? '(VENCIDO)' : ''}
-                                                        </span>
-                                                        <span className={cn("font-black text-sm", activeLoanDetails.isExpired ? "text-red-400" : "text-orange-400")}>
-                                                            +{formatCurrency(activeLoanDetails.penaltyArrear)}
-                                                        </span>
+                                                    <div className="flex justify-between items-center text-orange-400 border-b border-zinc-800 pb-3 border-dashed">
+                                                        <div className="flex items-center gap-2">
+                                                            <Smartphone className="h-4 w-4" />
+                                                            <span className="font-black text-[10px] uppercase tracking-widest">Penalización {activeLoanDetails.isExpired ? '(PRÉSTAMO VENCIDO)' : '(2+ FALLOS)'}</span>
+                                                        </div>
+                                                        <span className="font-black text-sm">+{formatCurrency(activeLoanDetails.penaltyArrear)}</span>
                                                     </div>
                                                 )}
-                                                <div className="flex justify-between items-end pt-1">
-                                                    <div className="flex flex-col">
-                                                        <span className="text-[8px] font-black uppercase text-zinc-500 tracking-widest">Total a Pagar</span>
-                                                        <span className={cn("font-black uppercase text-[10px] tracking-widest leading-none", activeLoanDetails.totalBalance <= 0 ? "text-green-400" : "text-primary")}>Saldo Liquidación</span>
+
+                                                <div className="flex flex-col md:flex-row md:items-end justify-between pt-2 gap-4">
+                                                    <div className="space-y-1">
+                                                        <span className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] block">Contabilidad al Día</span>
+                                                        <span className={cn("font-black uppercase text-base tracking-tighter leading-none", activeLoanDetails.totalBalance <= 0 ? "text-green-400" : "text-primary")}>Saldo para Liquidación Total</span>
                                                     </div>
-                                                    <span className={cn("text-3xl font-black tracking-tighter leading-none", activeLoanDetails.totalBalance <= 0 ? "text-green-400" : "text-white")}>
+                                                    <span className={cn("text-5xl font-black tracking-tighter leading-none drop-shadow-lg", activeLoanDetails.totalBalance <= 0 ? "text-green-400" : "text-white")}>
                                                         {formatCurrency(activeLoanDetails.totalBalance)}
                                                     </span>
                                                 </div>
                                             </div>
+                                        </div>
 
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div className="p-4 rounded-2xl border-2 bg-muted/20 space-y-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <Building className="h-3 w-3 text-primary" />
-                                                        <span className="text-[8px] font-black uppercase text-muted-foreground">Ubicación Operativa</span>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-[9px] font-bold uppercase text-zinc-600 flex justify-between">Plaza: <span className="font-black text-zinc-900">{activeLoanDetails.plazaName}</span></p>
-                                                        <p className="text-[9px] font-bold uppercase text-zinc-600 flex justify-between">Localidad: <span className="font-black text-zinc-900">{activeLoanDetails.localidadName}</span></p>
-                                                        <p className="text-[9px] font-bold uppercase text-zinc-600 flex justify-between">Promotora: <span className="font-black text-zinc-900">{activeLoanDetails.promotoraName}</span></p>
-                                                    </div>
+                                        {/* DETALLE OPERATIVO */}
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="p-5 rounded-3xl border-2 bg-muted/20 space-y-4 shadow-inner">
+                                                <div className="flex items-center gap-2 border-b border-muted-foreground/10 pb-2">
+                                                    <Building className="h-4 w-4 text-primary" />
+                                                    <span className="text-[9px] font-black uppercase text-muted-foreground tracking-wider">Estructura Operativa</span>
                                                 </div>
-                                                <div className="p-4 rounded-2xl border-2 bg-blue-50/20 space-y-2">
-                                                    <div className="flex items-center gap-2">
-                                                        <Calendar className="h-3 w-3 text-blue-600" />
-                                                        <span className="text-[8px] font-black uppercase text-blue-600/70">Cronología</span>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-[9px] font-bold uppercase text-zinc-600 flex justify-between">Fecha Inicio: <span className="font-black text-zinc-900">{formatDate(activeLoanDetails.loanStartDate)}</span></p>
-                                                        <p className="text-[9px] font-bold uppercase text-zinc-600 flex justify-between">Plan: <span className="font-black text-zinc-900">{activeLoanDetails.loanPlan.termInWeeks} SEMANAS</span></p>
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-muted-foreground">Plaza</span> <span className="text-zinc-900">{activeLoanDetails.plazaName}</span></div>
+                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-muted-foreground">Zona</span> <span className="text-zinc-900">{activeLoanDetails.localidadName}</span></div>
+                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-muted-foreground">Ruta</span> <span className="text-zinc-900">{activeLoanDetails.promotoraName}</span></div>
+                                                </div>
+                                            </div>
+                                            <div className="p-5 rounded-3xl border-2 bg-blue-50/20 space-y-4 shadow-inner">
+                                                <div className="flex items-center gap-2 border-b border-blue-200 pb-2">
+                                                    <Calendar className="h-4 w-4 text-blue-600" />
+                                                    <span className="text-[9px] font-black uppercase text-blue-600/70 tracking-wider">Cronología del Crédito</span>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-blue-600/60">Apertura</span> <span className="text-zinc-900">{formatDate(activeLoanDetails.loanStartDate)}</span></div>
+                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-blue-600/60">Monto Base</span> <span className="text-zinc-900 font-black">{formatCurrency(activeLoanDetails.loan.amount)}</span></div>
+                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-blue-600/60">Contrato</span> <span className="text-zinc-900">{activeLoanDetails.loanPlan.termInWeeks} SEMANAS</span></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="space-y-6">
+                                        {/* DATOS DEL AVAL */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2 ml-1">
+                                                <UserCheck className="h-4 w-4 text-blue-600"/>
+                                                <h3 className="font-black text-[10px] uppercase tracking-widest text-zinc-500">Responsable Solidario</h3>
+                                            </div>
+                                            <div className="p-6 rounded-[2.5rem] bg-blue-600 text-white shadow-xl space-y-4 relative overflow-hidden group hover:scale-[1.02] transition-transform">
+                                                <div className="absolute -bottom-4 -right-4 opacity-10 group-hover:rotate-12 transition-transform">
+                                                    <UserCheck className="h-24 w-24" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase text-blue-200 tracking-widest mb-1 opacity-80">Nombre del Aval</p>
+                                                    <p className="font-black text-sm uppercase leading-tight tracking-tight drop-shadow-sm">{selectedClient.endorsement.split('(')[0].trim()}</p>
+                                                </div>
+                                                <Separator className="bg-blue-400/30" />
+                                                <div>
+                                                    <p className="text-[10px] font-black uppercase text-blue-200 tracking-widest mb-1 opacity-80">Ubicación / Referencias</p>
+                                                    <div className="flex items-start gap-2">
+                                                        <MapPin className="h-4 w-4 shrink-0 text-blue-300" />
+                                                        <p className="text-[10px] font-bold uppercase leading-relaxed text-blue-50/90">{selectedClient.endorsement.match(/\((.*)\)/)?.[1] || 'SIN DIRECCIÓN REGISTRADA'}</p>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
-                                        
-                                        <div className="space-y-4">
-                                            <div className="space-y-3">
-                                                <div className="flex items-center gap-2">
-                                                    <UserCheck className="h-4 w-4 text-blue-600"/>
-                                                    <h3 className="font-black text-xs uppercase tracking-tight text-zinc-900">Datos de Aval</h3>
-                                                </div>
-                                                <div className="p-4 rounded-2xl bg-blue-600 text-white shadow-lg space-y-3 relative overflow-hidden">
-                                                    <div className="absolute -bottom-2 -right-2 opacity-10">
-                                                        <UserCheck className="h-16 w-16" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[8px] font-black uppercase text-blue-200 tracking-widest opacity-80">Responsable</p>
-                                                        <p className="font-black text-sm uppercase leading-tight tracking-tight">{selectedClient.endorsement.split('(')[0].trim()}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[8px] font-black uppercase text-blue-200 tracking-widest opacity-80">Ubicación</p>
-                                                        <p className="text-[9px] font-bold uppercase leading-relaxed text-blue-50/90">{selectedClient.endorsement.match(/\((.*)\)/)?.[1] || 'SIN DIRECCIÓN'}</p>
-                                                    </div>
-                                                </div>
-                                            </div>
 
-                                            <div className="space-y-3">
-                                                <div className="flex items-center gap-2">
-                                                    <Shield className="h-4 w-4 text-zinc-400"/>
-                                                    <h3 className="font-black text-xs uppercase tracking-tight text-zinc-900">Garantía</h3>
-                                                </div>
-                                                <div className="p-4 rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50/30">
-                                                    <p className="font-bold text-[10px] uppercase text-zinc-600 leading-relaxed italic">"{selectedClient.guarantee || 'SIN GARANTÍA REGISTRADA'}"</p>
-                                                </div>
+                                        {/* GARANTÍAS */}
+                                        <div className="space-y-3">
+                                            <div className="flex items-center gap-2 ml-1">
+                                                <Shield className="h-4 w-4 text-zinc-400"/>
+                                                <h3 className="font-black text-[10px] uppercase tracking-widest text-zinc-500">Garantías del Crédito</h3>
+                                            </div>
+                                            <div className="p-6 rounded-[2.5rem] border-4 border-dashed border-zinc-200 bg-zinc-50/50 hover:bg-zinc-50 transition-colors">
+                                                <p className="font-bold text-[11px] uppercase text-zinc-500 leading-relaxed italic text-center">
+                                                    "{selectedClient.guarantee || 'SIN GARANTÍAS REGISTRADAS EN EL EXPEDIENTE'}"
+                                                </p>
                                             </div>
                                         </div>
-                                    </CardContent>
-                                ) : (
-                                    <CardContent className="p-12 text-center">
-                                        <div className="max-w-xs mx-auto space-y-4">
-                                            <div className="p-5 bg-muted rounded-full w-fit mx-auto">
-                                                <CircleDollarSign className="h-10 w-10 text-muted-foreground/30" />
+
+                                        {/* DOMICILIO TITULAR */}
+                                        <div className="p-6 rounded-[2.5rem] bg-zinc-100 border-2 border-zinc-200 space-y-3">
+                                            <div className="flex items-center gap-2">
+                                                <Home className="h-4 w-4 text-primary" />
+                                                <h3 className="font-black text-[10px] uppercase tracking-widest text-zinc-500">Ubicación del Titular</h3>
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-zinc-900 font-black uppercase text-sm tracking-tight">Sin Préstamos Activos</p>
-                                                <p className="text-zinc-500 font-bold uppercase text-[8px] tracking-widest leading-tight">Este cliente no cuenta con deudas vigentes en el sistema.</p>
-                                            </div>
+                                            <p className="text-[10px] font-bold uppercase text-zinc-700 leading-tight">
+                                                {selectedClient.street}, {selectedClient.neighborhood}, {selectedClient.postalCode}, {selectedClient.city}
+                                            </p>
                                         </div>
-                                    </CardContent>
-                                )}
-                            </Card>
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="py-20 text-center bg-zinc-50 rounded-[3rem] border-4 border-dashed border-zinc-200">
+                                    <div className="max-w-xs mx-auto space-y-4">
+                                        <div className="p-6 bg-white rounded-full w-fit mx-auto shadow-xl border-2 border-zinc-100">
+                                            <CircleDollarSign className="h-16 w-16 text-zinc-300" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-zinc-900 font-black uppercase text-sm tracking-tighter">Sin Cartera Activa</p>
+                                            <p className="text-zinc-500 font-bold uppercase text-[9px] tracking-widest leading-tight">Este cliente se encuentra al corriente o no tiene préstamos vigentes registrados.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    </ScrollArea>
-                ) : (
-                    <div className="h-full flex flex-col items-center justify-center border-2 border-dashed rounded-3xl bg-zinc-50/50">
-                        <div className="text-center space-y-4 max-w-sm px-8">
-                            <div className="relative inline-block">
-                                <div className="absolute inset-0 bg-primary/20 blur-2xl rounded-full" />
-                                <Smartphone className="h-16 w-16 text-primary/40 relative" />
-                            </div>
-                            <div className="space-y-2">
-                                <h3 className="text-sm font-black uppercase tracking-widest text-zinc-400">Selecciona un Cliente</h3>
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase leading-relaxed">
-                                    Utiliza el buscador o los filtros de zona a la izquierda para localizar a un cliente y visualizar su estado de cuenta detallado.
-                                </p>
-                            </div>
+
+                        <div className="p-6 bg-zinc-50 border-t flex justify-end gap-3 rounded-b-3xl">
+                            <Button variant="outline" className="h-11 px-8 rounded-xl font-black uppercase text-xs tracking-widest border-2" onClick={() => setIsModalOpen(false)}>Cerrar Expediente</Button>
                         </div>
                     </div>
                 )}
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     </div>
   );
 }
+
