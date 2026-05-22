@@ -1,4 +1,3 @@
-
 'use server';
 
 import { db } from '@/lib/firebase';
@@ -189,7 +188,7 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
 // User Actions
 export async function saveUserAction(uid: string, userData: Omit<AppUser, 'id'>) {
     try {
-        await setDoc(doc(db, 'users', uid), userData);
+        await setDoc(doc(db, 'users', uid), userData, { merge: true });
         revalidatePath('/dashboard/settings');
         return { success: true, message: 'Usuario guardado en Firestore.' };
     } catch (error: any) {

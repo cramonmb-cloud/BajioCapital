@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -47,15 +47,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound } from 'lucide-react';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound, Building } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import type { AppUser, UserPermissions } from '@/lib/types';
+import type { AppUser, UserPermissions, Plaza, Localidad } from '@/lib/types';
 import { deleteUserAction, saveUserAction } from '@/app/dashboard/settings/actions';
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { useRealtimeData } from '@/hooks/use-realtime-data';
 
 const permissionsSchema = z.object({
   dashboard: z.boolean().default(false),
@@ -86,12 +87,16 @@ const addUserFormSchema = z.object({
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.'),
   role: z.enum(['admin', 'supervisor'], { required_error: 'Debes seleccionar un rol.' }),
   permissions: permissionsSchema,
+  assignedPlazaIds: z.array(z.string()).default([]),
+  assignedLocalidadIds: z.array(z.string()).default([]),
 });
 
 const editUserFormSchema = z.object({
   role: z.enum(['admin', 'supervisor'], { required_error: 'Debes seleccionar un rol.' }),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres.').optional().or(z.literal('')),
   permissions: permissionsSchema,
+  assignedPlazaIds: z.array(z.string()).default([]),
+  assignedLocalidadIds: z.array(z.string()).default([]),
 });
 
 type AddUserFormValues = z.infer<typeof addUserFormSchema>;
@@ -106,7 +111,7 @@ const permissionLabels: { id: keyof Omit<UserPermissions, 'showMobileNavBar' | '
     { id: 'loans', label: 'Préstamos', description: 'Hojas de cobranza semanal', icon: Landmark },
     { id: 'overduePortfolio', label: 'Pagos Pendientes', description: 'Clientes con fallos vigentes', icon: FileWarning },
     { id: 'carteraVencida', label: 'Cartera Vencida', description: 'Cuentas incobrables post-vencimiento', icon: History },
-    { id: 'wallet', label: 'Cartera', description: 'Flujo de caja y movimientos', icon: Wallet },
+    { id: 'wallet', label: 'Bitacora', description: 'Flujo de caja y movimientos', icon: Wallet },
     { id: 'control', label: 'Control', description: 'Capital en calle y proyecciones', icon: Activity },
     { id: 'editClients', label: 'Editar Clientes', description: 'Modificar datos de clientes existentes', icon: Edit },
     { id: 'settings', label: 'Ajustes (Maestro)', description: 'Acceso total a la página de ajustes', icon: Settings },
@@ -133,6 +138,10 @@ export function UserManagement({ users }: UserManagementProps) {
   const { toast } = useToast();
   const router = useRouter();
   const { signUp, appUser } = useAuth();
+  const { data: systemData } = useRealtimeData();
+
+  const plazas = useMemo(() => systemData?.plazas || [], [systemData]);
+  const localidades = useMemo(() => systemData?.localidades || [], [systemData]);
 
   const isCristobal = appUser?.username.toUpperCase() === 'CRISTOBAL';
 
@@ -142,6 +151,8 @@ export function UserManagement({ users }: UserManagementProps) {
       username: '',
       password: '',
       role: 'supervisor',
+      assignedPlazaIds: [],
+      assignedLocalidadIds: [],
       permissions: {
         dashboard: true,
         clients: true,
@@ -175,6 +186,8 @@ export function UserManagement({ users }: UserManagementProps) {
       editUserForm.reset({
         role: selectedUser.role,
         password: '',
+        assignedPlazaIds: selectedUser.assignedPlazaIds || [],
+        assignedLocalidadIds: selectedUser.assignedLocalidadIds || [],
         permissions: { 
             dashboard: selectedUser.permissions?.dashboard ?? false,
             clients: selectedUser.permissions?.clients ?? false,
@@ -204,7 +217,18 @@ export function UserManagement({ users }: UserManagementProps) {
     setIsSaving(true);
     const email = `${values.username.toLowerCase()}@${DUMMY_DOMAIN}`;
     try {
-        await signUp(email, values.password, values.role, values.username, values.permissions);
+        const userCredential = await signUp(email, values.password, values.role, values.username, values.permissions);
+        // El signUp ya llama a saveUserAction internamente con la password, pero nos faltan las zonas.
+        // Vamos a actualizarlo con las zonas asignadas.
+        await saveUserAction(userCredential.user.uid, {
+            username: values.username,
+            role: values.role,
+            permissions: values.permissions,
+            password: values.password,
+            assignedPlazaIds: values.assignedPlazaIds,
+            assignedLocalidadIds: values.assignedLocalidadIds,
+        });
+
         toast({ title: 'Usuario Creado', description: `El usuario "${values.username}" ha sido registrado.` });
         addUserForm.reset();
         router.refresh(); 
@@ -223,7 +247,9 @@ export function UserManagement({ users }: UserManagementProps) {
             username: selectedUser.username, 
             role: values.role, 
             permissions: values.permissions,
-            password: values.password || selectedUser.password || ''
+            password: values.password || selectedUser.password || '',
+            assignedPlazaIds: values.assignedPlazaIds,
+            assignedLocalidadIds: values.assignedLocalidadIds,
         };
         const result = await saveUserAction(selectedUser.id, userDataToUpdate);
         if (result.success) {
@@ -284,7 +310,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                 <FormItem>
                                     <FormLabel className="font-bold">Nombre de Usuario</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="Ej: CRISTOBAL_M" {...field} className="uppercase bg-muted/30 focus:bg-background transition-all" />
+                                        <Input placeholder="Ej: ALONSO_M" {...field} className="uppercase bg-muted/30 focus:bg-background transition-all" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -324,6 +350,98 @@ export function UserManagement({ users }: UserManagementProps) {
                                 </FormItem>
                                 )}
                             />
+                        </div>
+
+                        {/* SECCIÓN DE ASIGNACIÓN DE ZONAS */}
+                        <div className="space-y-6 pt-4 border-t">
+                            <div className="flex items-center gap-2 border-b pb-2">
+                                <MapPin className="h-4 w-4 text-blue-600" />
+                                <h4 className="text-sm font-bold uppercase tracking-wider">Asignación de Zonas (Supervisión)</h4>
+                            </div>
+                            
+                            <div className="grid md:grid-cols-2 gap-8">
+                                <FormField
+                                    control={addUserForm.control}
+                                    name="assignedPlazaIds"
+                                    render={() => (
+                                        <FormItem className="space-y-4">
+                                            <div className="flex items-center gap-2">
+                                                <Building className="h-4 w-4 text-blue-500" />
+                                                <FormLabel className="font-black text-xs uppercase">Plazas Permitidas</FormLabel>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 p-4 bg-muted/20 rounded-xl border">
+                                                {plazas.map((plaza) => (
+                                                    <FormField
+                                                        key={plaza.id}
+                                                        control={addUserForm.control}
+                                                        name="assignedPlazaIds"
+                                                        render={({ field }) => (
+                                                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                                                <FormControl>
+                                                                    <Checkbox
+                                                                        checked={field.value?.includes(plaza.id)}
+                                                                        onCheckedChange={(checked) => {
+                                                                            const current = field.value || [];
+                                                                            return checked
+                                                                                ? field.onChange([...current, plaza.id])
+                                                                                : field.onChange(current.filter((val) => val !== plaza.id));
+                                                                        }}
+                                                                    />
+                                                                </FormControl>
+                                                                <FormLabel className="text-[10px] font-bold uppercase cursor-pointer">{plaza.name}</FormLabel>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                ))}
+                                            </div>
+                                            <FormDescription className="text-[9px]">Selecciona las plazas donde este usuario podrá realizar consultas.</FormDescription>
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={addUserForm.control}
+                                    name="assignedLocalidadIds"
+                                    render={() => (
+                                        <FormItem className="space-y-4">
+                                            <div className="flex items-center gap-2">
+                                                <MapPin className="h-4 w-4 text-blue-500" />
+                                                <FormLabel className="font-black text-xs uppercase">Localidades Específicas</FormLabel>
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 p-4 bg-muted/20 rounded-xl border max-h-[150px] overflow-y-auto">
+                                                {localidades
+                                                    .filter(l => addUserForm.watch('assignedPlazaIds')?.includes(l.plazaId))
+                                                    .map((loc) => (
+                                                    <FormField
+                                                        key={loc.id}
+                                                        control={addUserForm.control}
+                                                        name="assignedLocalidadIds"
+                                                        render={({ field }) => (
+                                                            <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                                                <FormControl>
+                                                                    <Checkbox
+                                                                        checked={field.value?.includes(loc.id)}
+                                                                        onCheckedChange={(checked) => {
+                                                                            const current = field.value || [];
+                                                                            return checked
+                                                                                ? field.onChange([...current, loc.id])
+                                                                                : field.onChange(current.filter((val) => val !== loc.id));
+                                                                        }}
+                                                                    />
+                                                                </FormControl>
+                                                                <FormLabel className="text-[10px] font-bold uppercase cursor-pointer">{loc.name}</FormLabel>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                ))}
+                                                {localidades.filter(l => addUserForm.watch('assignedPlazaIds')?.includes(l.plazaId)).length === 0 && (
+                                                    <p className="text-[9px] text-muted-foreground uppercase col-span-2 text-center py-4 italic">Selecciona una Plaza primero para ver sus localidades.</p>
+                                                )}
+                                            </div>
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-6">
@@ -589,6 +707,94 @@ export function UserManagement({ users }: UserManagementProps) {
                                     </FormItem>
                                     )}
                                 />
+                            </div>
+
+                            {/* ASIGNACIÓN DE ZONAS EN EDICIÓN */}
+                            <div className="space-y-6 pt-4 border-t">
+                                <div className="flex items-center gap-2 border-b pb-2">
+                                    <MapPin className="h-4 w-4 text-blue-600" />
+                                    <h4 className="text-sm font-bold uppercase tracking-wider">Restricción Geográfica</h4>
+                                </div>
+                                
+                                <div className="grid md:grid-cols-2 gap-8">
+                                    <FormField
+                                        control={editUserForm.control}
+                                        name="assignedPlazaIds"
+                                        render={() => (
+                                            <FormItem className="space-y-4">
+                                                <div className="flex items-center gap-2">
+                                                    <Building className="h-4 w-4 text-blue-500" />
+                                                    <FormLabel className="font-black text-xs uppercase">Plazas Permitidas</FormLabel>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2 p-4 bg-muted/20 rounded-xl border">
+                                                    {plazas.map((plaza) => (
+                                                        <FormField
+                                                            key={plaza.id}
+                                                            control={editUserForm.control}
+                                                            name="assignedPlazaIds"
+                                                            render={({ field }) => (
+                                                                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                                                    <FormControl>
+                                                                        <Checkbox
+                                                                            checked={field.value?.includes(plaza.id)}
+                                                                            onCheckedChange={(checked) => {
+                                                                                const current = field.value || [];
+                                                                                return checked
+                                                                                    ? field.onChange([...current, plaza.id])
+                                                                                    : field.onChange(current.filter((val) => val !== plaza.id));
+                                                                            }}
+                                                                        />
+                                                                    </FormControl>
+                                                                    <FormLabel className="text-[10px] font-bold uppercase cursor-pointer">{plaza.name}</FormLabel>
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </FormItem>
+                                        )}
+                                    />
+
+                                    <FormField
+                                        control={editUserForm.control}
+                                        name="assignedLocalidadIds"
+                                        render={() => (
+                                            <FormItem className="space-y-4">
+                                                <div className="flex items-center gap-2">
+                                                    <MapPin className="h-4 w-4 text-blue-500" />
+                                                    <FormLabel className="font-black text-xs uppercase">Localidades Permitidas</FormLabel>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2 p-4 bg-muted/20 rounded-xl border max-h-[150px] overflow-y-auto">
+                                                    {localidades
+                                                        .filter(l => editUserForm.watch('assignedPlazaIds')?.includes(l.plazaId))
+                                                        .map((loc) => (
+                                                        <FormField
+                                                            key={loc.id}
+                                                            control={editUserForm.control}
+                                                            name="assignedLocalidadIds"
+                                                            render={({ field }) => (
+                                                                <FormItem className="flex flex-row items-center space-x-3 space-y-0">
+                                                                    <FormControl>
+                                                                        <Checkbox
+                                                                            checked={field.value?.includes(loc.id)}
+                                                                            onCheckedChange={(checked) => {
+                                                                                const current = field.value || [];
+                                                                                return checked
+                                                                                    ? field.onChange([...current, loc.id])
+                                                                                    : field.onChange(current.filter((val) => val !== loc.id));
+                                                                            }}
+                                                                        />
+                                                                    </FormControl>
+                                                                    <FormLabel className="text-[10px] font-bold uppercase cursor-pointer">{loc.name}</FormLabel>
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
                             </div>
 
                             {editUserForm.watch('role') === 'admin' && (

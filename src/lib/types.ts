@@ -100,6 +100,8 @@ export type AppUser = {
     role: 'admin' | 'supervisor';
     permissions: UserPermissions;
     password?: string;
+    assignedPlazaIds?: string[];
+    assignedLocalidadIds?: string[];
 };
 
 export type WhatsAppTemplates = {
