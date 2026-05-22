@@ -48,40 +48,31 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
 
     const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
     
-    // --- LÓGICA DE CALENDARIO UNIFICADA CON LA HOJA SEMANAL (MÉXICO/JALISCO) ---
+    // --- LÓGICA DE CALENDARIO UNIFICADA (MÉXICO/JALISCO) ---
     const now = new Date();
-    // Normalización a medianoche UTC para comparar días exactos (ignora desfase de horas y milisegundos)
     const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
     
-    // La fecha de inicio del préstamo en la DB es un Sábado nominal (JS Date guardado como UTC 00:00:00)
     const loanStartDate = new Date(activeLoan.startDate);
     const startUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
     
-    // Diferencia absoluta en días de calendario
     const daysDiff = Math.floor((todayUTC.getTime() - startUTC.getTime()) / (1000 * 3600 * 24));
-    
-    // Sincronización con LoansClientPage: 
-    // Días 0-6 = Semana 1, Día 7 = Sábado siguiente (Inicio Semana 2)
     const currentWeekSafe = Math.max(1, Math.floor(daysDiff / 7) + 1);
     
     const baseTerm = loanPlan.termInWeeks;
-    // Un préstamo expira (Cartera Vencida) a partir del Sábado de la semana Term + 1
     const isExpired = daysDiff >= (baseTerm * 7);
 
+    // REGLA DE FALLOS Y PAGOS ASUMIDOS:
     let registeredMissedCount = 0;
     let baseArrears = 0;
+    let assumedAmount = 0; // Suma de lo que el sistema "asume pagado" (semanas pasadas sin registro)
     
-    // REGLA DE FALLOS UNIFICADA:
-    // Solo revisamos semanas que ya han concluido totalmente (anteriores a la actual).
     for (let i = 1; i <= baseTerm; i++) {
         if (i < currentWeekSafe) {
             const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
             const amountPaid = p ? p.amount : 0;
             
-            // REGLA SOLICITADA POR EL USUARIO:
-            // 1. Si el préstamo es VIGENTE: Solo es fallo si hay un registro explícito de pago incompleto (< weeklyPayment).
-            //    Si no hay registro (p es null), se asume pagado por el flujo del negocio ("Assumed Paid").
-            // 2. Si el préstamo es VENCIDO: Cualquier ausencia de pago total es un fallo automático.
+            // Un fallo es un registro explícito de pago incompleto
+            // En préstamos vencidos, la ausencia de pago también es fallo
             const isFallo = isExpired 
                 ? (amountPaid < weeklyPayment)
                 : (!!p && amountPaid < weeklyPayment);
@@ -89,22 +80,32 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
             if (isFallo) {
                 registeredMissedCount++;
                 baseArrears += (weeklyPayment - amountPaid);
+            } else if (!p) {
+                // Semana pasada sin registro = Asumido pagado por el negocio
+                assumedAmount += weeklyPayment;
             }
         }
     }
     
     // REGLA PENALIZACIÓN: Vencido O 2+ fallos registrados
     const hasPenalty = isExpired || (registeredMissedCount >= 2);
-
-    const totalPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
     const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
-    const totalExpected = totalTerm * weeklyPayment;
-    const totalDue = Math.max(0, totalExpected - totalPaid);
 
+    // --- CÁLCULO DE SALDO A LIQUIDAR (AJUSTADO A PERCEPCIÓN DEL USUARIO) ---
+    // Total Real Pagado en el sistema
+    const actualPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
+    // Para el cálculo de deuda, sumamos lo "asumido" como si ya estuviera pagado (no es saldo pendiente)
+    const businessPaid = actualPaid + assumedAmount;
+    
+    // El saldo total es lo que falta para completar el contrato (incluida penalización)
+    const totalExpected = totalTerm * weeklyPayment;
+    const totalBalanceDue = Math.max(0, totalExpected - businessPaid);
+
+    // Desglose de penalización para la UI
     let penaltyArrear = 0;
     if (hasPenalty) {
         const pExtra = (activeLoan.payments || []).find(pay => pay.weekNumber === baseTerm + 1);
-        penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
+        penaltyArrear = Math.max(0, weeklyPayment - (pExtra?.amount || 0));
     }
 
     const currentLoanWeekDisplay = Math.min(currentWeekSafe, totalTerm);
@@ -121,7 +122,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
       termInWeeks: totalTerm,
       baseArrears,
       penaltyArrear,
-      totalBalance: totalDue,
+      totalBalance: totalBalanceDue,
       missedWeeks: registeredMissedCount,
       hasPenalty,
       isExpired,
