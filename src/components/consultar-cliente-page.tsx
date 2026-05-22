@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -48,48 +47,53 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
 
     const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
     
-    // LÓGICA CRONOLÓGICA DE DÍAS CALENDARIO
-    const today = new Date();
-    const loanStartDate = new Date(activeLoan.startDate); // Guardada como UTC 00:00 del Sábado
+    // LOGICA DE CALENDARIO LOCAL (Jalisco, México)
+    const now = new Date();
+    // Hoy a las 00:00:00 local (Jalisco)
+    const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     
-    // Normalizamos ambas fechas al inicio del día (00:00) para comparar días transcurridos exactos
-    // startNominal: El día del préstamo (Sábado)
-    const startNominal = new Date(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate());
-    // todayNominal: El día que vive el usuario localmente
-    const todayNominal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    // loanStartDate se guarda como UTC Sábado 00:00:00
+    const loanStartDateUTC = new Date(activeLoan.startDate);
+    // Convertimos ese Sábado UTC a un Sábado Local 00:00:00 para la comparación nominal
+    const startNominalLocal = new Date(loanStartDateUTC.getUTCFullYear(), loanStartDateUTC.getUTCMonth(), loanStartDateUTC.getUTCDate());
     
-    const diffInMs = todayNominal.getTime() - startNominal.getTime();
+    const diffInMs = todayLocal.getTime() - startNominalLocal.getTime();
     const daysDiff = Math.round(diffInMs / (1000 * 3600 * 24));
     
-    // REGLA DE SEMANAS:
-    // El periodo de cobranza es el Sábado (día 7, 14, 21...).
-    // Una semana se considera "vencida" y candidata a fallo solo si ya pasó ese Sábado (hoy es Domingo o posterior).
-    // daysDiff 0-7: Semana 1 (Pendiente/Cobrando)
-    // daysDiff 8-14: Semana 2...
-    const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
+    // S1 vence exactamente 7 días después del inicio.
+    // Hasta el día 7 inclusive, estamos en la semana 1.
+    const rawCurrentLoanWeek = Math.floor((daysDiff - 1) / 7) + 1;
+    const currentWeekSafe = rawCurrentLoanWeek < 1 ? 1 : rawCurrentLoanWeek;
     
     const baseTerm = loanPlan.termInWeeks;
-    const isExpired = rawCurrentLoanWeek > baseTerm;
+    const isExpired = currentWeekSafe > baseTerm;
 
     let registeredMissedCount = 0;
     let baseArrears = 0;
     
-    // Revisamos semanas que YA HAN CONCLUIDO (Plazo vencido)
+    // Revisamos semanas del contrato base
     for (let i = 1; i <= baseTerm; i++) {
-        const weekDeadlineInDays = i * 7;
-        // Solo cuenta como fallo si hoy es estrictamente después del Sábado de vencimiento (día 8, 15, etc.)
-        if (daysDiff > weekDeadlineInDays) {
-            const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
-            const amountPaid = p ? p.amount : 0;
-            
-            if (amountPaid < weeklyPayment) {
+        // La semana i vence en el día (i * 7) relativo al inicio
+        const dueDate = new Date(startNominalLocal);
+        dueDate.setDate(startNominalLocal.getDate() + (i * 7));
+        
+        const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
+        const amountPaid = p ? p.amount : 0;
+        
+        // Un fallo solo se cuenta si el Sábado de vencimiento ya pasó completamente (hoy es Domingo o posterior Local)
+        // El Domingo es dueDate + 1 día
+        const deadline = new Date(dueDate.getFullYear(), dueDate.getMonth(), dueDate.getDate() + 1);
+
+        if (amountPaid < weeklyPayment) {
+            // Si hoy ya es el Domingo de la semana siguiente (o después), y no pagó completo -> Fallo real
+            if (todayLocal >= deadline) {
                 registeredMissedCount++;
                 baseArrears += (weeklyPayment - amountPaid);
             }
         }
     }
     
-    // REGLA PENALIZACIÓN: Vencido O 2+ fallos reales
+    // REGLA PENALIZACIÓN: Vencido O 2+ fallos reales registrados
     const hasPenalty = isExpired || (registeredMissedCount >= 2);
 
     const totalPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
@@ -103,7 +107,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
         penaltyArrear = weeklyPayment - (pExtra?.amount || 0);
     }
 
-    const currentLoanWeekDisplay = Math.min(rawCurrentLoanWeek, totalTerm);
+    const currentLoanWeekDisplay = Math.min(currentWeekSafe, totalTerm);
 
     const promotora = promotoras.find(p => p.id === activeLoan.promotoraId);
     const localidad = localidades.find(l => l.id === promotora?.localidadId);
