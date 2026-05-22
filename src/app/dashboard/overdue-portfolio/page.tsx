@@ -1,3 +1,4 @@
+
 import { getClients, getLoanPlans, getLoans, getPlazas, getLocalidades, getPromotoras, getAppConfig } from '@/lib/firestore-data';
 import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { OverduePortfolioClientPage } from '@/components/overdue-portfolio-client-page';
@@ -29,20 +30,24 @@ export default async function OverduePortfolioPage() {
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
             const baseTerm = loanPlan.termInWeeks;
+
+            // Normalización UTC para el cálculo de semanas
+            const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
+            const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+            const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+            
+            const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
             
             let missedCount = 0;
             let baseArrears = 0;
 
-            // Calcular fallos reales en semanas base
+            // Calcular fallos reales (semanas que ya concluyeron y no tienen pago completo)
             for (let i = 1; i <= baseTerm; i++) {
-                const p = loan.payments.find(pay => pay.weekNumber === i);
-                const amountPaid = p ? p.amount : 0;
-                
-                if (amountPaid < weeklyPayment) {
-                    const dueDate = new Date(loanStartDate);
-                    dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
+                if (i < rawCurrentLoanWeek) {
+                    const p = loan.payments.find(pay => pay.weekNumber === i);
+                    const amountPaid = p ? p.amount : 0;
                     
-                    if (p || today > dueDate) {
+                    if (amountPaid < weeklyPayment) {
                         missedCount++;
                         baseArrears += (weeklyPayment - amountPaid);
                     }
@@ -60,9 +65,6 @@ export default async function OverduePortfolioPage() {
 
             const calculatedTotalDue = baseArrears + penaltyArrear;
 
-            const timeDiff = today.getTime() - loanStartDate.getTime();
-            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
-            
             // IMPORTANTE: Un préstamo en esta sección debe estar vigente (no expirado)
             const isExpired = rawCurrentLoanWeek > baseTerm;
 

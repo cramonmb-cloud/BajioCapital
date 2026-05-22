@@ -68,11 +68,13 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     const loanStartDate = new Date(activeLoan.startDate);
     const baseTerm = loanPlan.termInWeeks;
     
-    // Normalizar fechas a días completos locales para cálculos de calendario precisos
-    const startDayLocal = new Date(loanStartDate.getFullYear(), loanStartDate.getMonth(), loanStartDate.getDate());
-    const todayLocal = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    // Normalizar fechas a días completos UTC para evitar desfases por zona horaria local
+    // El desfase de zona horaria (ej. México UTC-6) puede mover el 00:00 UTC del Sábado al Viernes 18:00 Local.
+    // Usar getUTC... asegura que trabajamos con el día nominal almacenado.
+    const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
+    const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
     
-    const daysDiff = Math.round((todayLocal.getTime() - startDayLocal.getTime()) / (1000 * 3600 * 24));
+    const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
     
     // REGLA DE SEMANAS:
     // La semana 1 dura desde el día del préstamo (Sábado) hasta el siguiente Sábado (7 días después).
@@ -86,7 +88,7 @@ export function ConsultarClientePage({ clients, loans, loanPlans, plazas, locali
     let baseArrears = 0;
     
     // Solo revisamos fallos de las semanas que YA HAN CONCLUIDO (i < rawCurrentLoanWeek)
-    // Esto asegura que la semana en curso no se marque como fallo antes de tiempo.
+    // Esto asegura que la semana en curso (Sábado de cobranza) no se marque como fallo antes de tiempo.
     for (let i = 1; i <= baseTerm; i++) {
         if (i < rawCurrentLoanWeek) {
             const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);

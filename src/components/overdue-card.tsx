@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -92,17 +93,19 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const loanStartDate = new Date(loan.startDate);
         const baseTerm = loanPlan.termInWeeks;
         
-        const timeDiff = today.getTime() - loanStartDate.getTime();
-        const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+        // Normalización UTC para evitar desfases de zona horaria
+        const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
+        const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+        const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+        
+        const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
         const isExpired = rawCurrentLoanWeek > baseTerm;
 
         let missedCount = 0;
         for (let i = 1; i <= baseTerm; i++) {
-            const p = (loan.payments || []).find(pay => pay.weekNumber === i);
-            if (!p || p.amount < weeklyPayment) {
-                const dueDate = new Date(loanStartDate);
-                dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
-                if (isExpired || today > dueDate) missedCount++;
+            if (i < rawCurrentLoanWeek) {
+                const p = (loan.payments || []).find(pay => pay.weekNumber === i);
+                if (!p || p.amount < weeklyPayment) missedCount++;
             }
         }
 

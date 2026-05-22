@@ -1,3 +1,4 @@
+
 'use client';
 import {
   Card,
@@ -49,7 +50,7 @@ export default function DashboardPage() {
         if (!data || !appUser) return null;
 
         const totalClients = clients.length;
-        const activeLoans = loans.filter((loan) => loan.status === 'Active' || loan.status === 'Overdue').length;
+        const activeLoansCount = loans.filter((loan) => loan.status === 'Active' || loan.status === 'Overdue').length;
         const totalLoaned = loans.reduce((acc, loan) => acc + loan.amount, 0);
 
         const overdueLoans = loans.filter((loan) => {
@@ -59,8 +60,13 @@ export default function DashboardPage() {
 
             const today = new Date();
             const loanStartDate = new Date(loan.startDate);
-            const timeDiff = today.getTime() - loanStartDate.getTime();
-            const currentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+            const baseTerm = plan.termInWeeks;
+
+            // Normalización UTC
+            const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
+            const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+            const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+            const currentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
 
             const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
             let missedWeeksCount = 0;
@@ -105,7 +111,7 @@ export default function DashboardPage() {
 
         return {
             totalClients,
-            activeLoans,
+            activeLoans: activeLoansCount,
             totalLoaned,
             overdueLoans,
             totalCollectedThisWeek,
