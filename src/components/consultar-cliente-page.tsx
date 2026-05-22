@@ -70,7 +70,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     if (isAdmin) return allLoans;
     const allowedLocIds = allowedLocalidades.map(l => l.id);
     const allowedPromotoras = allPromotoras.filter(p => allowedLocIds.includes(p.localidadId));
-    const allowedPromotoraIds = allowedPromotoras.map(p => p.id);
+    const allowedPromotoraIds = allowedPromotoraIds.map(p => p.id);
     return allLoans.filter(l => l.promotoraId && allowedPromotoraIds.includes(l.promotoraId));
   }, [allLoans, allPromotoras, allowedLocalidades, isAdmin]);
 
@@ -164,7 +164,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
     const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
     
-    // CALENDARIO JALISCO
+    // CALENDARIO JALISCO (Ignorar desfase UTC)
     const now = new Date();
     const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const loanStartDate = new Date(activeLoan.startDate);
@@ -178,31 +178,39 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
     let registeredMissedCount = 0;
     let baseArrears = 0;
-    let assumedPaidAmount = 0; 
     
-    for (let i = 1; i <= baseTerm; i++) {
-        const paymentRecord = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
-        const amountPaid = paymentRecord ? paymentRecord.amount : 0;
-        const dueDate = new Date(startLocal.getTime());
-        dueDate.setDate(startLocal.getDate() + (i * 7));
-        
-        if (paymentRecord) {
-            if (amountPaid < weeklyPayment) {
-                registeredMissedCount++;
-                baseArrears += (weeklyPayment - amountPaid);
-            }
-        } else {
-            if (todayLocal > dueDate) {
-                assumedPaidAmount += weeklyPayment;
-            }
+    // Solo contar lo que se registra explícitamente como incompleto (pagos parciales o ceros)
+    (activeLoan.payments || []).forEach(p => {
+        if (p.weekNumber > 0 && p.weekNumber <= baseTerm && p.amount < weeklyPayment) {
+            registeredMissedCount++;
+            baseArrears += (weeklyPayment - p.amount);
         }
-    }
-    
+    });
+
     const hasPenalty = isExpired || (registeredMissedCount >= 2);
     const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
 
     const actualTotalPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
+    
+    // El saldo a liquidar se compone de:
+    // 1. Fallos registrados
+    // 2. Semana actual (lo que resta por pagar de ella)
+    // 3. Semanas futuras del contrato
+    // 4. Semana extra (si aplica)
+    
+    // Primero determinamos el total esperado del contrato (Base + Penalización)
     const totalExpectedContract = totalTerm * weeklyPayment;
+    
+    // Calculamos cuánto se ha pagado en "semanas pasadas sin fallos" (Semanas asumidas)
+    let assumedPaidAmount = 0;
+    for (let i = 1; i < currentWeekSafe; i++) {
+        if (i > baseTerm) break; // No asumir pagada la semana extra
+        const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
+        if (!p) {
+            assumedPaidAmount += weeklyPayment;
+        }
+    }
+
     const totalBalanceDue = Math.max(0, totalExpectedContract - actualTotalPaid - assumedPaidAmount);
 
     let penaltyArrear = 0;
@@ -429,196 +437,153 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
             </div>
         )}
 
-        {/* MODAL DE DETALLE DEL CLIENTE */}
+        {/* MODAL DE DETALLE DEL CLIENTE - REDISEÑO COMPACTO */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogContent className="max-w-4xl max-h-[95vh] overflow-y-auto p-0 border-0 shadow-2xl rounded-3xl">
+            <DialogContent className="max-w-3xl max-h-[92vh] overflow-hidden p-0 border-0 shadow-2xl rounded-2xl flex flex-col">
                 {selectedClient && (
-                    <div className="flex flex-col relative">
-                        <div className="absolute top-0 left-0 w-full h-24 bg-gradient-to-r from-blue-600 to-primary/80 z-0" />
-                        
-                        <div className="px-6 pt-12 z-10 space-y-6 mb-8">
-                            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                                <div className="flex items-center gap-6">
-                                    <Avatar className="h-24 w-24 border-4 border-white shadow-2xl rounded-3xl">
+                    <div className="flex flex-col h-full overflow-hidden">
+                        {/* Header Compacto */}
+                        <div className="bg-gradient-to-r from-blue-700 to-primary p-4 shrink-0 shadow-md">
+                            <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <Avatar className="h-12 w-12 border-2 border-white shadow-lg rounded-xl">
                                         <AvatarImage src={selectedClient.avatarUrl} alt={selectedClient.name} />
-                                        <AvatarFallback className="text-3xl font-black bg-white text-primary rounded-3xl">{selectedClient.name.charAt(0)}</AvatarFallback>
+                                        <AvatarFallback className="text-lg font-black bg-white text-primary rounded-xl">{selectedClient.name.charAt(0)}</AvatarFallback>
                                     </Avatar>
-                                    <div className="space-y-1">
-                                        <h2 className="text-2xl font-black uppercase tracking-tight text-white drop-shadow-sm leading-none">{selectedClient.name}</h2>
-                                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                                            <Badge className="bg-white/20 text-white hover:bg-white/30 border-0 font-black text-[9px] uppercase backdrop-blur-md">ID: {selectedClient.id}</Badge>
+                                    <div className="space-y-0.5">
+                                        <h2 className="text-lg font-black uppercase tracking-tight text-white leading-none">{selectedClient.name}</h2>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[9px] font-black text-blue-100 uppercase tracking-widest bg-black/10 px-1.5 py-0.5 rounded">ID: {selectedClient.id}</span>
                                             {activeLoanDetails && (
-                                                <Badge className="bg-blue-900/40 text-blue-50 border-0 font-black text-[9px] uppercase backdrop-blur-md">{activeLoanDetails.loanPlan.name}</Badge>
+                                                <Badge className="bg-white/20 text-white border-0 font-black text-[8px] h-4 uppercase">{activeLoanDetails.loanPlan.name}</Badge>
                                             )}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-1 gap-2 shrink-0">
-                                    <Button asChild variant="secondary" className="h-10 px-6 rounded-xl font-black text-xs uppercase shadow-lg border-b-4 border-zinc-200">
-                                        <a href={`tel:${selectedClient.phone}`}><Phone className="h-4 w-4 mr-2 text-blue-600" /> {selectedClient.phone}</a>
-                                    </Button>
-                                </div>
+                                <Button asChild variant="secondary" className="h-8 px-4 rounded-lg font-black text-[10px] uppercase shadow-sm border-b-2 border-zinc-200">
+                                    <a href={`tel:${selectedClient.phone}`}><Phone className="h-3 w-3 mr-1.5 text-blue-600" /> {selectedClient.phone}</a>
+                                </Button>
                             </div>
+                        </div>
 
-                            {activeLoanDetails ? (
-                                <div className="grid md:grid-cols-[1fr_300px] gap-6">
-                                    <div className="space-y-6">
-                                        {/* INDICADORES FINANCIEROS */}
-                                        <div className="grid grid-cols-3 gap-3">
-                                            <div className="p-4 rounded-3xl bg-zinc-100 border-2 border-zinc-200 text-center shadow-sm">
-                                                <p className="text-muted-foreground uppercase text-[8px] font-black tracking-widest mb-1">Progreso</p>
-                                                <p className="font-black text-xl tracking-tighter text-zinc-900">{activeLoanDetails.currentLoanWeek} / {activeLoanDetails.termInWeeks}</p>
-                                                <p className="text-[8px] font-bold text-zinc-500 uppercase">SEMANAS</p>
+                        <ScrollArea className="flex-1">
+                            <div className="p-4 space-y-4">
+                                {activeLoanDetails ? (
+                                    <>
+                                        {/* Fila de Indicadores Mini */}
+                                        <div className="grid grid-cols-3 gap-2">
+                                            <div className="p-2 rounded-xl bg-zinc-50 border border-zinc-200 text-center shadow-inner">
+                                                <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Progreso</p>
+                                                <p className="font-black text-base text-zinc-900 leading-none">{activeLoanDetails.currentLoanWeek} <span className="text-zinc-400 text-[10px]">/ {activeLoanDetails.termInWeeks}</span></p>
                                             </div>
-                                            <div className="p-4 rounded-3xl bg-blue-50 border-2 border-blue-100 text-center shadow-sm">
-                                                <p className="text-blue-600 uppercase text-[8px] font-black tracking-widest mb-1">Cuota</p>
-                                                <p className="font-black text-xl tracking-tighter text-blue-800">{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
-                                                <p className="text-[8px] font-bold text-blue-400 uppercase">ABONO FIJO</p>
+                                            <div className="p-2 rounded-xl bg-blue-50 border border-blue-100 text-center shadow-inner">
+                                                <p className="text-[7px] font-black text-blue-600 uppercase tracking-widest mb-0.5">Cuota</p>
+                                                <p className="font-black text-base text-blue-800 leading-none">{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
                                             </div>
                                             <div className={cn(
-                                                "p-4 rounded-3xl text-center shadow-sm relative overflow-hidden border-2",
+                                                "p-2 rounded-xl text-center shadow-inner relative overflow-hidden border",
                                                 activeLoanDetails.missedWeeks > 0 ? "bg-red-50 border-red-100" : "bg-green-50 border-green-100"
                                             )}>
-                                                <p className={cn("uppercase text-[8px] font-black tracking-widest mb-1", activeLoanDetails.missedWeeks > 0 ? "text-red-600" : "text-green-600")}>Incidencias</p>
-                                                <p className={cn("font-black text-xl tracking-tighter", activeLoanDetails.missedWeeks > 0 ? "text-red-700" : "text-green-700")}>{activeLoanDetails.missedWeeks}</p>
-                                                <p className="text-[8px] font-bold opacity-70 uppercase">{activeLoanDetails.missedWeeks === 1 ? 'FALLO DETECTADO' : activeLoanDetails.missedWeeks > 1 ? 'FALLOS ACUMULADOS' : 'SIN FALLOS'}</p>
+                                                <p className={cn("text-[7px] font-black uppercase tracking-widest mb-0.5", activeLoanDetails.missedWeeks > 0 ? "text-red-600" : "text-green-600")}>Incidencias</p>
+                                                <p className={cn("font-black text-base leading-none", activeLoanDetails.missedWeeks > 0 ? "text-red-700" : "text-green-700")}>{activeLoanDetails.missedWeeks} <span className="text-[8px] opacity-70">FALLOS</span></p>
                                                 {activeLoanDetails.hasPenalty && (
-                                                    <div className="absolute top-0 right-0 p-1 bg-orange-500 text-[7px] text-white font-black uppercase rotate-45 translate-x-3 translate-y-[-2px] w-14 text-center shadow-sm">+1 SEM</div>
+                                                    <div className="absolute top-0 right-0 p-0.5 bg-orange-500 text-[6px] text-white font-black uppercase rotate-45 translate-x-2 translate-y-[-1px] w-10 text-center">+1</div>
                                                 )}
                                             </div>
                                         </div>
 
-                                        {/* TARJETA DE LIQUIDACIÓN */}
-                                        <div className="p-6 bg-zinc-900 rounded-[2.5rem] border-8 border-zinc-800 shadow-2xl relative overflow-hidden">
-                                            <div className="absolute top-0 right-0 p-4 opacity-5">
-                                                <CircleDollarSign className="h-32 w-32 text-white" />
+                                        {/* Tarjeta de Saldo Compacta */}
+                                        <div className="p-4 bg-zinc-900 rounded-2xl border-4 border-zinc-800 shadow-xl relative overflow-hidden">
+                                            <div className="absolute -right-4 -top-4 opacity-5 rotate-12">
+                                                <CircleDollarSign className="h-20 w-20 text-white" />
                                             </div>
-                                            <div className="space-y-4 relative z-10">
-                                                <div className="flex justify-between items-center text-zinc-500 border-b border-zinc-800 pb-3 border-dashed">
-                                                    <div className="flex items-center gap-2">
-                                                        <AlertTriangle className="h-4 w-4 text-red-500" />
-                                                        <span className="font-black text-[10px] uppercase tracking-widest">Adeudo por Fallos Registrados</span>
-                                                    </div>
-                                                    <span className="font-black text-sm text-white">{formatCurrency(activeLoanDetails.baseArrears)}</span>
-                                                </div>
-                                                
-                                                {activeLoanDetails.hasPenalty && (
-                                                    <div className="flex justify-between items-center text-orange-400 border-b border-zinc-800 pb-3 border-dashed">
-                                                        <div className="flex items-center gap-2">
-                                                            <Smartphone className="h-4 w-4" />
-                                                            <span className="font-black text-[10px] uppercase tracking-widest">Penalización {activeLoanDetails.isExpired ? '(PRÉSTAMO VENCIDO)' : '(2+ FALLOS)'}</span>
+                                            <div className="flex flex-col md:flex-row items-center justify-between gap-3 relative z-10">
+                                                <div className="space-y-1 text-center md:text-left">
+                                                    <div className="flex flex-wrap justify-center md:justify-start gap-3">
+                                                        <div className="flex items-center gap-1.5">
+                                                            <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
+                                                            <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Fallos: {formatCurrency(activeLoanDetails.baseArrears)}</span>
                                                         </div>
-                                                        <span className="font-black text-sm">+{formatCurrency(activeLoanDetails.penaltyArrear)}</span>
+                                                        {activeLoanDetails.hasPenalty && (
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
+                                                                <span className="text-[8px] font-bold text-orange-400 uppercase tracking-widest">Extra: {formatCurrency(activeLoanDetails.penaltyArrear)}</span>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
-
-                                                <div className="flex flex-col md:flex-row md:items-end justify-between pt-2 gap-4">
-                                                    <div className="space-y-1">
-                                                        <span className="text-[10px] font-black uppercase text-zinc-500 tracking-[0.2em] block">Contabilidad al Día</span>
-                                                        <span className={cn("font-black uppercase text-base tracking-tighter leading-none", activeLoanDetails.totalBalance <= 0 ? "text-green-400" : "text-primary")}>Saldo para Liquidación Total</span>
-                                                    </div>
-                                                    <span className={cn("text-5xl font-black tracking-tighter leading-none drop-shadow-lg", activeLoanDetails.totalBalance <= 0 ? "text-green-400" : "text-white")}>
+                                                    <p className="text-[9px] font-black text-primary/80 uppercase tracking-[0.2em] mt-1">Saldo para Liquidación Total</p>
+                                                </div>
+                                                <div className="text-center md:text-right">
+                                                    <span className={cn("text-3xl md:text-4xl font-black tracking-tighter leading-none drop-shadow-md", activeLoanDetails.totalBalance <= 0 ? "text-green-400" : "text-white")}>
                                                         {formatCurrency(activeLoanDetails.totalBalance)}
                                                     </span>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* DETALLE OPERATIVO */}
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <div className="p-5 rounded-3xl border-2 bg-muted/20 space-y-4 shadow-inner">
-                                                <div className="flex items-center gap-2 border-b border-muted-foreground/10 pb-2">
-                                                    <Building className="h-4 w-4 text-primary" />
-                                                    <span className="text-[9px] font-black uppercase text-muted-foreground tracking-wider">Estructura Operativa</span>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-muted-foreground">Plaza</span> <span className="text-zinc-900">{activeLoanDetails.plazaName}</span></div>
-                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-muted-foreground">Zona</span> <span className="text-zinc-900">{activeLoanDetails.localidadName}</span></div>
-                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-muted-foreground">Ruta</span> <span className="text-zinc-900">{activeLoanDetails.promotoraName}</span></div>
-                                                </div>
-                                            </div>
-                                            <div className="p-5 rounded-3xl border-2 bg-blue-50/20 space-y-4 shadow-inner">
-                                                <div className="flex items-center gap-2 border-b border-blue-200 pb-2">
-                                                    <Calendar className="h-4 w-4 text-blue-600" />
-                                                    <span className="text-[9px] font-black uppercase text-blue-600/70 tracking-wider">Cronología del Crédito</span>
-                                                </div>
-                                                <div className="space-y-2">
-                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-blue-600/60">Apertura</span> <span className="text-zinc-900">{formatDate(activeLoanDetails.loanStartDate)}</span></div>
-                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-blue-600/60">Monto Base</span> <span className="text-zinc-900 font-black">{formatCurrency(activeLoanDetails.loan.amount)}</span></div>
-                                                    <div className="flex justify-between text-[10px] font-bold uppercase"><span className="text-blue-600/60">Contrato</span> <span className="text-zinc-900">{activeLoanDetails.loanPlan.termInWeeks} SEMANAS</span></div>
+                                        {/* Detalles Operativos Consolidados */}
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div className="bg-muted/30 border rounded-xl p-3 space-y-3">
+                                                <h4 className="text-[8px] font-black uppercase text-muted-foreground border-b pb-1 flex items-center gap-1.5">
+                                                    <Info className="h-2.5 w-2.5" /> Información del Crédito
+                                                </h4>
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Plaza</p><p className="text-[10px] font-black text-zinc-800 uppercase leading-none">{activeLoanDetails.plazaName}</p></div>
+                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Apertura</p><p className="text-[10px] font-black text-zinc-800 leading-none">{formatDate(activeLoanDetails.loanStartDate)}</p></div>
+                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Zona</p><p className="text-[10px] font-black text-zinc-800 uppercase leading-none">{activeLoanDetails.localidadName}</p></div>
+                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Monto Base</p><p className="text-[10px] font-black text-zinc-800 leading-none">{formatCurrency(activeLoanDetails.loan.amount)}</p></div>
+                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Ruta</p><p className="text-[10px] font-black text-zinc-800 uppercase leading-none">{activeLoanDetails.promotoraName}</p></div>
+                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Plazo</p><p className="text-[10px] font-black text-zinc-800 uppercase leading-none">{activeLoanDetails.loanPlan.termInWeeks} SEM</p></div>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
-                                    
-                                    <div className="space-y-6">
-                                        {/* DATOS DEL AVAL */}
-                                        <div className="space-y-3">
-                                            <div className="flex items-center gap-2 ml-1">
-                                                <UserCheck className="h-4 w-4 text-blue-600"/>
-                                                <h3 className="font-black text-[10px] uppercase tracking-widest text-zinc-500">Responsable Solidario</h3>
-                                            </div>
-                                            <div className="p-6 rounded-[2.5rem] bg-blue-600 text-white shadow-xl space-y-4 relative overflow-hidden group hover:scale-[1.02] transition-transform">
-                                                <div className="absolute -bottom-4 -right-4 opacity-10 group-hover:rotate-12 transition-transform">
-                                                    <UserCheck className="h-24 w-24" />
-                                                </div>
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase text-blue-200 tracking-widest mb-1 opacity-80">Nombre del Aval</p>
-                                                    <p className="font-black text-sm uppercase leading-tight tracking-tight drop-shadow-sm">{selectedClient.endorsement.split('(')[0].trim()}</p>
-                                                </div>
-                                                <Separator className="bg-blue-400/30" />
-                                                <div>
-                                                    <p className="text-[10px] font-black uppercase text-blue-200 tracking-widest mb-1 opacity-80">Ubicación / Referencias</p>
-                                                    <div className="flex items-start gap-2">
-                                                        <MapPin className="h-4 w-4 shrink-0 text-blue-300" />
-                                                        <p className="text-[10px] font-bold uppercase leading-relaxed text-blue-50/90">{selectedClient.endorsement.match(/\((.*)\)/)?.[1] || 'SIN DIRECCIÓN REGISTRADA'}</p>
+
+                                            <div className="space-y-3">
+                                                <div className="bg-blue-600 rounded-xl p-3 text-white shadow-md relative overflow-hidden">
+                                                    <div className="absolute -right-2 -bottom-2 opacity-10">
+                                                        <UserCheck className="h-12 w-12" />
                                                     </div>
+                                                    <h4 className="text-[8px] font-black uppercase text-blue-200 border-b border-blue-400/30 pb-1 mb-2">Responsable Solidario</h4>
+                                                    <p className="text-[11px] font-black uppercase leading-tight truncate">{selectedClient.endorsement.split('(')[0].trim()}</p>
+                                                    <div className="flex items-start gap-1.5 mt-1 text-blue-100">
+                                                        <MapPin className="h-2.5 w-2.5 shrink-0 mt-0.5 opacity-70" />
+                                                        <p className="text-[8px] font-medium leading-tight line-clamp-2 uppercase">
+                                                            {selectedClient.endorsement.match(/\((.*)\)/)?.[1] || 'SIN DIRECCIÓN'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-2.5">
+                                                    <h4 className="text-[8px] font-black uppercase text-zinc-400 border-b pb-1 mb-1.5">Garantías</h4>
+                                                    <p className="text-[9px] font-bold text-zinc-600 uppercase italic leading-tight text-center px-2">
+                                                        "{selectedClient.guarantee || 'SIN GARANTÍAS'}"
+                                                    </p>
                                                 </div>
                                             </div>
                                         </div>
 
-                                        {/* GARANTÍAS */}
-                                        <div className="space-y-3">
-                                            <div className="flex items-center gap-2 ml-1">
-                                                <Shield className="h-4 w-4 text-zinc-400"/>
-                                                <h3 className="font-black text-[10px] uppercase tracking-widest text-zinc-500">Garantías del Crédito</h3>
+                                        {/* Dirección Titular Mini */}
+                                        <div className="flex items-center gap-3 p-2 bg-zinc-100/50 border rounded-xl">
+                                            <div className="bg-white p-1.5 rounded-lg shadow-sm">
+                                                <Home className="h-3.5 w-3.5 text-blue-600" />
                                             </div>
-                                            <div className="p-6 rounded-[2.5rem] border-4 border-dashed border-zinc-200 bg-zinc-50/50 hover:bg-zinc-50 transition-colors">
-                                                <p className="font-bold text-[11px] uppercase text-zinc-500 leading-relaxed italic text-center">
-                                                    "{selectedClient.guarantee || 'SIN GARANTÍAS REGISTRADAS EN EL EXPEDIENTE'}"
+                                            <div className="flex-1">
+                                                <p className="text-[7px] font-black uppercase text-muted-foreground tracking-widest">Ubicación del Titular</p>
+                                                <p className="text-[9px] font-bold uppercase text-zinc-700 truncate">
+                                                    {selectedClient.street}, {selectedClient.neighborhood}, {selectedClient.city}
                                                 </p>
                                             </div>
                                         </div>
-
-                                        {/* DOMICILIO TITULAR */}
-                                        <div className="p-6 rounded-[2.5rem] bg-zinc-100 border-2 border-zinc-200 space-y-3">
-                                            <div className="flex items-center gap-2">
-                                                <Home className="h-4 w-4 text-primary" />
-                                                <h3 className="font-black text-[10px] uppercase tracking-widest text-zinc-500">Ubicación del Titular</h3>
-                                            </div>
-                                            <p className="text-[10px] font-bold uppercase text-zinc-700 leading-tight">
-                                                {selectedClient.street}, {selectedClient.neighborhood}, {selectedClient.postalCode}, {selectedClient.city}
-                                            </p>
-                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="py-12 text-center">
+                                        <CircleDollarSign className="h-12 w-12 text-zinc-200 mx-auto mb-2" />
+                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Sin Préstamos Activos</p>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="py-20 text-center bg-zinc-50 rounded-[3rem] border-4 border-dashed border-zinc-200">
-                                    <div className="max-w-xs mx-auto space-y-4">
-                                        <div className="p-6 bg-white rounded-full w-fit mx-auto shadow-xl border-2 border-zinc-100">
-                                            <CircleDollarSign className="h-16 w-16 text-zinc-300" />
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-zinc-900 font-black uppercase text-sm tracking-tighter">Sin Cartera Activa</p>
-                                            <p className="text-zinc-500 font-bold uppercase text-[9px] tracking-widest leading-tight">Este cliente se encuentra al corriente o no tiene préstamos vigentes registrados.</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
+                                )}
+                            </div>
+                        </ScrollArea>
 
-                        <div className="p-6 bg-zinc-50 border-t flex justify-end gap-3 rounded-b-3xl">
-                            <Button variant="outline" className="h-11 px-8 rounded-xl font-black uppercase text-xs tracking-widest border-2" onClick={() => setIsModalOpen(false)}>Cerrar Expediente</Button>
+                        <div className="p-3 bg-zinc-50 border-t shrink-0 flex justify-end">
+                            <Button variant="outline" className="h-9 px-6 rounded-lg font-black uppercase text-[10px] tracking-widest border-2" onClick={() => setIsModalOpen(false)}>Cerrar Expediente</Button>
                         </div>
                     </div>
                 )}
@@ -627,4 +592,3 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     </div>
   );
 }
-
