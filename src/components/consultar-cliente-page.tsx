@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -254,7 +255,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
   return (
     <div className="space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col items-center justify-center text-center gap-2">
             <div className="flex flex-col gap-1">
                 <h1 className="text-2xl font-black tracking-tight uppercase text-zinc-800">
                     Hola, {appUser?.username}
