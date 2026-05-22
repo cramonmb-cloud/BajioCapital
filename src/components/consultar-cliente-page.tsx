@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -219,7 +218,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     const currentLoanWeekDisplay = Math.min(currentWeekSafe, totalTerm);
     const promotora = allPromotoras.find(p => p.id === activeLoan.promotoraId);
     const localidad = allLocalidades.find(l => l.id === promotora?.localidadId);
-    const plaza = allPlazas.find(p => p.id === localidad?.plazaId);
+    const plaza = plazas.find(p => p.id === localidad?.plazaId);
 
     return {
       loan: activeLoan,
@@ -282,7 +281,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                                 placeholder="ESCRIBE EL NOMBRE DEL CLIENTE..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 h-11 text-xs rounded-xl shadow-sm uppercase font-bold border-2"
+                                className="pl-10 h-11 text-base rounded-xl shadow-sm uppercase font-bold border-2"
                             />
                             {searchTerm && (
                                 <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => setSearchTerm('')}>

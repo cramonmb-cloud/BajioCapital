@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -152,7 +151,7 @@ export function OverduePortfolioClientPage({
                                 placeholder="Nombre, calle o teléfono..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full h-9 text-xs"
+                                className="w-full h-9 text-base"
                             />
                             {searchTerm && (
                                 <Button variant="ghost" size="icon" onClick={() => setSearchTerm('')} className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7">
