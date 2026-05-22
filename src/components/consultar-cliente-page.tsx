@@ -15,7 +15,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from './ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogDescription } from '@/components/ui/dialog';
 
 interface ConsultarClientePageProps {
   clients: Client[];
@@ -487,6 +487,10 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
         {/* MODAL DE DETALLE DEL CLIENTE */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm">
+                <DialogHeader className="sr-only">
+                    <DialogTitle>Detalle del Cliente</DialogTitle>
+                    <DialogDescription>Expediente financiero y técnico del cliente seleccionado.</DialogDescription>
+                </DialogHeader>
                 <div className="absolute right-4 top-4 z-50">
                     <DialogClose asChild>
                         <Button variant="ghost" size="icon" className="h-10 w-10 text-blue-600 hover:bg-blue-50 rounded-full shadow-lg bg-white/80 backdrop-blur-sm">
