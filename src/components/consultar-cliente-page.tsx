@@ -5,7 +5,7 @@ import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Search, Wallet, Calendar, Shield, Phone, Home, X, CircleDollarSign, Building, MapPin, List, ChevronRight, UserCheck, Smartphone, Info, Route, ArrowRight, AlertTriangle } from 'lucide-react';
+import { Search, Wallet, Calendar, Shield, Phone, Home, X, CircleDollarSign, Building, MapPin, List, ChevronRight, UserCheck, Smartphone, Info, Route, ArrowRight, AlertTriangle, User, Monitor } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
@@ -437,153 +437,138 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
             </div>
         )}
 
-        {/* MODAL DE DETALLE DEL CLIENTE - REDISEÑO COMPACTO */}
+        {/* MODAL DE DETALLE DEL CLIENTE - REDISEÑO SEGÚN IMAGEN */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogContent className="max-w-3xl max-h-[92vh] overflow-hidden p-0 border-0 shadow-2xl rounded-2xl flex flex-col">
+            <DialogContent className="max-w-5xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm">
                 {selectedClient && (
-                    <div className="flex flex-col h-full overflow-hidden">
-                        {/* Header Compacto */}
-                        <div className="bg-gradient-to-r from-blue-700 to-primary p-4 shrink-0 shadow-md">
-                            <div className="flex items-center justify-between gap-4">
-                                <div className="flex items-center gap-4">
-                                    <Avatar className="h-12 w-12 border-2 border-white shadow-lg rounded-xl">
-                                        <AvatarImage src={selectedClient.avatarUrl} alt={selectedClient.name} />
-                                        <AvatarFallback className="text-lg font-black bg-white text-primary rounded-xl">{selectedClient.name.charAt(0)}</AvatarFallback>
-                                    </Avatar>
-                                    <div className="space-y-0.5">
-                                        <h2 className="text-lg font-black uppercase tracking-tight text-white leading-none">{selectedClient.name}</h2>
-                                        <div className="flex items-center gap-2">
-                                            <span className="text-[9px] font-black text-blue-100 uppercase tracking-widest bg-black/10 px-1.5 py-0.5 rounded">ID: {selectedClient.id}</span>
-                                            {activeLoanDetails && (
-                                                <Badge className="bg-white/20 text-white border-0 font-black text-[8px] h-4 uppercase">{activeLoanDetails.loanPlan.name}</Badge>
-                                            )}
-                                        </div>
+                    <div className="bg-white flex flex-col">
+                        {/* Cabecera Estilo Imagen */}
+                        <div className="p-8 flex flex-col md:flex-row justify-between gap-6 border-b">
+                            <div className="flex items-center gap-6">
+                                <Avatar className="h-24 w-24 border shadow-sm rounded-full overflow-hidden">
+                                    <AvatarImage src={selectedClient.avatarUrl} alt={selectedClient.name} className="object-cover" />
+                                    <AvatarFallback className="text-3xl font-black bg-muted text-zinc-400">{selectedClient.name.charAt(0)}</AvatarFallback>
+                                </Avatar>
+                                <div className="space-y-1">
+                                    <h2 className="text-3xl font-black uppercase tracking-tight text-zinc-900 leading-none">{selectedClient.name}</h2>
+                                    <p className="text-xs font-bold text-zinc-800">ID: {selectedClient.id}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="flex flex-col gap-2.5 min-w-[280px]">
+                                <div className="flex items-center gap-3 text-blue-600">
+                                    <Phone className="h-4 w-4" />
+                                    <span className="text-sm font-black tracking-tighter">{selectedClient.phone}</span>
+                                </div>
+                                <div className="flex items-center gap-3 text-blue-600">
+                                    <Home className="h-4 w-4" />
+                                    <span className="text-[10px] font-black uppercase">{selectedClient.street}, {selectedClient.neighborhood},</span>
+                                </div>
+                                <div className="flex items-center gap-4 text-zinc-500 pt-1">
+                                    <div className="flex items-center gap-1.5">
+                                        <Building className="h-3.5 w-3.5" />
+                                        <span className="text-[10px] font-bold uppercase">{activeLoanDetails?.plazaName}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <MapPin className="h-3.5 w-3.5" />
+                                        <span className="text-[10px] font-bold uppercase">{activeLoanDetails?.localidadName}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                        <User className="h-3.5 w-3.5" />
+                                        <span className="text-[10px] font-bold uppercase">{activeLoanDetails?.promotoraName}</span>
                                     </div>
                                 </div>
-                                <Button asChild variant="secondary" className="h-8 px-4 rounded-lg font-black text-[10px] uppercase shadow-sm border-b-2 border-zinc-200">
-                                    <a href={`tel:${selectedClient.phone}`}><Phone className="h-3 w-3 mr-1.5 text-blue-600" /> {selectedClient.phone}</a>
-                                </Button>
+                                <div className="flex items-center gap-2 text-blue-600 font-black text-[10px] uppercase mt-1">
+                                    <Calendar className="h-3.5 w-3.5" />
+                                    <span>Fecha Préstamo: {activeLoanDetails ? formatDate(activeLoanDetails.loanStartDate) : 'N/A'}</span>
+                                </div>
                             </div>
                         </div>
 
-                        <ScrollArea className="flex-1">
-                            <div className="p-4 space-y-4">
-                                {activeLoanDetails ? (
-                                    <>
-                                        {/* Fila de Indicadores Mini */}
-                                        <div className="grid grid-cols-3 gap-2">
-                                            <div className="p-2 rounded-xl bg-zinc-50 border border-zinc-200 text-center shadow-inner">
-                                                <p className="text-[7px] font-black text-muted-foreground uppercase tracking-widest mb-0.5">Progreso</p>
-                                                <p className="font-black text-base text-zinc-900 leading-none">{activeLoanDetails.currentLoanWeek} <span className="text-zinc-400 text-[10px]">/ {activeLoanDetails.termInWeeks}</span></p>
-                                            </div>
-                                            <div className="p-2 rounded-xl bg-blue-50 border border-blue-100 text-center shadow-inner">
-                                                <p className="text-[7px] font-black text-blue-600 uppercase tracking-widest mb-0.5">Cuota</p>
-                                                <p className="font-black text-base text-blue-800 leading-none">{formatCurrency(activeLoanDetails.weeklyPayment)}</p>
-                                            </div>
-                                            <div className={cn(
-                                                "p-2 rounded-xl text-center shadow-inner relative overflow-hidden border",
-                                                activeLoanDetails.missedWeeks > 0 ? "bg-red-50 border-red-100" : "bg-green-50 border-green-100"
-                                            )}>
-                                                <p className={cn("text-[7px] font-black uppercase tracking-widest mb-0.5", activeLoanDetails.missedWeeks > 0 ? "text-red-600" : "text-green-600")}>Incidencias</p>
-                                                <p className={cn("font-black text-base leading-none", activeLoanDetails.missedWeeks > 0 ? "text-red-700" : "text-green-700")}>{activeLoanDetails.missedWeeks} <span className="text-[8px] opacity-70">FALLOS</span></p>
-                                                {activeLoanDetails.hasPenalty && (
-                                                    <div className="absolute top-0 right-0 p-0.5 bg-orange-500 text-[6px] text-white font-black uppercase rotate-45 translate-x-2 translate-y-[-1px] w-10 text-center">+1</div>
-                                                )}
-                                            </div>
-                                        </div>
-
-                                        {/* Tarjeta de Saldo Compacta */}
-                                        <div className="p-4 bg-zinc-900 rounded-2xl border-4 border-zinc-800 shadow-xl relative overflow-hidden">
-                                            <div className="absolute -right-4 -top-4 opacity-5 rotate-12">
-                                                <CircleDollarSign className="h-20 w-20 text-white" />
-                                            </div>
-                                            <div className="flex flex-col md:flex-row items-center justify-between gap-3 relative z-10">
-                                                <div className="space-y-1 text-center md:text-left">
-                                                    <div className="flex flex-wrap justify-center md:justify-start gap-3">
-                                                        <div className="flex items-center gap-1.5">
-                                                            <span className="h-1.5 w-1.5 rounded-full bg-red-500"></span>
-                                                            <span className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest">Fallos: {formatCurrency(activeLoanDetails.baseArrears)}</span>
-                                                        </div>
-                                                        {activeLoanDetails.hasPenalty && (
-                                                            <div className="flex items-center gap-1.5">
-                                                                <span className="h-1.5 w-1.5 rounded-full bg-orange-500"></span>
-                                                                <span className="text-[8px] font-bold text-orange-400 uppercase tracking-widest">Extra: {formatCurrency(activeLoanDetails.penaltyArrear)}</span>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                    <p className="text-[9px] font-black text-primary/80 uppercase tracking-[0.2em] mt-1">Saldo para Liquidación Total</p>
-                                                </div>
-                                                <div className="text-center md:text-right">
-                                                    <span className={cn("text-3xl md:text-4xl font-black tracking-tighter leading-none drop-shadow-md", activeLoanDetails.totalBalance <= 0 ? "text-green-400" : "text-white")}>
-                                                        {formatCurrency(activeLoanDetails.totalBalance)}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Detalles Operativos Consolidados */}
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div className="bg-muted/30 border rounded-xl p-3 space-y-3">
-                                                <h4 className="text-[8px] font-black uppercase text-muted-foreground border-b pb-1 flex items-center gap-1.5">
-                                                    <Info className="h-2.5 w-2.5" /> Información del Crédito
-                                                </h4>
-                                                <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Plaza</p><p className="text-[10px] font-black text-zinc-800 uppercase leading-none">{activeLoanDetails.plazaName}</p></div>
-                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Apertura</p><p className="text-[10px] font-black text-zinc-800 leading-none">{formatDate(activeLoanDetails.loanStartDate)}</p></div>
-                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Zona</p><p className="text-[10px] font-black text-zinc-800 uppercase leading-none">{activeLoanDetails.localidadName}</p></div>
-                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Monto Base</p><p className="text-[10px] font-black text-zinc-800 leading-none">{formatCurrency(activeLoanDetails.loan.amount)}</p></div>
-                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Ruta</p><p className="text-[10px] font-black text-zinc-800 uppercase leading-none">{activeLoanDetails.promotoraName}</p></div>
-                                                    <div><p className="text-[7px] text-muted-foreground uppercase font-bold">Plazo</p><p className="text-[10px] font-black text-zinc-800 uppercase leading-none">{activeLoanDetails.loanPlan.termInWeeks} SEM</p></div>
-                                                </div>
-                                            </div>
-
-                                            <div className="space-y-3">
-                                                <div className="bg-blue-600 rounded-xl p-3 text-white shadow-md relative overflow-hidden">
-                                                    <div className="absolute -right-2 -bottom-2 opacity-10">
-                                                        <UserCheck className="h-12 w-12" />
-                                                    </div>
-                                                    <h4 className="text-[8px] font-black uppercase text-blue-200 border-b border-blue-400/30 pb-1 mb-2">Responsable Solidario</h4>
-                                                    <p className="text-[11px] font-black uppercase leading-tight truncate">{selectedClient.endorsement.split('(')[0].trim()}</p>
-                                                    <div className="flex items-start gap-1.5 mt-1 text-blue-100">
-                                                        <MapPin className="h-2.5 w-2.5 shrink-0 mt-0.5 opacity-70" />
-                                                        <p className="text-[8px] font-medium leading-tight line-clamp-2 uppercase">
-                                                            {selectedClient.endorsement.match(/\((.*)\)/)?.[1] || 'SIN DIRECCIÓN'}
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                                <div className="bg-zinc-50 border border-zinc-200 rounded-xl p-2.5">
-                                                    <h4 className="text-[8px] font-black uppercase text-zinc-400 border-b pb-1 mb-1.5">Garantías</h4>
-                                                    <p className="text-[9px] font-bold text-zinc-600 uppercase italic leading-tight text-center px-2">
-                                                        "{selectedClient.guarantee || 'SIN GARANTÍAS'}"
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Dirección Titular Mini */}
-                                        <div className="flex items-center gap-3 p-2 bg-zinc-100/50 border rounded-xl">
-                                            <div className="bg-white p-1.5 rounded-lg shadow-sm">
-                                                <Home className="h-3.5 w-3.5 text-blue-600" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <p className="text-[7px] font-black uppercase text-muted-foreground tracking-widest">Ubicación del Titular</p>
-                                                <p className="text-[9px] font-bold uppercase text-zinc-700 truncate">
-                                                    {selectedClient.street}, {selectedClient.neighborhood}, {selectedClient.city}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="py-12 text-center">
-                                        <CircleDollarSign className="h-12 w-12 text-zinc-200 mx-auto mb-2" />
-                                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Sin Préstamos Activos</p>
+                        {/* Cuerpo en dos columnas */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-x divide-zinc-100">
+                            {/* Columna Izquierda: DETALLES */}
+                            <div className="p-8 space-y-8 bg-zinc-50/30">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-1.5 bg-white border rounded shadow-sm">
+                                        <Wallet className="h-5 w-5 text-blue-400" />
                                     </div>
-                                )}
-                            </div>
-                        </ScrollArea>
+                                    <h3 className="text-xl font-black uppercase tracking-tight text-zinc-800">Detalles:</h3>
+                                </div>
 
-                        <div className="p-3 bg-zinc-50 border-t shrink-0 flex justify-end">
-                            <Button variant="outline" className="h-9 px-6 rounded-lg font-black uppercase text-[10px] tracking-widest border-2" onClick={() => setIsModalOpen(false)}>Cerrar Expediente</Button>
+                                <div className="grid grid-cols-3 gap-4">
+                                    <div className="bg-white border rounded-2xl p-4 text-center shadow-sm">
+                                        <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest mb-1.5">Semana</p>
+                                        <p className="text-2xl font-black text-zinc-900 leading-none">
+                                            {activeLoanDetails?.currentLoanWeek} <span className="text-zinc-300 text-lg">/ {activeLoanDetails?.termInWeeks}</span>
+                                        </p>
+                                    </div>
+                                    <div className="bg-blue-50/50 border border-blue-100 rounded-2xl p-4 text-center shadow-sm">
+                                        <p className="text-[9px] font-black text-blue-400 uppercase tracking-widest mb-1.5">Abono</p>
+                                        <p className="text-2xl font-black text-blue-600 leading-none">{activeLoanDetails ? formatCurrency(activeLoanDetails.weeklyPayment) : '$0.00'}</p>
+                                    </div>
+                                    <div className="bg-red-50/50 border border-red-100 rounded-2xl p-4 text-center shadow-sm">
+                                        <p className="text-[9px] font-black text-red-400 uppercase tracking-widest mb-1.5">Fallos</p>
+                                        <p className="text-2xl font-black text-red-600 leading-none">{activeLoanDetails?.missedWeeks || 0}</p>
+                                    </div>
+                                </div>
+
+                                <div className="bg-zinc-100/80 rounded-[2rem] p-8 space-y-6 border border-zinc-200/50">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[10px] font-black text-zinc-500 uppercase tracking-wider">Suma de Fallos</span>
+                                        <span className="text-lg font-black text-zinc-800">{activeLoanDetails ? formatCurrency(activeLoanDetails.baseArrears) : '$0.00'}</span>
+                                    </div>
+                                    <div className="flex justify-between items-end pt-4 border-t border-zinc-200">
+                                        <span className="text-[11px] font-black text-red-700 uppercase tracking-widest mb-1">Total a Liquidar</span>
+                                        <span className="text-5xl font-black text-red-700 tracking-tighter leading-none">
+                                            {activeLoanDetails ? formatCurrency(activeLoanDetails.totalBalance) : '$0.00'}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Columna Derecha: AVAL Y GARANTÍAS */}
+                            <div className="p-8 space-y-10">
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-3">
+                                        <Shield className="h-5 w-5 text-blue-400" />
+                                        <h3 className="text-xl font-black uppercase tracking-tight text-zinc-800">Datos de Aval</h3>
+                                    </div>
+                                    <div className="bg-blue-600 rounded-[1.5rem] p-6 text-white shadow-xl shadow-blue-200/50 space-y-3 relative overflow-hidden group">
+                                        <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:rotate-12 transition-transform">
+                                            <UserCheck className="h-24 w-24" />
+                                        </div>
+                                        <p className="text-[9px] font-bold uppercase text-blue-200 tracking-widest">Responsable Solidario</p>
+                                        <h4 className="text-2xl font-black uppercase leading-tight">{selectedClient.endorsement.split('(')[0].trim()}</h4>
+                                        <p className="text-xs font-medium leading-relaxed opacity-90">
+                                            {selectedClient.endorsement.match(/\((.*)\)/)?.[1] || 'SIN DIRECCIÓN REGISTRADA'}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    <div className="flex items-center gap-3">
+                                        <Monitor className="h-5 w-5 text-blue-400" />
+                                        <h3 className="text-xl font-black uppercase tracking-tight text-zinc-800">Garantía del Cliente</h3>
+                                    </div>
+                                    <div className="border-2 border-dashed border-zinc-200 rounded-[1.5rem] p-6 bg-zinc-50/50">
+                                        <p className="text-xs font-black uppercase text-zinc-600 leading-relaxed tracking-wide text-center italic">
+                                            {selectedClient.guarantee || 'SIN GARANTÍAS REGISTRADAS'}
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Footer de acción */}
+                        <div className="p-6 bg-zinc-50 border-t flex justify-end">
+                            <Button 
+                                variant="outline" 
+                                className="h-12 px-10 rounded-xl font-black uppercase text-xs tracking-widest border-2 hover:bg-zinc-100" 
+                                onClick={() => setIsModalOpen(false)}
+                            >
+                                Cerrar Expediente
+                            </Button>
                         </div>
                     </div>
                 )}
