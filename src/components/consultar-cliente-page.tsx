@@ -5,7 +5,7 @@ import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Search, Wallet, Calendar, Shield, Phone, Home, X, CircleDollarSign, Building, MapPin, List, ChevronRight, UserCheck, Smartphone, Info, Route, ArrowRight, AlertTriangle, User, Monitor } from 'lucide-react';
+import { Search, Wallet, Calendar, Shield, Phone, Home, X, CircleDollarSign, Building, MapPin, List, ChevronRight, UserCheck, Smartphone, Info, Route, ArrowRight, AlertTriangle, User, Monitor, Filter } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
@@ -29,6 +29,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   
   // Filtros
   const [filterPlaza, setFilterPlaza] = useState('all');
@@ -115,7 +116,8 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   }, [loans]);
 
   // Listado filtrado
-  const canShowList = filterPlaza !== 'all' && filterLocalidad !== 'all';
+  // Ahora canShowList es true si hay término de búsqueda O filtros de zona activos
+  const canShowList = searchTerm.trim().length > 0 || (filterPlaza !== 'all' && filterLocalidad !== 'all');
 
   const filteredList = useMemo(() => {
     if (!canShowList) return [];
@@ -125,14 +127,14 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
         return { loan, client };
     }).filter(item => item.client !== undefined);
 
-    // Apply Search
+    // Apply Search (Independiente de filtros)
     if (searchTerm) {
         result = result.filter(item => 
             item.client!.name.toLowerCase().includes(searchTerm.toLowerCase())
         );
     }
 
-    // Apply Filters
+    // Apply Filters (solo si se han seleccionado y no estamos en búsqueda global o si se combinan)
     if (filterPlaza !== 'all') {
         result = result.filter(item => {
             const p = allPromotoras.find(prom => prom.id === item.loan.promotoraId);
@@ -173,7 +175,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
     const weeklyPayment = (activeLoan.amount / 1000) * loanPlan.weeklyPaymentRate;
     
-    // CALENDARIO JALISCO (Ignorar desfase UTC)
     const now = new Date();
     const todayLocal = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const loanStartDate = new Date(activeLoan.startDate);
@@ -188,7 +189,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     let registeredMissedCount = 0;
     let baseArrears = 0;
     
-    // Solo contar lo que se registra explícitamente como incompleto (pagos parciales o ceros)
     (activeLoan.payments || []).forEach(p => {
         if (p.weekNumber > 0 && p.weekNumber <= baseTerm && p.amount < weeklyPayment) {
             registeredMissedCount++;
@@ -201,32 +201,16 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
     const actualTotalPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
     
-    // El saldo a liquidar se compone de:
-    // 1. Fallos registrados
-    // 2. Semana actual (lo que resta por pagar de ella)
-    // 3. Semanas futuras del contrato
-    // 4. Semana extra (si aplica)
-    
-    // Primero determinamos el total esperado del contrato (Base + Penalización)
-    const totalExpectedContract = totalTerm * weeklyPayment;
-    
-    // Calculamos cuánto se ha pagado en "semanas pasadas sin fallos" (Semanas asumidas)
     let assumedPaidAmount = 0;
     for (let i = 1; i < currentWeekSafe; i++) {
-        if (i > baseTerm) break; // No asumir pagada la semana extra
+        if (i > baseTerm) break; 
         const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
         if (!p) {
             assumedPaidAmount += weeklyPayment;
         }
     }
 
-    const totalBalanceDue = Math.max(0, totalExpectedContract - actualTotalPaid - assumedPaidAmount);
-
-    let penaltyArrear = 0;
-    if (hasPenalty) {
-        const pExtra = (activeLoan.payments || []).find(pay => pay.weekNumber === baseTerm + 1);
-        penaltyArrear = Math.max(0, weeklyPayment - (pExtra?.amount || 0));
-    }
+    const totalBalanceDue = Math.max(0, (totalTerm * weeklyPayment) - actualTotalPaid - assumedPaidAmount);
 
     const currentLoanWeekDisplay = Math.min(currentWeekSafe, totalTerm);
     const promotora = allPromotoras.find(p => p.id === activeLoan.promotoraId);
@@ -240,7 +224,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
       currentLoanWeek: currentLoanWeekDisplay,
       termInWeeks: totalTerm,
       baseArrears,
-      penaltyArrear,
       totalBalance: totalBalanceDue,
       missedWeeks: registeredMissedCount,
       hasPenalty,
@@ -280,75 +263,90 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
         <Card className="shadow-lg border-2">
             <CardHeader className="p-4 border-b bg-muted/20">
                 <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
-                    <Search className="h-4 w-4 text-primary" /> Parámetros de Búsqueda
+                    <Search className="h-4 w-4 text-primary" /> Panel de Búsqueda
                 </CardTitle>
                 <CardDescription className="text-[10px] uppercase font-bold text-muted-foreground">
-                    Selecciona Plaza y Localidad para visualizar el listado de clientes.
+                    Escribe el nombre del cliente para buscar directamente o activa filtros avanzados.
                 </CardDescription>
             </CardHeader>
             <CardContent className="p-4 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div className="space-y-1.5">
-                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Plaza (Obligatorio)</label>
-                        <Select value={filterPlaza} onValueChange={(v) => { setFilterPlaza(v); setFilterLocalidad('all'); setFilterPromotora('all'); }}>
-                            <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="PLAZA" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">TODAS LAS PLAZAS</SelectItem>
-                                {plazaOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
+                <div className="flex flex-col md:flex-row gap-4 items-end">
+                    <div className="relative flex-1 w-full">
+                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1 mb-1 block">Buscador por Nombre</label>
+                        <div className="relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                            <Input
+                                placeholder="ESCRIBE EL NOMBRE DEL CLIENTE..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-10 h-11 text-xs rounded-xl shadow-sm uppercase font-bold border-2"
+                            />
+                            {searchTerm && (
+                                <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => setSearchTerm('')}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                            )}
+                        </div>
                     </div>
-                    <div className="space-y-1.5">
-                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Localidad (Obligatorio)</label>
-                        <Select value={filterLocalidad} onValueChange={(v) => { setFilterLocalidad(v); setFilterPromotora('all'); }} disabled={filterPlaza === 'all' && !isAdmin}>
-                            <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="LOCALIDAD" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">TODAS LAS ZONAS</SelectItem>
-                                {localidadOptions.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Promotora (Opcional)</label>
-                        <Select value={filterPromotora} onValueChange={setFilterPromotora} disabled={filterLocalidad === 'all' && !isAdmin}>
-                            <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="PROMOTORA" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">TODAS LAS RUTAS</SelectItem>
-                                {promotoraOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                    <div className="space-y-1.5">
-                        <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Semana de Inicio</label>
-                        <Select value={filterWeek} onValueChange={setFilterWeek}>
-                            <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="SEMANA" /></SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">CUALQUIER FECHA</SelectItem>
-                                {weekOptions.map(iso => (
-                                    <SelectItem key={iso} value={iso}>{formatDate(iso)}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    <Button 
+                        variant={showAdvancedFilters ? "secondary" : "outline"} 
+                        className={cn(
+                            "h-11 font-black uppercase text-[10px] tracking-widest border-2 gap-2 px-8 w-full md:w-auto",
+                            showAdvancedFilters && "bg-zinc-200"
+                        )}
+                        onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                    >
+                        <Filter className="h-4 w-4" />
+                        {showAdvancedFilters ? 'Ocultar Filtros' : 'Filtrar'}
+                    </Button>
                 </div>
 
-                <div className="relative">
-                    <label className="text-[9px] font-black uppercase text-muted-foreground ml-1 mb-1 block">Buscar por Nombre</label>
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="ESCRIBE EL NOMBRE DEL CLIENTE..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 h-11 text-xs rounded-xl shadow-sm uppercase font-bold border-2"
-                        />
-                        {searchTerm && (
-                            <Button variant="ghost" size="icon" className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8" onClick={() => setSearchTerm('')}>
-                                <X className="h-4 w-4" />
-                            </Button>
-                        )}
+                {showAdvancedFilters && (
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t border-dashed animate-in fade-in slide-in-from-top-2 duration-300">
+                        <div className="space-y-1.5">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Plaza</label>
+                            <Select value={filterPlaza} onValueChange={(v) => { setFilterPlaza(v); setFilterLocalidad('all'); setFilterPromotora('all'); }}>
+                                <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="PLAZA" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">TODAS LAS PLAZAS</SelectItem>
+                                    {plazaOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Localidad</label>
+                            <Select value={filterLocalidad} onValueChange={(v) => { setFilterLocalidad(v); setFilterPromotora('all'); }} disabled={filterPlaza === 'all' && !isAdmin}>
+                                <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="LOCALIDAD" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">TODAS LAS ZONAS</SelectItem>
+                                    {localidadOptions.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Promotora</label>
+                            <Select value={filterPromotora} onValueChange={setFilterPromotora} disabled={filterLocalidad === 'all' && !isAdmin}>
+                                <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="PROMOTORA" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">TODAS LAS RUTAS</SelectItem>
+                                    {promotoraOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1.5">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Semana de Inicio</label>
+                            <Select value={filterWeek} onValueChange={setFilterWeek}>
+                                <SelectTrigger className="h-10 text-[10px] font-black uppercase border-2"><SelectValue placeholder="SEMANA" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">CUALQUIER FECHA</SelectItem>
+                                    {weekOptions.map(iso => (
+                                        <SelectItem key={iso} value={iso}>{formatDate(iso)}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
-                </div>
+                )}
             </CardContent>
         </Card>
 
@@ -359,9 +357,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                         <CardTitle className="text-xs font-black uppercase tracking-widest flex items-center gap-2">
                             <List className="h-4 w-4 text-blue-600" /> Resultados de Consulta ({filteredList.length})
                         </CardTitle>
-                        <CardDescription className="text-[9px] font-bold uppercase mt-0.5">
-                            Mostrando todos los clientes para la localidad seleccionada.
-                        </CardDescription>
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
@@ -422,7 +417,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                                     <TableCell colSpan={6} className="h-48 text-center">
                                         <div className="max-w-xs mx-auto space-y-2">
                                             <Info className="h-8 w-8 text-muted-foreground/30 mx-auto" />
-                                            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sin coincidencias para los filtros actuales.</p>
+                                            <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">Sin coincidencias para los criterios actuales.</p>
                                         </div>
                                     </TableCell>
                                 </TableRow>
@@ -438,18 +433,17 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                     <Smartphone className="h-24 w-24 text-primary/40 relative" />
                 </div>
                 <div className="text-center space-y-2 max-w-sm">
-                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-zinc-400">Panel de Consulta</h3>
+                    <h3 className="text-sm font-black uppercase tracking-[0.2em] text-zinc-400">Búsqueda de Expediente</h3>
                     <p className="text-[10px] font-bold text-muted-foreground uppercase leading-relaxed px-8">
-                        Selecciona una Plaza y una Localidad en la parte superior para cargar el listado de clientes y comenzar la supervisión.
+                        Ingresa el nombre de un cliente arriba o selecciona una zona mediante el botón Filtrar.
                     </p>
                 </div>
             </div>
         )}
 
-        {/* MODAL DE DETALLE DEL CLIENTE - REDISEÑO PARA MÓVIL */}
+        {/* MODAL DE DETALLE DEL CLIENTE */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
             <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm">
-                {/* Botón de cierre azul personalizado */}
                 <div className="absolute right-4 top-4 z-50">
                     <DialogClose asChild>
                         <Button variant="ghost" size="icon" className="h-10 w-10 text-blue-600 hover:bg-blue-50 rounded-full shadow-lg bg-white/80 backdrop-blur-sm">
@@ -460,7 +454,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
                 {selectedClient && (
                     <div className="bg-white flex flex-col h-full">
-                        {/* Cabecera Estilo Imagen - Compacta y Responsiva */}
                         <div className="p-4 md:p-5 flex flex-col md:flex-row justify-between gap-4 border-b bg-muted/5 pr-14 md:pr-16">
                             <div className="flex items-center gap-3 md:gap-4">
                                 <Avatar className="h-12 w-12 md:h-16 md:w-16 border-2 border-white shadow-md rounded-full overflow-hidden shrink-0">
@@ -503,10 +496,8 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                             </div>
                         </div>
 
-                        {/* Cuerpo con ScrollArea para asegurar que todo sea visible en móviles */}
                         <ScrollArea className="flex-1 max-h-[calc(95vh-160px)]">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x divide-zinc-100">
-                                {/* Columna Izquierda: DETALLES */}
                                 <div className="p-4 md:p-5 space-y-6 bg-zinc-50/30">
                                     <div className="flex items-center gap-2">
                                         <Wallet className="h-4 w-4 text-blue-500" />
@@ -547,7 +538,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                                     </div>
                                 </div>
 
-                                {/* Columna Derecha: AVAL Y GARANTÍAS */}
                                 <div className="p-4 md:p-5 space-y-6 md:space-y-8">
                                     <div className="space-y-4">
                                         <div className="flex items-center gap-2">
@@ -581,7 +571,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                             </div>
                         </ScrollArea>
 
-                        {/* Footer de acción - Siempre visible */}
                         <div className="p-4 bg-zinc-50 border-t flex justify-end gap-2 shrink-0">
                             <Button 
                                 variant="outline" 
