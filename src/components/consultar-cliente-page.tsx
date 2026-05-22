@@ -255,7 +255,14 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   return (
     <div className="space-y-6">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <h1 className="text-2xl font-black tracking-tight uppercase text-zinc-800">Consulta Inteligente</h1>
+            <div className="flex flex-col gap-1">
+                <h1 className="text-2xl font-black tracking-tight uppercase text-zinc-800">
+                    Hola, {appUser?.username}
+                </h1>
+                <p className="text-[10px] font-black uppercase text-muted-foreground tracking-[0.2em]">
+                    CONSULTA DE CLIENTES
+                </p>
+            </div>
             <div className="flex items-center gap-2">
                 <Badge variant="outline" className="h-6 font-black uppercase text-[10px] tracking-widest border-primary/30 text-primary bg-primary/5">
                     Actualizado: {new Date().toLocaleTimeString()}
