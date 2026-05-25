@@ -62,27 +62,25 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     return allLocalidades.filter(l => assignedIds.includes(l.id));
   }, [allLocalidades, isAdmin, appUser]);
 
+  // Solo consideramos préstamos activos o vencidos para la consulta
+  const loans = useMemo(() => {
+    const activeLoans = allLoans.filter(l => l.status === 'Active' || l.status === 'Overdue');
+    
+    if (isAdmin) return activeLoans;
+    
+    const allowedLocIds = allowedLocalidades.map(l => l.id);
+    const allowedPromotoras = allPromotoras.filter(p => allowedLocIds.includes(p.localidadId));
+    const allowedPromotoraIds = allowedPromotoras.map(p => p.id);
+    return activeLoans.filter(l => l.promotoraId && allowedPromotoraIds.includes(l.promotoraId));
+  }, [allLoans, allPromotoras, allowedLocalidades, isAdmin]);
+
   const clients = useMemo(() => {
     if (isAdmin) return allClients;
-    const allowedLocIds = allowedLocalidades.map(l => l.id);
-    const allowedPromotoras = allPromotoras.filter(p => allowedLocIds.includes(p.localidadId));
-    const allowedPromotoraIds = allowedPromotoras.map(p => p.id);
     
-    const clientIdsInZones = new Set(allLoans
-        .filter(l => l.promotoraId && allowedPromotoraIds.includes(l.promotoraId))
-        .map(l => l.clientId)
-    );
-    
-    return allClients.filter(c => clientIdsInZones.has(c.id));
-  }, [allClients, allLoans, allPromotoras, allowedLocalidades, isAdmin]);
-
-  const loans = useMemo(() => {
-    if (isAdmin) return allLoans;
-    const allowedLocIds = allowedLocalidades.map(l => l.id);
-    const allowedPromotoras = allPromotoras.filter(p => allowedLocIds.includes(p.localidadId));
-    const allowedPromotoraIds = allowedPromotoras.map(p => p.id);
-    return allLoans.filter(l => l.promotoraId && allowedPromotoraIds.includes(l.promotoraId));
-  }, [allLoans, allPromotoras, allowedLocalidades, isAdmin]);
+    // Clientes que tienen préstamos activos en las zonas permitidas
+    const clientIdsInActiveLoans = new Set(loans.map(l => l.clientId));
+    return allClients.filter(c => clientIdsInActiveLoans.has(c.id));
+  }, [allClients, loans, isAdmin]);
 
   // Opciones de filtros
   const plazaOptions = useMemo(() => allowedPlazas.sort((a,b) => a.name.localeCompare(b.name)), [allowedPlazas]);
@@ -108,8 +106,8 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   }, [allPromotoras, allLocalidades, filterLocalidad, filterPlaza, allowedLocalidades, isAdmin]);
 
   const weekOptions = useMemo(() => {
+    // Solo semanas de préstamos activos
     const activeWeeks = Array.from(new Set(loans
-        .filter(l => l.status !== 'Paid Off' && l.status !== 'Pagado desde CV')
         .map(l => {
             const d = new Date(l.startDate);
             return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())).toISOString();
