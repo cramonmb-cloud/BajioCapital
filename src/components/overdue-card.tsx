@@ -182,6 +182,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                 if (payment.amount >= weeklyPayment) {
                     statusText = formatDate(payment.date);
                     statusType = 'PAID';
+                } else if (payment.amount > 0) {
+                    statusText = 'PARCIAL';
+                    statusType = 'MISSED';
                 } else {
                     statusText = 'FALLO';
                     statusType = 'MISSED';
@@ -541,6 +544,81 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         <Button size="sm" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase text-[9px] h-10 flex-1 rounded-md bg-blue-600 text-white shadow-md hover:bg-blue-700">
                             <Wallet className="mr-1.5 h-4 w-4" /> Registrar Abono
                         </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+                <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-md">
+                    <DialogHeader className="p-6 pb-2 shrink-0 bg-muted/10 border-b">
+                        <DialogTitle className="text-center border-b pb-2 uppercase font-black tracking-tight flex items-center justify-center gap-2">
+                            <HistoryIcon className="h-5 w-5 text-blue-600" />
+                            Estado de Cuenta - {client.name}
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="flex-1 min-h-0">
+                        <ScrollArea className="h-full px-4 md:px-6">
+                            <div className="py-4">
+                                <Table className="border border-blue-200">
+                                    <TableHeader className="bg-blue-100 sticky top-0 z-10">
+                                        <TableRow className="hover:bg-blue-100 border-blue-200">
+                                            <TableHead className="text-blue-900 font-black border-r border-blue-200 text-center text-[10px] uppercase">Num</TableHead>
+                                            <TableHead className="text-blue-900 font-black border-r border-blue-200 text-[10px] uppercase">Vencimiento</TableHead>
+                                            <TableHead className="text-blue-900 font-black border-r border-blue-200 text-right text-[10px] uppercase">Abono</TableHead>
+                                            <TableHead className="text-blue-900 font-black border-r border-blue-200 text-right text-[10px] uppercase">Recibido</TableHead>
+                                            <TableHead className="text-blue-900 font-black text-center text-[10px] uppercase">Estatus / Fecha</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {loanHistoryData.map((row) => (
+                                            <TableRow key={row.num} className="border-blue-100 hover:bg-blue-50/50 transition-colors">
+                                                <TableCell className="border-r border-blue-100 text-center py-2.5 font-bold text-xs">{row.num}</TableCell>
+                                                <TableCell className="border-r border-blue-100 py-2.5 text-xs font-bold text-zinc-600">{row.vencimiento}</TableCell>
+                                                <TableCell className="border-r border-blue-100 text-right py-2.5 text-xs font-black text-zinc-800">{formatCurrency(row.importeAbono)}</TableCell>
+                                                <TableCell 
+                                                    className={cn(
+                                                        "border-r border-blue-100 text-right py-2.5 font-black text-xs relative group", 
+                                                        row.importeRecibido > 0 ? "bg-green-100 text-green-800" : "bg-red-50 text-red-700",
+                                                        isCristobal && row.importeRecibido >= 0 && !row.isPenalty && "cursor-pointer hover:bg-green-200 transition-colors"
+                                                    )}
+                                                    onClick={() => isCristobal && row.importeRecibido >= 0 && !row.isPenalty && handleAdjustClick(row.num, row.importeRecibido)}
+                                                >
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        {formatCurrency(row.importeRecibido)}
+                                                        {row.isPenalty && (
+                                                            <Badge className="bg-orange-600 text-white text-[7px] font-black h-3.5 px-1 uppercase shrink-0">EXTRA</Badge>
+                                                        )}
+                                                        {isCristobal && row.importeRecibido >= 0 && !row.isPenalty && (
+                                                            <PencilLine className="h-3 w-3 opacity-0 group-hover:opacity-100 text-blue-600 shrink-0 transition-opacity" />
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className={cn(
+                                                    "text-center py-2.5 text-[9px] font-black uppercase",
+                                                    row.status === 'MISSED' ? "text-red-600" : row.status === 'PAID' ? "text-green-700" : "text-zinc-400"
+                                                )}>
+                                                    {row.statusText}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                    <TableFooter className="bg-zinc-100/50 border-t-2 border-blue-300">
+                                        <TableRow className="hover:bg-zinc-100/50">
+                                            <TableCell colSpan={3} className="text-right font-black text-zinc-500 text-[10px] uppercase">Suma Total Recuperada</TableCell>
+                                            <TableCell className="text-right font-black text-green-700 bg-green-50 text-base py-3">
+                                                {formatCurrency(loan.payments.reduce((acc, p) => acc + p.amount, 0))}
+                                            </TableCell>
+                                            <TableCell></TableCell>
+                                        </TableRow>
+                                    </TableFooter>
+                                </Table>
+                            </div>
+                        </ScrollArea>
+                    </div>
+                    <div className="p-4 border-t flex justify-end shrink-0 gap-2 bg-muted/20">
+                        <DialogClose asChild>
+                            <Button variant="secondary" className="font-black uppercase text-[10px] h-10 px-8 rounded-md border-zinc-300 bg-white">Cerrar Historial</Button>
+                        </DialogClose>
                     </div>
                 </DialogContent>
             </Dialog>
