@@ -47,6 +47,16 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   const isAdmin = appUser?.role === 'admin' || appUser?.username.toUpperCase() === 'CRISTOBAL';
   const isCristobal = appUser?.username.toUpperCase() === 'CRISTOBAL';
 
+  // Helper functions defined before useMemo to avoid initialization errors
+  const formatCurrency = (amount: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+    const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+    return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
   // Ocultar barra de navegación móvil cuando el modal está abierto
   useEffect(() => {
     if (isModalOpen || isHistoryOpen) {
@@ -292,17 +302,8 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
         });
     }
     return rows;
-  }, [activeLoanDetails]);
+  }, [activeLoanDetails, formatDate]);
   
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-    const correctedDate = new Date(date.getTime() + userTimezoneOffset);
-    return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
-  };
-
   const handleClientSelect = (client: Client) => {
       setSelectedClient(client);
       setIsModalOpen(true);
