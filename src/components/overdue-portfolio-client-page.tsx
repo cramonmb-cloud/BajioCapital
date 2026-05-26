@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -316,7 +315,7 @@ export function OverduePortfolioClientPage({
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Modo Vence</label>
                             <Select 
-                                value={maturityDateFilterMode === 'exclude' ? 'exclude' : 'include'} 
+                                value={maturityFilterMode} 
                                 onValueChange={(v: any) => setMaturityFilterMode(v)}
                                 disabled={selectedMaturityDate === 'all'}
                             >
