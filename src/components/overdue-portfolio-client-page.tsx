@@ -14,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { X, Search, Filter, ChevronDown, ChevronUp, CalendarDays, Eye, EyeOff } from 'lucide-react';
+import { X, Search, Filter, ChevronDown, ChevronUp, CalendarDays, Eye, EyeOff, CalendarRange } from 'lucide-react';
 import { generateColorPalette, cn } from '@/lib/utils';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 
@@ -43,8 +43,14 @@ export function OverduePortfolioClientPage({
     const [selectedLocalidad, setSelectedLocalidad] = useState('all');
     const [selectedPromotora, setSelectedPromotora] = useState('all');
     const [selectedFailures, setSelectedFailures] = useState('all');
-    const [selectedDate, setSelectedDate] = useState('all');
-    const [filterMode, setFilterMode] = useState<'include' | 'exclude'>('include');
+    
+    // Date Filters
+    const [selectedStartDate, setSelectedStartDate] = useState('all');
+    const [startFilterMode, setStartFilterMode] = useState<'include' | 'exclude'>('include');
+    
+    const [selectedMaturityDate, setSelectedMaturityDate] = useState('all');
+    const [maturityFilterMode, setMaturityFilterMode] = useState<'include' | 'exclude'>('include');
+
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
     const isOverduePortfolio = title === "Pagos Pendientes";
@@ -62,10 +68,20 @@ export function OverduePortfolioClientPage({
         return map;
     }, [plazas]);
 
-    const availableDates = useMemo(() => {
+    const availableStartDates = useMemo(() => {
         const dates = Array.from(new Set(initialOverdueLoans.map(d => {
             const date = new Date(d.loan.startDate);
             return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())).toISOString();
+        })));
+        return dates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    }, [initialOverdueLoans]);
+
+    const availableMaturityDates = useMemo(() => {
+        const dates = Array.from(new Set(initialOverdueLoans.map(d => {
+            const startDate = new Date(d.loan.startDate);
+            const mDate = new Date(startDate);
+            mDate.setUTCDate(startDate.getUTCDate() + (d.loanPlan.termInWeeks * 7));
+            return new Date(Date.UTC(mDate.getUTCFullYear(), mDate.getUTCMonth(), mDate.getUTCDate())).toISOString();
         })));
         return dates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
     }, [initialOverdueLoans]);
@@ -108,21 +124,27 @@ export function OverduePortfolioClientPage({
             const matchesPromotora = selectedPromotora === 'all' || details.hierarchy.promotoraId === selectedPromotora;
             const matchesFailures = selectedFailures === 'all' || details.missedPayments.toString() === selectedFailures;
             
-            let matchesDate = true;
-            if (selectedDate !== 'all') {
+            // Start Date Filter
+            let matchesStart = true;
+            if (selectedStartDate !== 'all') {
                 const loanDate = new Date(details.loan.startDate);
                 const loanDateIso = new Date(Date.UTC(loanDate.getUTCFullYear(), loanDate.getUTCMonth(), loanDate.getUTCDate())).toISOString();
-                
-                if (filterMode === 'include') {
-                    matchesDate = loanDateIso === selectedDate;
-                } else {
-                    matchesDate = loanDateIso !== selectedDate;
-                }
+                matchesStart = startFilterMode === 'include' ? (loanDateIso === selectedStartDate) : (loanDateIso !== selectedStartDate);
             }
 
-            return matchesSearch && matchesPlaza && matchesLocalidad && matchesPromotora && matchesFailures && matchesDate;
+            // Maturity Date Filter
+            let matchesMaturity = true;
+            if (selectedMaturityDate !== 'all') {
+                const sDate = new Date(details.loan.startDate);
+                const mDate = new Date(sDate);
+                mDate.setUTCDate(sDate.getUTCDate() + (details.loanPlan.termInWeeks * 7));
+                const mDateIso = new Date(Date.UTC(mDate.getUTCFullYear(), mDate.getUTCMonth(), mDate.getUTCDate())).toISOString();
+                matchesMaturity = maturityFilterMode === 'include' ? (mDateIso === selectedMaturityDate) : (mDateIso !== selectedMaturityDate);
+            }
+
+            return matchesSearch && matchesPlaza && matchesLocalidad && matchesPromotora && matchesFailures && matchesStart && matchesMaturity;
         });
-    }, [initialOverdueLoans, searchTerm, selectedPlaza, selectedLocalidad, selectedPromotora, selectedFailures, selectedDate, filterMode]);
+    }, [initialOverdueLoans, searchTerm, selectedPlaza, selectedLocalidad, selectedPromotora, selectedFailures, selectedStartDate, startFilterMode, selectedMaturityDate, maturityFilterMode]);
 
     const totalDue = filteredLoans.reduce((acc, details) => acc + details.amountDue, 0);
     const totalClients = new Set(filteredLoans.map(d => d.client.id)).size;
@@ -151,7 +173,6 @@ export function OverduePortfolioClientPage({
             </div>
 
             <div className="bg-card p-3 rounded-lg border shadow-sm space-y-3">
-                {/* Mobile Toggle Button */}
                 <div className="md:hidden">
                     <Button 
                         variant="outline" 
@@ -181,7 +202,7 @@ export function OverduePortfolioClientPage({
                                 placeholder="Nombre, calle o teléfono..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                className="w-full h-9 text-base"
+                                className="w-full h-10 text-base font-bold uppercase"
                             />
                             {searchTerm && (
                                 <Button variant="ghost" size="icon" onClick={() => setSearchTerm('')} className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7">
@@ -190,11 +211,11 @@ export function OverduePortfolioClientPage({
                             )}
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Plaza</label>
                             <Select value={selectedPlaza} onValueChange={(v) => { setSelectedPlaza(v); setSelectedLocalidad('all'); setSelectedPromotora('all'); }}>
-                                <SelectTrigger className="h-8 text-[10px]"><SelectValue placeholder="Todas" /></SelectTrigger>
+                                <SelectTrigger className="h-10 text-[10px] uppercase font-bold"><SelectValue placeholder="Todas" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas</SelectItem>
                                     {[...plazas].sort((a,b) => a.name.localeCompare(b.name)).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -204,7 +225,7 @@ export function OverduePortfolioClientPage({
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Localidad</label>
                             <Select value={selectedLocalidad} onValueChange={(v) => { setSelectedLocalidad(v); setSelectedPromotora('all'); }}>
-                                <SelectTrigger className="h-8 text-[10px]"><SelectValue placeholder="Todas" /></SelectTrigger>
+                                <SelectTrigger className="h-10 text-[10px] uppercase font-bold"><SelectValue placeholder="Todas" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas</SelectItem>
                                     {filteredLocalidadesOptions.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
@@ -214,7 +235,7 @@ export function OverduePortfolioClientPage({
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Promotora</label>
                             <Select value={selectedPromotora} onValueChange={setSelectedPromotora}>
-                                <SelectTrigger className="h-8 text-[10px]"><SelectValue placeholder="Todas" /></SelectTrigger>
+                                <SelectTrigger className="h-10 text-[10px] uppercase font-bold"><SelectValue placeholder="Todas" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Todas</SelectItem>
                                     {filteredPromotorasOptions.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -224,7 +245,7 @@ export function OverduePortfolioClientPage({
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Fallos</label>
                             <Select value={selectedFailures} onValueChange={setSelectedFailures}>
-                                <SelectTrigger className="h-8 text-[10px] border-zinc-200"><SelectValue placeholder="Ver Todos" /></SelectTrigger>
+                                <SelectTrigger className="h-10 text-[10px] border-zinc-200 uppercase font-bold"><SelectValue placeholder="Ver Todos" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Ver Todos</SelectItem>
                                     {Array.from({ length: 15 }, (_, i) => (
@@ -233,37 +254,80 @@ export function OverduePortfolioClientPage({
                                 </SelectContent>
                             </Select>
                         </div>
+
+                        {/* Start Date Filters */}
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-1">
-                                <CalendarDays className="h-2.5 w-2.5" /> Semana
+                                <CalendarDays className="h-2.5 w-2.5 text-blue-600" /> Fecha de Inicio
                             </label>
-                            <Select value={selectedDate} onValueChange={setSelectedDate}>
-                                <SelectTrigger className="h-8 text-[10px] border-blue-100 bg-blue-50/30">
-                                    <SelectValue placeholder="Cualquier Fecha" />
+                            <Select value={selectedStartDate} onValueChange={setSelectedStartDate}>
+                                <SelectTrigger className="h-10 text-[10px] border-blue-100 bg-blue-50/20 font-bold">
+                                    <SelectValue placeholder="Cualquier Inicio" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">Cualquier Fecha</SelectItem>
-                                    {availableDates.map(iso => (
+                                    <SelectItem value="all">Cualquier Inicio</SelectItem>
+                                    {availableStartDates.map(iso => (
                                         <SelectItem key={iso} value={iso}>{formatDate(iso)}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                         </div>
                         <div className="space-y-1">
-                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Filtro Fecha</label>
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Modo Inicio</label>
                             <Select 
-                                value={filterMode} 
-                                onValueChange={(v: any) => setFilterMode(v)}
-                                disabled={selectedDate === 'all'}
+                                value={startFilterMode} 
+                                onValueChange={(v: any) => setStartFilterMode(v)}
+                                disabled={selectedStartDate === 'all'}
                             >
                                 <SelectTrigger className={cn(
-                                    "h-8 text-[10px] font-bold border-blue-200",
-                                    filterMode === 'exclude' ? "text-orange-600" : "text-blue-700"
+                                    "h-10 text-[10px] font-black uppercase border-blue-200 shadow-sm",
+                                    startFilterMode === 'exclude' ? "text-orange-600" : "text-blue-700"
                                 )}>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="include" className="text-blue-700 font-bold">
+                                        <div className="flex items-center gap-1.5"><Eye className="h-3 w-3"/> Mostrar Solo</div>
+                                    </SelectItem>
+                                    <SelectItem value="exclude" className="text-orange-600 font-bold">
+                                        <div className="flex items-center gap-1.5"><EyeOff className="h-3 w-3"/> Ocultar Fecha</div>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Maturity Date Filters */}
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-1">
+                                <CalendarRange className="h-2.5 w-2.5 text-red-600" /> Fecha Vencimiento
+                            </label>
+                            <Select value={selectedMaturityDate} onValueChange={setSelectedMaturityDate}>
+                                <SelectTrigger className="h-10 text-[10px] border-red-100 bg-red-50/20 font-bold">
+                                    <SelectValue placeholder="Cualquier Vence" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Cualquier Vence</SelectItem>
+                                    {availableMaturityDates.map(iso => (
+                                        <SelectItem key={iso} value={iso}>{formatDate(iso)}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Modo Vence</label>
+                            <Select 
+                                value={maturityDateFilterMode === 'exclude' ? 'exclude' : 'include'} 
+                                onValueChange={(v: any) => setMaturityFilterMode(v)}
+                                disabled={selectedMaturityDate === 'all'}
+                            >
+                                <SelectTrigger className={cn(
+                                    "h-10 text-[10px] font-black uppercase border-red-200 shadow-sm",
+                                    maturityFilterMode === 'exclude' ? "text-orange-600" : "text-red-700"
+                                )}>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="include" className="text-red-700 font-bold">
                                         <div className="flex items-center gap-1.5"><Eye className="h-3 w-3"/> Mostrar Solo</div>
                                     </SelectItem>
                                     <SelectItem value="exclude" className="text-orange-600 font-bold">
@@ -300,4 +364,3 @@ export function OverduePortfolioClientPage({
         </div>
     );
 }
-
