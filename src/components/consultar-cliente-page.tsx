@@ -5,7 +5,7 @@ import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/
 import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Search, Wallet, Calendar, Shield, Phone, Home, X, CircleDollarSign, Building, MapPin, List, ChevronRight, UserCheck, Smartphone, Info, Route, ArrowRight, AlertTriangle, User, Monitor, Filter } from 'lucide-react';
+import { Search, Wallet, Calendar, Shield, Phone, Home, X, CircleDollarSign, Building, MapPin, List, ChevronRight, UserCheck, Smartphone, Info, Route, ArrowRight, AlertTriangle, User, Monitor, Filter, ListTodo, History, PencilLine } from 'lucide-react';
 import { Separator } from './ui/separator';
 import { Button } from './ui/button';
 import { cn } from '@/lib/utils';
@@ -13,8 +13,9 @@ import { Badge } from './ui/badge';
 import { useAuth } from '@/hooks/use-auth';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from './ui/scroll-area';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogClose, DialogDescription } from '@/components/ui/dialog';
+import { ManualPaymentAdjustmentDialog } from '@/components/manual-payment-adjustment-dialog';
 
 interface ConsultarClientePageProps {
   clients: Client[];
@@ -30,7 +31,12 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   
+  // State for manual adjustment
+  const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
+  const [adjustData, setAdjustData] = useState<{ weekNumber: number, amount: number } | null>(null);
+
   // Filtros
   const [filterPlaza, setFilterPlaza] = useState('all');
   const [filterLocalidad, setFilterLocalidad] = useState('all');
@@ -39,15 +45,16 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
   const { appUser } = useAuth();
   const isAdmin = appUser?.role === 'admin' || appUser?.username.toUpperCase() === 'CRISTOBAL';
+  const isCristobal = appUser?.username.toUpperCase() === 'CRISTOBAL';
 
   // Ocultar barra de navegación móvil cuando el modal está abierto
   useEffect(() => {
-    if (isModalOpen) {
+    if (isModalOpen || isHistoryOpen) {
       window.dispatchEvent(new CustomEvent('hide-mobile-nav'));
     } else {
       window.dispatchEvent(new CustomEvent('show-mobile-nav'));
     }
-  }, [isModalOpen]);
+  }, [isModalOpen, isHistoryOpen]);
 
   // Lógica de restricción de datos por usuario
   const allowedPlazas = useMemo(() => {
@@ -235,6 +242,57 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
       loanStartDate: activeLoan.startDate,
     };
   }, [selectedClient, allLoans, loanPlans, allPlazas, allLocalidades, allPromotoras]);
+
+  const loanHistoryData = useMemo(() => {
+    if (!activeLoanDetails) return [];
+    
+    const { loan, loanPlan, weeklyPayment, termInWeeks } = activeLoanDetails;
+    const startDate = new Date(loan.startDate);
+    const today = new Date();
+    
+    const rows = [];
+    for(let i = 1; i <= termInWeeks; i++) {
+        const dueDate = new Date(startDate);
+        dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
+        
+        const payment = (loan.payments || []).find(p => p.weekNumber === i);
+        const isRegistered = !!payment;
+        const isPast = today > dueDate;
+        
+        let statusType: 'PAID' | 'MISSED' | 'PENDING' = 'PENDING';
+        let statusText = '';
+
+        if (isRegistered) {
+            if (payment.amount >= weeklyPayment) {
+                statusText = formatDate(payment.date);
+                statusType = 'PAID';
+            } else if (payment.amount > 0) {
+                statusText = 'PARCIAL';
+                statusType = 'MISSED';
+            } else {
+                statusText = 'FALLO';
+                statusType = 'MISSED';
+            }
+        } else if (isPast) {
+            statusText = 'FALLO';
+            statusType = 'MISSED';
+        } else {
+            statusText = 'PENDIENTE';
+            statusType = 'PENDING';
+        }
+        
+        rows.push({
+            num: i,
+            vencimiento: dueDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' }),
+            importeAbono: weeklyPayment,
+            importeRecibido: isRegistered ? payment.amount : 0,
+            statusText: statusText,
+            isPenalty: i > loanPlan.termInWeeks,
+            status: statusType
+        });
+    }
+    return rows;
+  }, [activeLoanDetails]);
   
   const formatCurrency = (amount: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
 
@@ -248,6 +306,12 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   const handleClientSelect = (client: Client) => {
       setSelectedClient(client);
       setIsModalOpen(true);
+  };
+
+  const handleAdjustClick = (weekNumber: number, currentAmount: number) => {
+    if (!isCristobal) return;
+    setAdjustData({ weekNumber, amount: currentAmount });
+    setIsAdjustDialogOpen(true);
   };
 
   return (
@@ -615,7 +679,15 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                             </div>
                         </ScrollArea>
 
-                        <div className="p-4 bg-zinc-50 border-t flex justify-end gap-2 shrink-0">
+                        <div className="p-4 bg-zinc-50 border-t flex flex-col sm:flex-row justify-end gap-2 shrink-0">
+                            <Button 
+                                variant="outline" 
+                                className="h-10 px-8 rounded-lg font-black uppercase text-[10px] tracking-widest border-2 border-blue-200 text-blue-700 hover:bg-blue-50 w-full sm:w-auto" 
+                                onClick={() => setIsHistoryOpen(true)}
+                            >
+                                <ListTodo className="mr-2 h-4 w-4" />
+                                Ver Abonos
+                            </Button>
                             <Button 
                                 variant="outline" 
                                 className="h-10 px-8 rounded-lg font-black uppercase text-[10px] tracking-widest border-2 hover:bg-zinc-100 w-full sm:w-auto" 
@@ -628,6 +700,95 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                 )}
             </DialogContent>
         </Dialog>
+
+        {/* DIALOG DE HISTORIAL DE ABONOS */}
+        <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+            <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-md">
+                <DialogHeader className="p-6 pb-2 shrink-0 bg-muted/10 border-b">
+                    <DialogTitle className="text-center border-b pb-2 uppercase font-black tracking-tight flex items-center justify-center gap-2">
+                        <History className="h-5 w-5 text-blue-600" />
+                        Historial de Abonos - {selectedClient?.name}
+                    </DialogTitle>
+                    <DialogDescription className="sr-only">Listado detallado de abonos recibidos y pendientes.</DialogDescription>
+                </DialogHeader>
+                <div className="flex-1 min-h-0">
+                    <ScrollArea className="h-full px-4 md:px-6">
+                        <div className="py-4">
+                            <Table className="border border-blue-200">
+                                <TableHeader className="bg-blue-100 sticky top-0 z-10">
+                                    <TableRow className="hover:bg-blue-100 border-blue-200">
+                                        <TableHead className="text-blue-900 font-black border-r border-blue-200 text-center text-[10px] uppercase">Num</TableHead>
+                                        <TableHead className="text-blue-900 font-black border-r border-blue-200 text-[10px] uppercase">Vencimiento</TableHead>
+                                        <TableHead className="text-blue-900 font-black border-r border-blue-200 text-right text-[10px] uppercase">Abono</TableHead>
+                                        <TableHead className="text-blue-900 font-black border-r border-blue-200 text-right text-[10px] uppercase">Recibido</TableHead>
+                                        <TableHead className="text-blue-900 font-black text-center text-[10px] uppercase">Estatus / Fecha</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {loanHistoryData.map((row) => (
+                                        <TableRow key={row.num} className="border-blue-100 hover:bg-blue-50/50 transition-colors">
+                                            <TableCell className="border-r border-blue-100 text-center py-2.5 font-bold text-xs">{row.num}</TableCell>
+                                            <TableCell className="border-r border-blue-100 py-2.5 text-xs font-bold text-zinc-600">{row.vencimiento}</TableCell>
+                                            <TableCell className="border-r border-blue-100 text-right py-2.5 text-xs font-black text-zinc-800">{formatCurrency(row.importeAbono)}</TableCell>
+                                            <TableCell 
+                                                className={cn(
+                                                    "border-r border-blue-100 text-right py-2.5 font-black text-xs relative group", 
+                                                    row.importeRecibido > 0 ? "bg-green-100 text-green-800" : "bg-red-50 text-red-700",
+                                                    isCristobal && row.importeRecibido >= 0 && !row.isPenalty && "cursor-pointer hover:bg-green-200 transition-colors"
+                                                )}
+                                                onClick={() => isCristobal && row.importeRecibido >= 0 && !row.isPenalty && handleAdjustClick(row.num, row.importeRecibido)}
+                                            >
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {formatCurrency(row.importeRecibido)}
+                                                    {row.isPenalty && (
+                                                        <Badge className="bg-orange-600 text-white text-[7px] font-black h-3.5 px-1 uppercase shrink-0">EXTRA</Badge>
+                                                    )}
+                                                    {isCristobal && row.importeRecibido >= 0 && !row.isPenalty && (
+                                                        <PencilLine className="h-3 w-3 opacity-0 group-hover:opacity-100 text-blue-600 shrink-0 transition-opacity" />
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className={cn(
+                                                "text-center py-2.5 text-[9px] font-black uppercase",
+                                                row.status === 'MISSED' ? "text-red-600" : row.status === 'PAID' ? "text-green-700" : "text-zinc-400"
+                                            )}>
+                                                {row.statusText}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                                <TableFooter className="bg-zinc-100/50 border-t-2 border-blue-300">
+                                    <TableRow className="hover:bg-zinc-100/50">
+                                        <TableCell colSpan={3} className="text-right font-black text-zinc-500 text-[10px] uppercase">Suma Total Recuperada</TableCell>
+                                        <TableCell className="text-right font-black text-green-700 bg-green-50 text-base py-3">
+                                            {formatCurrency(activeLoanDetails?.loan.payments.reduce((acc, p) => acc + p.amount, 0) || 0)}
+                                        </TableCell>
+                                        <TableCell></TableCell>
+                                    </TableRow>
+                                </TableFooter>
+                            </Table>
+                        </div>
+                    </ScrollArea>
+                </div>
+                <div className="p-4 border-t flex justify-end shrink-0 gap-2 bg-muted/20">
+                    <Button variant="secondary" onClick={() => setIsHistoryOpen(false)} className="font-black uppercase text-[10px] h-10 px-8 rounded-md border-zinc-300 bg-white">Cerrar Historial</Button>
+                </div>
+            </DialogContent>
+        </Dialog>
+
+        {/* DIALOG DE AJUSTE MANUAL (PARA CRISTOBAL) */}
+        {activeLoanDetails && adjustData && (
+            <ManualPaymentAdjustmentDialog
+                isOpen={isAdjustDialogOpen}
+                onOpenChange={setIsAdjustDialogOpen}
+                loan={activeLoanDetails.loan}
+                weekNumber={adjustData.weekNumber}
+                currentAmount={adjustData.amount}
+                onSuccess={() => {
+                    if (typeof window !== 'undefined') window.location.reload();
+                }}
+            />
+        )}
     </div>
   );
 }
