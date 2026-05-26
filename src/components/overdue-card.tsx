@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { 
     Phone, MessageSquare, MapPin, 
     Wallet, FileText, Shield, History as HistoryIcon, 
-    X, Home, ListTodo, PencilLine, User, Building, Route, Info, UserCheck
+    X, Home, ListTodo, PencilLine, User, Building, Route, Info, UserCheck,
+    Calendar, AlertTriangle
 } from 'lucide-react';
 import type { OverdueLoanDetails } from '@/app/dashboard/cartera-vencida/page';
 import { RegisterPaymentDialog } from './register-payment-dialog';
@@ -118,11 +119,16 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const baseArrears = Math.max(0, (baseTerm * weeklyPayment) - totalPaid);
         const penaltyArrear = totalDue - baseArrears;
 
+        // Fecha de Vencimiento (Fin del plazo base)
+        const maturityDate = new Date(loanStartDate);
+        maturityDate.setUTCDate(maturityDate.getUTCDate() + (baseTerm * 7));
+
         return {
             weeklyPayment,
             termInWeeks: baseTerm + (hasPenalty ? 1 : 0),
             currentProgressWeek: Math.min(rawCurrentLoanWeek, baseTerm + (hasPenalty ? 1 : 0)),
             loanWeekDate: getSaturdayOfWeek(loanStartDate),
+            maturityDate,
             hasPenalty,
             baseArrears,
             penaltyArrear,
@@ -361,8 +367,13 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
                     {/* FOOTER ACTIONS */}
                     <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-dashed border-zinc-200">
-                        <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1.5">
-                            <HistoryIcon className="h-3.5 w-3.5" /> INICIÓ: {formatDate(metrics.loanWeekDate.toISOString())}
+                        <div className="flex flex-col gap-0.5">
+                            <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1.5">
+                                <Calendar className="h-3 w-3 text-blue-500" /> INICIO: {formatDate(loan.startDate)}
+                            </div>
+                            <div className="text-[9px] font-black text-red-600 uppercase opacity-90 flex items-center gap-1.5">
+                                <AlertTriangle className="h-3 w-3" /> VENCE: {formatDate(metrics.maturityDate.toISOString())}
+                            </div>
                         </div>
                         <Button size="sm" onClick={() => setDetailModalOpen(true)} className="h-8 bg-zinc-900 text-white font-black text-[10px] uppercase px-6 rounded-md shadow-lg hover:bg-zinc-800 active:scale-95 transition-all">
                             <Wallet className="mr-1.5 h-3.5 w-3.5" /> Detalle
