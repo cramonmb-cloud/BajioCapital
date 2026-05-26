@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -13,7 +14,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { X, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
+import { X, Search, Filter, ChevronDown, ChevronUp, CalendarDays, Eye, EyeOff } from 'lucide-react';
 import { generateColorPalette, cn } from '@/lib/utils';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 
@@ -42,6 +43,8 @@ export function OverduePortfolioClientPage({
     const [selectedLocalidad, setSelectedLocalidad] = useState('all');
     const [selectedPromotora, setSelectedPromotora] = useState('all');
     const [selectedFailures, setSelectedFailures] = useState('all');
+    const [selectedDate, setSelectedDate] = useState('all');
+    const [filterMode, setFilterMode] = useState<'include' | 'exclude'>('include');
     const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
     const isOverduePortfolio = title === "Pagos Pendientes";
@@ -58,6 +61,14 @@ export function OverduePortfolioClientPage({
         });
         return map;
     }, [plazas]);
+
+    const availableDates = useMemo(() => {
+        const dates = Array.from(new Set(initialOverdueLoans.map(d => {
+            const date = new Date(d.loan.startDate);
+            return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate())).toISOString();
+        })));
+        return dates.sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    }, [initialOverdueLoans]);
 
     const filteredLocalidadesOptions = useMemo(() => {
         let result = selectedPlaza === 'all' 
@@ -96,13 +107,32 @@ export function OverduePortfolioClientPage({
             const matchesLocalidad = selectedLocalidad === 'all' || details.hierarchy.localidadId === selectedLocalidad;
             const matchesPromotora = selectedPromotora === 'all' || details.hierarchy.promotoraId === selectedPromotora;
             const matchesFailures = selectedFailures === 'all' || details.missedPayments.toString() === selectedFailures;
+            
+            let matchesDate = true;
+            if (selectedDate !== 'all') {
+                const loanDate = new Date(details.loan.startDate);
+                const loanDateIso = new Date(Date.UTC(loanDate.getUTCFullYear(), loanDate.getUTCMonth(), loanDate.getUTCDate())).toISOString();
+                
+                if (filterMode === 'include') {
+                    matchesDate = loanDateIso === selectedDate;
+                } else {
+                    matchesDate = loanDateIso !== selectedDate;
+                }
+            }
 
-            return matchesSearch && matchesPlaza && matchesLocalidad && matchesPromotora && matchesFailures;
+            return matchesSearch && matchesPlaza && matchesLocalidad && matchesPromotora && matchesFailures && matchesDate;
         });
-    }, [initialOverdueLoans, searchTerm, selectedPlaza, selectedLocalidad, selectedPromotora, selectedFailures]);
+    }, [initialOverdueLoans, searchTerm, selectedPlaza, selectedLocalidad, selectedPromotora, selectedFailures, selectedDate, filterMode]);
 
     const totalDue = filteredLoans.reduce((acc, details) => acc + details.amountDue, 0);
     const totalClients = new Set(filteredLoans.map(d => d.client.id)).size;
+
+    const formatDate = (iso: string) => {
+        const date = new Date(iso);
+        const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+        const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+        return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
+    };
 
     return (
         <div className="space-y-4">
@@ -160,7 +190,7 @@ export function OverduePortfolioClientPage({
                             )}
                         </div>
                     </div>
-                    <div className="grid grid-cols-4 gap-2">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2">
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Plaza</label>
                             <Select value={selectedPlaza} onValueChange={(v) => { setSelectedPlaza(v); setSelectedLocalidad('all'); setSelectedPromotora('all'); }}>
@@ -194,12 +224,51 @@ export function OverduePortfolioClientPage({
                         <div className="space-y-1">
                             <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Fallos</label>
                             <Select value={selectedFailures} onValueChange={setSelectedFailures}>
-                                <SelectTrigger className="h-8 text-[10px] border-blue-200 focus:ring-blue-500"><SelectValue placeholder="Ver Todos" /></SelectTrigger>
+                                <SelectTrigger className="h-8 text-[10px] border-zinc-200"><SelectValue placeholder="Ver Todos" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">Ver Todos</SelectItem>
                                     {Array.from({ length: 15 }, (_, i) => (
                                         <SelectItem key={i + 2} value={(i + 2).toString()}>{i + 2} Fallos</SelectItem>
                                     ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1 flex items-center gap-1">
+                                <CalendarDays className="h-2.5 w-2.5" /> Semana
+                            </label>
+                            <Select value={selectedDate} onValueChange={setSelectedDate}>
+                                <SelectTrigger className="h-8 text-[10px] border-blue-100 bg-blue-50/30">
+                                    <SelectValue placeholder="Cualquier Fecha" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Cualquier Fecha</SelectItem>
+                                    {availableDates.map(iso => (
+                                        <SelectItem key={iso} value={iso}>{formatDate(iso)}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[9px] font-black uppercase text-muted-foreground ml-1">Filtro Fecha</label>
+                            <Select 
+                                value={filterMode} 
+                                onValueChange={(v: any) => setFilterMode(v)}
+                                disabled={selectedDate === 'all'}
+                            >
+                                <SelectTrigger className={cn(
+                                    "h-8 text-[10px] font-bold border-blue-200",
+                                    filterMode === 'exclude' ? "text-orange-600" : "text-blue-700"
+                                )}>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="include" className="text-blue-700 font-bold">
+                                        <div className="flex items-center gap-1.5"><Eye className="h-3 w-3"/> Mostrar Solo</div>
+                                    </SelectItem>
+                                    <SelectItem value="exclude" className="text-orange-600 font-bold">
+                                        <div className="flex items-center gap-1.5"><EyeOff className="h-3 w-3"/> Ocultar Fecha</div>
+                                    </SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -231,3 +300,4 @@ export function OverduePortfolioClientPage({
         </div>
     );
 }
+
