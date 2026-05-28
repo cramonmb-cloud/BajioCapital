@@ -213,7 +213,6 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
         <TableBody>
           {sortedLoans.length > 0 ? (
             sortedLoans.map((loan) => {
-              const isPaid = loan.status === 'Paid Off' || loan.status === 'Pagado desde CV';
               return (
                 <TableRow 
                   key={loan.id} 
@@ -231,7 +230,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
                           <ListTodo className="h-4 w-4 mr-1" />
                           Abonos
                       </Button>
-                      {canEdit && !isPaid && (
+                      {canEdit && (
                           <Button variant="ghost" size="icon" onClick={(e) => handleEditClick(e, loan)}>
                           <Edit className="h-4 w-4" />
                           <span className="sr-only">Editar Préstamo</span>
@@ -277,9 +276,9 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
                                             className={cn(
                                                 "border-r border-blue-100 text-right py-1 font-semibold relative group", 
                                                 row.importeRecibido !== null ? "bg-green-100 text-green-800" : "",
-                                                isCristobal && "cursor-pointer hover:bg-green-200 transition-colors"
+                                                isCristobal && row.importeRecibido !== null && row.note !== 'AD' && "cursor-pointer hover:bg-green-200 transition-colors"
                                             )}
-                                            onClick={() => isCristobal && row.importeRecibido !== null && handleAdjustClick(row.num, row.importeRecibido)}
+                                            onClick={() => isCristobal && row.importeRecibido !== null && row.note !== 'AD' && handleAdjustClick(row.num, row.importeRecibido)}
                                         >
                                             <div className="flex items-center justify-end gap-2">
                                                 {row.importeRecibido !== null ? formatCurrency(row.importeRecibido) : ''}

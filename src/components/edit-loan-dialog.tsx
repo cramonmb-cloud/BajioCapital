@@ -33,6 +33,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -41,7 +42,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
-import { Loader2, Trash2 } from 'lucide-react';
+import { Loader2, Trash2, ShieldAlert, KeyRound } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { updateLoanAction, deleteLoanAction } from '@/app/dashboard/actions';
 import { Separator } from './ui/separator';
@@ -67,6 +68,8 @@ interface EditLoanDialogProps {
   promotoras: Promotora[];
 }
 
+const DELETE_AUTH_CODE = "012004";
+
 export function EditLoanDialog({
   isOpen,
   onOpenChange,
@@ -79,11 +82,14 @@ export function EditLoanDialog({
 }: EditLoanDialogProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteAuthCode, setDeleteAuthCode] = useState('');
   const { toast } = useToast();
   const { appUser } = useAuth();
 
   const [selectedPlaza, setSelectedPlaza] = useState('');
   const [selectedLocalidad, setSelectedLocalidad] = useState('');
+
+  const isPaid = loan.status === 'Paid Off' || loan.status === 'Pagado desde CV';
 
   const form = useForm<EditLoanFormValues>({
     resolver: zodResolver(formSchema),
@@ -114,6 +120,7 @@ export function EditLoanDialog({
         startDate: saturdayOfLoan,
         promotoraId: loan.promotoraId || '',
       });
+      setDeleteAuthCode('');
     }
   }, [loan, isOpen, form, promotoras, localidades, plazas]);
 
@@ -182,6 +189,11 @@ export function EditLoanDialog({
   };
 
   const handleDelete = async () => {
+    if (isPaid && deleteAuthCode !== DELETE_AUTH_CODE) {
+        toast({ variant: 'destructive', title: 'Error de Autorización', description: 'El código de autorización es incorrecto.' });
+        return;
+    }
+
     setIsDeleting(true);
     try {
         const result = await deleteLoanAction(loan.id);
@@ -202,9 +214,9 @@ export function EditLoanDialog({
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Editar Préstamo</DialogTitle>
+          <DialogTitle>Gestionar Préstamo</DialogTitle>
           <DialogDescription>
-            Modifica los detalles del préstamo seleccionado.
+            {isPaid ? 'Este préstamo ya está liquidado. Solo se permite su eliminación bajo autorización.' : 'Modifica los detalles del préstamo seleccionado.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -216,7 +228,7 @@ export function EditLoanDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Plan de Préstamo</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isPaid}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecciona un plan" />
@@ -241,7 +253,7 @@ export function EditLoanDialog({
                   <FormItem>
                     <FormLabel>Monto</FormLabel>
                     <FormControl>
-                      <Input type="number" {...field} />
+                      <Input type="number" {...field} disabled={isPaid} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -253,7 +265,7 @@ export function EditLoanDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Fecha de Inicio (Semana)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select onValueChange={field.onChange} value={field.value} disabled={isPaid}>
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecciona una semana" />
@@ -272,11 +284,11 @@ export function EditLoanDialog({
                 )}
               />
               <Separator />
-              <h3 className="text-md font-medium">Reasignar Préstamo</h3>
+              <h3 className="text-md font-medium">Ubicación del Préstamo</h3>
                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
                     <FormItem>
                         <FormLabel>Plaza</FormLabel>
-                        <Select onValueChange={setSelectedPlaza} value={selectedPlaza}>
+                        <Select onValueChange={setSelectedPlaza} value={selectedPlaza} disabled={isPaid}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Selecciona una plaza" />
@@ -293,7 +305,7 @@ export function EditLoanDialog({
                     </FormItem>
                     <FormItem>
                         <FormLabel>Localidad</FormLabel>
-                        <Select onValueChange={setSelectedLocalidad} value={selectedLocalidad} disabled={!selectedPlaza}>
+                        <Select onValueChange={setSelectedLocalidad} value={selectedLocalidad} disabled={!selectedPlaza || isPaid}>
                             <FormControl>
                             <SelectTrigger>
                                 <SelectValue placeholder="Selecciona una localidad" />
@@ -314,7 +326,7 @@ export function EditLoanDialog({
                         render={({ field }) => (
                             <FormItem>
                             <FormLabel>Promotora</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} disabled={!selectedLocalidad}>
+                            <Select onValueChange={field.onChange} value={field.value} disabled={!selectedLocalidad || isPaid}>
                                 <FormControl>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Selecciona una promotora" />
@@ -335,45 +347,84 @@ export function EditLoanDialog({
                 </div>
 
                 {appUser?.username === 'Cristobal' && (
-                    <div className="mt-6 rounded-lg border border-destructive/50 p-4 bg-destructive/5">
-                        <h4 className="text-sm font-semibold text-destructive mb-1">Zona de Peligro</h4>
-                        <p className="text-xs text-muted-foreground mb-3">
-                            Eliminar este préstamo revertirá los abonos de la cartera y borrará todo su historial financiero.
+                    <div className={cn(
+                        "mt-6 rounded-lg border p-4 shadow-sm",
+                        isPaid ? "bg-orange-50 border-orange-200" : "bg-destructive/5 border-destructive/20"
+                    )}>
+                        <h4 className={cn("text-sm font-black uppercase mb-1 flex items-center gap-2", isPaid ? "text-orange-700" : "text-destructive")}>
+                            {isPaid ? <ShieldAlert className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
+                            {isPaid ? 'Autorización de Borrado' : 'Zona de Peligro'}
+                        </h4>
+                        <p className="text-[10px] font-bold text-muted-foreground mb-3 uppercase">
+                            {isPaid 
+                                ? 'Este préstamo ya está liquidado. Eliminarlo requiere un código de autorización y borrará el historial contable permanentemente.' 
+                                : 'Eliminar este préstamo revertirá los abonos de la cartera y borrará todo su historial financiero.'}
                         </p>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
-                                <Button type="button" variant="destructive" size="sm" className="w-full">
+                                <Button type="button" variant="destructive" size="sm" className="w-full font-black uppercase text-[10px] h-9">
                                     <Trash2 className="mr-2 h-4 w-4" />
                                     Eliminar Préstamo
                                 </Button>
                             </AlertDialogTrigger>
-                            <AlertDialogContent>
+                            <AlertDialogContent className="rounded-xl">
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-                                    <AlertDialogDescription>
+                                    <AlertDialogTitle className="font-black uppercase tracking-tight">¿Estás absolutamente seguro?</AlertDialogTitle>
+                                    <AlertDialogDescription className="text-xs font-bold uppercase text-muted-foreground">
                                         Esta acción eliminará el préstamo permanentemente y restará los abonos ya registrados del saldo de la cartera. Esta acción no se puede deshacer.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-white">
-                                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sí, eliminar préstamo"}
-                                    </AlertDialogAction>
+
+                                {isPaid && (
+                                    <div className="py-4 space-y-3">
+                                        <Label htmlFor="authCode" className="font-black text-[10px] uppercase text-orange-700 flex items-center gap-2">
+                                            <KeyRound className="h-3.5 w-3.5" /> Código de Autorización Requerido
+                                        </Label>
+                                        <Input 
+                                            id="authCode"
+                                            type="password"
+                                            placeholder="Ingresa el código..."
+                                            value={deleteAuthCode}
+                                            onChange={(e) => setDeleteAuthCode(e.target.value)}
+                                            className="h-11 border-2 border-orange-200 focus:ring-orange-500 font-black text-center text-lg tracking-widest"
+                                        />
+                                    </div>
+                                )}
+
+                                <AlertDialogFooter className="gap-2">
+                                    <AlertDialogCancel className="font-bold">Cancelar</AlertDialogCancel>
+                                    <Button 
+                                        variant="destructive"
+                                        onClick={handleDelete} 
+                                        disabled={isDeleting || (isPaid && !deleteAuthCode)}
+                                        className="font-black uppercase"
+                                    >
+                                        {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Sí, eliminar permanentemente"}
+                                    </Button>
                                 </AlertDialogFooter>
                             </AlertDialogContent>
                         </AlertDialog>
                     </div>
                 )}
             </div>
-            <DialogFooter className="pt-4">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit" disabled={isSubmitting || isDeleting}>
-                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Guardar Cambios
-              </Button>
-            </DialogFooter>
+            {!isPaid && (
+                <DialogFooter className="pt-4">
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                        Cancelar
+                    </Button>
+                    <Button type="submit" disabled={isSubmitting || isDeleting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Guardar Cambios
+                    </Button>
+                </DialogFooter>
+            )}
+            {isPaid && (
+                 <DialogFooter className="pt-4">
+                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="w-full">
+                        Cerrar Gestión
+                    </Button>
+                </DialogFooter>
+            )}
           </form>
         </Form>
       </DialogContent>
