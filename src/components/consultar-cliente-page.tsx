@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -47,7 +48,6 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   const isAdmin = appUser?.role === 'admin' || appUser?.username.toUpperCase() === 'CRISTOBAL';
   const isCristobal = appUser?.username.toUpperCase() === 'CRISTOBAL';
 
-  // Helper functions defined before useMemo to avoid initialization errors
   const formatCurrency = (amount: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
 
   const formatDate = (dateString: string) => {
@@ -204,17 +204,23 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     const baseTerm = loanPlan.termInWeeks;
     const isExpired = currentWeekSafe > baseTerm;
 
-    let registeredMissedCount = 0;
+    let missedCount = 0;
     let baseArrears = 0;
     
-    (activeLoan.payments || []).forEach(p => {
-        if (p.weekNumber > 0 && p.weekNumber <= baseTerm && p.amount < weeklyPayment) {
-            registeredMissedCount++;
-            baseArrears += (weeklyPayment - p.amount);
+    for (let i = 1; i <= baseTerm; i++) {
+        const p = (activeLoan.payments || []).find(pay => pay.weekNumber === i);
+        if (p) {
+            if (p.amount < weeklyPayment) {
+                missedCount++;
+                baseArrears += (weeklyPayment - p.amount);
+            }
+        } else if (i < currentWeekSafe) {
+            missedCount++;
+            baseArrears += weeklyPayment;
         }
-    });
+    }
 
-    const hasPenalty = isExpired || (registeredMissedCount >= 2);
+    const hasPenalty = isExpired || (missedCount >= 2);
     const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
 
     const actualTotalPaid = (activeLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
@@ -243,7 +249,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
       termInWeeks: totalTerm,
       baseArrears,
       totalBalance: totalBalanceDue,
-      missedWeeks: registeredMissedCount,
+      missedWeeks: missedCount,
       hasPenalty,
       isExpired,
       plazaName: plaza?.name || 'N/A',
@@ -256,7 +262,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   const loanHistoryData = useMemo(() => {
     if (!activeLoanDetails) return [];
     
-    const { loan, loanPlan, weeklyPayment, termInWeeks } = activeLoanDetails;
+    const { loan, loanPlan, weeklyPayment, termInWeeks, currentLoanWeek } = activeLoanDetails;
     const startDate = new Date(loan.startDate);
     const today = new Date();
     
@@ -283,7 +289,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                 statusText = 'FALLO';
                 statusType = 'MISSED';
             }
-        } else if (isPast) {
+        } else if (isPast || i < currentLoanWeek) {
             statusText = 'FALLO';
             statusType = 'MISSED';
         } else {
@@ -734,17 +740,17 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                                             <TableCell 
                                                 className={cn(
                                                     "border-r border-blue-100 text-right py-2.5 font-black text-xs relative group", 
-                                                    row.importeRecibido > 0 ? "bg-green-100 text-green-800" : "bg-red-50 text-red-700",
-                                                    isCristobal && row.importeRecibido >= 0 && !row.isPenalty && "cursor-pointer hover:bg-green-200 transition-colors"
+                                                    row.importeRecibido > 0 ? (row.importeRecibido >= row.importeAbono ? "bg-green-100 text-green-800" : "bg-orange-50 text-orange-700") : "bg-red-50 text-red-700",
+                                                    isCristobal && !row.isPenalty && "cursor-pointer hover:bg-green-200 transition-colors"
                                                 )}
-                                                onClick={() => isCristobal && row.importeRecibido >= 0 && !row.isPenalty && handleAdjustClick(row.num, row.importeRecibido)}
+                                                onClick={() => isCristobal && !row.isPenalty && handleAdjustClick(row.num, row.importeRecibido)}
                                             >
                                                 <div className="flex items-center justify-end gap-2">
                                                     {formatCurrency(row.importeRecibido)}
                                                     {row.isPenalty && (
                                                         <Badge className="bg-orange-600 text-white text-[7px] font-black h-3.5 px-1 uppercase shrink-0">EXTRA</Badge>
                                                     )}
-                                                    {isCristobal && row.importeRecibido >= 0 && !row.isPenalty && (
+                                                    {isCristobal && !row.isPenalty && (
                                                         <PencilLine className="h-3 w-3 opacity-0 group-hover:opacity-100 text-blue-600 shrink-0 transition-opacity" />
                                                     )}
                                                 </div>

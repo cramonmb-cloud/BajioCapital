@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -75,8 +76,8 @@ export function ManualPaymentAdjustmentDialog({
 
     setIsSubmitting(true);
     try {
-      // Usamos registerPaymentAction ya que maneja la lógica de sobrescribir el pago de una semana específica
-      // y ajusta el saldo de la billetera basándose en la diferencia.
+      // Usamos registerPaymentAction ya que maneja la lógica de añadir/sobrescribir el pago de una semana específica
+      // y recalcula automáticamente si el préstamo debe ir a semana extra basándose en el conteo total de fallos.
       const result = await registerPaymentAction(
         loan.id, 
         new Date(loan.startDate), // La fecha exacta no importa tanto para la corrección, sino el weekNumber
@@ -88,7 +89,7 @@ export function ManualPaymentAdjustmentDialog({
       if (result.success) {
         toast({
           title: 'Ajuste Realizado',
-          description: `El abono de la semana ${weekNumber} ha sido corregido a ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(values.amountPaid)}.`,
+          description: `El abono de la semana ${weekNumber} ha sido procesado por ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(values.amountPaid)}.`,
         });
         onOpenChange(false);
         if (onSuccess) onSuccess();
@@ -114,11 +115,11 @@ export function ManualPaymentAdjustmentDialog({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 <ShieldCheck className="h-5 w-5 text-primary" />
-                Ajuste Manual (Corrección)
+                Registro / Ajuste Manual
               </DialogTitle>
               <DialogDescription>
-                Estás corrigiendo el abono de la <strong>Semana {weekNumber}</strong>. 
-                El saldo de caja se ajustará automáticamente por la diferencia.
+                Estás procesando el abono de la <strong>Semana {weekNumber}</strong>. 
+                El sistema recalculará automáticamente la deuda y la penalización de semana extra.
               </DialogDescription>
             </DialogHeader>
 
@@ -128,7 +129,7 @@ export function ManualPaymentAdjustmentDialog({
                 name="amountPaid"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel className="font-bold text-xs uppercase">Nuevo Importe Recibido ($)</FormLabel>
+                    <FormLabel className="font-bold text-xs uppercase">Importe Recibido ($)</FormLabel>
                     <FormControl>
                         <Input type="number" step="0.01" {...field} className="h-11 border-2 focus:ring-primary" />
                     </FormControl>
@@ -154,9 +155,9 @@ export function ManualPaymentAdjustmentDialog({
 
             <Alert className="bg-amber-50 border-amber-200">
                 <AlertCircle className="h-4 w-4 text-amber-600" />
-                <AlertTitle className="text-amber-800 font-bold text-xs">Atención</AlertTitle>
+                <AlertTitle className="text-amber-800 font-bold text-xs">Aviso de Recálculo</AlertTitle>
                 <AlertDescription className="text-[10px] text-amber-700">
-                    Esta acción es una corrección administrativa y quedará registrada en el historial de la cartera.
+                    Registrar un pago completo en una semana de "Fallo" puede eliminar la semana extra si los fallos restantes son menores a 2.
                 </AlertDescription>
             </Alert>
 
@@ -164,7 +165,7 @@ export function ManualPaymentAdjustmentDialog({
               <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
               <Button type="submit" disabled={isSubmitting} className="font-bold">
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Autorizar Cambio
+                Autorizar y Recalcular
               </Button>
             </DialogFooter>
           </form>

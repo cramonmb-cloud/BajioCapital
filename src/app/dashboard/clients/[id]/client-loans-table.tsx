@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -136,16 +137,22 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
 
       const weeklyPayment = (loanForDetails.amount / 1000) * plan.weeklyPaymentRate;
       
-      // Calculate missed weeks for penalty
+      // Calculate missed weeks for penalty using unified business rule
       let missedWeeksCount = 0;
       const today = new Date();
       const startDate = new Date(loanForDetails.startDate);
       const timeDiff = today.getTime() - startDate.getTime();
       const currentWeekAtOpening = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
 
-      for(let i = 1; i < currentWeekAtOpening; i++) {
-          const p = loanForDetails.payments.find(p => p.weekNumber === i);
-          if (p && p.amount < weeklyPayment) missedWeeksCount++;
+      for(let i = 1; i <= plan.termInWeeks; i++) {
+          if (i < currentWeekAtOpening) {
+              const p = loanForDetails.payments.find(pay => pay.weekNumber === i);
+              if (p) {
+                  if (p.amount < weeklyPayment) missedWeeksCount++;
+              } else {
+                  missedWeeksCount++;
+              }
+          }
       }
       
       const isExpired = currentWeekAtOpening > plan.termInWeeks;
@@ -275,20 +282,20 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
                                         <TableCell 
                                             className={cn(
                                                 "border-r border-blue-100 text-right py-1 font-semibold relative group", 
-                                                row.importeRecibido !== null ? "bg-green-100 text-green-800" : "",
-                                                isCristobal && row.importeRecibido !== null && row.note !== 'AD' && "cursor-pointer hover:bg-green-200 transition-colors"
+                                                row.importeRecibido !== null ? (row.importeRecibido >= row.importeAbono ? "bg-green-100 text-green-800" : "bg-orange-50 text-orange-700") : "bg-red-50 text-red-700",
+                                                isCristobal && row.note !== 'AD' && "cursor-pointer hover:bg-green-200 transition-colors"
                                             )}
-                                            onClick={() => isCristobal && row.importeRecibido !== null && row.note !== 'AD' && handleAdjustClick(row.num, row.importeRecibido)}
+                                            onClick={() => isCristobal && row.note !== 'AD' && handleAdjustClick(row.num, row.importeRecibido || 0)}
                                         >
                                             <div className="flex items-center justify-end gap-2">
-                                                {row.importeRecibido !== null ? formatCurrency(row.importeRecibido) : ''}
+                                                {row.importeRecibido !== null ? formatCurrency(row.importeRecibido) : formatCurrency(0)}
                                                 {row.note === 'AD' && <Badge variant="secondary" className="bg-blue-200 text-blue-800 text-[10px] h-4">AD</Badge>}
-                                                {isCristobal && row.importeRecibido !== null && row.note !== 'AD' && (
+                                                {isCristobal && row.note !== 'AD' && (
                                                     <PencilLine className="h-3 w-3 opacity-0 group-hover:opacity-100 text-blue-600 shrink-0" />
                                                 )}
                                             </div>
                                         </TableCell>
-                                        <TableCell className="text-center py-1 text-xs text-muted-foreground">{row.fechaAbono}</TableCell>
+                                        <TableCell className="text-center py-1 text-xs text-muted-foreground">{row.fechaAbono || (row.importeRecibido === null ? 'PENDIENTE' : '')}</TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
