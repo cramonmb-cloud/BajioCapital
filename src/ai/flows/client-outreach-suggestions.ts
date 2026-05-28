@@ -36,7 +36,7 @@ export async function getClientOutreachSuggestion(
 
 const clientOutreachPrompt = ai.definePrompt({
   name: 'clientOutreachPrompt',
-  model: googleAI('gemini-pro'),
+  model: googleAI.model('gemini-2.5-flash'),
   input: {schema: ClientOutreachInputSchema},
   output: {schema: ClientOutreachOutputSchema},
   prompt: `You are a helpful AI assistant that provides personalized outreach suggestions for loan clients.

@@ -275,12 +275,47 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
 
   const selectClient = (client: Client) => {
     form.setValue('clientName', client.name.toUpperCase());
-    form.setValue('phone', client.phone);
-    form.setValue('street', client.street);
-    form.setValue('neighborhood', client.neighborhood);
-    form.setValue('postalCode', client.postalCode);
-    form.setValue('city', client.city);
-    form.setValue('guarantee', client.guarantee);
+    form.setValue('phone', client.phone || '');
+    form.setValue('street', client.street || '');
+    form.setValue('neighborhood', client.neighborhood || '');
+    form.setValue('postalCode', client.postalCode || '');
+    form.setValue('city', client.city || '');
+    form.setValue('guarantee', client.guarantee || '');
+    
+    // Parse combined endorsement string: "NAME (STREET, NEIGHBORHOOD, CP, CITY, Tel: PHONE)"
+    const endorsementMatch = client.endorsement.match(/(.*) \((.*)\)/);
+    if (endorsementMatch) {
+        const name = endorsementMatch[1].trim();
+        const detailsStr = endorsementMatch[2];
+        const details = detailsStr.split(',').map(s => s.trim());
+        
+        form.setValue('endorsement', name);
+        
+        // Extract phone
+        const phoneIndex = details.findIndex(d => d.toUpperCase().startsWith('TEL:'));
+        if (phoneIndex !== -1) {
+            const phone = details[phoneIndex].replace(/Tel:\s*/i, '');
+            form.setValue('endorsementPhone', phone);
+            details.splice(phoneIndex, 1);
+        } else {
+            form.setValue('endorsementPhone', '');
+        }
+
+        // Remaining parts are usually Street, Neighborhood, CP, City in order
+        if (details[0]) form.setValue('endorsementStreet', details[0]);
+        if (details[1]) form.setValue('endorsementNeighborhood', details[1]);
+        if (details[2]) form.setValue('endorsementPostalCode', details[2]);
+        if (details[3]) form.setValue('endorsementCity', details[3]);
+    } else {
+        // Fallback if it's just a name or unformatted string
+        form.setValue('endorsement', client.endorsement);
+        form.setValue('endorsementStreet', '');
+        form.setValue('endorsementNeighborhood', '');
+        form.setValue('endorsementPostalCode', '');
+        form.setValue('endorsementCity', '');
+        form.setValue('endorsementPhone', '');
+    }
+
     setSelectedClient(client);
     setMatchingClients([]);
     checkActiveLoanForClient(client);

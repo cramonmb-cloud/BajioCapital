@@ -35,7 +35,7 @@ export async function extractIdData(input: IdDataInput): Promise<IdDataOutput> {
 
 const prompt = ai.definePrompt({
   name: 'extractIdDataPrompt',
-  model: googleAI('gemini-pro-vision'),
+  model: googleAI.model('gemini-2.5-flash'),
   input: {schema: IdDataInputSchema},
   output: {schema: IdDataOutputSchema},
   prompt: `You are an expert OCR system for official ID cards from Mexico (INE). Your task is to extract the person's full name and address details from the provided image.
