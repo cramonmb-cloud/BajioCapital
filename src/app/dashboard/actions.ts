@@ -41,6 +41,12 @@ export async function createLoanAction(input: CreateLoanInput) {
         };
         const docRef = await addDoc(collection(db, 'clients'), newClientData);
         clientId = docRef.id;
+    } else {
+        // ACTUALIZACIÓN CRÍTICA: Sincronizar la información del cliente (Aval, Dirección, Teléfono) 
+        // con los nuevos datos proporcionados en el formulario de préstamo/renovación.
+        const clientRef = doc(db, 'clients', clientId);
+        const { id, ...updateData } = input.client;
+        await updateDoc(clientRef, updateData);
     }
 
     const newLoan = {
@@ -57,6 +63,9 @@ export async function createLoanAction(input: CreateLoanInput) {
 
     revalidatePath('/dashboard/loans');
     revalidatePath('/dashboard/clients');
+    if (clientId) {
+        revalidatePath(`/dashboard/clients/${clientId}`);
+    }
     
     return { success: true, message: 'Préstamo creado con éxito.' };
 }
