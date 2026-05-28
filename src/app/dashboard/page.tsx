@@ -75,7 +75,7 @@ export default function DashboardPage() {
                     totalPaidInBase += p.amount;
                     if (p.amount < weeklyPayment) missedWeeksCount++;
                 } else if (i < currentLoanWeek) {
-                    missedCount++;
+                    missedWeeksCount++;
                 }
             }
 
