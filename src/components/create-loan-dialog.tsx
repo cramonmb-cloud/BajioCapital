@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -248,32 +249,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     }
   };
 
-  const handleClientNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const name = e.target.value.toUpperCase();
-    form.setValue('clientName', name);
-    
-    // Check for exact match automatically
-    const exactMatch = clients.find(c => c.name.toUpperCase() === name);
-    if (exactMatch) {
-        setSelectedClient(exactMatch);
-        checkActiveLoanForClient(exactMatch);
-        setMatchingClients([]);
-    } else {
-        setSelectedClient(null);
-        setActiveLoanDetails(null);
-
-        if (name.length >= 2) {
-          const matches = clients.filter((client) =>
-            client.name.toUpperCase().includes(name)
-          );
-          setMatchingClients(matches);
-        } else {
-          setMatchingClients([]);
-        }
-    }
-  };
-
-  const selectClient = (client: Client) => {
+  const populateClientData = (client: Client) => {
     form.setValue('clientName', client.name.toUpperCase());
     form.setValue('phone', client.phone || '');
     form.setValue('street', client.street || '');
@@ -307,7 +283,6 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         if (details[2]) form.setValue('endorsementPostalCode', details[2]);
         if (details[3]) form.setValue('endorsementCity', details[3]);
     } else {
-        // Fallback if it's just a name or unformatted string
         form.setValue('endorsement', client.endorsement);
         form.setValue('endorsementStreet', '');
         form.setValue('endorsementNeighborhood', '');
@@ -315,10 +290,39 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         form.setValue('endorsementCity', '');
         form.setValue('endorsementPhone', '');
     }
+  };
 
+  const selectClient = (client: Client) => {
+    populateClientData(client);
     setSelectedClient(client);
     setMatchingClients([]);
     checkActiveLoanForClient(client);
+  };
+
+  const handleClientNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value.toUpperCase();
+    form.setValue('clientName', name);
+    
+    // Check for exact match automatically
+    const exactMatch = clients.find(c => c.name.toUpperCase() === name);
+    if (exactMatch) {
+        setSelectedClient(exactMatch);
+        populateClientData(exactMatch);
+        checkActiveLoanForClient(exactMatch);
+        setMatchingClients([]);
+    } else {
+        setSelectedClient(null);
+        setActiveLoanDetails(null);
+
+        if (name.length >= 2) {
+          const matches = clients.filter((client) =>
+            client.name.toUpperCase().includes(name)
+          );
+          setMatchingClients(matches);
+        } else {
+          setMatchingClients([]);
+        }
+    }
   };
   
   const handleNextStep = async () => {
@@ -472,6 +476,18 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
   };
 
     const handleDataExtracted = (data: Partial<IdDataOutput>) => {
+        if (data.name) {
+            const nameUpper = data.name.toUpperCase();
+            form.setValue('clientName', nameUpper);
+            
+            // Check for exact match with scanned name
+            const exactMatch = clients.find(c => c.name.toUpperCase() === nameUpper);
+            if (exactMatch) {
+                selectClient(exactMatch);
+                return;
+            }
+        }
+
         if (data.name) form.setValue('clientName', data.name.toUpperCase());
         if (data.street) form.setValue('street', data.street.toUpperCase());
         if (data.neighborhood) form.setValue('neighborhood', data.neighborhood.toUpperCase());
