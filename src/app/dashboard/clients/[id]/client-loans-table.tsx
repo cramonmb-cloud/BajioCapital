@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -136,28 +135,30 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
       if (!plan) return [];
 
       const weeklyPayment = (loanForDetails.amount / 1000) * plan.weeklyPaymentRate;
-      
-      // Calculate missed weeks for penalty using unified business rule
-      let missedWeeksCount = 0;
       const today = new Date();
-      const startDate = new Date(loanForDetails.startDate);
-      const timeDiff = today.getTime() - startDate.getTime();
-      const currentWeekAtOpening = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+      const startDate = new Date(loanForDetails.loanStartDate || loanForDetails.startDate);
+      const startDayUTC = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+      const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+      const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+      const currentWeekSafe = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
 
-      for(let i = 1; i <= plan.termInWeeks; i++) {
-          if (i < currentWeekAtOpening) {
-              const p = loanForDetails.payments.find(pay => pay.weekNumber === i);
-              if (p) {
-                  if (p.amount < weeklyPayment) missedWeeksCount++;
-              } else {
-                  missedWeeksCount++;
-              }
+      const baseTerm = plan.termInWeeks;
+      const isExpired = currentWeekSafe > baseTerm;
+
+      let missedCount = 0;
+      let totalPaidInBaseTerm = 0;
+      for (let i = 1; i <= baseTerm; i++) {
+          const p = loanForDetails.payments.find(pay => pay.weekNumber === i);
+          if (p) {
+              totalPaidInBaseTerm += p.amount;
+              if (p.amount < weeklyPayment) missedCount++;
+          } else if (i < currentWeekSafe) {
+              missedCount++;
           }
       }
       
-      const isExpired = currentWeekAtOpening > plan.termInWeeks;
-      const hasPenalty = isExpired || (missedWeeksCount >= 2);
-      const termInWeeks = plan.termInWeeks + (hasPenalty ? 1 : 0);
+      const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
+      const termInWeeks = baseTerm + (hasPenalty ? 1 : 0);
       const isLiquidated = loanForDetails.status === 'Paid Off' || loanForDetails.status === 'Pagado desde CV';
       
       const normalPayments = loanForDetails.payments.filter(p => p.weekNumber > 0);

@@ -1,4 +1,3 @@
-
 import { getClients, getLoanPlans, getLoans, getPlazas, getLocalidades, getPromotoras, getAppConfig } from '@/lib/firestore-data';
 import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { OverduePortfolioClientPage } from '@/components/overdue-portfolio-client-page';
@@ -35,27 +34,31 @@ export default async function OverduePortfolioPage() {
             const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
             const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
             const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
-            
             const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
             
             let missedCount = 0;
+            let totalPaidInBaseTerm = 0;
             let baseArrears = 0;
 
-            // Calcular fallos reales (semanas que ya concluyeron y no tienen pago completo)
+            // Calcular fallos reales y monto pagado en contrato base
             for (let i = 1; i <= baseTerm; i++) {
-                if (i < rawCurrentLoanWeek) {
-                    const p = loan.payments.find(pay => pay.weekNumber === i);
-                    const amountPaid = p ? p.amount : 0;
-                    
-                    if (amountPaid < weeklyPayment) {
+                const p = loan.payments.find(pay => pay.weekNumber === i);
+                if (p) {
+                    totalPaidInBaseTerm += p.amount;
+                    if (p.amount < weeklyPayment) {
                         missedCount++;
-                        baseArrears += (weeklyPayment - amountPaid);
+                        baseArrears += (weeklyPayment - p.amount);
                     }
+                } else if (i < rawCurrentLoanWeek) {
+                    missedCount++;
+                    baseArrears += weeklyPayment;
                 }
             }
 
-            // REGLA PENDIENTES: 2 o más fallos activa penalización
-            const hasPenalty = missedCount >= 2;
+            const isExpired = rawCurrentLoanWeek > baseTerm;
+            // REGLA DINÁMICA: Penalización solo si tiene 2+ fallos o venció debiendo del base
+            const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
+
             let penaltyArrear = 0;
             if (hasPenalty) {
                 const penaltyWeekNum = baseTerm + 1;
@@ -65,9 +68,8 @@ export default async function OverduePortfolioPage() {
 
             const calculatedTotalDue = baseArrears + penaltyArrear;
 
-            // IMPORTANTE: Un préstamo en esta sección debe estar vigente (no expirado)
-            const isExpired = rawCurrentLoanWeek > baseTerm;
-
+            // IMPORTANTE: En "Pagos Pendientes" mostramos préstamos vigentes o que requieren gestión activa
+            // pero si ya se pusieron al corriente (missedCount < 2) y no han expirado, ya no salen aquí.
             if (!isExpired && missedCount >= 2 && calculatedTotalDue > 0) {
                 return {
                     loan,

@@ -1,4 +1,3 @@
-
 'use client';
 import {
   Card,
@@ -43,7 +42,6 @@ export default function DashboardPage() {
         getAppConfig().then(setConfig);
     }, []);
 
-    // Safe destructuring with fallbacks to avoid crashes during partial data loads
     const { clients = [], loans = [], loanPlans = [] } = data || {};
 
     const stats = useMemo(() => {
@@ -70,12 +68,22 @@ export default function DashboardPage() {
 
             const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
             let missedWeeksCount = 0;
-            for (let i = 1; i < currentLoanWeek; i++) {
+            let totalPaidInBase = 0;
+            for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
-                if (p && p.amount < weeklyPayment) missedWeeksCount++;
+                if (p) {
+                    totalPaidInBase += p.amount;
+                    if (p.amount < weeklyPayment) missedWeeksCount++;
+                } else if (i < currentLoanWeek) {
+                    missedCount++;
+                }
             }
 
-            const term = plan.termInWeeks + (missedWeeksCount >= 2 ? 1 : 0);
+            const isExpired = currentLoanWeek > baseTerm;
+            // REGLA DINÁMICA: Penalización solo si tiene 2+ fallos o venció debiendo del base
+            const hasPenalty = (missedWeeksCount >= 2) || (isExpired && totalPaidInBase < (baseTerm * weeklyPayment));
+
+            const term = baseTerm + (hasPenalty ? 1 : 0);
             return currentLoanWeek > term;
         });
 
@@ -128,7 +136,6 @@ export default function DashboardPage() {
         return overdueLoans.slice(start, start + ITEMS_PER_PAGE);
     }, [overdueLoans, currentPage, showAll]);
 
-    // Reset pagination when data changes
     useEffect(() => {
         if (currentPage > totalPages && totalPages > 0) {
             setCurrentPage(totalPages);
@@ -144,16 +151,6 @@ export default function DashboardPage() {
             style: 'currency',
             currency: 'MXN',
         }).format(amount);
-    };
-
-    const translateStatus = (status: Loan['status']) => {
-        switch (status) {
-            case 'Active': return 'Activo';
-            case 'Overdue': return 'Vencido';
-            case 'Paid Off': return 'Pagado';
-            case 'Pagado desde CV': return 'Pagado desde CV';
-            default: return status;
-        }
     };
 
     return (

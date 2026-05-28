@@ -1,4 +1,3 @@
-
 import { getClients, getLoanPlans, getLoans, getPlazas, getLocalidades, getPromotoras, getAppConfig } from '@/lib/firestore-data';
 import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { OverduePortfolioClientPage } from '@/components/overdue-portfolio-client-page';
@@ -55,29 +54,37 @@ export default async function CarteraVencidaPage() {
             const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
             
             const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
-            
-            // CARTERA VENCIDA: Préstamo expirado (supera plazo base)
-            if (rawCurrentLoanWeek <= baseTerm) return null;
+            const isExpired = rawCurrentLoanWeek > baseTerm;
 
-            const totalPaid = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
-            
-            // REGLA DE ORO: En Cartera Vencida la penalización es SIEMPRE obligatoria
-            const hasPenalty = true;
-            const totalExpected = (baseTerm + 1) * weeklyPayment;
-            const totalDue = Math.max(0, totalExpected - totalPaid);
+            // CARTERA VENCIDA: Solo préstamos expirados (superan plazo base)
+            if (!isExpired) return null;
 
+            const currentPayments = loan.payments || [];
+            const actualTotalPaid = currentPayments.reduce((acc, p) => acc + p.amount, 0);
+            
+            let missedCount = 0;
+            let totalPaidInBaseTerm = 0;
+            for (let i = 1; i <= baseTerm; i++) {
+                const p = currentPayments.find(pay => pay.weekNumber === i);
+                if (p) {
+                    totalPaidInBaseTerm += p.amount;
+                    if (p.amount < weeklyPayment) missedCount++;
+                } else {
+                    missedCount++;
+                }
+            }
+
+            // REGLA DINÁMICA: Penalización solo si tiene 2+ fallos o venció debiendo del base
+            const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
+            
+            const totalExpected = (baseTerm + (hasPenalty ? 1 : 0)) * weeklyPayment;
+            const totalDue = Math.max(0, totalExpected - actualTotalPaid);
+
+            // Si ya no debe nada, no sale en Cartera Vencida
             if (totalDue <= 0) return null;
 
-            // Cálculo en cascada para el desglose visual
-            const baseArrears = Math.max(0, (baseTerm * weeklyPayment) - totalPaid);
+            const baseArrears = Math.max(0, (baseTerm * weeklyPayment) - totalPaidInBaseTerm);
             const penaltyArrear = totalDue - baseArrears;
-
-            // Conteo de fallos reales para el reporte
-            let missedCount = 0;
-            for (let i = 1; i <= baseTerm; i++) {
-                const p = (loan.payments || []).find(pay => pay.weekNumber === i);
-                if (!p || p.amount < weeklyPayment) missedCount++;
-            }
 
             return {
                 loan,
@@ -87,7 +94,7 @@ export default async function CarteraVencidaPage() {
                 baseArrears,
                 penaltyArrear,
                 missedPayments: missedCount,
-                hasPenalty: true,
+                hasPenalty: hasPenalty,
                 hierarchy: {
                     plazaId: plaza?.id || 'N/A',
                     plazaName: plaza?.name || 'N/A',

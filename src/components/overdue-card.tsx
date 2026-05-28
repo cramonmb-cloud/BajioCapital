@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -94,7 +93,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const loanStartDate = new Date(loan.startDate);
         const baseTerm = loanPlan.termInWeeks;
         
-        // Normalización UTC para evitar desfases de zona horaria
+        // Normalización UTC
         const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
         const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
         const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
@@ -103,20 +102,25 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const isExpired = rawCurrentLoanWeek > baseTerm;
 
         let missedCount = 0;
+        let totalPaidInBaseTerm = 0;
         for (let i = 1; i <= baseTerm; i++) {
-            if (i < rawCurrentLoanWeek) {
-                const p = (loan.payments || []).find(pay => pay.weekNumber === i);
-                if (!p || p.amount < weeklyPayment) missedCount++;
+            const p = (loan.payments || []).find(pay => pay.weekNumber === i);
+            if (p) {
+                totalPaidInBaseTerm += p.amount;
+                if (p.amount < weeklyPayment) missedCount++;
+            } else if (i < rawCurrentLoanWeek) {
+                missedCount++;
             }
         }
 
-        const hasPenalty = isExpired || (missedCount >= 2);
+        // REGLA DINÁMICA: Penalización solo si tiene 2+ fallos o venció debiendo del base
+        const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
         
         const totalPaid = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
         const totalExpected = (baseTerm + (hasPenalty ? 1 : 0)) * weeklyPayment;
         const totalDue = Math.max(0, totalExpected - totalPaid);
 
-        const baseArrears = Math.max(0, (baseTerm * weeklyPayment) - totalPaid);
+        const baseArrears = Math.max(0, (baseTerm * weeklyPayment) - totalPaidInBaseTerm);
         const penaltyArrear = totalDue - baseArrears;
 
         // Fecha de Vencimiento (Fin del plazo base)

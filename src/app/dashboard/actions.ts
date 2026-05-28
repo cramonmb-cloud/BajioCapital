@@ -1,4 +1,3 @@
-
 'use server';
 
 import type { Client, Loan, LoanPlan, AppUser } from '@/lib/types';
@@ -176,8 +175,10 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             
             const today = new Date();
             const loanStartDate = parseFirestoreDate(loan.startDate);
-            const timeDiff = today.getTime() - loanStartDate.getTime();
-            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+            const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
+            const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+            const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+            const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
 
             const originalTotalPaid = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const newTotalPaid = allPayments.reduce((acc, p) => acc + p.amount, 0);
@@ -200,11 +201,13 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
 
             const baseTerm = loanPlan.termInWeeks;
             
-            // REGLA UNIFICADA DE CARTERA VENCIDA Y PENALIZACIÓN
+            // REGLA DINÁMICA DE CARTERA VENCIDA Y PENALIZACIÓN
             let missedCount = 0;
+            let totalPaidInBaseTerm = 0;
             for (let i = 1; i <= baseTerm; i++) {
                 const p = allPayments.find(pay => pay.weekNumber === i);
                 if (p) {
+                    totalPaidInBaseTerm += p.amount;
                     if (p.amount < weeklyPayment) missedCount++;
                 } else if (i < rawCurrentLoanWeek) {
                     missedCount++;
@@ -212,17 +215,18 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             }
 
             const isExpired = rawCurrentLoanWeek > baseTerm;
-            // SIEMPRE penalización si venció O si tiene 2+ fallos
-            const hasPenalty = isExpired || (missedCount >= 2);
+            // Penalización dinámica: Solo si tiene 2+ fallos O si venció y aún debe del contrato base
+            const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
+            
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             const totalExpected = totalTerm * weeklyPayment;
             
-            // Saldo absoluto incluyendo semana extra
+            // Saldo absoluto incluyendo semana extra si aplica
             const balance = Math.max(0, totalExpected - newTotalPaid);
 
             let newStatus: Loan['status'] = loan.status;
             if (balance <= 0) {
-                newStatus = (hasPenalty || rawCurrentLoanWeek > totalTerm) ? 'Pagado desde CV' : 'Paid Off';
+                newStatus = (isExpired || hasPenalty) ? 'Pagado desde CV' : 'Paid Off';
             } else {
                 newStatus = (isExpired || rawCurrentLoanWeek > totalTerm) ? 'Overdue' : 'Active';
             }
@@ -264,8 +268,10 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
             const today = new Date();
             const loanStartDate = parseFirestoreDate(loan.startDate);
-            const timeDiff = today.getTime() - loanStartDate.getTime();
-            const rawCurrentLoanWeek = Math.max(1, Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1);
+            const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
+            const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+            const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+            const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
             
             const baseTerm = loanPlan.termInWeeks;
             const isExpired = rawCurrentLoanWeek > baseTerm;
@@ -276,24 +282,26 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             }));
 
             let missedCount = 0;
+            let totalPaidInBaseTerm = 0;
             for (let i = 1; i <= baseTerm; i++) {
                 const p = currentPayments.find(pay => pay.weekNumber === i);
                 if (p) {
+                    totalPaidInBaseTerm += p.amount;
                     if (p.amount < weeklyPayment) missedCount++;
                 } else if (i < rawCurrentLoanWeek) {
                     missedCount++;
                 }
             }
 
-            // REGLA UNIFICADA: Penalización obligatoria si está vencido o si tiene 2+ fallos
-            const hasPenalty = isExpired || (missedCount >= 2);
+            // REGLA DINÁMICA DE PENALIZACIÓN
+            const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             
             const totalExpected = totalTerm * weeklyPayment;
             const totalPaid = currentPayments.reduce((acc, p) => acc + p.amount, 0);
             const settlementAmount = Math.max(0, totalExpected - totalPaid);
             
-            const finalStatus: Loan['status'] = (hasPenalty || rawCurrentLoanWeek > totalTerm) ? 'Pagado desde CV' : 'Paid Off';
+            const finalStatus: Loan['status'] = (isExpired || hasPenalty) ? 'Pagado desde CV' : 'Paid Off';
 
             if (settlementAmount <= 0) {
                 transaction.update(loanRef, { status: finalStatus });
@@ -371,8 +379,10 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
                 const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
                 const loanStartDate = parseFirestoreDate(loan.startDate);
                 const today = new Date();
-                const timeDiff = today.getTime() - loanStartDate.getTime();
-                const rawCurrentLoanWeek = Math.floor(timeDiff / (1000 * 3600 * 24 * 7)) + 1;
+                const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
+                const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+                const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+                const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
                 
                 const currentWeekToFill = Math.min(rawCurrentLoanWeek, plan.termInWeeks);
                 
@@ -464,10 +474,6 @@ export async function revertPaymentsForWeekAction(loanIds: string[], weekNumber:
                     // Si el préstamo estaba liquidado, vuelve a estar Activo o Vencido
                     let newStatus = loan.status;
                     if (newStatus === 'Paid Off' || newStatus === 'Pagado desde CV') {
-                        // Determinar si venció basándonos en la fecha
-                        const plan = await getLoanPlan(loan.loanPlanId); // Nota: esto rompe "reads before writes" si no se tiene cuidado
-                        // En una transacción, debemos leer planes ANTES de las escrituras si los necesitamos.
-                        // Para simplificar y mantener integridad, asumimos que vuelve a Active/Overdue y el sistema recalculará el status en el siguiente pago.
                         newStatus = 'Active'; 
                     }
 
