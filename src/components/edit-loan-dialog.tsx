@@ -47,6 +47,7 @@ import { useToast } from '@/hooks/use-toast';
 import { updateLoanAction, deleteLoanAction } from '@/app/dashboard/actions';
 import { Separator } from './ui/separator';
 import { useAuth } from '@/hooks/use-auth';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   loanPlanId: z.string().min(1, 'Debes seleccionar un plan.'),
