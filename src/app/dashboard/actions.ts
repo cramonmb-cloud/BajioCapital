@@ -23,50 +23,55 @@ export type CreateLoanInput = {
 };
 
 export async function createLoanAction(input: CreateLoanInput) {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
+    try {
+        const today = new Date();
+        today.setUTCHours(0, 0, 0, 0);
 
-    const dayOfWeek = today.getUTCDay();
-    const daysToSubtract = (dayOfWeek + 1) % 7;
-    const saturday = new Date(today);
-    saturday.setUTCDate(today.getUTCDate() - daysToSubtract);
+        const dayOfWeek = today.getUTCDay();
+        const daysToSubtract = (dayOfWeek + 1) % 7;
+        const saturday = new Date(today);
+        saturday.setUTCDate(today.getUTCDate() - daysToSubtract);
 
-    let clientId = input.client.id;
+        let clientId = input.client.id;
 
-    if (!clientId) {
-        const newClientData = {
-            ...input.client,
-            avatarUrl: `https://picsum.photos/seed/${Math.random()}/40/40`
+        if (!clientId) {
+            const newClientData = {
+                ...input.client,
+                avatarUrl: `https://picsum.photos/seed/${Math.random()}/40/40`
+            };
+            const docRef = await addDoc(collection(db, 'clients'), newClientData);
+            clientId = docRef.id;
+        } else {
+            // ACTUALIZACIÓN CRÍTICA: Sincronizar la información del cliente (Aval, Dirección, Teléfono) 
+            // con los nuevos datos proporcionados en el formulario de préstamo/renovación.
+            const clientRef = doc(db, 'clients', clientId);
+            const { id, ...updateData } = input.client;
+            await updateDoc(clientRef, updateData);
+        }
+
+        const newLoan = {
+            clientId: clientId,
+            promotoraId: input.promotoraId,
+            loanPlanId: input.loanPlanId,
+            amount: input.amount,
+            startDate: saturday,
+            status: 'Active' as const,
+            payments: [],
         };
-        const docRef = await addDoc(collection(db, 'clients'), newClientData);
-        clientId = docRef.id;
-    } else {
-        // ACTUALIZACIÓN CRÍTICA: Sincronizar la información del cliente (Aval, Dirección, Teléfono) 
-        // con los nuevos datos proporcionados en el formulario de préstamo/renovación.
-        const clientRef = doc(db, 'clients', clientId);
-        const { id, ...updateData } = input.client;
-        await updateDoc(clientRef, updateData);
-    }
+        
+        await addDoc(collection(db, 'loans'), newLoan);
 
-    const newLoan = {
-        clientId: clientId,
-        promotoraId: input.promotoraId,
-        loanPlanId: input.loanPlanId,
-        amount: input.amount,
-        startDate: saturday,
-        status: 'Active' as const,
-        payments: [],
-    };
-    
-    await addDoc(collection(db, 'loans'), newLoan);
-
-    revalidatePath('/dashboard/loans');
-    revalidatePath('/dashboard/clients');
-    if (clientId) {
-        revalidatePath(`/dashboard/clients/${clientId}`);
+        revalidatePath('/dashboard/loans');
+        revalidatePath('/dashboard/clients');
+        if (clientId) {
+            revalidatePath(`/dashboard/clients/${clientId}`);
+        }
+        
+        return { success: true, message: 'Préstamo creado con éxito.' };
+    } catch (error: any) {
+        console.error('Error creating loan:', error);
+        return { success: false, message: `Error al crear el préstamo: ${error.message}` };
     }
-    
-    return { success: true, message: 'Préstamo creado con éxito.' };
 }
 
 export async function updateLoanAction(loanId: string, data: { loanPlanId: string; amount: number; startDate: string; promotoraId: string }) {
