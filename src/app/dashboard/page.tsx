@@ -26,6 +26,7 @@ import Image from 'next/image';
 import { ClientesConFallos } from '@/components/clientes-con-fallos';
 import { useEffect, useState, useMemo } from 'react';
 import Loading from './loading';
+import { getSaturdayOfWeek, getMexicoNow } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -47,6 +48,7 @@ export default function DashboardPage() {
     const stats = useMemo(() => {
         if (!data || !appUser) return null;
 
+        const mexicoNow = getMexicoNow();
         const totalClients = clients.length;
         const activeLoansCount = loans.filter((loan) => loan.status === 'Active' || loan.status === 'Overdue').length;
         const totalLoaned = loans.reduce((acc, loan) => acc + loan.amount, 0);
@@ -56,14 +58,11 @@ export default function DashboardPage() {
             const plan = loanPlans.find(p => p.id === loan.loanPlanId);
             if (!plan) return false;
 
-            const today = new Date();
             const loanStartDate = new Date(loan.startDate);
             const baseTerm = plan.termInWeeks;
 
-            // Normalización UTC
-            const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
-            const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-            const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+            const diffTime = Math.abs(mexicoNow.getTime() - loanStartDate.getTime());
+            const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             const currentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
 
             const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
@@ -80,7 +79,6 @@ export default function DashboardPage() {
             }
 
             const isExpired = currentLoanWeek > baseTerm;
-            // REGLA DINÁMICA: Penalización solo si tiene 2+ fallos o venció debiendo del base
             const hasPenalty = (missedWeeksCount >= 2) || (isExpired && totalPaidInBase < (baseTerm * weeklyPayment));
 
             const term = baseTerm + (hasPenalty ? 1 : 0);
@@ -88,21 +86,12 @@ export default function DashboardPage() {
         });
 
         // Weekly report logic
-        const getSaturdayOfWeek = (d: Date) => {
-            const date = new Date(d);
-            date.setUTCHours(0, 0, 0, 0);
-            const day = date.getUTCDay();
-            const diff = day === 0 ? -1 : 6 - day;
-            date.setUTCDate(date.getUTCDate() + diff);
-            return date;
-        };
-        
-        const currentSaturday = getSaturdayOfWeek(new Date());
-        currentSaturday.setUTCHours(23, 59, 59, 999);
+        const currentSaturday = getSaturdayOfWeek(mexicoNow);
+        currentSaturday.setHours(23, 59, 59, 999);
 
         const weekStart = new Date(currentSaturday);
-        weekStart.setUTCDate(currentSaturday.getUTCDate() - 6);
-        weekStart.setUTCHours(0, 0, 0, 0);
+        weekStart.setDate(currentSaturday.getDate() - 6);
+        weekStart.setHours(0, 0, 0, 0);
 
         let totalCollectedThisWeek = 0;
         let totalPaymentsThisWeek = 0;

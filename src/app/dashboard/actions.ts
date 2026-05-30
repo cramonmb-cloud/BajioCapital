@@ -5,6 +5,7 @@ import { collection, doc, addDoc, serverTimestamp, updateDoc, runTransaction, in
 import { db } from '@/lib/firebase';
 import { revalidatePath } from 'next/cache';
 import { getLoanPlan, getClient, getLoan } from '@/lib/firestore-data';
+import { getSaturdayOfWeek, getMexicoNow } from '@/lib/utils';
 
 // Helper to handle Firestore dates consistently in server actions
 const parseFirestoreDate = (date: any): Date => {
@@ -24,13 +25,8 @@ export type CreateLoanInput = {
 
 export async function createLoanAction(input: CreateLoanInput) {
     try {
-        const today = new Date();
-        today.setUTCHours(0, 0, 0, 0);
-
-        const dayOfWeek = today.getUTCDay();
-        const daysToSubtract = (dayOfWeek + 1) % 7;
-        const saturday = new Date(today);
-        saturday.setUTCDate(today.getUTCDate() - daysToSubtract);
+        const mexicoNow = getMexicoNow();
+        const saturday = getSaturdayOfWeek(mexicoNow);
 
         let clientId = input.client.id;
 
@@ -42,8 +38,7 @@ export async function createLoanAction(input: CreateLoanInput) {
             const docRef = await addDoc(collection(db, 'clients'), newClientData);
             clientId = docRef.id;
         } else {
-            // ACTUALIZACIÓN CRÍTICA: Sincronizar la información del cliente (Aval, Dirección, Teléfono) 
-            // con los nuevos datos proporcionados en el formulario de préstamo/renovación.
+            // Sincronizar la información del cliente
             const clientRef = doc(db, 'clients', clientId);
             const { id, ...updateData } = input.client;
             await updateDoc(clientRef, updateData);
@@ -178,11 +173,12 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 weekNumber: startingWeekNumber
             });
             
-            const today = new Date();
+            const mexicoNow = getMexicoNow();
             const loanStartDate = parseFirestoreDate(loan.startDate);
-            const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
-            const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-            const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+            
+            // Calculamos la diferencia de días basada en la fecha normalizada de México
+            const diffTime = Math.abs(mexicoNow.getTime() - loanStartDate.getTime());
+            const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
 
             const originalTotalPaid = (loan.payments || []).reduce((acc, p) => acc + p.amount, 0);
@@ -220,13 +216,10 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             }
 
             const isExpired = rawCurrentLoanWeek > baseTerm;
-            // Penalización dinámica: Solo si tiene 2+ fallos O si venció y aún debe del contrato base
             const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
             
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             const totalExpected = totalTerm * weeklyPayment;
-            
-            // Saldo absoluto incluyendo semana extra si aplica
             const balance = Math.max(0, totalExpected - newTotalPaid);
 
             let newStatus: Loan['status'] = loan.status;
@@ -271,11 +264,11 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             }
 
             const weeklyPayment = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
-            const today = new Date();
+            const mexicoNow = getMexicoNow();
             const loanStartDate = parseFirestoreDate(loan.startDate);
-            const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
-            const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-            const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+            
+            const diffTime = Math.abs(mexicoNow.getTime() - loanStartDate.getTime());
+            const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
             
             const baseTerm = loanPlan.termInWeeks;
@@ -298,7 +291,6 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
                 }
             }
 
-            // REGLA DINÁMICA DE PENALIZACIÓN
             const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
             
@@ -317,7 +309,7 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             const newPayments = [...currentPayments, {
                 date: new Date().toISOString(),
                 amount: settlementAmount,
-                weekNumber: -1, // Marca de liquidación total
+                weekNumber: -1, 
             }];
             
             const walletRef = doc(db, 'wallet', 'main');
@@ -373,6 +365,8 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
             const updateOps: { ref: any, data: any }[] = [];
             const txOps: any[] = [];
 
+            const mexicoNow = getMexicoNow();
+
             for (const loanSnap of loanSnapshots) {
                 if (!loanSnap.exists()) continue;
 
@@ -383,10 +377,9 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
                 const client = clients.find(c => c.id === loan.clientId);
                 const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
                 const loanStartDate = parseFirestoreDate(loan.startDate);
-                const today = new Date();
-                const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
-                const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
-                const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+                
+                const diffTime = Math.abs(mexicoNow.getTime() - loanStartDate.getTime());
+                const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
                 
                 const currentWeekToFill = Math.min(rawCurrentLoanWeek, plan.termInWeeks);
@@ -443,11 +436,6 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
     }
 }
 
-/**
- * REVERSIÓN DE PAGOS POR SEMANA (EXCLUSIVO CRISTOBAL)
- * Elimina los pagos registrados para una semana específica en un grupo de préstamos.
- * Ajusta el saldo de la cartera restando el total de abonos eliminados.
- */
 export async function revertPaymentsForWeekAction(loanIds: string[], weekNumber: number, userId?: string) {
     try {
         let totalToSubtract = 0;
@@ -456,7 +444,6 @@ export async function revertPaymentsForWeekAction(loanIds: string[], weekNumber:
         await runTransaction(db, async (transaction) => {
             const walletRef = doc(db, 'wallet', 'main');
             
-            // Lectura de los préstamos
             const loanSnapshots = await Promise.all(
                 loanIds.map(id => transaction.get(doc(db, 'loans', id)))
             );
@@ -467,7 +454,6 @@ export async function revertPaymentsForWeekAction(loanIds: string[], weekNumber:
                 const loan = loanSnap.data() as Loan;
                 const currentPayments = loan.payments || [];
                 
-                // Filtrar el pago de la semana objetivo
                 const paymentToRevert = currentPayments.find(p => p.weekNumber === weekNumber);
                 
                 if (paymentToRevert) {
@@ -476,7 +462,6 @@ export async function revertPaymentsForWeekAction(loanIds: string[], weekNumber:
 
                     const updatedPayments = currentPayments.filter(p => p.weekNumber !== weekNumber);
                     
-                    // Si el préstamo estaba liquidado, vuelve a estar Activo o Vencido
                     let newStatus = loan.status;
                     if (newStatus === 'Paid Off' || newStatus === 'Pagado desde CV') {
                         newStatus = 'Active'; 
@@ -490,7 +475,6 @@ export async function revertPaymentsForWeekAction(loanIds: string[], weekNumber:
             }
 
             if (totalToSubtract > 0) {
-                // Registrar la salida de dinero
                 const auditTxRef = doc(collection(db, 'walletTransactions'));
                 transaction.set(auditTxRef, {
                     type: 'debit',
