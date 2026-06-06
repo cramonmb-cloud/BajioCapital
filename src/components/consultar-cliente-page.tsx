@@ -547,7 +547,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
         {/* MODAL DE DETALLE DEL CLIENTE */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm">
+            <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm w-full h-[92vh] md:h-[88vh] max-h-[92vh] md:max-h-[88vh] flex flex-col">
                 <DialogHeader className="sr-only">
                     <DialogTitle>Detalle del Cliente</DialogTitle>
                     <DialogDescription>Expediente financiero y técnico del cliente seleccionado.</DialogDescription>
@@ -604,7 +604,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                             </div>
                         </div>
 
-                        <ScrollArea className="flex-1 max-h-[calc(95vh-160px)]">
+                        <ScrollArea className="flex-1 min-h-0">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-0 md:divide-x divide-zinc-100">
                                 <div className="p-4 md:p-5 space-y-6 bg-zinc-50/30">
                                     <div className="flex items-center gap-2">
