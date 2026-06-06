@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { getAppConfig } from '@/lib/firestore-data';
-import Image from 'next/image';
+import { Logo } from '@/components/logo';
 import { LoginForm } from './login-form';
 
 
@@ -21,12 +21,13 @@ export default async function LoginPage() {
         <CardHeader className="text-center">
             <div className='flex flex-col items-center justify-center mb-4 gap-2'>
                 {logoUrl && (
-                    <Image 
-                      src={logoUrl} 
-                      alt="Logo" 
-                      width={200} 
-                      height={200} 
-                      className="h-48 w-48 object-contain rounded-2xl border shadow-lg bg-white p-2" 
+                    <Logo 
+                      logoUrl={logoUrl} 
+                      logoFormat={config?.logoFormat} 
+                      size="xl" 
+                      customHeight={config?.logoHeightLogin}
+                      customWidth={config?.logoWidthLogin}
+                      className="flex items-center justify-center" 
                     />
                 )}
                 <h1 className="text-2xl font-bold tracking-tighter mt-2">{appName}</h1>

@@ -110,12 +110,12 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
   };
 
   const getStatusVariant = (status: Loan['status']): 'destructive' | 'success' | 'default' | 'purple' => {
-    const variantMap = {
+    const variantMap: Record<string, 'destructive' | 'success' | 'default' | 'purple'> = {
       'Overdue': 'destructive',
       'Paid Off': 'success',
       'Pagado desde CV': 'purple',
     };
-    return variantMap[status as keyof typeof variantMap] || 'default';
+    return variantMap[status] || 'default';
   };
 
   const handleEditClick = (e: React.MouseEvent, loan: Loan) => {
@@ -136,14 +136,14 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
 
       const weeklyPayment = (loanForDetails.amount / 1000) * plan.weeklyPaymentRate;
       const today = new Date();
-      const startDate = new Date(loanForDetails.loanStartDate || loanForDetails.startDate);
+      const startDate = new Date(loanForDetails.startDate);
       const startDayUTC = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
       const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
       const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
       const currentWeekSafe = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
 
       const baseTerm = plan.termInWeeks;
-      const isExpired = currentWeekSafe > baseTerm;
+      const isExpired = currentWeekSafe > baseTerm + 1;
 
       let missedCount = 0;
       let totalPaidInBaseTerm = 0;
@@ -152,7 +152,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
           if (p) {
               totalPaidInBaseTerm += p.amount;
               if (p.amount < weeklyPayment) missedCount++;
-          } else if (i < currentWeekSafe) {
+          } else if (i < currentWeekSafe - 1) {
               missedCount++;
           }
       }

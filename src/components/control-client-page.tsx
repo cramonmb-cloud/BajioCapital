@@ -46,12 +46,12 @@ const checkPenalty = (loan: Loan, loanPlan: LoanPlan) => {
         if (p) {
             totalPaidInBaseTerm += p.amount;
             if (p.amount < weeklyPayment) missedWeeksCount++;
-        } else if (i < currentLoanWeek) {
+        } else if (i < currentLoanWeek - 1) {
             missedWeeksCount++;
         }
     }
     
-    const isExpired = currentLoanWeek > baseTerm;
+    const isExpired = currentLoanWeek > baseTerm + 1;
     // REGLA DINÁMICA: 2+ fallos O vencido debiendo base
     return (missedWeeksCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
 };
@@ -125,7 +125,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
             const actualTotalPaid = (loan.payments || []).reduce((sum, p) => sum + p.amount, 0);
 
             // DETECCIÓN DE CARTERA VENCIDA (PRÉSTAMO EXPIRADO)
-            if (rawCurrentLoanWeek > baseTerm) {
+            if (rawCurrentLoanWeek > baseTerm + 1) {
                 // Cálculo de penalización dinámica para Cartera Vencida
                 let totalPaidInBase = 0;
                 let missedCount = 0;
@@ -164,7 +164,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
                     effectivePaidForStats += p.amount;
-                } else if (i < rawCurrentLoanWeek) {
+                } else if (i < rawCurrentLoanWeek - 1) {
                     effectivePaidForStats += weeklyPayment;
                 }
             }

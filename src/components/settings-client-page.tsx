@@ -43,18 +43,27 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck, MapPin, Route, Building } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction } from "@/app/dashboard/settings/actions";
+import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction, saveMenuConfigAction, saveMenuColorsAction } from "@/app/dashboard/settings/actions";
 import { useRouter } from "next/navigation";
 import type { AppConfig, WhatsAppTemplates } from "@/lib/types";
 import { Separator } from "./ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeData } from "@/hooks/use-realtime-data";
+import { allLinks } from "./main-nav";
+import { cn } from "@/lib/utils";
 
 const appNameSchema = z.object({
   appName: z.string().min(3, 'Mínimo 3 caracteres.'),
 });
 const logoFormSchema = z.object({
   logoUrl: z.string().url('URL no válida.').or(z.literal('')),
+  logoFormat: z.enum(['square', 'horizontal']).default('square'),
+  logoHeightHeader: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(200).optional()),
+  logoWidthHeader: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(800).optional()),
+  logoHeightDashboard: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(800).optional()),
+  logoWidthDashboard: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(1000).optional()),
+  logoHeightLogin: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(800).optional()),
+  logoWidthLogin: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(1000).optional()),
 });
 const whatsappTemplatesSchema = z.object({
   client: z.string().min(1, 'La plantilla para el cliente no puede estar vacía.'),
@@ -107,7 +116,16 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
 
     const logoForm = useForm<LogoFormValues>({
         resolver: zodResolver(logoFormSchema),
-        defaultValues: { logoUrl: initialConfig?.logoUrl || '' },
+        defaultValues: { 
+            logoUrl: initialConfig?.logoUrl || '',
+            logoFormat: initialConfig?.logoFormat || 'square',
+            logoHeightHeader: initialConfig?.logoHeightHeader ?? undefined,
+            logoWidthHeader: initialConfig?.logoWidthHeader ?? undefined,
+            logoHeightDashboard: initialConfig?.logoHeightDashboard ?? undefined,
+            logoWidthDashboard: initialConfig?.logoWidthDashboard ?? undefined,
+            logoHeightLogin: initialConfig?.logoHeightLogin ?? undefined,
+            logoWidthLogin: initialConfig?.logoWidthLogin ?? undefined,
+        },
     });
 
     const whatsappForm = useForm<WhatsappTemplatesFormValues>({
@@ -133,6 +151,61 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
             });
         }
     }, [selectedPlazaId, initialConfig, whatsappForm]);
+
+    const [menuConfigState, setMenuConfigState] = useState<Record<string, 'operacion' | 'administracion'>>({});
+    const [operacionColorState, setOperacionColorState] = useState<string>('#3b82f6');
+    const [administracionColorState, setAdministracionColorState] = useState<string>('#8b5cf6');
+
+    useEffect(() => {
+        const defaultMenuConfig: Record<string, 'operacion' | 'administracion'> = {
+            dashboard: 'operacion',
+            clients: 'operacion',
+            consultarCliente: 'operacion',
+            loans: 'operacion',
+            overduePortfolio: 'operacion',
+            carteraVencida: 'operacion',
+            wallet: 'administracion',
+            control: 'administracion',
+            settings: 'administracion',
+        };
+        setMenuConfigState({ ...defaultMenuConfig, ...initialConfig?.menuConfig });
+        if (initialConfig?.operacionColor) {
+            setOperacionColorState(initialConfig.operacionColor);
+        }
+        if (initialConfig?.administracionColor) {
+            setAdministracionColorState(initialConfig.administracionColor);
+        }
+    }, [initialConfig]);
+
+    const onSaveMenuConfig = async () => {
+        setIsSaving(true);
+        try {
+            const result = await saveMenuConfigAction(menuConfigState);
+            if (result.success) {
+                toast({ title: 'Menú Actualizado', description: 'La distribución del menú ha sido guardada.' });
+                router.refresh();
+            } else throw new Error(result.message);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const onSaveMenuColors = async () => {
+        setIsSaving(true);
+        try {
+            const result = await saveMenuColorsAction(operacionColorState, administracionColorState);
+            if (result.success) {
+                toast({ title: 'Colores Actualizados', description: 'Los colores de los menús han sido guardados.' });
+                router.refresh();
+            } else throw new Error(result.message);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const handleDeleteAllData = async () => {
         setIsDeleting(true);
@@ -247,7 +320,14 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
     const onSaveLogoSubmit = async (values: LogoFormValues) => {
         setIsSaving(true);
         try {
-            const result = await saveLogoAction(values.logoUrl);
+            const result = await saveLogoAction(values.logoUrl, values.logoFormat, {
+                logoHeightHeader: values.logoHeightHeader ?? undefined,
+                logoWidthHeader: values.logoWidthHeader ?? undefined,
+                logoHeightDashboard: values.logoHeightDashboard ?? undefined,
+                logoWidthDashboard: values.logoWidthDashboard ?? undefined,
+                logoHeightLogin: values.logoHeightLogin ?? undefined,
+                logoWidthLogin: values.logoWidthLogin ?? undefined,
+            });
             if (result.success) {
                 toast({ title: 'Actualizado', description: 'Logo guardado.' });
                 router.refresh();
@@ -315,24 +395,230 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                         <Separator />
 
                         <Form {...logoForm}>
-                            <form onSubmit={logoForm.handleSubmit(onSaveLogoSubmit)} className="space-y-4">
+                            <form onSubmit={logoForm.handleSubmit(onSaveLogoSubmit)} className="space-y-6">
                                 <FormField control={logoForm.control} name="logoUrl" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="font-bold">URL del Logo Corporativo</FormLabel>
-                                        <div className="flex gap-2">
-                                            <div className="relative flex-grow">
-                                                <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                <FormControl><Input placeholder="https://..." {...field} className="pl-10" /></FormControl>
-                                            </div>
-                                            <Button type="submit" disabled={isSaving}>
-                                                {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
-                                            </Button>
+                                        <FormLabel className="font-bold">URL del Logotipo Corporativo (Imagen o Video)</FormLabel>
+                                        <div className="relative flex-grow">
+                                            <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <FormControl><Input placeholder="https://ejemplo.com/logo.png o .mp4" {...field} className="pl-10" /></FormControl>
                                         </div>
+                                        <FormDescription className="text-xs">
+                                            Se admiten imágenes estáticas (PNG, JPG, SVG, GIF) y videos animados (MP4, WebM).
+                                        </FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
+
+                                <FormField control={logoForm.control} name="logoFormat" render={({ field }) => (
+                                    <FormItem className="space-y-2">
+                                        <FormLabel className="font-bold">Formato / Proporción del Logotipo</FormLabel>
+                                        <FormControl>
+                                            <div className="flex flex-col sm:flex-row gap-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => field.onChange('square')}
+                                                    className={cn(
+                                                        "flex-1 flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all gap-2 bg-card",
+                                                        field.value === 'square' 
+                                                            ? "border-primary bg-primary/5 shadow-sm" 
+                                                            : "border-border hover:border-foreground/20 text-muted-foreground hover:text-foreground"
+                                                    )}
+                                                >
+                                                    <div className="h-8 w-8 rounded border-2 border-dashed border-current flex items-center justify-center font-black text-xs">1:1</div>
+                                                    <span className="text-xs font-bold">Cuadrado / Circular</span>
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => field.onChange('horizontal')}
+                                                    className={cn(
+                                                        "flex-1 flex flex-col items-center justify-center p-4 rounded-xl border-2 transition-all gap-2 bg-card",
+                                                        field.value === 'horizontal' 
+                                                            ? "border-primary bg-primary/5 shadow-sm" 
+                                                            : "border-border hover:border-foreground/20 text-muted-foreground hover:text-foreground"
+                                                    )}
+                                                >
+                                                    <div className="h-8 w-16 rounded border-2 border-dashed border-current flex items-center justify-center font-black text-xs font-mono">Horizontal</div>
+                                                    <span className="text-xs font-bold">Apaisado / Banner</span>
+                                                </button>
+                                            </div>
+                                        </FormControl>
+                                        <FormDescription className="text-xs">
+                                            Elige <strong>Cuadrado</strong> para logotipos en pastilla o circulares. Elige <strong>Horizontal</strong> para logotipos tipo banner; esto optimizará las dimensiones en la barra superior.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+
+                                <div className="space-y-4 pt-4 border-t animate-in fade-in slide-in-from-top-2 duration-300">
+                                    <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                        Dimensiones Personalizadas (en píxeles)
+                                    </h4>
+                                    <p className="text-[11px] text-muted-foreground">Deja los campos vacíos si deseas usar los tamaños predefinidos del sistema.</p>
+                                    
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                        {/* Barra de Navegación */}
+                                        <div className="space-y-3 p-4 border rounded-2xl bg-muted/20">
+                                            <span className="text-xs font-black uppercase text-primary">Barra de Navegación</span>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <FormField control={logoForm.control} name="logoWidthHeader" render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground/80">Ancho (px)</FormLabel>
+                                                        <FormControl><Input type="number" placeholder="Auto" {...field} value={field.value ?? ''} onChange={field.onChange} className="bg-white" /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )} />
+                                                <FormField control={logoForm.control} name="logoHeightHeader" render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground/80">Alto (px)</FormLabel>
+                                                        <FormControl><Input type="number" placeholder="Auto" {...field} value={field.value ?? ''} onChange={field.onChange} className="bg-white" /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )} />
+                                            </div>
+                                        </div>
+
+                                        {/* Dashboard Principal */}
+                                        <div className="space-y-3 p-4 border rounded-2xl bg-muted/20">
+                                            <span className="text-xs font-black uppercase text-primary">Dashboard Principal</span>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <FormField control={logoForm.control} name="logoWidthDashboard" render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground/80">Ancho (px)</FormLabel>
+                                                        <FormControl><Input type="number" placeholder="Auto" {...field} value={field.value ?? ''} onChange={field.onChange} className="bg-white" /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )} />
+                                                <FormField control={logoForm.control} name="logoHeightDashboard" render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground/80">Alto (px)</FormLabel>
+                                                        <FormControl><Input type="number" placeholder="Auto" {...field} value={field.value ?? ''} onChange={field.onChange} className="bg-white" /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )} />
+                                            </div>
+                                        </div>
+
+                                        {/* Pantalla de Login */}
+                                        <div className="space-y-3 p-4 border rounded-2xl bg-muted/20">
+                                            <span className="text-xs font-black uppercase text-primary">Pantalla de Login</span>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <FormField control={logoForm.control} name="logoWidthLogin" render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground/80">Ancho (px)</FormLabel>
+                                                        <FormControl><Input type="number" placeholder="Auto" {...field} value={field.value ?? ''} onChange={field.onChange} className="bg-white" /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )} />
+                                                <FormField control={logoForm.control} name="logoHeightLogin" render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground/80">Alto (px)</FormLabel>
+                                                        <FormControl><Input type="number" placeholder="Auto" {...field} value={field.value ?? ''} onChange={field.onChange} className="bg-white" /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end pt-2">
+                                    <Button type="submit" disabled={isSaving} className="bg-primary hover:bg-primary/95 font-bold h-10 px-6 rounded-lg">
+                                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pencil className="mr-2 h-4 w-4" />}
+                                        Guardar Logotipo
+                                    </Button>
+                                </div>
                             </form>
                         </Form>
+                    </CardContent>
+                </Card>
+
+                <Card className="shadow-lg border-primary/10">
+                    <CardHeader className="bg-primary/5 border-b mb-6">
+                        <CardTitle className="flex items-center gap-2 text-xl">
+                            <Sparkles className="h-5 w-5 text-primary" /> Personalización de Colores
+                        </CardTitle>
+                        <CardDescription>Configura los colores principales para las pestañas y secciones de Operación y Administración.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {/* Color Operación */}
+                            <div className="space-y-3">
+                                <label className="text-sm font-bold block">Color para Operación</label>
+                                <div className="flex items-center gap-3">
+                                    <input 
+                                        type="color" 
+                                        value={operacionColorState} 
+                                        onChange={(e) => setOperacionColorState(e.target.value)}
+                                        className="h-10 w-10 cursor-pointer rounded-lg border border-border"
+                                    />
+                                    <Input 
+                                        type="text" 
+                                        value={operacionColorState} 
+                                        onChange={(e) => setOperacionColorState(e.target.value)}
+                                        placeholder="#3b82f6"
+                                        className="font-mono"
+                                    />
+                                </div>
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                    {['#3b82f6', '#10b981', '#6366f1', '#f97316', '#ef4444', '#ec4899'].map((c) => (
+                                        <button
+                                            key={c}
+                                            type="button"
+                                            onClick={() => setOperacionColorState(c)}
+                                            className="h-6 w-6 rounded-full border border-border transition-transform hover:scale-110 active:scale-95 relative"
+                                            style={{ backgroundColor: c }}
+                                        >
+                                            {operacionColorState === c && (
+                                                <span className="absolute inset-0 m-auto h-2 w-2 rounded-full bg-white shadow-sm" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Color Administración */}
+                            <div className="space-y-3">
+                                <label className="text-sm font-bold block">Color para Administración</label>
+                                <div className="flex items-center gap-3">
+                                    <input 
+                                        type="color" 
+                                        value={administracionColorState} 
+                                        onChange={(e) => setAdministracionColorState(e.target.value)}
+                                        className="h-10 w-10 cursor-pointer rounded-lg border border-border"
+                                    />
+                                    <Input 
+                                        type="text" 
+                                        value={administracionColorState} 
+                                        onChange={(e) => setAdministracionColorState(e.target.value)}
+                                        placeholder="#8b5cf6"
+                                        className="font-mono"
+                                    />
+                                </div>
+                                <div className="flex flex-wrap gap-2 pt-1">
+                                    {['#8b5cf6', '#6366f1', '#673ab7', '#ec4899', '#f43f5e', '#14b8a6'].map((c) => (
+                                        <button
+                                            key={c}
+                                            type="button"
+                                            onClick={() => setAdministracionColorState(c)}
+                                            className="h-6 w-6 rounded-full border border-border transition-transform hover:scale-110 active:scale-95 relative"
+                                            style={{ backgroundColor: c }}
+                                        >
+                                            {administracionColorState === c && (
+                                                <span className="absolute inset-0 m-auto h-2 w-2 rounded-full bg-white shadow-sm" />
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex justify-end pt-4 border-t">
+                            <Button onClick={onSaveMenuColors} disabled={isSaving} className="bg-primary hover:bg-primary/95 font-bold h-10 px-6 rounded-lg">
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                                Guardar Colores
+                            </Button>
+                        </div>
                     </CardContent>
                 </Card>
 
@@ -422,6 +708,68 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                 </div>
                             </form>
                         </Form>
+                    </CardContent>
+                </Card>
+
+                <Card className="shadow-lg border-blue-200 overflow-hidden">
+                    <CardHeader className="bg-blue-50 border-b mb-6">
+                        <CardTitle className="flex items-center gap-2 text-xl text-blue-800">
+                            <Route className="h-5 w-5" /> Distribución de Menú
+                        </CardTitle>
+                        <CardDescription>
+                            Organiza las secciones del sistema en los menús de Operación y Administración.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                        <div className="space-y-4">
+                            <div className="grid gap-4">
+                                {allLinks.map((link) => {
+                                    const value = menuConfigState[link.id] || 'operacion';
+                                    const LinkIcon = link.icon;
+                                    return (
+                                        <div key={link.id} className="flex items-center justify-between p-4 border rounded-xl bg-card hover:bg-muted/10 transition-colors">
+                                            <div className="flex items-center gap-3">
+                                                <LinkIcon className="h-5 w-5 text-muted-foreground" />
+                                                <div>
+                                                    <p className="font-bold text-sm">{link.label}</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-semibold">Ruta: {link.href}</p>
+                                                </div>
+                                            </div>
+                                            <div className="w-[180px]">
+                                                <Select
+                                                    value={value}
+                                                    onValueChange={(val: 'operacion' | 'administracion') => {
+                                                        setMenuConfigState(prev => ({
+                                                            ...prev,
+                                                            [link.id]: val
+                                                        }));
+                                                    }}
+                                                >
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="operacion">Operación</SelectItem>
+                                                        <SelectItem value="administracion">Administración</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            <div className="flex justify-end pt-4 border-t">
+                                <Button
+                                    onClick={onSaveMenuConfig}
+                                    disabled={isSaving}
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-black h-12 px-10 rounded-xl shadow-lg"
+                                >
+                                    {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Route className="mr-2 h-4 w-4" />}
+                                    Guardar Distribución de Menú
+                                </Button>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>

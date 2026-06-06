@@ -49,13 +49,13 @@ export default async function OverduePortfolioPage() {
                         missedCount++;
                         baseArrears += (weeklyPayment - p.amount);
                     }
-                } else if (i < rawCurrentLoanWeek) {
+                } else if (i < rawCurrentLoanWeek - 1) {
                     missedCount++;
                     baseArrears += weeklyPayment;
                 }
             }
 
-            const isExpired = rawCurrentLoanWeek > baseTerm;
+            const isExpired = rawCurrentLoanWeek > baseTerm + 1;
             // REGLA DINÁMICA: Penalización solo si tiene 2+ fallos o venció debiendo del base
             const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
 

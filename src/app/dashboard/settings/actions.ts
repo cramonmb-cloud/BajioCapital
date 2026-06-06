@@ -284,10 +284,25 @@ export async function deletePromotoraAction(id: string) {
 
 
 // App Config Actions
-export async function saveLogoAction(logoUrl: string) {
+export async function saveLogoAction(
+    logoUrl: string, 
+    logoFormat?: 'square' | 'horizontal',
+    sizes?: {
+        logoHeightHeader?: number;
+        logoWidthHeader?: number;
+        logoHeightDashboard?: number;
+        logoWidthDashboard?: number;
+        logoHeightLogin?: number;
+        logoWidthLogin?: number;
+    }
+) {
     try {
         const configRef = doc(db, 'config', 'main');
-        await setDoc(configRef, { logoUrl }, { merge: true });
+        await setDoc(configRef, { 
+            logoUrl, 
+            logoFormat: logoFormat || 'square',
+            ...sizes
+        }, { merge: true });
         revalidatePath('/dashboard', 'layout');
         return { success: true, message: 'Logo actualizado con éxito.' };
     } catch (error: any) {
@@ -626,5 +641,27 @@ export async function syncWithSupervisorAppAction(
     } catch (error: any) {
         console.error('SupervisorApp Sync Error:', error);
         return { success: false, message: `Fallo crítico al conectar con SUPERvisorApp: ${error.message}` };
+    }
+}
+
+export async function saveMenuConfigAction(menuConfig: Record<string, 'operacion' | 'administracion'>) {
+    try {
+        const configRef = doc(db, 'config', 'main');
+        await setDoc(configRef, { menuConfig }, { merge: true });
+        revalidatePath('/dashboard', 'layout');
+        return { success: true, message: 'Distribución del menú guardada con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar la distribución del menú: ${error.message}` };
+    }
+}
+
+export async function saveMenuColorsAction(operacionColor: string, administracionColor: string) {
+    try {
+        const configRef = doc(db, 'config', 'main');
+        await setDoc(configRef, { operacionColor, administracionColor }, { merge: true });
+        revalidatePath('/dashboard', 'layout');
+        return { success: true, message: 'Colores de los menús guardados con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar los colores: ${error.message}` };
     }
 }

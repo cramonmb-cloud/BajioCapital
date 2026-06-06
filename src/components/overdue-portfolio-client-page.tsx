@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { OverdueLoanDetails } from '@/app/dashboard/overdue-portfolio/page';
+import type { OverdueLoanDetails } from '@/app/dashboard/cartera-vencida/page';
 import { Input } from '@/components/ui/input';
 import { OverdueCard } from '@/components/overdue-card';
 import type { Client, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';

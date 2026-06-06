@@ -1,4 +1,3 @@
-
 import { CreditCard } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -8,46 +7,97 @@ interface LogoProps {
   logoUrl?: string | null;
   appName?: string;
   size?: 'sm' | 'md' | 'lg' | 'xl';
+  logoFormat?: 'square' | 'horizontal';
+  customHeight?: number;
+  customWidth?: number;
 }
 
-export function Logo({ className, logoUrl, appName = 'CrediControl', size = 'md' }: LogoProps) {
+export function Logo({ 
+  className, 
+  logoUrl, 
+  appName = 'CrediControl', 
+  size = 'md',
+  logoFormat = 'square',
+  customHeight,
+  customWidth
+}: LogoProps) {
   const dimensions = {
-    sm: 'h-7 w-7',
-    md: 'h-9 w-9',
-    lg: 'h-16 w-16',
-    xl: 'h-32 w-32'
+    square: {
+      sm: 'h-7 aspect-square',
+      md: 'h-9 aspect-square',
+      lg: 'h-16 aspect-square',
+      xl: 'h-32 aspect-square'
+    },
+    horizontal: {
+      sm: 'h-7 aspect-[16/9]',
+      md: 'h-9 aspect-[16/9]',
+      lg: 'h-16 aspect-[16/9]',
+      xl: 'h-32 aspect-[16/9]'
+    }
   };
+
+  const isVideo = logoUrl && (
+    logoUrl.split('?')[0].toLowerCase().endsWith('.mp4') || 
+    logoUrl.split('?')[0].toLowerCase().endsWith('.webm') ||
+    logoUrl.split('?')[0].toLowerCase().endsWith('.ogg') ||
+    logoUrl.includes('video')
+  );
+
+  const formatKey = (logoFormat === 'horizontal' || logoFormat === 'square') ? logoFormat : 'square';
+  const sizeKey = (size === 'sm' || size === 'md' || size === 'lg' || size === 'xl') ? size : 'md';
+  const aspectClass = formatKey === 'horizontal' ? 'aspect-[16/9]' : 'aspect-square';
 
   return (
     <div
       className={cn(
-        'flex items-center gap-2.5 text-sm font-bold tracking-tight transition-all group',
+        'flex items-center gap-2.5 text-sm font-bold tracking-tight transition-all group justify-center',
         className
       )}
     >
-      <div className={cn(
-        "relative overflow-hidden rounded-lg border border-border/40 bg-white shadow-[0_2px_5px_-1px_rgba(0,0,0,0.1)] transition-transform group-hover:scale-105 group-active:scale-95",
-        dimensions[size as keyof typeof dimensions]
-      )}>
+      <div 
+        className={cn(
+          "relative overflow-hidden transition-all duration-300 group-hover:scale-105 group-active:scale-95 flex items-center justify-center",
+          "rounded-2xl border border-border/40 bg-white/95 shadow-[0_8px_30px_rgb(0,0,0,0.06),_0_0_15px_rgba(59,130,246,0.03)] hover:border-primary/30 hover:shadow-[0_8px_35px_rgba(59,130,246,0.12),_0_0_20px_rgba(59,130,246,0.15)]",
+          !customHeight && !customWidth ? dimensions[formatKey][sizeKey] : aspectClass
+        )}
+        style={{
+          height: customHeight ? `${customHeight}px` : undefined,
+          width: customWidth ? `${customWidth}px` : undefined,
+        }}
+      >
         {logoUrl ? (
-          <Image 
-            src={logoUrl} 
-            alt="Logo" 
-            fill
-            className="object-contain p-1" 
-          />
+          isVideo ? (
+            <video 
+              src={logoUrl} 
+              autoPlay 
+              loop 
+              muted 
+              playsInline
+              className="absolute inset-0 h-full w-full object-cover" 
+            />
+          ) : (
+            <Image 
+              src={logoUrl} 
+              alt="Logo" 
+              fill
+              className="object-contain p-1" 
+            />
+          )
         ) : (
           <div className="flex h-full w-full items-center justify-center bg-primary/10 text-primary">
             <CreditCard className={cn(size === 'sm' ? 'h-3.5 w-3.5' : size === 'xl' ? 'h-12 w-12' : 'h-5 w-5')} />
           </div>
         )}
       </div>
-      <span className={cn(
-        "bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/70",
-        (size === 'sm' || size === 'md' || size === 'lg') ? "hidden lg:inline-block text-sm" : "inline-block text-2xl"
-      )}>
-        {appName}
-      </span>
+      
+      {formatKey !== 'horizontal' && (
+        <span className={cn(
+          "bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/70",
+          (size === 'sm' || size === 'md' || size === 'lg') ? "hidden lg:inline-block text-sm" : "inline-block text-2xl"
+        )}>
+          {appName}
+        </span>
+      )}
     </div>
   );
 }

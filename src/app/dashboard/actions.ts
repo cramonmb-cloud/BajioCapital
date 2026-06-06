@@ -210,12 +210,12 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 if (p) {
                     totalPaidInBaseTerm += p.amount;
                     if (p.amount < weeklyPayment) missedCount++;
-                } else if (i < rawCurrentLoanWeek) {
+                } else if (i < rawCurrentLoanWeek - 1) {
                     missedCount++;
                 }
             }
 
-            const isExpired = rawCurrentLoanWeek > baseTerm;
+            const isExpired = rawCurrentLoanWeek > baseTerm + 1;
             const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
             
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
@@ -226,7 +226,7 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             if (balance <= 0) {
                 newStatus = (isExpired || hasPenalty) ? 'Pagado desde CV' : 'Paid Off';
             } else {
-                newStatus = (isExpired || rawCurrentLoanWeek > totalTerm) ? 'Overdue' : 'Active';
+                newStatus = (isExpired || rawCurrentLoanWeek > totalTerm + 1) ? 'Overdue' : 'Active';
             }
 
             transaction.update(loanRef, {
@@ -272,7 +272,7 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
             const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
             
             const baseTerm = loanPlan.termInWeeks;
-            const isExpired = rawCurrentLoanWeek > baseTerm;
+            const isExpired = rawCurrentLoanWeek > baseTerm + 1;
 
             const currentPayments = (loan.payments || []).map(p => ({
                 ...p,
@@ -286,7 +286,7 @@ export async function payOffLoanAction(loanId: string, userId?: string) {
                 if (p) {
                     totalPaidInBaseTerm += p.amount;
                     if (p.amount < weeklyPayment) missedCount++;
-                } else if (i < rawCurrentLoanWeek) {
+                } else if (i < rawCurrentLoanWeek - 1) {
                     missedCount++;
                 }
             }
@@ -382,7 +382,7 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
                 const daysDiff = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
                 
-                const currentWeekToFill = Math.min(rawCurrentLoanWeek, plan.termInWeeks);
+                const currentWeekToFill = Math.min(rawCurrentLoanWeek - 1, plan.termInWeeks);
                 
                 const currentPayments = loan.payments || [];
                 let hasChanges = false;

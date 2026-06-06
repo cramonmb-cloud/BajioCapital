@@ -112,6 +112,16 @@ export type WhatsAppTemplates = {
 export type AppConfig = {
   appName?: string;
   logoUrl?: string;
+  logoFormat?: 'square' | 'horizontal';
+  logoHeightHeader?: number;
+  logoWidthHeader?: number;
+  logoHeightDashboard?: number;
+  logoWidthDashboard?: number;
+  logoHeightLogin?: number;
+  logoWidthLogin?: number;
   whatsappTemplate?: string; // Mantener por compatibilidad con default client
   whatsappTemplates?: Record<string, WhatsAppTemplates>; // PlazaId -> Templates
+  menuConfig?: Record<string, 'operacion' | 'administracion'>;
+  operacionColor?: string;
+  administracionColor?: string;
 };

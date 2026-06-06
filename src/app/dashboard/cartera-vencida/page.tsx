@@ -54,7 +54,7 @@ export default async function CarteraVencidaPage() {
             const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
             
             const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
-            const isExpired = rawCurrentLoanWeek > baseTerm;
+            const isExpired = rawCurrentLoanWeek > baseTerm + 1;
 
             // CARTERA VENCIDA: Solo préstamos expirados (superan plazo base)
             if (!isExpired) return null;

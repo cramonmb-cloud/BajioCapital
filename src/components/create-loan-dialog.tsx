@@ -206,7 +206,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
 
             const baseTerm = loanPlan.termInWeeks;
             let missedWeeksCount = 0;
-            for (let i = 1; i < rawCurrentLoanWeek; i++) {
+            for (let i = 1; i < rawCurrentLoanWeek - 1; i++) {
                 const p = activeLoan.payments.find(p => p.weekNumber === i);
                 if (p && p.amount < weeklyPayment) missedWeeksCount++;
             }
@@ -219,7 +219,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                 const p = activeLoan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
                     effectivePaidBase += p.amount;
-                } else if (i < rawCurrentLoanWeek) {
+                } else if (i < rawCurrentLoanWeek - 1) {
                     effectivePaidBase += weeklyPayment;
                 }
             }

@@ -7,7 +7,9 @@ import { useAuth } from '@/hooks/use-auth';
 import type { UserPermissions } from '@/lib/types';
 import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, type LucideIcon } from 'lucide-react';
 
-const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: LucideIcon }[] = [
+import { useState, useEffect, useMemo } from 'react';
+
+export const allLinks: { href: string; label: string; id: string, icon: LucideIcon }[] = [
   { href: '/dashboard', label: 'Dashboard', id: 'dashboard', icon: LayoutDashboard },
   { href: '/dashboard/clients', label: 'Clientes', id: 'clients', icon: Users },
   { href: '/dashboard/consultar-cliente', label: 'Consultar', id: 'consultarCliente', icon: Search },
@@ -22,11 +24,41 @@ const allLinks: { href: string; label: string; id: keyof UserPermissions, icon: 
 interface MainNavProps {
     isMobile?: boolean;
     onLinkClick?: () => void;
+    menuConfig?: Record<string, 'operacion' | 'administracion'>;
+    activeTab: 'operacion' | 'administracion';
+    setActiveTab: (tab: 'operacion' | 'administracion') => void;
+    operacionColor?: string;
+    administracionColor?: string;
 }
 
-export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
+export function MainNav({ 
+  isMobile = false, 
+  onLinkClick, 
+  menuConfig, 
+  activeTab, 
+  setActiveTab,
+  operacionColor = '#3b82f6',
+  administracionColor = '#8b5cf6' 
+}: MainNavProps) {
   const pathname = usePathname();
   const { appUser } = useAuth();
+
+  const currentTabColor = activeTab === 'operacion' ? operacionColor : administracionColor;
+
+  const mergedMenuConfig = useMemo(() => {
+    const defaultMenuConfig: Record<string, 'operacion' | 'administracion'> = {
+      dashboard: 'operacion',
+      clients: 'operacion',
+      consultarCliente: 'operacion',
+      loans: 'operacion',
+      overduePortfolio: 'operacion',
+      carteraVencida: 'operacion',
+      wallet: 'administracion',
+      control: 'administracion',
+      settings: 'administracion',
+    };
+    return { ...defaultMenuConfig, ...menuConfig };
+  }, [menuConfig]);
 
   if (!appUser) {
     return null;
@@ -45,59 +77,118 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
     return appUser.permissions && appUser.permissions[link.id as keyof UserPermissions];
   });
 
-  const getIconClass = (id: string, isActive: boolean) => {
+  const getIconClass = (id: string, isActive: boolean, sizeClass = "h-5 w-5") => {
     return cn(
-        "h-5 w-5 transition-all duration-300 transform",
+        sizeClass,
+        "transition-all duration-300 transform",
         isActive ? "scale-110" : "group-hover:scale-110 opacity-70 group-hover:opacity-100",
         id === 'overduePortfolio' && (isActive ? 'text-orange-500 drop-shadow-[0_0_8px_rgba(249,115,22,0.4)]' : 'group-hover:text-orange-500'),
         id === 'carteraVencida' && (isActive ? 'text-red-600 drop-shadow-[0_0_8px_rgba(220,38,38,0.4)]' : 'group-hover:text-red-600'),
-        id === 'control' && (isActive ? 'text-blue-600 drop-shadow-[0_0_8px_rgba(37,99,235,0.4)]' : 'group-hover:text-blue-600'),
-        isActive && id !== 'overduePortfolio' && id !== 'carteraVencida' && id !== 'control' && 'text-primary drop-shadow-[0_0_8px_rgba(var(--primary),0.4)]'
+        id === 'control' && (isActive ? 'text-blue-600 drop-shadow-[0_0_8px_rgba(37,99,235,0.4)]' : 'group-hover:text-blue-600')
     );
   };
 
   if (isMobile) {
+    const filteredLinks = allowedLinks.filter(link => {
+      const category = mergedMenuConfig[link.id] || 'operacion';
+      return category === activeTab;
+    });
+
     return (
-        <div className="flex flex-col gap-1.5 px-2">
-            {allowedLinks.map((link) => {
-                const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
-                return (
-                    <Link
-                        key={link.href}
-                        href={link.href}
-                        className={cn(
-                            'group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 active:scale-95',
-                            isActive 
-                                ? 'bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20' 
-                                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                        )}
-                        onClick={onLinkClick}
-                    >
-                        <link.icon className={getIconClass(link.id, isActive)} />
-                        {link.label}
-                    </Link>
-                );
-            })}
+        <div className="flex flex-col gap-4">
+            {/* Mobile Tab Selector */}
+            <div className="flex bg-muted p-1 rounded-xl border border-border/10 mx-4 justify-between">
+              <button
+                onClick={() => setActiveTab('operacion')}
+                style={activeTab === 'operacion' ? { backgroundColor: operacionColor, color: '#ffffff' } : undefined}
+                className={cn(
+                  "flex-1 py-2 rounded-lg text-xs font-bold text-center transition-all",
+                  activeTab === 'operacion'
+                    ? "shadow-sm ring-1 ring-border/10"
+                    : "text-muted-foreground"
+                )}
+              >
+                Operación
+              </button>
+              <button
+                onClick={() => setActiveTab('administracion')}
+                style={activeTab === 'administracion' ? { backgroundColor: administracionColor, color: '#ffffff' } : undefined}
+                className={cn(
+                  "flex-1 py-2 rounded-lg text-xs font-bold text-center transition-all",
+                  activeTab === 'administracion'
+                    ? "shadow-sm ring-1 ring-border/10"
+                    : "text-muted-foreground"
+                )}
+              >
+                Administración
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-1.5 px-2">
+                {filteredLinks.length > 0 ? (
+                  filteredLinks.map((link) => {
+                    const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
+                    return (
+                        <Link
+                            key={link.href}
+                            href={link.href}
+                            className={cn(
+                                'group flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200 active:scale-95',
+                                isActive 
+                                    ? 'shadow-sm' 
+                                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                            )}
+                            style={isActive ? {
+                              backgroundColor: `${currentTabColor}15`,
+                              color: currentTabColor,
+                              boxShadow: `0 0 0 1px ${currentTabColor}30`
+                            } : undefined}
+                            onClick={onLinkClick}
+                        >
+                            <link.icon 
+                              className={getIconClass(link.id, isActive)} 
+                              style={isActive && link.id !== 'overduePortfolio' && link.id !== 'carteraVencida' && link.id !== 'control' ? { color: currentTabColor } : undefined}
+                            />
+                            {link.label}
+                        </Link>
+                    );
+                  })
+                ) : (
+                  <p className="text-xs text-muted-foreground text-center p-4">No hay secciones en este menú.</p>
+                )}
+            </div>
         </div>
     );
   }
 
+  const filteredLinks = allowedLinks.filter(link => {
+    const category = mergedMenuConfig[link.id] || 'operacion';
+    return category === activeTab;
+  });
+
   return (
-        <div className="flex items-center bg-muted/40 p-1.5 rounded-full border border-border/50 backdrop-blur-sm shadow-inner h-14">
-            {allowedLinks.map((link) => {
+        <div className="flex items-center bg-muted/40 p-1 rounded-full border border-border/50 backdrop-blur-sm shadow-inner h-10 transition-all duration-300">
+            {filteredLinks.length > 0 ? (
+              filteredLinks.map((link) => {
                 const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
                 return (
                     <Link
                         key={link.href}
                         href={link.href}
                         className={cn(
-                            'group flex items-center gap-2.5 rounded-full px-5 py-2.5 text-sm font-bold transition-all duration-300 relative overflow-hidden h-full',
+                            'group flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold transition-all duration-300 relative overflow-hidden h-full',
                             isActive 
                                 ? 'bg-background text-foreground shadow-md ring-1 ring-border/50 translate-y-[-1px]' 
                                 : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
                         )}
                     >
-                        <link.icon className={getIconClass(link.id, isActive)} />
+                        <link.icon 
+                          className={getIconClass(link.id, isActive, "h-4 w-4")} 
+                          style={isActive && link.id !== 'overduePortfolio' && link.id !== 'carteraVencida' && link.id !== 'control' ? { 
+                            color: currentTabColor,
+                            filter: `drop-shadow(0 0 8px ${currentTabColor}60)`
+                          } : undefined}
+                        />
                         <span className={cn(
                             "transition-all duration-300",
                             isActive ? "opacity-100" : "opacity-80 group-hover:opacity-100"
@@ -105,11 +196,17 @@ export function MainNav({ isMobile = false, onLinkClick }: MainNavProps) {
                             {link.label}
                         </span>
                         {isActive && (
-                            <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                            <span 
+                              className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full animate-pulse" 
+                              style={{ backgroundColor: currentTabColor }}
+                            />
                         )}
                     </Link>
                 );
-            })}
+              })
+            ) : (
+              <span className="text-xs text-muted-foreground px-6 py-2">No hay secciones en este menú.</span>
+            )}
         </div>
   );
 }

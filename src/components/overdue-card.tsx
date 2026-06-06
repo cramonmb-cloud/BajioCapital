@@ -99,7 +99,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
         const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
         
         const rawCurrentLoanWeek = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
-        const isExpired = rawCurrentLoanWeek > baseTerm;
+        const isExpired = rawCurrentLoanWeek > baseTerm + 1;
 
         let missedCount = 0;
         let totalPaidInBaseTerm = 0;
@@ -108,7 +108,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             if (p) {
                 totalPaidInBaseTerm += p.amount;
                 if (p.amount < weeklyPayment) missedCount++;
-            } else if (i < rawCurrentLoanWeek) {
+            } else if (i < rawCurrentLoanWeek - 1) {
                 missedCount++;
             }
         }

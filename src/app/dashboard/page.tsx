@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import type { Loan } from '@/lib/types';
 import Image from 'next/image';
+import { Logo } from '@/components/logo';
 import { ClientesConFallos } from '@/components/clientes-con-fallos';
 import { useEffect, useState, useMemo } from 'react';
 import Loading from './loading';
@@ -33,7 +34,7 @@ const ITEMS_PER_PAGE = 20;
 export default function DashboardPage() {
     const { data, loading: dataLoading } = useRealtimeData();
     const { appUser, loading: authLoading } = useAuth();
-    const [config, setConfig] = useState<{logoUrl?: string} | null>(null);
+    const [config, setConfig] = useState<{logoUrl?: string, logoFormat?: 'square' | 'horizontal', logoHeightDashboard?: number, logoWidthDashboard?: number} | null>(null);
     
     // Pagination state for Overdue Loans
     const [currentPage, setCurrentPage] = useState(1);
@@ -73,16 +74,16 @@ export default function DashboardPage() {
                 if (p) {
                     totalPaidInBase += p.amount;
                     if (p.amount < weeklyPayment) missedWeeksCount++;
-                } else if (i < currentLoanWeek) {
+                } else if (i < currentLoanWeek - 1) {
                     missedWeeksCount++;
                 }
             }
 
-            const isExpired = currentLoanWeek > baseTerm;
+            const isExpired = currentLoanWeek > baseTerm + 1;
             const hasPenalty = (missedWeeksCount >= 2) || (isExpired && totalPaidInBase < (baseTerm * weeklyPayment));
 
             const term = baseTerm + (hasPenalty ? 1 : 0);
-            return currentLoanWeek > term;
+            return currentLoanWeek > term + 1;
         });
 
         // Weekly report logic
@@ -143,18 +144,17 @@ export default function DashboardPage() {
     };
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col gap-5">
             {config?.logoUrl && (
-                <div className="flex justify-center mb-8">
-                    <div className="w-64 h-64 md:w-80 md:h-80 flex items-center justify-center p-4">
-                        <div className="relative w-full h-full animate-in fade-in zoom-in duration-700">
-                            <Image 
-                                src={config.logoUrl} 
-                                alt="Logo" 
-                                fill
-                                className="object-contain rounded-3xl border-4 border-white animate-glow-green bg-white/80 backdrop-blur-sm p-4"
-                            />
-                        </div>
+                <div className="flex justify-center mt-3 md:mt-2">
+                    <div className="relative animate-in fade-in zoom-in duration-700 flex items-center justify-center">
+                        <Logo 
+                            logoUrl={config.logoUrl} 
+                            logoFormat={config.logoFormat} 
+                            size="xl" 
+                            customHeight={config.logoHeightDashboard}
+                            customWidth={config.logoWidthDashboard}
+                        />
                     </div>
                 </div>
             )}

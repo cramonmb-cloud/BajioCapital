@@ -199,7 +199,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     const currentWeekSafe = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
     
     const baseTerm = loanPlan.termInWeeks;
-    const isExpired = currentWeekSafe > baseTerm;
+    const isExpired = currentWeekSafe > baseTerm + 1;
 
     let missedCount = 0;
     let totalPaidInBaseTerm = 0;
@@ -213,7 +213,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                 missedCount++;
                 baseArrears += (weeklyPayment - p.amount);
             }
-        } else if (i < currentWeekSafe) {
+        } else if (i < currentWeekSafe - 1) {
             missedCount++;
             baseArrears += weeklyPayment;
         }
@@ -282,7 +282,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                 statusText = 'FALLO';
                 statusType = 'MISSED';
             }
-        } else if (isPast || i < currentLoanWeek) {
+        } else if (isPast || i < currentLoanWeek - 1) {
             statusText = 'FALLO';
             statusType = 'MISSED';
         } else {
