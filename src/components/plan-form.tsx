@@ -39,6 +39,7 @@ const formSchema = z.object({
   description: z.string().min(1, 'La descripción es requerida.'),
   weeklyPaymentRate: z.coerce.number().min(0, 'El abono semanal no puede ser negativo.'),
   termInWeeks: z.coerce.number().int().min(1, 'El plazo debe ser de al menos 1 semana.'),
+  highlight: z.boolean().optional(),
 });
 
 type PlanFormValues = z.infer<typeof formSchema>;
@@ -61,12 +62,14 @@ export function PlanForm({ plan }: PlanFormProps) {
           description: plan.description,
           weeklyPaymentRate: plan.weeklyPaymentRate,
           termInWeeks: plan.termInWeeks,
+          highlight: plan.highlight || false,
         }
       : {
           name: '',
           description: '',
           weeklyPaymentRate: 0,
           termInWeeks: 1,
+          highlight: false,
         },
   });
 
@@ -191,6 +194,23 @@ export function PlanForm({ plan }: PlanFormProps) {
                 )}
                 />
             </div>
+            <FormField
+              control={form.control}
+              name="highlight"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-center space-x-2 space-y-0 py-1">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value || false}
+                      onChange={field.onChange}
+                      className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                    />
+                  </FormControl>
+                  <FormLabel className="text-xs font-bold uppercase cursor-pointer select-none text-muted-foreground">Resaltar Préstamos con este Plan</FormLabel>
+                </FormItem>
+              )}
+            />
           </CardContent>
           <CardFooter className="flex justify-between border-t pt-6 px-0">
             <div>

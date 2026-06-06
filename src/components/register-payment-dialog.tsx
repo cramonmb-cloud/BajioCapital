@@ -22,11 +22,12 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import type { Client, Loan, LoanPlan, AppUser } from '@/lib/types';
+import type { Client, Loan, LoanPlan } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { registerPaymentAction } from '@/app/dashboard/actions';
 import { useAuth } from '@/hooks/use-auth';
+import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
   amountPaid: z.coerce.number().min(0, 'El monto debe ser un número positivo.'),
@@ -79,13 +80,13 @@ export function RegisterPaymentDialog({
     },
   });
 
-  // Effect to update default value when dialog opens with new data
+  const amountPaid = form.watch('amountPaid') ?? 0;
+
   useEffect(() => {
     if (isOpen) {
       form.reset({ amountPaid: initialAmount });
     }
   }, [isOpen, initialAmount, form]);
-
 
   const onSubmit = async (values: PaymentFormValues) => {
     if (!loanPlan) return;
@@ -113,10 +114,6 @@ export function RegisterPaymentDialog({
       setIsSubmitting(false);
     }
   };
-  
-  const formatDate = (date: Date) => {
-      return date.toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => {
@@ -125,36 +122,80 @@ export function RegisterPaymentDialog({
             form.reset({ amountPaid: initialAmount });
         }
     }}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[380px] rounded-2xl p-6 border border-border/40 shadow-2xl">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-            <DialogHeader>
-              <DialogTitle>Registrar Pago - Semana {weekNumber}</DialogTitle>
-              <DialogDescription>
-                Registra el abono para <span className="font-semibold">{client?.name}</span> comenzando en la semana del <span className="font-semibold">{formatDate(weekDate)}</span>. 
-                El abono semanal esperado es de {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(weeklyPaymentAmount || 0)}.
-              </DialogDescription>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-base font-black uppercase tracking-wider text-slate-800">Registrar Abono</DialogTitle>
+              <DialogDescription className="sr-only">Formulario para registrar el cobro semanal del préstamo</DialogDescription>
             </DialogHeader>
 
+            {/* Ficha compacta de detalles */}
+            <div className="bg-slate-50 dark:bg-slate-900/40 p-3.5 rounded-xl border border-slate-100 dark:border-slate-800/60 space-y-2 text-xs">
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-semibold uppercase text-[9px] tracking-wider">Cliente</span>
+                <span className="font-extrabold text-slate-700 uppercase text-[11px] truncate max-w-[180px]">{client?.name}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-semibold uppercase text-[9px] tracking-wider">Semana</span>
+                <span className="font-extrabold text-blue-600 bg-blue-50 px-2 py-0.5 rounded text-[10px]">S{weekNumber}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-muted-foreground font-semibold uppercase text-[9px] tracking-wider">Esperado</span>
+                <span className="font-extrabold text-slate-700">
+                  {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(weeklyPaymentAmount || 0)}
+                </span>
+              </div>
+            </div>
+
+            {/* Input de monto */}
             <FormField
               control={form.control}
               name="amountPaid"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Monto Abonado ($)</FormLabel>
+                <FormItem className="space-y-1.5">
+                  <FormLabel className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Monto Recibido</FormLabel>
                   <FormControl>
-                    <Input type="number" step="0.01" {...field} />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-extrabold text-sm">$</span>
+                      <Input 
+                        type="number" 
+                        step="0.01" 
+                        placeholder="0.00" 
+                        {...field} 
+                        className="pl-7 h-11 text-base font-bold rounded-xl focus-visible:ring-blue-500 border-border/80" 
+                      />
+                    </div>
                   </FormControl>
-                  <FormMessage />
+                  <FormMessage className="text-[10px]" />
                 </FormItem>
               )}
             />
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-              <Button type="submit" disabled={isSubmitting}>
+            {/* Diferencia / Falla */}
+            {weeklyPaymentAmount > amountPaid && (
+              <div className="flex justify-between items-center text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/10 px-3.5 py-2.5 rounded-xl border border-red-100 dark:border-red-900/30">
+                <span className="uppercase text-[9px] tracking-wider font-bold">Falla</span>
+                <span className="font-extrabold text-sm">Fallo con {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(weeklyPaymentAmount - amountPaid)}</span>
+              </div>
+            )}
+
+            <DialogFooter className="pt-2 gap-2 sm:gap-2 flex items-center">
+              <Button 
+                type="button" 
+                variant="ghost" 
+                onClick={() => onOpenChange(false)}
+                className="h-12 text-xs font-bold rounded-xl hover:bg-muted/40 px-4"
+              >
+                Cancelar
+              </Button>
+              <Button 
+                type="submit" 
+                disabled={isSubmitting}
+                className="h-12 px-8 text-sm font-black uppercase tracking-wider rounded-xl bg-blue-600 hover:bg-blue-700 text-white shadow-lg border-0 flex-1 transition-all active:scale-95"
+              >
                 {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Guardar Pago
+                Guardar
               </Button>
             </DialogFooter>
           </form>

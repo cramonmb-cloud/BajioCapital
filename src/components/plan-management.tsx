@@ -11,7 +11,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Edit, FileText, LayoutGrid } from 'lucide-react';
+import { PlusCircle, Edit, FileText, LayoutGrid, Star } from 'lucide-react';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import { PlanForm } from './plan-form';
 import {
@@ -70,8 +70,11 @@ export function PlanManagement({ initialLoanPlans }: PlanManagementProps) {
                 {loanPlans.map((plan) => (
                     <Card key={plan.id} className="shadow-md hover:shadow-lg transition-shadow border-primary/10">
                         <CardHeader className="bg-primary/5 border-b mb-4">
-                            <CardTitle className="text-lg uppercase flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-primary" /> {plan.name}
+                            <CardTitle className="text-lg uppercase flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                    <FileText className="h-4 w-4 text-primary" /> {plan.name}
+                                </div>
+                                {plan.highlight && <Star className="h-4 w-4 fill-amber-400 text-amber-500" />}
                             </CardTitle>
                             <CardDescription className="line-clamp-2 min-h-[2.5rem] uppercase text-xs">{plan.description}</CardDescription>
                         </CardHeader>

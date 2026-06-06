@@ -47,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound, Building, CheckCircle2 } from 'lucide-react';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound, Building, CheckCircle2, Coins } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -70,6 +70,7 @@ const permissionsSchema = z.object({
   settings: z.boolean().default(false),
   editClients: z.boolean().default(false),
   control: z.boolean().default(false),
+  debes: z.boolean().default(false),
   // Granular settings
   manageUsers: z.boolean().default(false),
   manageZones: z.boolean().default(false),
@@ -111,6 +112,7 @@ const permissionLabels: { id: keyof Omit<UserPermissions, 'showMobileNavBar' | '
     { id: 'loans', label: 'Préstamos', description: 'Hojas de cobranza semanal', icon: Landmark },
     { id: 'overduePortfolio', label: 'Pagos Pendientes', description: 'Clientes con fallos vigentes', icon: FileWarning },
     { id: 'carteraVencida', label: 'Cartera Vencida', description: 'Cuentas incobrables post-vencimiento', icon: History },
+    { id: 'debes', label: 'Debes', description: 'Liquidación semanal de promotoras', icon: Coins },
     { id: 'wallet', label: 'Bitacora', description: 'Flujo de caja y movimientos', icon: Wallet },
     { id: 'control', label: 'Control', description: 'Capital en calle y proyecciones', icon: Activity },
     { id: 'editClients', label: 'Editar Clientes', description: 'Modificar datos de clientes existentes', icon: Edit },
@@ -165,6 +167,7 @@ export function UserManagement({ users }: UserManagementProps) {
         settings: false,
         editClients: false,
         control: true,
+        debes: true,
         manageUsers: false,
         manageZones: true,
         manageMigration: false,
@@ -200,6 +203,7 @@ export function UserManagement({ users }: UserManagementProps) {
             settings: selectedUser.permissions?.settings ?? false,
             editClients: selectedUser.permissions?.editClients ?? false,
             control: selectedUser.permissions?.control ?? false,
+            debes: selectedUser.permissions?.debes ?? false,
             manageUsers: selectedUser.permissions?.manageUsers ?? false,
             manageZones: selectedUser.permissions?.manageZones ?? false,
             manageMigration: selectedUser.permissions?.manageMigration ?? false,

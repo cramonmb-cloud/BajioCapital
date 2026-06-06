@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { UserPermissions } from '@/lib/types';
-import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, Coins, type LucideIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo } from 'react';
 
@@ -16,6 +16,7 @@ export const allLinks: { href: string; label: string; id: string, icon: LucideIc
   { href: '/dashboard/loans', label: 'Préstamos', id: 'loans', icon: Landmark },
   { href: '/dashboard/overdue-portfolio', label: 'Pendientes', id: 'overduePortfolio', icon: FileWarning },
   { href: '/dashboard/cartera-vencida', label: 'Vencida', id: 'carteraVencida', icon: History },
+  { href: '/dashboard/debes', label: 'Debes', id: 'debes', icon: Coins },
   { href: '/dashboard/wallet', label: 'Bitacora', id: 'wallet', icon: Wallet },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity },
   { href: '/dashboard/settings', label: 'Ajustes', id: 'settings', icon: Settings },
@@ -53,6 +54,7 @@ export function MainNav({
       loans: 'operacion',
       overduePortfolio: 'operacion',
       carteraVencida: 'operacion',
+      debes: 'operacion',
       wallet: 'administracion',
       control: 'administracion',
       settings: 'administracion',
@@ -97,14 +99,22 @@ export function MainNav({
     return (
         <div className="flex flex-col gap-4">
             {/* Mobile Tab Selector */}
-            <div className="flex bg-muted p-1 rounded-xl border border-border/10 mx-4 justify-between">
+            <div className="flex bg-muted p-1 rounded-xl border border-border/10 mx-4 justify-between relative h-10 items-center">
+              {/* Mobile Sliding Pill Background */}
+              <div 
+                className="absolute top-1 bottom-1 rounded-lg transition-all duration-300 ease-in-out shadow-sm"
+                style={{
+                  left: activeTab === 'operacion' ? '4px' : 'calc(50% + 2px)',
+                  width: 'calc(50% - 6px)',
+                  backgroundColor: activeTab === 'operacion' ? operacionColor : administracionColor,
+                }}
+              />
               <button
                 onClick={() => setActiveTab('operacion')}
-                style={activeTab === 'operacion' ? { backgroundColor: operacionColor, color: '#ffffff' } : undefined}
                 className={cn(
-                  "flex-1 py-2 rounded-lg text-xs font-bold text-center transition-all",
+                  "flex-1 py-2 rounded-lg text-xs font-bold text-center transition-all relative z-10",
                   activeTab === 'operacion'
-                    ? "shadow-sm ring-1 ring-border/10"
+                    ? "text-white font-black"
                     : "text-muted-foreground"
                 )}
               >
@@ -112,11 +122,10 @@ export function MainNav({
               </button>
               <button
                 onClick={() => setActiveTab('administracion')}
-                style={activeTab === 'administracion' ? { backgroundColor: administracionColor, color: '#ffffff' } : undefined}
                 className={cn(
-                  "flex-1 py-2 rounded-lg text-xs font-bold text-center transition-all",
+                  "flex-1 py-2 rounded-lg text-xs font-bold text-center transition-all relative z-10",
                   activeTab === 'administracion'
-                    ? "shadow-sm ring-1 ring-border/10"
+                    ? "text-white font-black"
                     : "text-muted-foreground"
                 )}
               >
@@ -124,7 +133,7 @@ export function MainNav({
               </button>
             </div>
 
-            <div className="flex flex-col gap-1.5 px-2">
+            <div key={activeTab} className="flex flex-col gap-1.5 px-2 animate-in fade-in slide-in-from-left-3 duration-300">
                 {filteredLinks.length > 0 ? (
                   filteredLinks.map((link) => {
                     const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
@@ -168,45 +177,47 @@ export function MainNav({
 
   return (
         <div className="flex items-center bg-muted/40 p-1 rounded-full border border-border/50 backdrop-blur-sm shadow-inner h-10 transition-all duration-300">
-            {filteredLinks.length > 0 ? (
-              filteredLinks.map((link) => {
-                const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
-                return (
-                    <Link
-                        key={link.href}
-                        href={link.href}
-                        className={cn(
-                            'group flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold transition-all duration-300 relative overflow-hidden h-full',
-                            isActive 
-                                ? 'bg-background text-foreground shadow-md ring-1 ring-border/50 translate-y-[-1px]' 
-                                : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
-                        )}
-                    >
-                        <link.icon 
-                          className={getIconClass(link.id, isActive, "h-4 w-4")} 
-                          style={isActive && link.id !== 'overduePortfolio' && link.id !== 'carteraVencida' && link.id !== 'control' ? { 
-                            color: currentTabColor,
-                            filter: `drop-shadow(0 0 8px ${currentTabColor}60)`
-                          } : undefined}
-                        />
-                        <span className={cn(
-                            "transition-all duration-300",
-                            isActive ? "opacity-100" : "opacity-80 group-hover:opacity-100"
-                        )}>
-                            {link.label}
-                        </span>
-                        {isActive && (
-                            <span 
-                              className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full animate-pulse" 
-                              style={{ backgroundColor: currentTabColor }}
+            <div key={activeTab} className="flex items-center gap-1.5 h-full animate-in fade-in slide-in-from-bottom-1 duration-300">
+                {filteredLinks.length > 0 ? (
+                  filteredLinks.map((link) => {
+                    const isActive = pathname === link.href || (link.href !== '/dashboard' && pathname.startsWith(link.href));
+                    return (
+                        <Link
+                            key={link.href}
+                            href={link.href}
+                            className={cn(
+                                'group flex items-center gap-2 rounded-full px-4 py-1.5 text-xs font-bold transition-all duration-300 relative overflow-hidden h-full',
+                                isActive 
+                                    ? 'bg-background text-foreground shadow-md ring-1 ring-border/50 translate-y-[-1px]' 
+                                    : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                            )}
+                        >
+                            <link.icon 
+                              className={getIconClass(link.id, isActive, "h-4 w-4")} 
+                              style={isActive && link.id !== 'overduePortfolio' && link.id !== 'carteraVencida' && link.id !== 'control' ? { 
+                                color: currentTabColor,
+                                filter: `drop-shadow(0 0 8px ${currentTabColor}60)`
+                              } : undefined}
                             />
-                        )}
-                    </Link>
-                );
-              })
-            ) : (
-              <span className="text-xs text-muted-foreground px-6 py-2">No hay secciones en este menú.</span>
-            )}
+                            <span className={cn(
+                                "transition-all duration-300",
+                                isActive ? "opacity-100" : "opacity-80 group-hover:opacity-100"
+                            )}>
+                                {link.label}
+                            </span>
+                            {isActive && (
+                                <span 
+                                  className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full animate-pulse" 
+                                  style={{ backgroundColor: currentTabColor }}
+                                />
+                            )}
+                        </Link>
+                    );
+                  })
+                ) : (
+                  <span className="text-xs text-muted-foreground px-6 py-2">No hay secciones en este menú.</span>
+                )}
+            </div>
         </div>
   );
 }

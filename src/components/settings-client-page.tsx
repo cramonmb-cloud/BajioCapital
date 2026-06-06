@@ -164,6 +164,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
             loans: 'operacion',
             overduePortfolio: 'operacion',
             carteraVencida: 'operacion',
+            debes: 'operacion',
             wallet: 'administracion',
             control: 'administracion',
             settings: 'administracion',

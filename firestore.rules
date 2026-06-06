@@ -105,5 +105,12 @@ service cloud.firestore {
       allow read: if isStaff();
       allow write: if isAdmin() || isCristobal();
     }
+
+    // Liquidaciones semanales de Promotoras ("Debes")
+    match /promotoraSettlements/{id} {
+      allow read: if isStaff();
+      allow create, update: if isStaff();
+      allow delete: if isAdmin() || isCristobal();
+    }
   }
 }

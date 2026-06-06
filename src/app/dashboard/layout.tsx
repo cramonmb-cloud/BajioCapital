@@ -129,9 +129,15 @@ export default function DashboardLayout({
   
   return (
     <div className="flex min-h-screen w-full flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/5 via-background to-background">
-      <header className="sticky top-0 z-50 flex flex-col border-b border-border/40 bg-background/60 backdrop-blur-xl shadow-[0_1px_10px_-5px_rgba(0,0,0,0.05)]">
+      <header 
+        className="sticky top-0 z-50 flex flex-col border-b bg-background/60 backdrop-blur-xl transition-all duration-500"
+        style={{
+          borderBottomColor: `${activeTab === 'operacion' ? operacionColor : administracionColor}20`,
+          boxShadow: `0 4px 20px -4px rgba(0, 0, 0, 0.08), 0 10px 15px -5px rgba(0, 0, 0, 0.03), 0 4px 30px -10px ${activeTab === 'operacion' ? operacionColor : administracionColor}15`,
+        }}
+      >
           {/* Fila Superior */}
-          <div className="flex h-12 w-full items-center justify-between px-4 md:px-8 relative">
+          <div className="flex h-14 w-full items-center justify-between px-4 md:px-8 relative">
               <div className="flex items-center gap-2">
                  <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                       <SheetTrigger asChild>
@@ -170,22 +176,30 @@ export default function DashboardLayout({
               </div>
 
               {/* Logo centrado en móvil */}
-              <div className="absolute left-1/2 -translate-x-1/2 md:hidden">
+              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 md:hidden">
                   <Link href="/dashboard" className="transition-transform active:scale-95">
                       <Logo logoUrl={logoUrl} logoFormat={logoFormat} appName={appName} size="md" customHeight={logoHeightHeader} customWidth={logoWidthHeader} />
                   </Link>
               </div>
 
               {/* Centro: Selector de Pestañas (Solo Escritorio) */}
-              <div className="hidden md:flex">
-                  <div className="inline-flex items-center bg-muted/65 p-0.5 rounded-full border border-border/40 shadow-inner h-8">
+              <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2">
+                  <div className="inline-flex items-center bg-muted/65 p-0.5 rounded-full border border-border/40 shadow-inner h-8 relative w-[220px]">
+                      {/* Sliding Pill Background */}
+                      <div 
+                        className="absolute top-0.5 bottom-0.5 rounded-full transition-all duration-300 ease-in-out shadow-sm"
+                        style={{
+                          left: activeTab === 'operacion' ? '2px' : 'calc(50% + 1px)',
+                          width: 'calc(50% - 3px)',
+                          backgroundColor: activeTab === 'operacion' ? operacionColor : administracionColor,
+                        }}
+                      />
                       <button
                         onClick={() => setActiveTab('operacion')}
-                        style={activeTab === 'operacion' ? { backgroundColor: operacionColor, color: '#ffffff' } : undefined}
                         className={cn(
-                          "px-4 py-1 rounded-full text-xs font-bold transition-all duration-300 active:scale-95",
+                          "w-1/2 py-1 rounded-full text-xs font-bold transition-all duration-300 active:scale-95 relative z-10 text-center",
                           activeTab === 'operacion'
-                            ? "shadow-sm ring-1 ring-border/20 font-black"
+                            ? "text-white font-black"
                             : "text-muted-foreground hover:text-foreground"
                         )}
                       >
@@ -193,11 +207,10 @@ export default function DashboardLayout({
                       </button>
                       <button
                         onClick={() => setActiveTab('administracion')}
-                        style={activeTab === 'administracion' ? { backgroundColor: administracionColor, color: '#ffffff' } : undefined}
                         className={cn(
-                          "px-4 py-1 rounded-full text-xs font-bold transition-all duration-300 active:scale-95",
+                          "w-1/2 py-1 rounded-full text-xs font-bold transition-all duration-300 active:scale-95 relative z-10 text-center",
                           activeTab === 'administracion'
-                            ? "shadow-sm ring-1 ring-border/20 font-black"
+                            ? "text-white font-black"
                             : "text-muted-foreground hover:text-foreground"
                         )}
                       >
@@ -207,20 +220,20 @@ export default function DashboardLayout({
               </div>
 
               {/* Derecha: Acciones y Perfil */}
-              <div className="flex items-center gap-1">
-                  <div className="hidden sm:flex mr-2">
-                     <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 text-muted-foreground hover:bg-muted/50 transition-colors" asChild>
+              <div className="flex items-center gap-2">
+                  <div className="hidden sm:flex items-center gap-1.5">
+                     <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:bg-muted/50 transition-colors" asChild>
                         <Link href="/dashboard/consultar-cliente">
-                            <Search className="h-4 w-4" />
+                            <Search className="h-4.5 w-4.5" />
                         </Link>
                      </Button>
-                     <Button variant="ghost" size="icon" className="rounded-full h-8 w-8 text-muted-foreground hover:bg-muted/50 transition-colors relative">
-                        <Bell className="h-4 w-4" />
-                        <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-primary rounded-full" />
+                     <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:bg-muted/50 transition-colors relative">
+                        <Bell className="h-4.5 w-4.5" />
+                        <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
                         <span className="sr-only">Notificaciones</span>
                      </Button>
                   </div>
-                  <div className="h-6 w-[1px] bg-border/60 mx-2 hidden sm:block" />
+                  <div className="h-5 w-[1px] bg-border/40 hidden sm:block" />
                   <UserNav />
               </div>
           </div>

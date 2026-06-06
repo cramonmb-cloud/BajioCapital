@@ -18,6 +18,7 @@ export type LoanPlan = {
   description: string;
   termInWeeks: number;
   weeklyPaymentRate: number; 
+  highlight?: boolean;
 };
 
 export type Payment = {
@@ -56,18 +57,40 @@ export type WalletTransaction = {
 export type Plaza = {
     id: string;
     name: string;
+    highlight?: boolean;
 };
 
 export type Localidad = {
     id: string;
     name: string;
     plazaId: string;
+    highlight?: boolean;
 };
 
 export type Promotora = {
     id: string;
     name: string;
     localidadId: string;
+    highlight?: boolean;
+};
+
+export type PromotoraSettlement = {
+    id: string; // promotoraId_weekDate
+    promotoraId: string;
+    weekDate: string; // Saturday ISO string
+    debeEntregar: number;
+    falla: number;
+    efectivo: number;
+    recuperado: number;
+    total: number;
+    diferencia: number;
+    deuda: number;
+    venta: number;
+    comicion: number;
+    comicionPercent?: number;
+    abonoSemanal: number;
+    adelEnt: number;
+    adelSal: number;
 };
 
 export type UserPermissions = {
@@ -82,6 +105,7 @@ export type UserPermissions = {
     settings: boolean;
     editClients: boolean;
     control: boolean;
+    debes: boolean;
     // Granular settings
     manageUsers: boolean;
     manageZones: boolean;

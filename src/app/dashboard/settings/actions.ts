@@ -208,12 +208,13 @@ export async function deleteUserAction(uid: string) {
 }
 
 // Plaza Actions
-export async function savePlazaAction(name: string, id?: string) {
+export async function savePlazaAction(name: string, highlight?: boolean, id?: string) {
     try {
+        const data = { name, highlight: !!highlight };
         if (id) {
-            await setDoc(doc(db, 'plazas', id), { name }, { merge: true });
+            await setDoc(doc(db, 'plazas', id), data, { merge: true });
         } else {
-            await addDoc(collection(db, 'plazas'), { name });
+            await addDoc(collection(db, 'plazas'), data);
         }
         revalidatePath('/dashboard/settings');
         return { success: true, message: id ? 'Plaza actualizada con éxito.' : 'Plaza guardada con éxito.' };

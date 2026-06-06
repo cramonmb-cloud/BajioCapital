@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2, CalendarCog, BadgeDollarSign, Filter, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
+import { MoreHorizontal, CheckCircle2, XCircle, Circle, AlertCircle, FileDown, Loader2, CalendarCog, BadgeDollarSign, Filter, ChevronDown, ChevronUp, RotateCcw, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -80,6 +80,7 @@ import { format as formatDateFns } from 'date-fns';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import Loading from '../app/dashboard/loading';
 import { Checkbox } from './ui/checkbox';
+import { Input } from './ui/input';
 
 
 interface jsPDFWithAutoTable extends jsPDF {
@@ -131,8 +132,12 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   const [loanToPayOff, setLoanToPayOff] = useState<Loan | null>(null);
   const [changeDateDialogOpen, setChangeDateDialogOpen] = useState(false);
   const [revertDialogOpen, setRevertDialogOpen] = useState(false);
+  const [isLocalidadDialogOpen, setIsLocalidadDialogOpen] = useState(false);
+  const [localidadSearchTerm, setLocalidadSearchTerm] = useState('');
   const [targetWeek, setTargetWeek] = useState<string>('');
   const [isFiltersOpen, setIsFiltersOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const { toast } = useToast();
   const [paymentDialogData, setPaymentDialogData] = useState<{
     weekNumber: number;
@@ -142,8 +147,32 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   const router = useRouter();
 
   const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
-  const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => a.name.localeCompare(b.name)), [localidades, selectedPlaza]);
+  const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })), [localidades, selectedPlaza]);
   const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => a.name.localeCompare(b.name)), [promotoras, selectedLocalidad]);
+
+  // Memoize all promotoras with their plaza/localidad details for the search box
+  const allPromotorasWithDetails = useMemo(() => {
+    return promotoras.map(p => {
+      const loc = localidades.find(l => l.id === p.localidadId);
+      const plaza = loc ? plazas.find(pl => pl.id === loc.plazaId) : null;
+      return {
+        ...p,
+        localidadName: loc?.name || 'N/A',
+        plazaName: plaza?.name || 'N/A',
+        plazaId: loc?.plazaId || '',
+      };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+  }, [promotoras, localidades, plazas]);
+
+  const searchedPromotoras = useMemo(() => {
+    if (!searchTerm.trim()) return [];
+    const query = searchTerm.toLowerCase();
+    return allPromotorasWithDetails.filter(p => 
+      p.name.toLowerCase().includes(query) ||
+      p.localidadName.toLowerCase().includes(query) ||
+      p.plazaName.toLowerCase().includes(query)
+    ).slice(0, 8);
+  }, [searchTerm, allPromotorasWithDetails]);
   
   // Logic to determine if a loan is ACTIVE (Not expired and not paid)
   const isLoanActive = (loan: Loan) => {
@@ -185,11 +214,19 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   , [loans, loanPlans]);
 
 
-  const filteredLoans = useMemo(() => loans.filter(loan => {
-    const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
-    const isCorrectPromotora = selectedPromotora ? loan.promotoraId === selectedPromotora : false;
-    return isCorrectWeek && isCorrectPromotora && isLoanActive(loan);
-  }), [loans, selectedWeek, selectedPromotora, loanPlans]);
+  const filteredLoans = useMemo(() => {
+    const filtered = loans.filter(loan => {
+      const isCorrectWeek = selectedWeek ? getSaturdayOfWeek(new Date(loan.startDate)).toISOString() === selectedWeek : false;
+      const isCorrectPromotora = selectedPromotora ? loan.promotoraId === selectedPromotora : false;
+      return isCorrectWeek && isCorrectPromotora && isLoanActive(loan);
+    });
+
+    return filtered.sort((a, b) => {
+      const nameA = (clients.find(c => c.id === a.clientId)?.name || '').toLowerCase();
+      const nameB = (clients.find(c => c.id === b.clientId)?.name || '').toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+  }, [loans, selectedWeek, selectedPromotora, loanPlans, clients]);
 
   
   useEffect(() => {
@@ -598,6 +635,25 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         }
     };
 
+    const checkIfLoanHighlighted = (loan: Loan) => {
+        const plan = loanPlans.find(lp => lp.id === loan.loanPlanId);
+        if (plan?.highlight) return true;
+
+        if (!loan.promotoraId) return false;
+        const p = promotoras.find(prom => prom.id === loan.promotoraId);
+        if (!p) return false;
+        if (p.highlight) return true;
+
+        const l = localidades.find(loc => loc.id === p.localidadId);
+        if (!l) return false;
+        if (l.highlight) return true;
+
+        const pl = plazas.find(plaza => plaza.id === l.plazaId);
+        if (!pl) return false;
+        if (pl.highlight) return true;
+
+        return false;
+    };
 
     const handleExportPDF = () => {
         if (filteredLoans.length === 0 || !selectedWeek) return;
@@ -822,6 +878,14 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 ...Object.fromEntries(Array.from({ length: maxWeeksToShow }).map((_, i) => [i + 3, { cellWidth: weekColumnWidth, halign: 'center' }])),
                 [maxWeeksToShow + 3]: { cellWidth: avalColWidth, fontSize: 6.5 },
             },
+            didParseCell: (data) => {
+                if (data.row.section === 'body') {
+                    const loan = filteredLoans[data.row.index];
+                    if (loan && checkIfLoanHighlighted(loan)) {
+                        data.cell.styles.fillColor = [254, 243, 199];
+                    }
+                }
+            },
             didDrawCell: (data) => {
                 const loan = filteredLoans[data.row.index];
                 if (!loan || data.row.section !== 'body') return;
@@ -889,8 +953,14 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
     const handleLocalidadChange = (localidadId: string) => {
         setSelectedLocalidad(localidadId);
-        setSelectedPromotora('');
         setSelectedWeek(null);
+        
+        const localPromotoras = promotoras.filter(p => p.localidadId === localidadId);
+        if (localPromotoras.length === 1) {
+            setSelectedPromotora(localPromotoras[0].id);
+        } else {
+            setSelectedPromotora('');
+        }
     };
 
     const handlePromotoraChange = (promotoraId: string) => {
@@ -945,18 +1015,123 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 "flex flex-wrap items-center gap-2 w-full md:w-auto",
                 !isFiltersOpen && "hidden md:flex"
             )}>
+                {/* Búsqueda Rápida de Promotoras */}
+                <div className="relative w-full md:w-[220px]">
+                    <div className="relative">
+                        <Input
+                            type="text"
+                            placeholder="Buscar promotora..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onFocus={() => setIsSearchFocused(true)}
+                            onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
+                            className="rounded-xl border border-input h-10 pl-8 pr-3 bg-background focus-visible:ring-primary font-medium text-xs w-full shadow-sm"
+                        />
+                        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                    </div>
+
+                    {/* Dropdown Results Overlay */}
+                    {isSearchFocused && searchTerm.trim() && (
+                        <div className="absolute z-50 w-full md:w-[150%] min-w-[300px] mt-1.5 bg-background border border-slate-200 rounded-xl shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-200">
+                            {searchedPromotoras.length > 0 ? (
+                                <div className="p-1.5 divide-y divide-slate-50">
+                                    {searchedPromotoras.map((p) => (
+                                        <button
+                                            key={p.id}
+                                            type="button"
+                                            onClick={() => {
+                                                setSelectedPlaza(p.plazaId);
+                                                setSelectedLocalidad(p.localidadId);
+                                                setSelectedPromotora(p.id);
+                                                setSelectedWeek(null);
+                                                setSearchTerm('');
+                                            }}
+                                            className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 active:bg-primary/10 rounded-lg text-left transition-colors"
+                                        >
+                                            <div>
+                                                <span className="font-bold text-slate-800 uppercase text-xs">{p.name}</span>
+                                                <div className="text-[9px] uppercase font-semibold text-muted-foreground mt-0.5">
+                                                    {p.localidadName} ({p.plazaName})
+                                                </div>
+                                            </div>
+                                            <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-primary/10 text-primary rounded-full">
+                                                Elegir
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="p-4 text-center text-xs text-muted-foreground font-bold">
+                                    No hay coincidencias
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+
                 <Select value={selectedPlaza} onValueChange={handlePlazaChange}>
                     <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Selecciona Plaza" /></SelectTrigger>
                     <SelectContent>
                         {sortedPlazas.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                     </SelectContent>
                 </Select>
-                <Select value={selectedLocalidad} onValueChange={handleLocalidadChange} disabled={!selectedPlaza}>
-                    <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Selecciona Localidad" /></SelectTrigger>
-                    <SelectContent>
-                        {filteredLocalidades.map(l => <SelectItem key={l.id} value={l.id}>{l.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
+                <div className="w-full md:w-auto">
+                    <Button 
+                        variant="outline"
+                        disabled={!selectedPlaza}
+                        onClick={() => {
+                            setLocalidadSearchTerm('');
+                            setIsLocalidadDialogOpen(true);
+                        }}
+                        className="w-full md:w-[180px] justify-between text-left font-semibold text-xs border border-input h-10 px-3 bg-background hover:bg-muted/50 rounded-xl"
+                    >
+                        <span className="truncate">
+                            {selectedLocalidad 
+                                ? filteredLocalidades.find(l => l.id === selectedLocalidad)?.name || "Selecciona Localidad"
+                                : "Selecciona Localidad"
+                            }
+                        </span>
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+
+                    <Dialog open={isLocalidadDialogOpen} onOpenChange={setIsLocalidadDialogOpen}>
+                        <DialogContent className="sm:max-w-[650px] rounded-2xl p-6">
+                            <DialogTitle className="sr-only">Seleccionar Localidad</DialogTitle>
+                            <div className="py-2">
+                                <ScrollArea className="h-48 md:h-auto">
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {filteredLocalidades.map((l) => {
+                                            const isSelected = selectedLocalidad === l.id;
+                                            return (
+                                                <Button
+                                                    key={l.id}
+                                                    variant={isSelected ? "default" : "outline"}
+                                                    onClick={() => {
+                                                        handleLocalidadChange(l.id);
+                                                        setIsLocalidadDialogOpen(false);
+                                                    }}
+                                                    className={cn(
+                                                        "justify-start text-left h-10 px-3 text-xs font-bold transition-all rounded-xl truncate active:scale-95 w-full",
+                                                        isSelected 
+                                                            ? "bg-blue-600 hover:bg-blue-700 text-white font-black shadow-md border-0" 
+                                                            : "bg-background hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 transition-colors border-border/80"
+                                                    )}
+                                                >
+                                                    {l.name}
+                                                </Button>
+                                            );
+                                        })}
+                                        {filteredLocalidades.length === 0 && (
+                                            <div className="col-span-3 text-center py-8 text-xs text-muted-foreground">
+                                                No hay localidades disponibles para esta plaza.
+                                            </div>
+                                        )}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
+                </div>
                 <Select value={selectedPromotora} onValueChange={handlePromotoraChange} disabled={!selectedLocalidad}>
                     <SelectTrigger className="w-full md:w-[180px]"><SelectValue placeholder="Selecciona Promotora" /></SelectTrigger>
                     <SelectContent>
@@ -1000,8 +1175,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             </CardHeader>
             <CardContent className="p-0">
                 <div className="px-2 pb-2">
-                    <ScrollArea className={cn("md:h-auto", loanWeeks.length > 3 ? "h-64" : "h-auto")}>
-                        <div className="flex flex-col gap-1.5 p-1.5 bg-muted/20 rounded-2xl border border-border/40 shadow-inner">
+                    <ScrollArea className={cn(loanWeeks.length > 3 ? "h-48 md:h-auto" : "h-auto")}>
+                        <div className="flex flex-col gap-0.5 p-1 bg-muted/20 rounded-xl border border-border/40 shadow-inner">
                             {loanWeeks.map((week) => {
                                 const isSelected = selectedWeek === week;
                                 return (
@@ -1009,9 +1184,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                                         key={week}
                                         variant="ghost"
                                         className={cn(
-                                            "w-full justify-start h-10 px-4 text-xs font-bold transition-all duration-300 rounded-full relative overflow-hidden active:scale-95",
+                                            "w-full justify-start h-8 px-3 text-[11px] font-bold transition-all rounded-lg relative overflow-hidden active:scale-95",
                                             isSelected 
-                                                ? "bg-blue-50 text-blue-900 shadow-md ring-1 ring-blue-200 -translate-y-[1px]" 
+                                                ? "bg-blue-50 text-blue-700 shadow-sm border border-blue-200/50" 
                                                 : "text-muted-foreground hover:bg-background/50"
                                         )}
                                         onClick={() => setSelectedWeek(week)}
@@ -1040,7 +1215,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row justify-between items-start p-4">
+          <CardHeader className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-4 gap-2">
             <div>
                 <CardTitle>Préstamos de la Semana</CardTitle>
                 <CardDescription>
@@ -1050,6 +1225,14 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 }
                 </CardDescription>
             </div>
+            {selectedWeek && filteredLoans.length > 0 && (
+              <div className="flex flex-col items-start sm:items-end">
+                <span className="text-xs font-semibold text-muted-foreground uppercase">Total Prestado</span>
+                <span className="text-lg font-black text-blue-600 bg-blue-50 dark:bg-blue-900/20 dark:text-blue-400 px-3 py-1 rounded-lg">
+                  {formatCurrency(filteredLoans.reduce((sum, l) => sum + l.amount, 0))}
+                </span>
+              </div>
+            )}
           </CardHeader>
           <CardContent className="p-0">
             <TooltipProvider>
@@ -1058,26 +1241,28 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                   <TableHeader>
                     <TableRow>
                       {appUser?.username === 'Cristobal' && (
-                          <TableHead className="sticky left-0 bg-card z-10 w-auto p-2">
+                          <TableHead className="sticky left-0 bg-card z-10 w-auto py-1.5 px-1 h-8 text-center">
                               <Checkbox
                                   checked={selectedLoanIds.size > 0 && selectedLoanIds.size === filteredLoans.length}
                                   onCheckedChange={toggleAllLoansSelection}
                                   aria-label="Seleccionar todas las filas"
                                   disabled={filteredLoans.length === 0}
+                                  className="h-3.5 w-3.5"
                               />
                           </TableHead>
                       )}
-                      <TableHead className={cn("sticky bg-card z-10 w-[200px] p-2", appUser?.username === 'Cristobal' ? "left-10" : "left-0")}>Cliente</TableHead>
-                      <TableHead className="p-2">Abono</TableHead>
-                      <TableHead className="p-2">Estado</TableHead>
+                      <TableHead className={cn("sticky bg-card z-10 w-[150px] py-1.5 px-2 h-8 text-left font-black text-[10px] uppercase text-slate-700", appUser?.username === 'Cristobal' ? "left-10" : "left-0")}>Cliente</TableHead>
+                      <TableHead className="py-1.5 px-1 h-8 text-center font-black text-[10px] uppercase text-slate-700">Préstamo</TableHead>
+                      <TableHead className="py-1.5 px-1 h-8 text-center font-black text-[10px] uppercase text-slate-700">Abono</TableHead>
+                      <TableHead className="py-1.5 px-1 h-8 text-center font-black text-[10px] uppercase text-slate-700">Estado</TableHead>
                       {Array.from({ length: 16 }, (_, i) => {
                           const weekNumber = i + 1;
                           const isCurrentWeek = weekNumber === currentGroupWeek;
                           return (
-                            <TableHead key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>{`S${i + 1}`}</TableHead>
+                            <TableHead key={i} className={cn("text-center py-1.5 px-0.5 border-r h-8 font-black text-[10px] uppercase text-slate-700", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>{`S${i + 1}`}</TableHead>
                           );
                       })}
-                      <TableHead className="text-right sticky right-0 bg-card z-10 p-2">Acciones</TableHead>
+                      <TableHead className="text-right sticky right-0 bg-card z-10 py-1.5 px-2 h-8 font-black text-[10px] uppercase text-slate-700">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1094,67 +1279,77 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                         const hasPenalty = loansWithPenalty[loan.id] || false;
                         const termInWeeks = originalLoanPlan.termInWeeks + (hasPenalty ? 1 : 0);
                         const weeklyPayment = getWeeklyPaymentAmount(loan);
+                        const isHighlighted = checkIfLoanHighlighted(loan);
                         
                         return (
-                        <TableRow key={loan.id} className="bg-card" data-state={selectedLoanIds.has(loan.id) && "selected"}>
+                        <TableRow 
+                          key={loan.id} 
+                          className={cn(
+                            "bg-card transition-colors", 
+                            isHighlighted && "bg-amber-50 hover:bg-amber-100/70 dark:bg-amber-950/20 dark:hover:bg-amber-900/30 border-l-4 border-l-amber-500 shadow-sm"
+                          )} 
+                          data-state={selectedLoanIds.has(loan.id) && "selected"}
+                        >
                           {appUser?.username === 'Cristobal' && (
-                              <TableCell className="sticky left-0 z-10 w-auto p-2 bg-inherit">
+                              <TableCell className="sticky left-0 z-10 w-auto py-1 px-1 bg-inherit text-center">
                                   <Checkbox
                                       checked={selectedLoanIds.has(loan.id)}
                                       onCheckedChange={() => toggleLoanSelection(loan.id)}
                                       aria-label="Seleccionar fila"
+                                      className="h-3.5 w-3.5"
                                   />
                               </TableCell>
                           )}
-                          <TableCell className={cn("font-medium sticky z-10 w-[200px] p-2 bg-inherit", appUser?.username === 'Cristobal' ? "left-10" : "left-0")}>
+                          <TableCell className={cn("font-extrabold sticky z-10 w-[150px] py-1 px-2 bg-inherit text-[11px] leading-tight text-slate-800 uppercase truncate", appUser?.username === 'Cristobal' ? "left-10" : "left-0")}>
                             <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
                               {getClientName(loan.clientId)}
                             </Link>
                           </TableCell>
-                          <TableCell className="p-2">{formatCurrency(weeklyPayment)}</TableCell>
-                          <TableCell className="p-2">
-                            <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
+                          <TableCell className="py-1 px-1 text-center text-[11px] font-extrabold text-slate-700">{formatCurrency(loan.amount)}</TableCell>
+                          <TableCell className="py-1 px-1 text-center text-[11px] font-extrabold text-slate-700">{formatCurrency(weeklyPayment)}</TableCell>
+                          <TableCell className="py-1 px-1 text-center">
+                            <Badge variant={getStatusVariant(loan.status)} className="text-[9px] font-black uppercase py-0 px-1.5 leading-none h-4">{translateStatus(loan.status)}</Badge>
                           </TableCell>
                            {Array.from({ length: 16 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
                                 const isPenaltyWeek = hasPenalty && weekNumber === termInWeeks;
-
+ 
                                 if (weekNumber > termInWeeks) {
-                                    return <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")} />;
+                                    return <TableCell key={i} className={cn("text-center py-1 px-0.5 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")} />;
                                 }
                                 
                                 const weekStatus = getWeekPaymentStatus(loan, weekNumber, currentLoanWeek);
                                 const canRegisterPayment = (loan.status !== 'Paid Off' && loan.status !== 'Pagado desde CV');
-
+ 
                                 let statusInfo;
                                 switch(weekStatus.status) {
                                     case 'paid':
                                         const paidAmountText = weekStatus.isAssumedPaid ? `Asumido` : `Abono: ${formatCurrency(weekStatus.amountPaid)}`;
-                                        statusInfo = { icon: <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />, text: `Pagado`, paid: paidAmountText };
+                                        statusInfo = { icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-500 mx-auto" />, text: `Pagado`, paid: paidAmountText };
                                         break;
                                     case 'partial':
                                         const fallo = weeklyPayment - weekStatus.amountPaid;
                                         statusInfo = { 
-                                            icon: <AlertCircle className="h-4 w-4 text-yellow-500 mx-auto" />, 
+                                            icon: <AlertCircle className="h-3.5 w-3.5 text-yellow-500 mx-auto" />, 
                                             text: 'Pago Parcial', 
                                             paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}`,
                                             pending: `Fallo: ${formatCurrency(fallo)}`
                                         };
                                         break;
                                     case 'missed':
-                                        statusInfo = { icon: <XCircle className="h-4 w-4 text-red-500 mx-auto" />, text: 'Atrasado' };
+                                        statusInfo = { icon: <XCircle className="h-3.5 w-3.5 text-red-500 mx-auto" />, text: 'Atrasado' };
                                         break;
                                     default:
-                                        statusInfo = { icon: <Circle className="h-4 w-4 text-muted-foreground mx-auto" />, text: 'Pendiente' };
+                                        statusInfo = { icon: <Circle className="h-3.5 w-3.5 text-muted-foreground/40 mx-auto" />, text: 'Pendiente' };
                                 }
                                 
                                 return (
-                                    <TableCell key={i} className={cn("text-center p-2 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30", isPenaltyWeek && "bg-orange-100 dark:bg-orange-900/30")}>
+                                    <TableCell key={i} className={cn("text-center py-1 px-0.5 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30", isPenaltyWeek && "bg-orange-100 dark:bg-orange-900/30")}>
                                         <Tooltip>
                                             <TooltipTrigger asChild>
                                                 <button 
-                                                    className="w-full disabled:cursor-not-allowed"
+                                                    className="w-full disabled:cursor-not-allowed flex items-center justify-center"
                                                     disabled={!canRegisterPayment}
                                                     onClick={(e) => {
                                                     if(canRegisterPayment) {
@@ -1178,10 +1373,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                                     </TableCell>
                                 );
                             })}
-                          <TableCell className="text-right sticky right-0 z-10 p-2 bg-inherit">
+                          <TableCell className="text-right sticky right-0 z-10 py-1 px-2 bg-inherit">
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button aria-haspopup="true" size="icon" variant="ghost">
+                                <Button aria-haspopup="true" size="icon" variant="ghost" className="h-7 w-7">
                                   <MoreHorizontal className="h-4 w-4" />
                                   <span className="sr-only">Toggle menu</span>
                                 </Button>
@@ -1200,11 +1395,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </TableCell>
-                        </TableRow>
+                         </TableRow>
                       )})
                     ) : (
                         <TableRow>
-                            <TableCell colSpan={21} className="text-center h-24 p-2">
+                            <TableCell colSpan={22} className="text-center h-24 p-2">
                                {selectedPromotora ? "No hay préstamos activos para la semana y promotora seleccionada." : "Selecciona una promotora para comenzar."}
                             </TableCell>
                         </TableRow>
@@ -1212,8 +1407,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                   </TableBody>
                   {filteredLoans.length > 0 && weeklyFailures.length > 0 && weeklyCollected.length > 0 && (
                     <TableFooter>
-                        <TableRow>
-                            <TableCell colSpan={appUser?.username === 'Cristobal' ? 4 : 3} className="sticky left-0 bg-inherit p-1 font-semibold text-right">Total a Cobrar</TableCell>
+                        <TableRow className="h-8">
+                            <TableCell colSpan={appUser?.username === 'Cristobal' ? 5 : 4} className="sticky left-0 bg-inherit py-1 px-2 font-black text-right text-[10px] uppercase text-slate-700">Total a Cobrar</TableCell>
                             {Array.from({ length: 16 }).map((_, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
@@ -1225,36 +1420,36 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                                     return total;
                                 }, 0);
                                 return (
-                                    <TableCell key={i} className={cn("p-1 text-center font-semibold border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>
+                                    <TableCell key={i} className={cn("py-1 px-0.5 text-center font-bold text-[10px] border-r text-slate-700", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>
                                         {weeklyTotal > 0 ? formatCurrencySimple(weeklyTotal) : ''}
                                     </TableCell>
                                 )
                             })}
-                            <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
+                            <TableCell className="sticky right-0 bg-inherit py-1 px-1"></TableCell>
                         </TableRow>
-                        <TableRow className="border-t">
-                          <TableCell colSpan={appUser?.username === 'Cristobal' ? 4 : 3} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-destructive">Falla</TableCell>
+                        <TableRow className="border-t h-8">
+                          <TableCell colSpan={appUser?.username === 'Cristobal' ? 5 : 4} className="sticky left-0 bg-inherit py-1 px-2 font-black text-right text-destructive text-[10px] uppercase">Falla</TableCell>
                             {weeklyFailures.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
                                 return (
-                                <TableCell key={i} className={cn("p-1 text-center font-semibold text-destructive border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>
+                                <TableCell key={i} className={cn("py-1 px-0.5 text-center font-bold text-destructive text-[10px] border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>
                                     {total > 0 ? formatCurrencySimple(total) : ''}
                                 </TableCell>
                             )})}
-                           <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
+                            <TableCell className="sticky right-0 bg-inherit py-1 px-1"></TableCell>
                         </TableRow>
-                        <TableRow className="border-t">
-                            <TableCell colSpan={appUser?.username === 'Cristobal' ? 4 : 3} className="sticky left-0 bg-inherit p-1 font-semibold text-right text-blue-600">Cobrado</TableCell>
+                        <TableRow className="border-t h-8">
+                            <TableCell colSpan={appUser?.username === 'Cristobal' ? 5 : 4} className="sticky left-0 bg-inherit py-1 px-2 font-black text-right text-blue-600 text-[10px] uppercase">Cobrado</TableCell>
                             {weeklyCollected.map((total, i) => {
                                 const weekNumber = i + 1;
                                 const isCurrentWeek = weekNumber === currentGroupWeek;
                                 return (
-                                <TableCell key={i} className={cn("p-1 text-center font-semibold text-blue-600 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>
+                                <TableCell key={i} className={cn("py-1 px-0.5 text-center font-bold text-blue-600 text-[10px] border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30")}>
                                     {total > 0 ? formatCurrencySimple(total) : ''}
                                 </TableCell>
                             )})}
-                           <TableCell className="sticky right-0 bg-inherit p-1"></TableCell>
+                            <TableCell className="sticky right-0 bg-inherit py-1 px-1"></TableCell>
                         </TableRow>
                     </TableFooter>
                   )}

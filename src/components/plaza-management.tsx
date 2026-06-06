@@ -37,7 +37,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select';
-import { PlusCircle, Trash, Loader2, Building, MapPin, User, Pencil, X, Check } from 'lucide-react';
+import { PlusCircle, Trash, Loader2, Building, MapPin, User, Pencil, X, Check, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Plaza, Localidad, Promotora } from '@/lib/types';
 import { savePlazaAction, deletePlazaAction, saveLocalidadAction, deleteLocalidadAction, savePromotoraAction, deletePromotoraAction } from '@/app/dashboard/settings/actions';
@@ -46,14 +46,17 @@ import { Skeleton } from './ui/skeleton';
 
 const plazaSchema = z.object({
   name: z.string().min(3, 'Mínimo 3 caracteres.'),
+  highlight: z.boolean().optional(),
 });
 const localidadSchema = z.object({
   name: z.string().min(3, 'Mínimo 3 caracteres.'),
   plazaId: z.string().min(1, 'Selecciona una plaza.'),
+  highlight: z.boolean().optional(),
 });
 const promotoraSchema = z.object({
   name: z.string().min(3, 'Mínimo 3 caracteres.'),
   localidadId: z.string().min(1, 'Selecciona una localidad.'),
+  highlight: z.boolean().optional(),
 });
 
 type PlazaFormValues = z.infer<typeof plazaSchema>;
@@ -79,9 +82,9 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
   const localidades = data?.localidades ?? initialLocalidades;
   const promotoras = data?.promotoras ?? initialPromotoras;
 
-  const plazaForm = useForm<PlazaFormValues>({ resolver: zodResolver(plazaSchema), defaultValues: { name: '' } });
-  const localidadForm = useForm<LocalidadFormValues>({ resolver: zodResolver(localidadSchema), defaultValues: { name: '', plazaId: '' } });
-  const promotoraForm = useForm<PromotoraFormValues>({ resolver: zodResolver(promotoraSchema), defaultValues: { name: '', localidadId: '' } });
+  const plazaForm = useForm<PlazaFormValues>({ resolver: zodResolver(plazaSchema), defaultValues: { name: '', highlight: false } });
+  const localidadForm = useForm<LocalidadFormValues>({ resolver: zodResolver(localidadSchema), defaultValues: { name: '', plazaId: '', highlight: false } });
+  const promotoraForm = useForm<PromotoraFormValues>({ resolver: zodResolver(promotoraSchema), defaultValues: { name: '', localidadId: '', highlight: false } });
 
   const handleAction = async (action: Promise<{success: boolean, message: string}>, formToReset?: any, entity?: 'plaza' | 'localidad' | 'promotora') => {
     setIsSaving(true);
@@ -125,7 +128,7 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
         </CardHeader>
         <CardContent className="space-y-6">
           <Form {...plazaForm}>
-            <form onSubmit={plazaForm.handleSubmit((v) => handleAction(savePlazaAction(v.name, editingPlazaId || undefined), plazaForm, 'plaza'))} className="space-y-3">
+            <form onSubmit={plazaForm.handleSubmit((v) => handleAction(savePlazaAction(v.name, v.highlight, editingPlazaId || undefined), plazaForm, 'plaza'))} className="space-y-3">
               <FormField control={plazaForm.control} name="name" render={({ field }) => (
                 <FormItem>
                     <FormLabel className="text-xs font-bold uppercase">{editingPlazaId ? 'Editando Plaza' : 'Nombre de Plaza'}</FormLabel>
@@ -135,12 +138,25 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
                             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : editingPlazaId ? <Check className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
                         </Button>
                         {editingPlazaId && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingPlazaId(null); plazaForm.reset(); }} className="h-9 px-2">
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingPlazaId(null); plazaForm.reset({ name: '', highlight: false }); }} className="h-9 px-2">
                                 <X className="h-4 w-4" />
                             </Button>
                         )}
                     </div>
                     <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={plazaForm.control} name="highlight" render={({ field }) => (
+                <FormItem className="flex flex-row items-center space-x-2 space-y-0 py-1">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value || false}
+                      onChange={field.onChange}
+                      className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                    />
+                  </FormControl>
+                  <FormLabel className="text-xs font-bold uppercase cursor-pointer select-none text-muted-foreground">Resaltar Préstamos</FormLabel>
                 </FormItem>
               )} />
             </form>
@@ -150,11 +166,14 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
                 <TableBody>
                 {plazas.map(p => (
                     <TableRow key={p.id} className="h-10">
-                        <TableCell className="font-medium uppercase py-2">{p.name}</TableCell>
+                        <TableCell className="font-medium uppercase py-2 flex items-center gap-1.5">
+                            {p.name}
+                            {p.highlight && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />}
+                        </TableCell>
                         <TableCell className="text-right py-2 flex justify-end gap-1">
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => {
                                 setEditingPlazaId(p.id);
-                                plazaForm.reset({ name: p.name });
+                                plazaForm.reset({ name: p.name, highlight: p.highlight || false });
                             }}>
                                 <Pencil className="h-4 w-4" />
                             </Button>
@@ -196,12 +215,25 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
                             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : editingLocalidadId ? <Check className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
                         </Button>
                         {editingLocalidadId && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingLocalidadId(null); localidadForm.reset(); }} className="h-9 px-2">
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingLocalidadId(null); localidadForm.reset({ name: '', plazaId: '', highlight: false }); }} className="h-9 px-2">
                                 <X className="h-4 w-4" />
                             </Button>
                         )}
                     </div>
                     <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={localidadForm.control} name="highlight" render={({ field }) => (
+                <FormItem className="flex flex-row items-center space-x-2 space-y-0 py-1">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value || false}
+                      onChange={field.onChange}
+                      className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                    />
+                  </FormControl>
+                  <FormLabel className="text-xs font-bold uppercase cursor-pointer select-none text-muted-foreground">Resaltar Préstamos</FormLabel>
                 </FormItem>
               )} />
             </form>
@@ -213,14 +245,17 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
                         <TableRow key={l.id} className="h-10">
                             <TableCell className="py-2">
                                 <div className="flex flex-col">
-                                    <span className="font-medium uppercase">{l.name}</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="font-medium uppercase">{l.name}</span>
+                                        {l.highlight && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />}
+                                    </div>
                                     <span className="text-[10px] text-muted-foreground uppercase">{plazas.find(p => p.id === l.plazaId)?.name}</span>
                                 </div>
                             </TableCell>
                             <TableCell className="text-right py-2 flex justify-end gap-1">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => {
                                     setEditingLocalidadId(l.id);
-                                    localidadForm.reset({ name: l.name, plazaId: l.plazaId });
+                                    localidadForm.reset({ name: l.name, plazaId: l.plazaId, highlight: l.highlight || false });
                                 }}>
                                     <Pencil className="h-4 w-4" />
                                 </Button>
@@ -268,12 +303,25 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
                             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : editingPromotoraId ? <Check className="h-4 w-4" /> : <PlusCircle className="h-4 w-4" />}
                         </Button>
                         {editingPromotoraId && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingPromotoraId(null); promotoraForm.reset(); }} className="h-9 px-2">
+                            <Button type="button" variant="ghost" size="sm" onClick={() => { setEditingPromotoraId(null); promotoraForm.reset({ name: '', localidadId: '', highlight: false }); }} className="h-9 px-2">
                                 <X className="h-4 w-4" />
                             </Button>
                         )}
                     </div>
                     <FormMessage />
+                </FormItem>
+              )} />
+              <FormField control={promotoraForm.control} name="highlight" render={({ field }) => (
+                <FormItem className="flex flex-row items-center space-x-2 space-y-0 py-1">
+                  <FormControl>
+                    <input
+                      type="checkbox"
+                      checked={field.value || false}
+                      onChange={field.onChange}
+                      className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4 cursor-pointer"
+                    />
+                  </FormControl>
+                  <FormLabel className="text-xs font-bold uppercase cursor-pointer select-none text-muted-foreground">Resaltar Préstamos</FormLabel>
                 </FormItem>
               )} />
             </form>
@@ -285,14 +333,17 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
                         <TableRow key={p.id} className="h-10">
                             <TableCell className="py-2">
                                 <div className="flex flex-col">
-                                    <span className="font-medium uppercase">{p.name}</span>
+                                    <div className="flex items-center gap-1.5">
+                                        <span className="font-medium uppercase">{p.name}</span>
+                                        {p.highlight && <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />}
+                                    </div>
                                     <span className="text-[10px] text-muted-foreground uppercase">{localidades.find(l => l.id === p.localidadId)?.name}</span>
                                 </div>
                             </TableCell>
                             <TableCell className="text-right py-2 flex justify-end gap-1">
                                 <Button variant="ghost" size="icon" className="h-8 w-8 text-blue-600" onClick={() => {
                                     setEditingPromotoraId(p.id);
-                                    promotoraForm.reset({ name: p.name, localidadId: p.localidadId });
+                                    promotoraForm.reset({ name: p.name, localidadId: p.localidadId, highlight: p.highlight || false });
                                 }}>
                                     <Pencil className="h-4 w-4" />
                                 </Button>

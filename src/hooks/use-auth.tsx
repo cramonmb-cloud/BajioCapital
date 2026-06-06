@@ -65,6 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 settings: true,
                 editClients: true,
                 control: true,
+                debes: true,
                 manageUsers: true,
                 manageZones: true,
                 manageMigration: true,

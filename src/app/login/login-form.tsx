@@ -68,36 +68,49 @@ export function LoginForm() {
 
   return (
     <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
             <FormField
-            control={form.control}
-            name="username"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Usuario</FormLabel>
-                <FormControl>
-                    <Input placeholder="Ej: Cristobal" {...field} className="uppercase" />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
+              control={form.control}
+              name="username"
+              render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                  <FormLabel className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">Usuario</FormLabel>
+                  <FormControl>
+                      <Input 
+                        placeholder="Ej: CRISTOBAL" 
+                        {...field} 
+                        className="uppercase h-11 bg-white/80 border-slate-200 text-slate-800 placeholder:text-slate-400 rounded-xl focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/10 focus-visible:ring-blue-500/10 focus-visible:ring-offset-0 focus:bg-white transition-all shadow-sm font-medium text-sm border-[1px]" 
+                      />
+                  </FormControl>
+                  <FormMessage className="text-[11px] font-semibold text-red-500/90" />
+                  </FormItem>
+              )}
             />
             <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-                <FormItem>
-                <FormLabel>Contraseña</FormLabel>
-                <FormControl>
-                    <Input type="password" placeholder="••••••••" {...field} />
-                </FormControl>
-                <FormMessage />
-                </FormItem>
-            )}
+              control={form.control}
+              name="password"
+              render={({ field }) => (
+                  <FormItem className="space-y-1.5">
+                  <FormLabel className="text-slate-500 font-bold uppercase tracking-widest text-[9px]">Contraseña</FormLabel>
+                  <FormControl>
+                      <Input 
+                        type="password" 
+                        placeholder="••••••••" 
+                        {...field} 
+                        className="h-11 bg-white/80 border-slate-200 text-slate-800 placeholder:text-slate-400 rounded-xl focus:border-blue-500/80 focus:ring-1 focus:ring-blue-500/10 focus-visible:ring-blue-500/10 focus-visible:ring-offset-0 focus:bg-white transition-all shadow-sm text-sm border-[1px]" 
+                      />
+                  </FormControl>
+                  <FormMessage className="text-[11px] font-semibold text-red-500/90" />
+                  </FormItem>
+              )}
             />
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {isSubmitting ? 'Verificando...' : 'Acceder'}
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+              className="w-full bg-gradient-to-r from-blue-600 via-blue-500 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-extrabold tracking-wide shadow-[0_6px_20px_rgba(37,99,235,0.18)] hover:shadow-[0_10px_25px_rgba(37,99,235,0.35)] rounded-xl transition-all duration-300 h-11 active:scale-[0.97] mt-3 border-0"
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" />}
+              {isSubmitting ? 'Verificando...' : 'Acceder'}
             </Button>
         </form>
     </Form>

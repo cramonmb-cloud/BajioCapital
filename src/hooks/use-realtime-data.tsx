@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { collection, onSnapshot, QuerySnapshot, DocumentData, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import type { Loan, Client, LoanPlan, Plaza, Localidad, Promotora, AppUser, AppConfig } from '@/lib/types';
+import type { Loan, Client, LoanPlan, Plaza, Localidad, Promotora, AppUser, AppConfig, PromotoraSettlement } from '@/lib/types';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError, type SecurityRuleContext } from '@/firebase/errors';
 
@@ -14,6 +14,7 @@ interface RealtimeData {
     plazas: Plaza[];
     localidades: Localidad[];
     promotoras: Promotora[];
+    promotoraSettlements: PromotoraSettlement[];
     users: AppUser[];
     config: AppConfig | null;
 }
@@ -45,6 +46,7 @@ const initialData: RealtimeData = {
     plazas: [],
     localidades: [],
     promotoras: [],
+    promotoraSettlements: [],
     users: [],
     config: null,
 };
@@ -62,6 +64,7 @@ export function useRealtimeData() {
         plazas: collection(db, 'plazas'),
         localidades: collection(db, 'localidades'),
         promotoras: collection(db, 'promotoras'),
+        promotoraSettlements: collection(db, 'promotoraSettlements'),
         users: collection(db, 'users'),
         config: collection(db, 'config'),
     };
@@ -77,6 +80,7 @@ export function useRealtimeData() {
                 if (key === 'plazas') newData.plazas = processSnapshot<Plaza>(snapshot);
                 if (key === 'localidades') newData.localidades = processSnapshot<Localidad>(snapshot);
                 if (key === 'promotoras') newData.promotoras = processSnapshot<Promotora>(snapshot);
+                if (key === 'promotoraSettlements') newData.promotoraSettlements = processSnapshot<PromotoraSettlement>(snapshot);
                 if (key === 'users') newData.users = processSnapshot<AppUser>(snapshot);
                 if (key === 'config') {
                     const configDoc = snapshot.docs.find(doc => doc.id === 'main');
