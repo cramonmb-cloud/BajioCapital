@@ -60,9 +60,6 @@ export function BitacoraClientPage({ wallet, transactions, clients, users }: Bit
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Bitácora</h1>
-                <p className="text-muted-foreground">
-                    Administra el flujo de dinero de tu negocio.
-                </p>
             </div>
 
             <Card>
