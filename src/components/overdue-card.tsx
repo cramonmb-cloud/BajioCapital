@@ -544,7 +544,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                     
                     <div className="p-3 bg-muted/20 border-t flex gap-2 shrink-0">
                         <Button variant="outline" size="sm" onClick={() => setHistoryDialogOpen(true)} className="font-black uppercase text-[9px] h-10 flex-1 rounded-md border-zinc-300 bg-white hover:bg-zinc-50 shadow-sm">
-                            <ListTodo className="mr-1.5 h-4 w-4 text-blue-600" /> Estado Cuenta
+                            <ListTodo className="mr-1.5 h-4 w-4 text-blue-600" /> Ver Abonos
                         </Button>
                         <Button size="sm" onClick={() => { setDetailModalOpen(false); setPaymentDialogOpen(true); }} className="font-black uppercase text-[9px] h-10 flex-1 rounded-md bg-blue-600 text-white shadow-md hover:bg-blue-700">
                             <Wallet className="mr-1.5 h-4 w-4" /> Registrar Abono
