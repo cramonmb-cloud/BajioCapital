@@ -26,6 +26,14 @@ import {
 } from "@/components/ui/alert-dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 export function AvisosClientPage() {
   const { appUser } = useAuth();
@@ -189,15 +197,12 @@ export function AvisosClientPage() {
             <Megaphone className="h-6 w-6 text-primary drop-shadow-[0_0_8px_rgba(59,130,246,0.3)]" />
             Gestión de Avisos
           </h1>
-          <p className="text-xs text-muted-foreground font-semibold uppercase tracking-wider">
-            Publica y administra los comunicados y alertas globales en tiempo real.
-          </p>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Form Column */}
-        <div className="lg:col-span-5 space-y-6">
+        <div className="lg:col-span-4 space-y-6">
           <Card className="shadow-md border-border/40 rounded-2xl overflow-hidden bg-white/50 backdrop-blur-sm">
             <CardHeader className="bg-muted/10 border-b border-border/10">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
@@ -292,7 +297,7 @@ export function AvisosClientPage() {
         </div>
 
         {/* List Column */}
-        <div className="lg:col-span-7 space-y-6">
+        <div className="lg:col-span-8 space-y-6">
           <Card className="shadow-md border-border/40 rounded-2xl overflow-hidden bg-white/50 backdrop-blur-sm">
             <CardHeader className="bg-muted/10 border-b border-border/10">
               <CardTitle className="text-sm font-black uppercase tracking-widest text-primary flex items-center gap-1.5">
@@ -314,130 +319,150 @@ export function AvisosClientPage() {
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
-                    {avisos.map((aviso) => (
-                      <Card 
-                        key={aviso.id} 
-                        className={cn(
-                          "border rounded-2xl shadow-sm transition-all overflow-hidden bg-white",
-                          aviso.active ? "border-l-4 border-l-blue-500" : "border-l-4 border-l-muted-foreground/30 opacity-75"
-                        )}
-                      >
-                        <div className="p-4 space-y-3">
-                          {/* Top row */}
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="space-y-1">
-                              <h3 className="font-bold text-sm text-foreground uppercase leading-tight">
-                                {aviso.title}
-                              </h3>
-                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground font-semibold">
-                                <span className="flex items-center gap-1">
-                                  <User className="h-3 w-3" />
-                                  {aviso.createdBy}
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Calendar className="h-3 w-3" />
-                                  {new Date(aviso.createdAt).toLocaleDateString('es-MX', {
-                                    day: '2-digit',
-                                    month: 'short',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                  })}
-                                </span>
+                  <div className="overflow-x-auto rounded-2xl border border-border/40">
+                    <Table>
+                      <TableHeader className="bg-muted/30">
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className="font-black text-[9px] uppercase tracking-widest text-muted-foreground w-[70px] text-center">Imagen</TableHead>
+                          <TableHead className="font-black text-[9px] uppercase tracking-widest text-muted-foreground min-w-[150px]">Aviso</TableHead>
+                          <TableHead className="font-black text-[9px] uppercase tracking-widest text-muted-foreground w-[100px]">Publicado por</TableHead>
+                          <TableHead className="font-black text-[9px] uppercase tracking-widest text-muted-foreground w-[120px]">Fecha</TableHead>
+                          <TableHead className="font-black text-[9px] uppercase tracking-widest text-muted-foreground text-center w-[90px]">Activo</TableHead>
+                          <TableHead className="font-black text-[9px] uppercase tracking-widest text-muted-foreground text-center w-[120px]">Lecturas</TableHead>
+                          <TableHead className="font-black text-[9px] uppercase tracking-widest text-muted-foreground text-right w-[60px]">Acciones</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {avisos.map((aviso) => (
+                          <TableRow key={aviso.id} className={cn("transition-colors", !aviso.active && "opacity-75 bg-muted/5")}>
+                            {/* Image cell */}
+                            <TableCell className="text-center align-middle">
+                              <div className="flex justify-center">
+                                {aviso.imageUrl ? (
+                                  <div className="relative rounded-lg overflow-hidden border border-border/10 h-10 w-10 bg-muted/20 shrink-0 shadow-sm">
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img 
+                                      src={aviso.imageUrl} 
+                                      alt={aviso.title} 
+                                      className="h-full w-full object-cover animate-in fade-in duration-300"
+                                      onError={(e) => {
+                                        (e.target as HTMLElement).style.display = 'none';
+                                      }}
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="h-10 w-10 bg-muted/40 rounded-lg flex items-center justify-center text-muted-foreground/60 shrink-0">
+                                    <Megaphone className="h-4 w-4" />
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                            
-                            {/* Switch & Action */}
-                            <div className="flex items-center gap-3 shrink-0">
-                              <div className="flex items-center gap-1.5">
+                            </TableCell>
+
+                            {/* Details cell */}
+                            <TableCell className="align-middle">
+                              <div className="space-y-1 py-1">
+                                <div className="font-bold text-xs uppercase text-foreground leading-tight">{aviso.title}</div>
+                                <p className="text-[10px] text-muted-foreground/85 font-medium leading-normal whitespace-pre-line max-w-[320px]">
+                                  {aviso.description}
+                                </p>
+                              </div>
+                            </TableCell>
+
+                            {/* Creator cell */}
+                            <TableCell className="align-middle">
+                              <div className="flex items-center gap-1 text-xs font-black text-foreground/70 uppercase">
+                                <User className="h-3.5 w-3.5 text-muted-foreground/50" />
+                                {aviso.createdBy}
+                              </div>
+                            </TableCell>
+
+                            {/* Date cell */}
+                            <TableCell className="align-middle">
+                              <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-semibold">
+                                <Calendar className="h-3.5 w-3.5 text-muted-foreground/40" />
+                                {new Date(aviso.createdAt).toLocaleDateString('es-MX', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                            </TableCell>
+
+                            {/* Active switch cell */}
+                            <TableCell className="text-center align-middle">
+                              <div className="flex items-center justify-center gap-1.5">
                                 {aviso.active ? (
                                   <Eye className="h-3.5 w-3.5 text-blue-500" />
                                 ) : (
-                                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground/60" />
+                                  <EyeOff className="h-3.5 w-3.5 text-muted-foreground/50" />
                                 )}
                                 <Switch
                                   checked={aviso.active}
                                   onCheckedChange={() => handleToggleActive(aviso.id, aviso.active)}
                                 />
                               </div>
+                            </TableCell>
 
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive rounded-xl">
-                                    <Trash className="h-4 w-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="rounded-2xl">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle className="font-black uppercase text-base">¿Eliminar Comunicado?</AlertDialogTitle>
-                                    <AlertDialogDescription className="text-xs">
-                                      Esta acción borrará el aviso <strong>"{aviso.title}"</strong> y todo su historial de confirmaciones de lectura permanentemente. No se puede deshacer.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel className="rounded-xl text-xs font-bold">Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      onClick={() => handleDeleteAviso(aviso.id)}
-                                      className="rounded-xl text-xs font-black bg-destructive hover:bg-destructive/90 text-white"
-                                    >
-                                      Eliminar
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </div>
-
-                          {/* Body / Description */}
-                          <div className="flex gap-4 items-start">
-                            {aviso.imageUrl && (
-                              <div className="relative rounded-xl overflow-hidden border border-border/10 shrink-0 h-16 w-16 bg-muted/20">
-                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                <img 
-                                  src={aviso.imageUrl} 
-                                  alt="Preview"
-                                  className="h-full w-full object-cover"
-                                  onError={(e) => {
-                                    (e.target as HTMLElement).style.display = 'none';
-                                  }}
-                                />
+                            {/* Reads cell */}
+                            <TableCell className="align-middle">
+                              <div className="flex flex-col gap-1.5 items-center justify-center">
+                                <Badge className={cn(
+                                  "text-[9px] font-black tracking-wide",
+                                  (aviso.readBy?.length || 0) > 0 
+                                    ? "bg-green-500/10 text-green-700 hover:bg-green-500/15 border border-green-500/20" 
+                                    : "bg-zinc-500/10 text-zinc-600 hover:bg-zinc-500/15 border border-zinc-500/20"
+                                )}>
+                                  {aviso.readBy?.length || 0} Leídos
+                                </Badge>
+                                {aviso.readBy && aviso.readBy.length > 0 && (
+                                  <div className="flex flex-wrap gap-0.5 max-w-[130px] max-h-[50px] overflow-y-auto justify-center scrollbar-thin">
+                                    {aviso.readBy.map((username) => (
+                                      <span 
+                                        key={username} 
+                                        className="text-[8px] font-black uppercase text-foreground/70 bg-muted px-1.5 py-0.5 rounded-md border border-border/10 shadow-sm"
+                                      >
+                                        {username}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
                               </div>
-                            )}
-                            <p className="text-xs text-muted-foreground font-medium leading-normal whitespace-pre-line flex-1">
-                              {aviso.description}
-                            </p>
-                          </div>
+                            </TableCell>
 
-                          {/* Confirmations section */}
-                          <div className="border-t pt-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                Confirmados ({aviso.readBy?.length || 0})
-                              </span>
-                            </div>
-                            
-                            {aviso.readBy && aviso.readBy.length > 0 ? (
-                              <div className="flex flex-wrap gap-1 bg-muted/20 p-2.5 rounded-xl border border-border/5">
-                                {aviso.readBy.map((username) => (
-                                  <Badge 
-                                    key={username} 
-                                    variant="secondary"
-                                    className="text-[9px] font-black uppercase tracking-tight bg-white shadow-sm ring-1 ring-border/20 text-foreground/80 px-2 py-0.5"
-                                  >
-                                    {username}
-                                  </Badge>
-                                ))}
+                            {/* Actions cell */}
+                            <TableCell className="text-right align-middle">
+                              <div className="flex justify-end">
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive rounded-xl">
+                                      <Trash className="h-4 w-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent className="rounded-2xl">
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle className="font-black uppercase text-base">¿Eliminar Comunicado?</AlertDialogTitle>
+                                      <AlertDialogDescription className="text-xs">
+                                        Esta acción borrará el aviso <strong>"{aviso.title}"</strong> y todo su historial de confirmaciones de lectura permanentemente. No se puede deshacer.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel className="rounded-xl text-xs font-bold">Cancelar</AlertDialogCancel>
+                                      <AlertDialogAction 
+                                        onClick={() => handleDeleteAviso(aviso.id)}
+                                        className="rounded-xl text-xs font-black bg-destructive hover:bg-destructive/90 text-white"
+                                      >
+                                        Eliminar
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
                               </div>
-                            ) : (
-                              <p className="text-[10px] italic text-muted-foreground/75 font-medium pl-6">
-                                Nadie ha visto este aviso aún.
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
                   </div>
                 )}
               </ScrollArea>
