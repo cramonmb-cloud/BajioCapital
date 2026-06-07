@@ -547,7 +547,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
 
         {/* MODAL DE DETALLE DEL CLIENTE */}
         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm w-full h-[92vh] md:h-[88vh] max-h-[92vh] md:max-h-[88vh] flex flex-col">
+            <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm w-full h-auto max-h-[92vh] md:max-h-[85vh] flex flex-col">
                 <DialogHeader className="sr-only">
                     <DialogTitle>Detalle del Cliente</DialogTitle>
                     <DialogDescription>Expediente financiero y técnico del cliente seleccionado.</DialogDescription>
@@ -561,7 +561,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                 </div>
 
                 {selectedClient && (
-                    <div className="bg-white flex flex-col h-full">
+                    <div className="bg-white flex flex-col h-full max-h-[92vh] md:max-h-[85vh]">
                         <div className="p-4 md:p-5 flex flex-col md:flex-row justify-between gap-4 border-b bg-muted/5 pr-14 md:pr-16">
                             <div className="flex items-center gap-3 md:gap-4">
                                 <Avatar className="h-12 w-12 md:h-16 md:w-16 border-2 border-white shadow-md rounded-full overflow-hidden shrink-0">
