@@ -56,10 +56,10 @@ export async function createLoanAction(input: CreateLoanInput) {
         
         await addDoc(collection(db, 'loans'), newLoan);
 
-        revalidatePath('/dashboard/loans');
-        revalidatePath('/dashboard/clients');
+        revalidatePath('/dashboard/prestamos');
+        revalidatePath('/dashboard/clientes');
         if (clientId) {
-            revalidatePath(`/dashboard/clients/${clientId}`);
+            revalidatePath(`/dashboard/clientes/${clientId}`);
         }
         
         return { success: true, message: 'Préstamo creado con éxito.' };
@@ -79,8 +79,8 @@ export async function updateLoanAction(loanId: string, data: { loanPlanId: strin
             promotoraId: data.promotoraId
         });
 
-        revalidatePath('/dashboard/loans');
-        revalidatePath('/dashboard/clients');
+        revalidatePath('/dashboard/prestamos');
+        revalidatePath('/dashboard/clientes');
         return { success: true, message: 'Préstamo actualizado con éxito.' };
     } catch (error: any) {
         console.error('Error updating loan:', error);
@@ -109,9 +109,9 @@ export async function deleteLoanAction(loanId: string) {
             transaction.delete(loanRef);
         });
 
-        revalidatePath('/dashboard/loans');
-        revalidatePath('/dashboard/wallet');
-        revalidatePath('/dashboard/clients');
+        revalidatePath('/dashboard/prestamos');
+        revalidatePath('/dashboard/bitacora');
+        revalidatePath('/dashboard/clientes');
 
         return { success: true, message: 'Préstamo eliminado y saldo de cartera ajustado correctamente.' };
     } catch (error: any) {
@@ -131,7 +131,7 @@ export async function changeLoansDateAction(loanIds: string[], targetDateIso: st
         });
 
         await batch.commit();
-        revalidatePath('/dashboard/loans');
+        revalidatePath('/dashboard/prestamos');
         return { success: true, message: `Se actualizó la fecha de inicio de ${loanIds.length} préstamos correctamente.` };
     } catch (error: any) {
         console.error('Error changing loans dates:', error);

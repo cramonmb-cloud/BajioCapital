@@ -120,7 +120,7 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
                                     <AvatarImage src={client.avatarUrl} alt={client.name} />
                                     <AvatarFallback>{client.name.charAt(0)}</AvatarFallback>
                                 </Avatar>
-                                <Link href={`/dashboard/clients/${client.id}`} className="hover:underline uppercase font-bold text-xs">
+                                <Link href={`/dashboard/clientes/${client.id}`} className="hover:underline uppercase font-bold text-xs">
                                     {client.name}
                                 </Link>
                                 </div>
@@ -132,7 +132,7 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
                             <TableCell className="text-xs font-bold">{getClientLoanCount(client.id)}</TableCell>
                             <TableCell className="text-right">
                                 <Button asChild variant="outline" size="sm" className="h-8 text-[10px] font-bold uppercase">
-                                    <Link href={`/dashboard/clients/${client.id}`}>Ver detalles</Link>
+                                    <Link href={`/dashboard/clientes/${client.id}`}>Ver detalles</Link>
                                 </Button>
                             </TableCell>
                             </TableRow>

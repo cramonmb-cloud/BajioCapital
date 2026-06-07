@@ -1301,7 +1301,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                               </TableCell>
                           )}
                           <TableCell className={cn("font-extrabold sticky z-10 w-[150px] py-1 px-2 bg-inherit text-[11px] leading-tight text-slate-800 uppercase truncate", appUser?.username === 'Cristobal' ? "left-10" : "left-0")}>
-                            <Link href={`/dashboard/clients/${loan.clientId}`} className="hover:underline">
+                            <Link href={`/dashboard/clientes/${loan.clientId}`} className="hover:underline">
                               {getClientName(loan.clientId)}
                             </Link>
                           </TableCell>
@@ -1384,7 +1384,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Acciones</DropdownMenuLabel>
                                  <DropdownMenuItem asChild>
-                                    <Link href={`/dashboard/clients/${loan.clientId}`}>Ver Detalles del Cliente</Link>
+                                    <Link href={`/dashboard/clientes/${loan.clientId}`}>Ver Detalles del Cliente</Link>
                                 </DropdownMenuItem>
                                 {appUser?.username === 'Cristobal' && (
                                     <DropdownMenuItem onClick={() => setLoanToPayOff(loan)} className="text-blue-600 font-semibold">

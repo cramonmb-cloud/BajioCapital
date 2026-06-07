@@ -47,12 +47,12 @@ export async function deleteAllDataAction() {
         await batch.commit();
 
         revalidatePath('/dashboard');
-        revalidatePath('/dashboard/wallet');
-        revalidatePath('/dashboard/clients');
-        revalidatePath('/dashboard/loans');
-        revalidatePath('/dashboard/plans');
+        revalidatePath('/dashboard/bitacora');
+        revalidatePath('/dashboard/clientes');
+        revalidatePath('/dashboard/prestamos');
+        revalidatePath('/dashboard/planes');
         revalidatePath('/dashboard/control');
-        revalidatePath('/dashboard/settings');
+        revalidatePath('/dashboard/ajustes');
 
 
         return { success: true, message: 'Todos los datos han sido eliminados exitosamente.' };
@@ -189,7 +189,7 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
 export async function saveUserAction(uid: string, userData: Omit<AppUser, 'id'>) {
     try {
         await setDoc(doc(db, 'users', uid), userData, { merge: true });
-        revalidatePath('/dashboard/settings');
+        revalidatePath('/dashboard/ajustes');
         return { success: true, message: 'Usuario guardado en Firestore.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar usuario en Firestore: ${error.message}` };
@@ -199,7 +199,7 @@ export async function saveUserAction(uid: string, userData: Omit<AppUser, 'id'>)
 export async function deleteUserAction(uid: string) {
     try {
         await deleteDoc(doc(db, 'users', uid));
-        revalidatePath('/dashboard/settings');
+        revalidatePath('/dashboard/ajustes');
         return { success: true, message: 'Usuario eliminado de Firestore.' };
     } catch (error: any) {
         // Note: This does not delete the user from Firebase Auth
@@ -216,7 +216,7 @@ export async function savePlazaAction(name: string, highlight?: boolean, id?: st
         } else {
             await addDoc(collection(db, 'plazas'), data);
         }
-        revalidatePath('/dashboard/settings');
+        revalidatePath('/dashboard/ajustes');
         return { success: true, message: id ? 'Plaza actualizada con éxito.' : 'Plaza guardada con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar plaza: ${error.message}` };
@@ -226,7 +226,7 @@ export async function savePlazaAction(name: string, highlight?: boolean, id?: st
 export async function deletePlazaAction(id: string) {
     try {
         await deleteDoc(doc(db, 'plazas', id));
-        revalidatePath('/dashboard/settings');
+        revalidatePath('/dashboard/ajustes');
         return { success: true, message: 'Plaza eliminada con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al eliminar plaza: ${error.message}` };
@@ -241,7 +241,7 @@ export async function saveLocalidadAction(data: Omit<Localidad, 'id'>, id?: stri
         } else {
             await addDoc(collection(db, 'localidades'), data);
         }
-        revalidatePath('/dashboard/settings');
+        revalidatePath('/dashboard/ajustes');
         return { success: true, message: id ? 'Localidad actualizada con éxito.' : 'Localidad guardada con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar localidad: ${error.message}` };
@@ -251,7 +251,7 @@ export async function saveLocalidadAction(data: Omit<Localidad, 'id'>, id?: stri
 export async function deleteLocalidadAction(id: string) {
     try {
         await deleteDoc(doc(db, 'localidades', id));
-        revalidatePath('/dashboard/settings');
+        revalidatePath('/dashboard/ajustes');
         return { success: true, message: 'Localidad eliminada con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al eliminar localidad: ${error.message}` };
@@ -266,7 +266,7 @@ export async function savePromotoraAction(data: Omit<Promotora, 'id'>, id?: stri
         } else {
             await addDoc(collection(db, 'promotoras'), data);
         }
-        revalidatePath('/dashboard/settings');
+        revalidatePath('/dashboard/ajustes');
         return { success: true, message: id ? 'Promotora actualizada con éxito.' : 'Promotora guardada con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar promotora: ${error.message}` };
@@ -276,7 +276,7 @@ export async function savePromotoraAction(data: Omit<Promotora, 'id'>, id?: stri
 export async function deletePromotoraAction(id: string) {
     try {
         await deleteDoc(doc(db, 'promotoras', id));
-        revalidatePath('/dashboard/settings');
+        revalidatePath('/dashboard/ajustes');
         return { success: true, message: 'Promotora eliminada con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al eliminar promotora: ${error.message}` };

@@ -11,15 +11,15 @@ import { useState, useEffect, useMemo } from 'react';
 
 export const allLinks: { href: string; label: string; id: string, icon: LucideIcon }[] = [
   { href: '/dashboard', label: 'Dashboard', id: 'dashboard', icon: LayoutDashboard },
-  { href: '/dashboard/clients', label: 'Clientes', id: 'clients', icon: Users },
+  { href: '/dashboard/clientes', label: 'Clientes', id: 'clients', icon: Users },
   { href: '/dashboard/consultar-cliente', label: 'Consultar', id: 'consultarCliente', icon: Search },
-  { href: '/dashboard/loans', label: 'Préstamos', id: 'loans', icon: Landmark },
-  { href: '/dashboard/overdue-portfolio', label: 'Pendientes', id: 'overduePortfolio', icon: FileWarning },
+  { href: '/dashboard/prestamos', label: 'Préstamos', id: 'loans', icon: Landmark },
+  { href: '/dashboard/pendientes', label: 'Pendientes', id: 'overduePortfolio', icon: FileWarning },
   { href: '/dashboard/cartera-vencida', label: 'Vencida', id: 'carteraVencida', icon: History },
   { href: '/dashboard/debes', label: 'Debes', id: 'debes', icon: Coins },
-  { href: '/dashboard/wallet', label: 'Bitacora', id: 'wallet', icon: Wallet },
+  { href: '/dashboard/bitacora', label: 'Bitacora', id: 'wallet', icon: Wallet },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity },
-  { href: '/dashboard/settings', label: 'Ajustes', id: 'settings', icon: Settings },
+  { href: '/dashboard/ajustes', label: 'Ajustes', id: 'settings', icon: Settings },
 ];
 
 interface MainNavProps {

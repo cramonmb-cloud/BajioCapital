@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Edit, Trash2, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
-import { deleteClientAction } from '@/app/dashboard/clients/actions';
+import { deleteClientAction } from '@/app/dashboard/clientes/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import {
@@ -41,7 +41,7 @@ export function ClientPageActions({ clientId }: ClientPageActionsProps) {
             const result = await deleteClientAction(clientId);
             if (result.success) {
                 toast({ title: 'Cliente Eliminado', description: result.message });
-                router.replace('/dashboard/clients');
+                router.replace('/dashboard/clientes');
             } else {
                 throw new Error(result.message);
             }
@@ -56,7 +56,7 @@ export function ClientPageActions({ clientId }: ClientPageActionsProps) {
         <div className="flex items-center gap-2">
             {canEdit && (
                 <Button asChild variant="outline">
-                    <Link href={`/dashboard/clients/${clientId}/edit`}>
+                    <Link href={`/dashboard/clientes/${clientId}/edit`}>
                         <Edit className="mr-2 h-4 w-4" />
                         Editar Cliente
                     </Link>

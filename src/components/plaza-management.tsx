@@ -40,7 +40,7 @@ import {
 import { PlusCircle, Trash, Loader2, Building, MapPin, User, Pencil, X, Check, Star } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import type { Plaza, Localidad, Promotora } from '@/lib/types';
-import { savePlazaAction, deletePlazaAction, saveLocalidadAction, deleteLocalidadAction, savePromotoraAction, deletePromotoraAction } from '@/app/dashboard/settings/actions';
+import { savePlazaAction, deletePlazaAction, saveLocalidadAction, deleteLocalidadAction, savePromotoraAction, deletePromotoraAction } from '@/app/dashboard/ajustes/actions';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import { Skeleton } from './ui/skeleton';
 

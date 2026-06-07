@@ -9,14 +9,14 @@ import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activi
 
 const allLinks: { href: string; label: string; id: string, icon: LucideIcon, color: string }[] = [
   { href: '/dashboard', label: 'Inicio', id: 'dashboard', icon: LayoutDashboard, color: '#3b82f6' },
-  { href: '/dashboard/clients', label: 'Clientes', id: 'clients', icon: Users, color: '#3b82f6' },
+  { href: '/dashboard/clientes', label: 'Clientes', id: 'clients', icon: Users, color: '#3b82f6' },
   { href: '/dashboard/consultar-cliente', label: 'Buscar', id: 'consultarCliente', icon: Search, color: '#3b82f6' },
-  { href: '/dashboard/loans', label: 'Pagos', id: 'loans', icon: Landmark, color: '#3b82f6' },
-  { href: '/dashboard/overdue-portfolio', label: 'Pendientes', id: 'overduePortfolio', icon: FileWarning, color: '#f97316' },
+  { href: '/dashboard/prestamos', label: 'Pagos', id: 'loans', icon: Landmark, color: '#3b82f6' },
+  { href: '/dashboard/pendientes', label: 'Pendientes', id: 'overduePortfolio', icon: FileWarning, color: '#f97316' },
   { href: '/dashboard/cartera-vencida', label: 'Vencida', id: 'carteraVencida', icon: History, color: '#dc2626' },
-  { href: '/dashboard/wallet', label: 'Bitacora', id: 'wallet', icon: Wallet, color: '#3b82f6' },
+  { href: '/dashboard/bitacora', label: 'Bitacora', id: 'wallet', icon: Wallet, color: '#3b82f6' },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity, color: '#2563eb' },
-  { href: '/dashboard/settings', label: 'Ajustes', id: 'settings', icon: Settings, color: '#3b82f6' },
+  { href: '/dashboard/ajustes', label: 'Ajustes', id: 'settings', icon: Settings, color: '#3b82f6' },
 ];
 
 export function MobileNavBar() {

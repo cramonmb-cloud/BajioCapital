@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { saveClientAction } from '@/app/dashboard/clients/actions';
+import { saveClientAction } from '@/app/dashboard/clientes/actions';
 
 const formSchema = z.object({
   name: z.string().min(3, 'El nombre debe tener al menos 3 caracteres.'),
@@ -75,7 +75,7 @@ export function ClientForm({ client }: ClientFormProps) {
           title: 'Cliente Actualizado',
           description: `Los datos de ${values.name} han sido actualizados.`,
         });
-        router.push(`/dashboard/clients/${client.id}`);
+        router.push(`/dashboard/clientes/${client.id}`);
         router.refresh();
       } else {
         throw new Error(result.message);

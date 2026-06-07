@@ -39,7 +39,7 @@ export default function LoanPlansPage() {
           </p>
         </div>
         <Button asChild>
-          <Link href="/dashboard/plans/new">
+          <Link href="/dashboard/planes/new">
             <PlusCircle className="mr-2 h-4 w-4" />
             Definir Nuevo Plan
           </Link>
@@ -67,7 +67,7 @@ export default function LoanPlansPage() {
             </CardContent>
             <CardFooter>
               <Button variant="outline" className="w-full" asChild>
-                <Link href={`/dashboard/plans/${plan.id}/edit`}>Editar Plan</Link>
+                <Link href={`/dashboard/planes/${plan.id}/edit`}>Editar Plan</Link>
               </Button>
             </CardFooter>
           </Card>
@@ -77,7 +77,7 @@ export default function LoanPlansPage() {
             <CardContent className="flex flex-col items-center justify-center h-48">
               <p className="text-muted-foreground">No hay planes de préstamo definidos.</p>
               <Button asChild className="mt-4">
-                <Link href="/dashboard/plans/new">
+                <Link href="/dashboard/planes/new">
                   <PlusCircle className="mr-2 h-4 w-4" />
                   Crea tu primer plan
                 </Link>

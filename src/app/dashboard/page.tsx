@@ -253,7 +253,7 @@ export default function DashboardPage() {
                                         <TableCell><Badge variant="destructive">Vencido</Badge></TableCell>
                                         <TableCell className="text-right">
                                             <Button asChild variant="ghost" size="icon">
-                                                <Link href="/dashboard/overdue-portfolio"><ArrowRight className="h-4 w-4" /></Link>
+                                                <Link href="/dashboard/pendientes"><ArrowRight className="h-4 w-4" /></Link>
                                             </Button>
                                         </TableCell>
                                     </TableRow>

@@ -14,7 +14,7 @@ export async function deleteLoanPlanAction(planId: string) {
     const planRef = doc(db, 'loanPlans', planId);
     await deleteDoc(planRef);
 
-    revalidatePath('/dashboard/plans');
+    revalidatePath('/dashboard/planes');
     revalidatePath('/dashboard/control');
     
     return { success: true, message: 'Plan eliminado con éxito.' };
@@ -35,10 +35,10 @@ export async function saveLoanPlanAction(planData: Omit<LoanPlan, 'id'>, planId?
             await addDoc(collection(db, 'loanPlans'), planData);
         }
 
-        revalidatePath('/dashboard/plans');
+        revalidatePath('/dashboard/planes');
         revalidatePath('/dashboard/control');
         if (planId) {
-            revalidatePath(`/dashboard/plans/${planId}/edit`);
+            revalidatePath(`/dashboard/planes/${planId}/edit`);
         }
 
         return { success: true, message: `Plan "${planData.name}" guardado con éxito.` };

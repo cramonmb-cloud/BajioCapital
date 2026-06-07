@@ -116,7 +116,7 @@ export function BitacoraClientPage({ wallet, transactions, clients, users }: Bit
                                         <TableCell>{tx.description}</TableCell>
                                         <TableCell>
                                             {tx.clientId ? (
-                                                <Link href={`/dashboard/clients/${tx.clientId}`} className="text-primary hover:underline uppercase text-xs font-bold">
+                                                <Link href={`/dashboard/clientes/${tx.clientId}`} className="text-primary hover:underline uppercase text-xs font-bold">
                                                     {getClientName(tx.clientId)}
                                                 </Link>
                                             ) : (
