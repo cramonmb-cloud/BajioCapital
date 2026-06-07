@@ -360,7 +360,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
               const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
               const paidAmount = paymentForWeek ? paymentForWeek.amount : weeklyPaymentAmount;
-              return { status: 'paid' as const, date: weekDate, amountPaid: paidAmount, isAssumedPaid: false };
+              return { status: 'paid' as const, date: weekDate, amountPaid: paidAmount, isAssumedPaid: false, isRecovered: false };
           }
           
           const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
@@ -368,17 +368,17 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           if (paymentForWeek) {
               const totalPaidForWeek = paymentForWeek.amount;
               if (totalPaidForWeek >= weeklyPaymentAmount) {
-                  return { status: 'paid' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+                  return { status: 'paid' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false, isRecovered: paymentForWeek.isRecovered };
               } else {
-                  return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+                  return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false, isRecovered: paymentForWeek.isRecovered };
               }
           }
 
           if (weekNumber < currentLoanWeek) {
-            return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true };
+            return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true, isRecovered: false };
           }
 
-          return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
+          return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false, isRecovered: false };
         };
 
         filteredLoans.forEach(loan => {
@@ -469,7 +469,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     }, [dataLoading, filteredLoans, loanPlans, clients]);
 
 
-    const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number): { status: 'paid' | 'partial' | 'missed' | 'pending'; date: Date; amountPaid: number; isAssumedPaid: boolean; } => {
+    const getWeekPaymentStatus = (loan: Loan, weekNumber: number, currentLoanWeek: number): { status: 'paid' | 'partial' | 'missed' | 'pending'; date: Date; amountPaid: number; isAssumedPaid: boolean; isRecovered?: boolean; } => {
         const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
         if (!loanPlan) return { status: 'pending' as const, date: new Date(), amountPaid: 0, isAssumedPaid: false };
         
@@ -486,16 +486,16 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         if (paymentForWeek) {
             const totalPaidForWeek = paymentForWeek.amount;
             if(totalPaidForWeek >= weeklyPaymentAmount) {
-                return { status: 'paid' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+                return { status: 'paid' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false, isRecovered: paymentForWeek.isRecovered };
             } else if (totalPaidForWeek > 0) {
-                return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false };
+                return { status: 'partial' as const, date: weekDate, amountPaid: totalPaidForWeek, isAssumedPaid: false, isRecovered: paymentForWeek.isRecovered };
             } else { // amount is 0
-                return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false };
+                return { status: 'missed' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false, isRecovered: paymentForWeek.isRecovered };
             }
         }
 
         if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
-            return { status: 'paid' as const, date: weekDate, amountPaid: weeklyPaymentAmount, isAssumedPaid: false };
+            return { status: 'paid' as const, date: weekDate, amountPaid: weeklyPaymentAmount, isAssumedPaid: false, isRecovered: false };
         }
 
         const isFuture = new Date() < weekDate;
@@ -906,20 +906,28 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
                     let text = '';
                     let subtext = '';
-
                     if (status.status === 'paid' && !status.isAssumedPaid) {
-                        text = 'Abono';
+                        text = status.isRecovered ? 'Recuperado' : 'Abono';
                         subtext = formatCurrencySimplePDF(status.amountPaid);
+                        if (status.isRecovered) {
+                            doc.setFillColor(243, 232, 255);
+                            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                        }
                     } else if (status.status === 'paid' && status.isAssumedPaid) {
                         text = 'Abono';
                         subtext = formatCurrencySimplePDF(weeklyPayment);
                     } else if (status.status === 'partial' || status.status === 'missed') {
                         const fallo = weeklyPayment - status.amountPaid;
                         if(fallo > 0) {
-                            text = 'Falla';
+                            text = status.isRecovered ? 'Recup. Parcial' : 'Falla';
                             subtext = formatCurrencySimplePDF(fallo);
-                            doc.setFillColor(224, 224, 224);
-                            doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                            if (status.isRecovered) {
+                                doc.setFillColor(243, 232, 255);
+                                doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                            } else {
+                                doc.setFillColor(224, 224, 224);
+                                doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                            }
                         }
                     }
 
@@ -1323,26 +1331,34 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                                 const canRegisterPayment = (loan.status !== 'Paid Off' && loan.status !== 'Pagado desde CV');
  
                                 let statusInfo;
-                                switch(weekStatus.status) {
-                                    case 'paid':
-                                        const paidAmountText = weekStatus.isAssumedPaid ? `Asumido` : `Abono: ${formatCurrency(weekStatus.amountPaid)}`;
-                                        statusInfo = { icon: <CheckCircle2 className="h-3.5 w-3.5 text-green-500 mx-auto" />, text: `Pagado`, paid: paidAmountText };
-                                        break;
-                                    case 'partial':
-                                        const fallo = weeklyPayment - weekStatus.amountPaid;
-                                        statusInfo = { 
-                                            icon: <AlertCircle className="h-3.5 w-3.5 text-yellow-500 mx-auto" />, 
-                                            text: 'Pago Parcial', 
-                                            paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}`,
-                                            pending: `Fallo: ${formatCurrency(fallo)}`
-                                        };
-                                        break;
-                                    case 'missed':
-                                        statusInfo = { icon: <XCircle className="h-3.5 w-3.5 text-red-500 mx-auto" />, text: 'Atrasado' };
-                                        break;
-                                    default:
-                                        statusInfo = { icon: <Circle className="h-3.5 w-3.5 text-muted-foreground/40 mx-auto" />, text: 'Pendiente' };
-                                }
+                                 switch(weekStatus.status) {
+                                     case 'paid':
+                                         const paidAmountText = weekStatus.isAssumedPaid ? `Asumido` : `Abono: ${formatCurrency(weekStatus.amountPaid)}`;
+                                         statusInfo = { 
+                                             icon: weekStatus.isRecovered ? 
+                                                 <CheckCircle2 className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400 mx-auto" /> : 
+                                                 <CheckCircle2 className="h-3.5 w-3.5 text-green-500 mx-auto" />, 
+                                             text: weekStatus.isRecovered ? `Recuperado` : `Pagado`, 
+                                             paid: paidAmountText 
+                                         };
+                                         break;
+                                     case 'partial':
+                                         const fallo = weeklyPayment - weekStatus.amountPaid;
+                                         statusInfo = { 
+                                             icon: weekStatus.isRecovered ? 
+                                                 <AlertCircle className="h-3.5 w-3.5 text-purple-600 dark:text-purple-400 mx-auto" /> : 
+                                                 <AlertCircle className="h-3.5 w-3.5 text-yellow-500 mx-auto" />, 
+                                             text: weekStatus.isRecovered ? 'Recuperado Parcial' : 'Pago Parcial', 
+                                             paid: `Abono: ${formatCurrency(weekStatus.amountPaid)}`,
+                                             pending: `Fallo: ${formatCurrency(fallo)}`
+                                         };
+                                         break;
+                                     case 'missed':
+                                         statusInfo = { icon: <XCircle className="h-3.5 w-3.5 text-red-500 mx-auto" />, text: 'Atrasado' };
+                                         break;
+                                     default:
+                                         statusInfo = { icon: <Circle className="h-3.5 w-3.5 text-muted-foreground/40 mx-auto" />, text: 'Pendiente' };
+                                 }
                                 
                                 return (
                                     <TableCell key={i} className={cn("text-center py-1 px-0.5 border-r", isCurrentWeek && "bg-blue-100 dark:bg-blue-900/30", isPenaltyWeek && "bg-orange-100 dark:bg-orange-900/30")}>

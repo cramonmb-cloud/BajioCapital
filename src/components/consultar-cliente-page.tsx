@@ -271,12 +271,14 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
         let statusType: 'PAID' | 'MISSED' | 'PENDING' = 'PENDING';
         let statusText = '';
 
+        const isRecovered = payment?.isRecovered || false;
+
         if (isRegistered) {
             if (payment.amount >= weeklyPayment) {
-                statusText = formatDate(payment.date);
+                statusText = isRecovered ? 'RECUPERADO' : formatDate(payment.date);
                 statusType = 'PAID';
             } else if (payment.amount > 0) {
-                statusText = 'PARCIAL';
+                statusText = isRecovered ? 'RECUPERADO PARCIAL' : 'PARCIAL';
                 statusType = 'MISSED';
             } else {
                 statusText = 'FALLO';
@@ -297,7 +299,8 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
             importeRecibido: isRegistered ? payment.amount : 0,
             statusText: statusText,
             isPenalty: i > loanPlan.termInWeeks,
-            status: statusType
+            status: statusType,
+            isRecovered: isRecovered
         });
     }
     return rows;
@@ -734,6 +737,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                                             <TableCell 
                                                 className={cn(
                                                     "border-r border-zinc-100 text-right py-1.5 font-black text-[11px] relative group", 
+                                                    row.isRecovered ? "bg-purple-50 dark:bg-purple-950/20 text-purple-700 dark:text-purple-400" :
                                                     row.importeRecibido > 0 ? (row.importeRecibido >= row.importeAbono ? "bg-green-50/80 text-green-700" : "bg-amber-50/60 text-amber-700") : "bg-rose-50/60 text-rose-700",
                                                     isCristobal && !row.isPenalty && "cursor-pointer hover:bg-green-100 transition-colors"
                                                 )}
@@ -751,6 +755,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
                                             </TableCell>
                                             <TableCell className={cn(
                                                 "text-center py-1.5 text-[9px] font-black uppercase",
+                                                row.isRecovered ? "text-purple-700 dark:text-purple-400" :
                                                 row.status === 'MISSED' ? "text-rose-600" : row.status === 'PAID' ? "text-green-700" : "text-zinc-400"
                                             )}>
                                                 {row.statusText}

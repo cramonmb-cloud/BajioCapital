@@ -1,6 +1,6 @@
 'use server';
 
-import type { Client, Loan, LoanPlan, AppUser } from '@/lib/types';
+import type { Client, Loan, LoanPlan, AppUser, Payment } from '@/lib/types';
 import { collection, doc, addDoc, serverTimestamp, updateDoc, runTransaction, increment, writeBatch, getDoc, getDocs, query, where, deleteDoc, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { revalidatePath } from 'next/cache';
@@ -165,12 +165,74 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 date: parseFirestoreDate(p.date).toISOString()
             }));
 
-            // Reemplazar o añadir el pago de la semana específica
-            const allPayments = currentPayments.filter(p => p.weekNumber !== startingWeekNumber);
-            allPayments.push({
-                date: new Date().toISOString(),
-                amount: amountPaid,
-                weekNumber: startingWeekNumber
+            // Reemplazar o añadir el pago con distribución (Abono de semana en curso + Recuperación de fallos o Adelantos)
+            const missedWeeks: { weekNumber: number; paidSoFar: number }[] = [];
+            for (let i = 1; i < startingWeekNumber; i++) {
+                const existing = currentPayments.find(p => p.weekNumber === i);
+                const paidSoFar = existing ? existing.amount : 0;
+                if (paidSoFar < weeklyPayment) {
+                    missedWeeks.push({ weekNumber: i, paidSoFar });
+                }
+            }
+
+            let remaining = amountPaid;
+            const updatedPaymentsMap = new Map<number, { amount: number; isRecovered?: boolean }>();
+
+            // Inicializar el mapa con los pagos existentes excluyendo la semana de inicio
+            currentPayments.forEach(p => {
+                if (p.weekNumber !== startingWeekNumber) {
+                    updatedPaymentsMap.set(p.weekNumber, { amount: p.amount, isRecovered: p.isRecovered });
+                }
+            });
+
+            // 1. Cubrir la semana en curso (startingWeekNumber)
+            const neededStart = weeklyPayment;
+            if (remaining <= neededStart) {
+                updatedPaymentsMap.set(startingWeekNumber, { amount: remaining, isRecovered: false });
+                remaining = 0;
+            } else {
+                updatedPaymentsMap.set(startingWeekNumber, { amount: weeklyPayment, isRecovered: false });
+                remaining -= neededStart;
+
+                // 2. Cubrir semanas de fallo anteriores (la más antigua primero)
+                for (const mw of missedWeeks) {
+                    if (remaining <= 0) break;
+                    const needed = weeklyPayment - mw.paidSoFar;
+                    if (remaining >= needed) {
+                        updatedPaymentsMap.set(mw.weekNumber, { amount: weeklyPayment, isRecovered: true });
+                        remaining -= needed;
+                    } else {
+                        updatedPaymentsMap.set(mw.weekNumber, { amount: mw.paidSoFar + remaining, isRecovered: true });
+                        remaining = 0;
+                    }
+                }
+
+                // 3. Adelantar saldo sobrante a semanas futuras
+                let nextWeek = startingWeekNumber + 1;
+                while (remaining > 0) {
+                    const existingNext = updatedPaymentsMap.get(nextWeek)?.amount || 0;
+                    const neededNext = Math.max(0, weeklyPayment - existingNext);
+                    if (remaining >= neededNext) {
+                        updatedPaymentsMap.set(nextWeek, { amount: weeklyPayment, isRecovered: false });
+                        remaining -= neededNext;
+                        nextWeek++;
+                    } else {
+                        updatedPaymentsMap.set(nextWeek, { amount: existingNext + remaining, isRecovered: false });
+                        remaining = 0;
+                    }
+                }
+            }
+
+            // Convertir el mapa de regreso al arreglo de pagos
+            const allPayments: Payment[] = [];
+            updatedPaymentsMap.forEach((val, wk) => {
+                const existingDate = currentPayments.find(p => p.weekNumber === wk)?.date || new Date().toISOString();
+                allPayments.push({
+                    date: existingDate,
+                    amount: val.amount,
+                    weekNumber: wk,
+                    isRecovered: val.isRecovered || false
+                });
             });
             
             const mexicoNow = getMexicoNow();

@@ -25,6 +25,7 @@ export type Payment = {
   date: string;
   amount: number;
   weekNumber: number;
+  isRecovered?: boolean;
 };
 
 export type Loan = {
