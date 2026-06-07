@@ -30,7 +30,11 @@ import { useAuth } from '@/hooks/use-auth';
 import { cn } from '@/lib/utils';
 
 const formSchema = z.object({
-  amountPaid: z.coerce.number().min(0, 'El monto debe ser un número positivo.'),
+  amountPaid: z.string().refine(val => {
+    if (val === '0000') return true;
+    const num = Number(val);
+    return !isNaN(num) && num >= 0;
+  }, 'El monto debe ser un número válido.'),
 });
 
 type PaymentFormValues = z.infer<typeof formSchema>;
@@ -76,11 +80,13 @@ export function RegisterPaymentDialog({
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      amountPaid: initialAmount,
+      amountPaid: initialAmount.toString(),
     },
   });
 
-  const amountPaid = form.watch('amountPaid') ?? 0;
+  const amountPaidRaw = form.watch('amountPaid') ?? '';
+  const amountPaid = amountPaidRaw === '0000' ? 0 : (Number(amountPaidRaw) || 0);
+  const isDeleteOp = amountPaidRaw === '0000';
 
   const missedWeeks = useMemo(() => {
     if (!loan || !weeklyPaymentAmount) return [];
@@ -120,7 +126,7 @@ export function RegisterPaymentDialog({
 
   useEffect(() => {
     if (isOpen) {
-      form.reset({ amountPaid: initialAmount });
+      form.reset({ amountPaid: initialAmount.toString() });
     }
   }, [isOpen, initialAmount, form]);
 
@@ -128,12 +134,17 @@ export function RegisterPaymentDialog({
     if (!loanPlan) return;
     setIsSubmitting(true);
     try {
-      const result = await registerPaymentAction(loan.id, weekDate, values.amountPaid, weekNumber, appUser?.id);
+      const isDelete = values.amountPaid === '0000';
+      const finalAmount = isDelete ? -1 : parseFloat(values.amountPaid);
+      
+      const result = await registerPaymentAction(loan.id, weekDate, finalAmount, weekNumber, appUser?.id);
 
       if (result.success) {
         toast({
-          title: 'Pago Registrado',
-          description: result.message || `El pago para la semana ${weekNumber} ha sido registrado.`,
+          title: isDelete ? 'Cobro Eliminado' : 'Pago Registrado',
+          description: result.message || (isDelete 
+            ? `El cobro para la semana ${weekNumber} ha sido eliminado.`
+            : `El pago para la semana ${weekNumber} ha sido registrado.`),
         });
         onOpenChange(false);
         onPaymentRegistered();
@@ -155,7 +166,7 @@ export function RegisterPaymentDialog({
     <Dialog open={isOpen} onOpenChange={(open) => {
         onOpenChange(open);
         if (!open) {
-            form.reset({ amountPaid: initialAmount });
+            form.reset({ amountPaid: initialAmount.toString() });
         }
     }}>
       <DialogContent className="sm:max-w-[380px] rounded-2xl p-6 border border-border/40 shadow-2xl">
@@ -195,8 +206,7 @@ export function RegisterPaymentDialog({
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-extrabold text-sm">$</span>
                       <Input 
-                        type="number" 
-                        step="0.01" 
+                        type="text" 
                         placeholder="0.00" 
                         {...field} 
                         className="pl-7 h-11 text-base font-bold rounded-xl focus-visible:ring-blue-500 border-border/80" 
@@ -209,10 +219,18 @@ export function RegisterPaymentDialog({
             />
 
             {/* Diferencia / Falla */}
-            {weeklyPaymentAmount > amountPaid && (
+            {!isDeleteOp && weeklyPaymentAmount > amountPaid && (
               <div className="flex justify-between items-center text-xs font-semibold text-red-600 dark:text-red-400 bg-red-50/50 dark:bg-red-950/10 px-3.5 py-2.5 rounded-xl border border-red-100 dark:border-red-900/30">
                 <span className="uppercase text-[9px] tracking-wider font-bold">Falla</span>
                 <span className="font-extrabold text-sm">Fallo con {new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(weeklyPaymentAmount - amountPaid)}</span>
+              </div>
+            )}
+
+            {/* Si es operación de borrado */}
+            {isDeleteOp && (
+              <div className="flex justify-between items-center text-xs font-semibold text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-900/40 px-3.5 py-2.5 rounded-xl border border-slate-100 dark:border-slate-800/60">
+                <span className="uppercase text-[9px] tracking-wider font-bold">Sin Movimiento</span>
+                <span className="font-extrabold text-sm">Se restablecerá la semana (se eliminará el pago)</span>
               </div>
             )}
 
