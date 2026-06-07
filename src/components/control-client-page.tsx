@@ -176,7 +176,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                 const p = loan.payments.find(pay => pay.weekNumber === i);
                 if (p) {
                     effectivePaidForStats += p.amount;
-                } else if (i < rawCurrentLoanWeek - 1) {
+                } else if (i === rawCurrentLoanWeek - 1) {
                     effectivePaidForStats += weeklyPayment;
                 }
             }
