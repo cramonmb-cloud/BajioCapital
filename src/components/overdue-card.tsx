@@ -20,6 +20,7 @@ import {
     DialogHeader,
     DialogTitle,
     DialogClose,
+    DialogDescription,
 } from '@/components/ui/dialog';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
@@ -390,7 +391,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             </Card>
 
             <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
-                <DialogContent className="max-w-4xl max-h-[95vh] flex flex-col p-0 overflow-hidden sm:rounded-md">
+                <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm w-full h-auto max-h-[92vh] md:max-h-[85vh] flex flex-col">
                     <DialogHeader className="px-5 py-3 border-b shrink-0 flex flex-row items-center bg-muted/10">
                         <div className="flex items-center gap-3">
                             <Avatar className="h-10 w-10 border-2 border-white shadow-lg rounded-md">
@@ -407,7 +408,7 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                         </div>
                     </DialogHeader>
 
-                    <ScrollArea className="flex-1 overflow-y-auto">
+                    <ScrollArea className="flex-1 min-h-0">
                         <div className="p-4 space-y-4">
                             <div className={cn("grid gap-2", metrics.hasPenalty ? "grid-cols-4" : "grid-cols-3")}>
                                 <div className="p-2.5 rounded-md bg-zinc-50 border border-zinc-200 text-center shadow-sm">
@@ -553,63 +554,65 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
             </Dialog>
 
             <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-                <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0 overflow-hidden sm:rounded-md">
-                    <DialogHeader className="p-6 pb-2 shrink-0 bg-muted/10 border-b">
-                        <DialogTitle className="text-center border-b pb-2 uppercase font-black tracking-tight flex items-center justify-center gap-2">
-                            <HistoryIcon className="h-5 w-5 text-blue-600" />
-                            Estado de Cuenta - {client.name}
+                <DialogContent className="max-w-2xl w-full p-0 overflow-hidden border-0 shadow-2xl rounded-lg h-auto max-h-[85vh] flex flex-col">
+                    <DialogHeader className="p-4 pb-2 shrink-0 bg-zinc-50/50 border-b">
+                        <DialogTitle className="text-center font-black uppercase text-sm tracking-widest flex items-center justify-center gap-1.5 text-zinc-700">
+                            <HistoryIcon className="h-4 w-4 text-blue-600" />
+                            Historial de Abonos
                         </DialogTitle>
+                        <p className="text-[10px] text-center font-black text-muted-foreground uppercase tracking-widest mt-0.5">{client.name}</p>
+                        <DialogDescription className="sr-only">Listado detallado de abonos recibidos y pendientes.</DialogDescription>
                     </DialogHeader>
                     <div className="flex-1 min-h-0">
                         <ScrollArea className="h-full px-4 md:px-6">
-                            <div className="py-4">
-                                <Table className="border border-blue-200">
-                                    <TableHeader className="bg-blue-100 sticky top-0 z-10">
-                                        <TableRow className="hover:bg-blue-100 border-blue-200">
-                                            <TableHead className="text-blue-900 font-black border-r border-blue-200 text-center text-[10px] uppercase">Num</TableHead>
-                                            <TableHead className="text-blue-900 font-black border-r border-blue-200 text-[10px] uppercase">Vencimiento</TableHead>
-                                            <TableHead className="text-blue-900 font-black border-r border-blue-200 text-right text-[10px] uppercase">Abono</TableHead>
-                                            <TableHead className="text-blue-900 font-black border-r border-blue-200 text-right text-[10px] uppercase">Recibido</TableHead>
-                                            <TableHead className="text-blue-900 font-black text-center text-[10px] uppercase">Estatus / Fecha</TableHead>
+                            <div className="py-3">
+                                <Table className="border border-zinc-200">
+                                    <TableHeader className="bg-zinc-50 sticky top-0 z-10">
+                                        <TableRow className="hover:bg-zinc-50 border-zinc-200">
+                                            <TableHead className="text-zinc-700 font-extrabold border-r border-zinc-200 text-center text-[9px] uppercase py-2 tracking-wider">Num</TableHead>
+                                            <TableHead className="text-zinc-700 font-extrabold border-r border-zinc-200 text-[9px] uppercase py-2 tracking-wider">Vencimiento</TableHead>
+                                            <TableHead className="text-zinc-700 font-extrabold border-r border-zinc-200 text-right text-[9px] uppercase py-2 tracking-wider">Abono</TableHead>
+                                            <TableHead className="text-zinc-700 font-extrabold border-r border-zinc-200 text-right text-[9px] uppercase py-2 tracking-wider">Recibido</TableHead>
+                                            <TableHead className="text-zinc-700 font-extrabold text-center text-[9px] uppercase py-2 tracking-wider">Estatus / Fecha</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {loanHistoryData.map((row) => (
-                                            <TableRow key={row.num} className="border-blue-100 hover:bg-blue-50/50 transition-colors">
-                                                <TableCell className="border-r border-blue-100 text-center py-2.5 font-bold text-xs">{row.num}</TableCell>
-                                                <TableCell className="border-r border-blue-100 py-2.5 text-xs font-bold text-zinc-600">{row.vencimiento}</TableCell>
-                                                <TableCell className="border-r border-blue-100 text-right py-2.5 text-xs font-black text-zinc-800">{formatCurrency(row.importeAbono)}</TableCell>
+                                            <TableRow key={row.num} className="border-zinc-100 hover:bg-zinc-50/80 transition-colors">
+                                                <TableCell className="border-r border-zinc-100 text-center py-1.5 font-bold text-[11px]">{row.num}</TableCell>
+                                                <TableCell className="border-r border-zinc-100 py-1.5 text-[11px] font-bold text-zinc-500">{row.vencimiento}</TableCell>
+                                                <TableCell className="border-r border-zinc-100 text-right py-1.5 text-[11px] font-black text-zinc-700">{formatCurrency(row.importeAbono)}</TableCell>
                                                 <TableCell 
                                                     className={cn(
-                                                        "border-r border-blue-100 text-right py-2.5 font-black text-xs relative group", 
-                                                        row.importeRecibido > 0 ? "bg-green-100 text-green-800" : "bg-red-50 text-red-700",
-                                                        isCristobal && row.importeRecibido >= 0 && !row.isPenalty && "cursor-pointer hover:bg-green-200 transition-colors"
+                                                        "border-r border-zinc-100 text-right py-1.5 font-black text-[11px] relative group", 
+                                                        row.importeRecibido > 0 ? (row.importeRecibido >= row.importeAbono ? "bg-green-50/80 text-green-700" : "bg-amber-50/60 text-amber-700") : "bg-rose-50/60 text-rose-700",
+                                                        isCristobal && !row.isPenalty && "cursor-pointer hover:bg-green-100 transition-colors"
                                                     )}
-                                                    onClick={() => isCristobal && row.importeRecibido >= 0 && !row.isPenalty && handleAdjustClick(row.num, row.importeRecibido)}
+                                                    onClick={() => isCristobal && !row.isPenalty && handleAdjustClick(row.num, row.importeRecibido)}
                                                 >
-                                                    <div className="flex items-center justify-end gap-2">
+                                                    <div className="flex items-center justify-end gap-1.5">
                                                         {formatCurrency(row.importeRecibido)}
                                                         {row.isPenalty && (
-                                                            <Badge className="bg-orange-600 text-white text-[7px] font-black h-3.5 px-1 uppercase shrink-0">EXTRA</Badge>
+                                                            <Badge className="bg-amber-600 text-white text-[7px] font-black h-3.5 px-1 uppercase shrink-0">EXTRA</Badge>
                                                         )}
-                                                        {isCristobal && row.importeRecibido >= 0 && !row.isPenalty && (
+                                                        {isCristobal && !row.isPenalty && (
                                                             <PencilLine className="h-3 w-3 opacity-0 group-hover:opacity-100 text-blue-600 shrink-0 transition-opacity" />
                                                         )}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className={cn(
-                                                    "text-center py-2.5 text-[9px] font-black uppercase",
-                                                    row.status === 'MISSED' ? "text-red-600" : row.status === 'PAID' ? "text-green-700" : "text-zinc-400"
+                                                    "text-center py-1.5 text-[9px] font-black uppercase",
+                                                    row.status === 'MISSED' ? "text-rose-600" : row.status === 'PAID' ? "text-green-700" : "text-zinc-400"
                                                 )}>
                                                     {row.statusText}
                                                 </TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
-                                    <TableFooter className="bg-zinc-100/50 border-t-2 border-blue-300">
-                                        <TableRow className="hover:bg-zinc-100/50">
-                                            <TableCell colSpan={3} className="text-right font-black text-zinc-500 text-[10px] uppercase">Suma Total Recuperada</TableCell>
-                                            <TableCell className="text-right font-black text-green-700 bg-green-50 text-base py-3">
+                                    <TableFooter className="bg-zinc-50/60 border-t-2 border-zinc-200">
+                                        <TableRow className="hover:bg-zinc-50/60">
+                                            <TableCell colSpan={3} className="text-right font-black text-zinc-400 text-[9px] uppercase py-2">Suma Total Recuperada</TableCell>
+                                            <TableCell className="text-right font-black text-green-700 bg-green-50/60 text-xs py-2 px-3 border-l border-zinc-200">
                                                 {formatCurrency(loan.payments.reduce((acc, p) => acc + p.amount, 0))}
                                             </TableCell>
                                             <TableCell></TableCell>
@@ -619,9 +622,9 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
                             </div>
                         </ScrollArea>
                     </div>
-                    <div className="p-4 border-t flex justify-end shrink-0 gap-2 bg-muted/20">
+                    <div className="p-3 border-t flex justify-end shrink-0 gap-2 bg-zinc-50/80">
                         <DialogClose asChild>
-                            <Button variant="secondary" className="font-black uppercase text-[10px] h-10 px-8 rounded-md border-zinc-300 bg-white">Cerrar Historial</Button>
+                            <Button variant="secondary" className="font-black uppercase text-[9px] tracking-widest h-9 px-6 rounded-md border-zinc-300 bg-white shadow-sm">Cerrar Historial</Button>
                         </DialogClose>
                     </div>
                 </DialogContent>
