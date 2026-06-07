@@ -4,7 +4,7 @@ import { type MetadataRoute } from 'next';
 export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const config = await getAppConfig();
   const appName = config?.appName || 'CrediControl';
-  const logoUrl = config?.logoUrl || '/icon-192x192.png'; // Fallback icon
+  const pwaLogo = config?.pwaLogoUrl || config?.logoUrl || '/icon-192x192.png';
 
   return {
     name: appName,
@@ -16,25 +16,25 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
     theme_color: '#ffffff',
     icons: [
       {
-        src: logoUrl,
+        src: pwaLogo,
         sizes: '192x192',
         type: 'image/png',
         purpose: 'any',
       },
       {
-        src: logoUrl,
+        src: pwaLogo,
         sizes: '512x512',
         type: 'image/png',
         purpose: 'any',
       },
        {
-        src: logoUrl,
+        src: pwaLogo,
         sizes: '192x192',
         type: 'image/png',
         purpose: 'maskable',
       },
       {
-        src: logoUrl,
+        src: pwaLogo,
         sizes: '512x512',
         type: 'image/png',
         purpose: 'maskable',
