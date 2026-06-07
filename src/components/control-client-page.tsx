@@ -234,27 +234,64 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
     }
 
     return (
-        <div className="space-y-8 animate-in fade-in duration-300">
-            {/* Header Area */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-zinc-950 p-6 rounded-3xl border border-zinc-200/60 dark:border-zinc-800 shadow-sm">
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                        <span className="p-1.5 bg-blue-500/10 text-blue-600 rounded-lg text-xs font-bold uppercase tracking-wider">Métricas Financieras</span>
-                    </div>
-                    <h1 className="text-3xl font-black tracking-tight uppercase text-zinc-900 dark:text-zinc-50">Control de Cartera</h1>
-                    <p className="text-sm text-muted-foreground">
-                        Supervisa colocación, capital activo y estados de morosidad en tiempo real.
-                    </p>
+        <div className="space-y-6 animate-in fade-in duration-300">
+            {/* Nav Tabs & Date Picker Row */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white dark:bg-zinc-950 p-2.5 rounded-2xl border border-zinc-200/60 dark:border-zinc-800 shadow-sm">
+                <div className="relative flex bg-zinc-100 dark:bg-zinc-900 p-1 rounded-full border shadow-inner w-full sm:max-w-md justify-between items-center h-9">
+                    <div 
+                        className="absolute top-1 bottom-1 rounded-full transition-all duration-300 ease-in-out shadow-sm"
+                        style={{
+                            left: activeTab === 'resumen' ? '4px' : activeTab === 'plazas' ? 'calc(33.3% + 2px)' : 'calc(66.6% - 2px)',
+                            width: 'calc(33.3% - 4px)',
+                            backgroundColor: '#3b82f6',
+                        }}
+                    />
+                    <button
+                        onClick={() => setActiveTab('resumen')}
+                        className={cn(
+                            "flex-1 py-1 text-[10px] font-black uppercase text-center transition-all relative z-10",
+                            activeTab === 'resumen' ? "text-white" : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                        )}
+                    >
+                        <span className="flex items-center justify-center gap-1">
+                            <LayoutDashboard className="h-3 w-3" />
+                            Resumen
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('plazas')}
+                        className={cn(
+                            "flex-1 py-1 text-[10px] font-black uppercase text-center transition-all relative z-10",
+                            activeTab === 'plazas' ? "text-white" : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                        )}
+                    >
+                        <span className="flex items-center justify-center gap-1">
+                            <Building2 className="h-3 w-3" />
+                            Plazas
+                        </span>
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('informes')}
+                        className={cn(
+                            "flex-1 py-1 text-[10px] font-black uppercase text-center transition-all relative z-10",
+                            activeTab === 'informes' ? "text-white" : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                        )}
+                    >
+                        <span className="flex items-center justify-center gap-1">
+                            <FileBarChart2 className="h-3 w-3" />
+                            Informes
+                        </span>
+                    </button>
                 </div>
-                <div className="flex items-center gap-2 bg-zinc-50 dark:bg-zinc-900 p-2 rounded-2xl border">
-                    <Calendar className="h-4 w-4 text-muted-foreground ml-2" />
-                    <DatePicker date={dateRange} onDateChange={setDateRange} />
+
+                <div className="flex items-center bg-zinc-50 dark:bg-zinc-900 rounded-xl border border-zinc-200/60 dark:border-zinc-800 h-9 w-full sm:w-auto overflow-hidden">
+                    <DatePicker date={dateRange} onDateChange={setDateRange} variant="ghost" className="w-full sm:w-[260px]" />
                     {dateRange && (
                         <Button 
                             variant="ghost" 
                             size="icon" 
                             onClick={clearFilters}
-                            className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-xl"
+                            className="h-9 w-9 text-destructive hover:bg-destructive/10 rounded-none border-l border-zinc-200/60 dark:border-zinc-800 shrink-0"
                         >
                             <X className="h-4 w-4" />
                             <span className="sr-only">Quitar filtros</span>
@@ -263,183 +300,106 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                 </div>
             </div>
 
-            {/* Premium Sliding Navigation Tabs */}
-            <div className="flex justify-center">
-                <div className="relative flex bg-zinc-100 dark:bg-zinc-900 p-1.5 rounded-[2rem] border shadow-inner max-w-lg w-full justify-between items-center h-12">
-                    <div 
-                        className="absolute top-1 bottom-1 rounded-[1.7rem] transition-all duration-300 ease-in-out shadow-md"
-                        style={{
-                            left: activeTab === 'resumen' ? '6px' : activeTab === 'plazas' ? 'calc(33.3% + 2px)' : 'calc(66.6% - 2px)',
-                            width: 'calc(33.3% - 4px)',
-                            backgroundColor: '#3b82f6',
-                        }}
-                    />
-                    <button
-                        onClick={() => setActiveTab('resumen')}
-                        className={cn(
-                            "flex-1 py-2 rounded-full text-xs font-black uppercase text-center transition-all relative z-10",
-                            activeTab === 'resumen' ? "text-white" : "text-muted-foreground hover:text-foreground"
-                        )}
-                    >
-                        <span className="flex items-center justify-center gap-1.5">
-                            <LayoutDashboard className="h-3.5 w-3.5" />
-                            Resumen
-                        </span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('plazas')}
-                        className={cn(
-                            "flex-1 py-2 rounded-full text-xs font-black uppercase text-center transition-all relative z-10",
-                            activeTab === 'plazas' ? "text-white" : "text-muted-foreground hover:text-foreground"
-                        )}
-                    >
-                        <span className="flex items-center justify-center gap-1.5">
-                            <Building2 className="h-3.5 w-3.5" />
-                            Plazas
-                        </span>
-                    </button>
-                    <button
-                        onClick={() => setActiveTab('informes')}
-                        className={cn(
-                            "flex-1 py-2 rounded-full text-xs font-black uppercase text-center transition-all relative z-10",
-                            activeTab === 'informes' ? "text-white" : "text-muted-foreground hover:text-foreground"
-                        )}
-                    >
-                        <span className="flex items-center justify-center gap-1.5">
-                            <FileBarChart2 className="h-3.5 w-3.5" />
-                            Informes
-                        </span>
-                    </button>
-                </div>
-            </div>
-
             {/* TAB CONTENT: RESUMEN */}
             {activeTab === 'resumen' && (
-                <div className="space-y-8 animate-in fade-in slide-in-from-bottom-3 duration-300">
+                <div className="space-y-3 animate-in fade-in slide-in-from-bottom-3 duration-300">
                     {/* Metrics Grid */}
-                    <div className="grid gap-6 md:grid-cols-3">
-                        <Card className="relative overflow-hidden group bg-gradient-to-br from-blue-500/10 to-indigo-500/5 hover:from-blue-500/15 hover:to-indigo-500/10 border-blue-500/20 rounded-3xl shadow-sm hover:shadow-md hover:shadow-blue-500/5 transition-all duration-300 hover:-translate-y-1">
-                            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-all duration-500">
-                                <Landmark className="h-28 w-28 text-blue-600" />
-                            </div>
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-xs font-black uppercase tracking-wider text-blue-600/80">Capital Pendiente</p>
-                                    <div className="p-2 bg-blue-500/15 text-blue-600 rounded-xl">
-                                        <Landmark className="h-4 w-4" />
-                                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                        {/* Capital Pendiente Card */}
+                        <Card className="relative overflow-hidden border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/50 p-3.5 rounded-xl shadow-xs transition-all hover:shadow-sm">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Capital Pendiente</span>
+                                <div className="p-1 bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-md shrink-0">
+                                    <Landmark className="h-3.5 w-3.5" />
                                 </div>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                                <div className="text-3xl font-black tracking-tight text-blue-600">
+                            </div>
+                            <div className="mt-1.5 space-y-0.5">
+                                <div className="text-lg font-black tracking-tight text-blue-600 dark:text-blue-400">
                                     {formatCurrency(stats.global.totalPrestado)}
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Capital activo aún por cobrar de los préstamos en plazo vigente.
+                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 leading-tight">
+                                    Capital activo por recuperar de préstamos vigentes.
                                 </p>
-                            </CardContent>
+                            </div>
                         </Card>
 
-                        <Card className="relative overflow-hidden group bg-gradient-to-br from-emerald-500/10 to-teal-500/5 hover:from-emerald-500/15 hover:to-teal-500/10 border-emerald-500/20 rounded-3xl shadow-sm hover:shadow-md hover:shadow-emerald-500/5 transition-all duration-300 hover:-translate-y-1">
-                            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-all duration-500">
-                                <Calculator className="h-28 w-28 text-emerald-600" />
-                            </div>
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-xs font-black uppercase tracking-wider text-emerald-600/80">Dinero en Calle</p>
-                                    <div className="p-2 bg-emerald-500/15 text-emerald-600 rounded-xl">
-                                        <Calculator className="h-4 w-4" />
-                                    </div>
+                        {/* Dinero en Calle Card */}
+                        <Card className="relative overflow-hidden border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/50 p-3.5 rounded-xl shadow-xs transition-all hover:shadow-sm">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Dinero en Calle</span>
+                                <div className="p-1 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-md shrink-0">
+                                    <Calculator className="h-3.5 w-3.5" />
                                 </div>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                                <div className="text-3xl font-black tracking-tight text-emerald-600">
+                            </div>
+                            <div className="mt-1.5 space-y-0.5">
+                                <div className="text-lg font-black tracking-tight text-emerald-600 dark:text-emerald-400">
                                     {formatCurrency(stats.global.dineroEnCalle)}
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Saldo total (capital + rendimientos) pendiente de cobro en préstamos activos.
+                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 leading-tight">
+                                    Saldo total pendiente de cobro en préstamos activos.
                                 </p>
-                            </CardContent>
+                            </div>
                         </Card>
 
-                        <Card className="relative overflow-hidden group bg-gradient-to-br from-rose-500/10 to-red-500/5 hover:from-rose-500/15 hover:to-red-500/10 border-rose-500/20 rounded-3xl shadow-sm hover:shadow-md hover:shadow-rose-500/5 transition-all duration-300 hover:-translate-y-1">
-                            <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-all duration-500">
-                                <AlertCircle className="h-28 w-28 text-rose-600" />
-                            </div>
-                            <CardHeader className="pb-2">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-xs font-black uppercase tracking-wider text-rose-600/80">Cartera Vencida</p>
-                                    <div className="p-2 bg-rose-500/15 text-rose-600 rounded-xl">
-                                        <AlertCircle className="h-4 w-4" />
-                                    </div>
+                        {/* Cartera Vencida Card */}
+                        <Card className="relative overflow-hidden border border-zinc-200/80 dark:border-zinc-800/80 bg-white dark:bg-zinc-950/50 p-3.5 rounded-xl shadow-xs transition-all hover:shadow-sm">
+                            <div className="flex items-center justify-between gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Cartera Vencida</span>
+                                <div className="p-1 bg-rose-500/10 text-rose-600 dark:text-rose-400 rounded-md shrink-0">
+                                    <AlertCircle className="h-3.5 w-3.5" />
                                 </div>
-                            </CardHeader>
-                            <CardContent className="space-y-2">
-                                <div className="text-3xl font-black tracking-tight text-rose-600">
+                            </div>
+                            <div className="mt-1.5 space-y-0.5">
+                                <div className="text-lg font-black tracking-tight text-rose-600 dark:text-rose-400">
                                     {formatCurrency(stats.global.carteraVencida)}
                                 </div>
-                                <p className="text-xs text-muted-foreground">
-                                    Adeudo acumulado de préstamos expirados (incluyendo recargos/penalizaciones).
+                                <p className="text-[10px] text-zinc-400 dark:text-zinc-500 leading-tight">
+                                    Adeudo acumulado de préstamos expirados con retrasos.
                                 </p>
-                            </CardContent>
+                            </div>
                         </Card>
                     </div>
 
                     {/* Visual Health Indicator / Progress Bar */}
-                    <Card className="bg-white dark:bg-zinc-950 border border-zinc-200/60 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
-                        <CardHeader className="px-0 pt-0 pb-6">
-                            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                <div className="space-y-1">
-                                    <CardTitle className="text-base font-bold uppercase tracking-wide">Rendimiento de Colocación Activa</CardTitle>
-                                    <CardDescription>Distribución porcentual de los préstamos vigentes actualmente en calle.</CardDescription>
-                                </div>
-                                <div className="flex items-center gap-1.5 bg-blue-50 dark:bg-blue-900/15 px-3 py-1.5 rounded-xl text-blue-600 dark:text-blue-400 font-bold text-xs">
-                                    <TrendingUp className="h-4 w-4" />
-                                    Total Colocado Activo: {formatCurrency(stats.global.totalColocadoActive)}
-                                </div>
+                    <Card className="bg-white dark:bg-zinc-950/50 border border-zinc-200/80 dark:border-zinc-800/80 rounded-xl p-3.5 shadow-xs">
+                        <div className="flex items-center justify-between gap-4 pb-2 border-b border-zinc-100 dark:border-zinc-900">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Rendimiento de Colocación</span>
+                            <div className="text-[10px] font-bold text-zinc-400 dark:text-zinc-500 uppercase">
+                                Colocado Activo: <span className="font-black text-zinc-900 dark:text-zinc-100">{formatCurrency(stats.global.totalColocadoActive)}</span>
                             </div>
-                        </CardHeader>
-                        <CardContent className="px-0 pb-0 space-y-6">
+                        </div>
+                        
+                        <div className="mt-3 space-y-2.5">
                             {/* Segmented Progress Bar */}
-                            <div className="space-y-2">
-                                <div className="h-4 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden flex shadow-inner">
-                                    <div 
-                                        className="bg-gradient-to-r from-emerald-500 to-green-400 h-full transition-all duration-500" 
-                                        style={{ width: `${globalRecuperadoPercent}%` }}
-                                        title={`Recuperado: ${globalRecuperadoPercent}%`}
-                                    />
-                                    <div 
-                                        className="bg-gradient-to-r from-blue-500 to-indigo-400 h-full transition-all duration-500" 
-                                        style={{ width: `${globalPendientePercent}%` }}
-                                        title={`Pendiente: ${globalPendientePercent}%`}
-                                    />
-                                </div>
-                                <div className="flex justify-between text-[10px] text-muted-foreground font-medium uppercase px-1">
-                                    <span>Colocación Inicial</span>
-                                    <span>Límite de Plazo</span>
-                                </div>
+                            <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden flex shadow-inner">
+                                <div 
+                                    className="bg-gradient-to-r from-emerald-500 to-green-400 h-full transition-all duration-500" 
+                                    style={{ width: `${globalRecuperadoPercent}%` }}
+                                    title={`Recuperado: ${globalRecuperadoPercent}%`}
+                                />
+                                <div 
+                                    className="bg-gradient-to-r from-blue-500 to-indigo-400 h-full transition-all duration-500" 
+                                    style={{ width: `${globalPendientePercent}%` }}
+                                    title={`Pendiente: ${globalPendientePercent}%`}
+                                />
                             </div>
 
-                            {/* Legend Grid */}
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                                <div className="flex items-start gap-3 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
-                                    <div className="h-3.5 w-3.5 rounded-full bg-emerald-500 mt-0.5" />
-                                    <div className="space-y-0.5">
-                                        <p className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">Capital Recuperado</p>
-                                        <p className="text-lg font-extrabold text-zinc-800 dark:text-zinc-200">{formatCurrency(globalCapitalRecuperado)}</p>
-                                        <p className="text-[10px] text-muted-foreground">{globalRecuperadoPercent}% del capital inicial recuperado.</p>
-                                    </div>
+                            {/* Legend Bar */}
+                            <div className="flex flex-col sm:flex-row gap-3 justify-between text-[9px] font-bold">
+                                <div className="flex items-center gap-1.5">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                                    <span className="text-zinc-400 dark:text-zinc-500 uppercase">Recuperado:</span>
+                                    <span className="text-zinc-800 dark:text-zinc-200">{formatCurrency(globalCapitalRecuperado)}</span>
+                                    <span className="text-emerald-600 dark:text-emerald-400 font-black">({globalRecuperadoPercent}%)</span>
                                 </div>
-                                <div className="flex items-start gap-3 p-4 bg-blue-500/5 border border-blue-500/10 rounded-2xl">
-                                    <div className="h-3.5 w-3.5 rounded-full bg-blue-500 mt-0.5" />
-                                    <div className="space-y-0.5">
-                                        <p className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400">Capital Pendiente</p>
-                                        <p className="text-lg font-extrabold text-zinc-800 dark:text-zinc-200">{formatCurrency(stats.global.totalPrestado)}</p>
-                                        <p className="text-[10px] text-muted-foreground">{globalPendientePercent}% del capital inicial por cobrar.</p>
-                                    </div>
+                                <div className="flex items-center gap-1.5">
+                                    <div className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                                    <span className="text-zinc-400 dark:text-zinc-500 uppercase">Pendiente:</span>
+                                    <span className="text-zinc-800 dark:text-zinc-200">{formatCurrency(stats.global.totalPrestado)}</span>
+                                    <span className="text-blue-600 dark:text-blue-400 font-black">({globalPendientePercent}%)</span>
                                 </div>
                             </div>
-                        </CardContent>
+                        </div>
                     </Card>
                 </div>
             )}

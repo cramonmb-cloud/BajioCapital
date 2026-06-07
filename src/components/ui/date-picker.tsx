@@ -19,9 +19,10 @@ interface DatePickerProps {
   date: DateRange | undefined;
   onDateChange: (date: DateRange | undefined) => void;
   className?: string;
+  variant?: "outline" | "ghost" | "secondary" | "default";
 }
 
-export function DatePicker({ date, onDateChange, className }: DatePickerProps) {
+export function DatePicker({ date, onDateChange, className, variant = "outline" }: DatePickerProps) {
 
   return (
     <div className={cn("grid gap-2", className)}>
@@ -29,25 +30,28 @@ export function DatePicker({ date, onDateChange, className }: DatePickerProps) {
         <PopoverTrigger asChild>
           <Button
             id="date"
-            variant={"outline"}
+            variant={variant}
             className={cn(
-              "w-[300px] justify-start text-left font-normal",
-              !date && "text-muted-foreground"
+              "w-full justify-start text-left font-normal text-xs h-9",
+              !date && "text-muted-foreground",
+              variant === "ghost" && "border-none bg-transparent hover:bg-zinc-100 dark:hover:bg-zinc-800 shadow-none px-2"
             )}
           >
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            {date?.from ? (
-              date.to ? (
-                <>
-                  {format(date.from, "LLL dd, y", { locale: es })} -{" "}
-                  {format(date.to, "LLL dd, y", { locale: es })}
-                </>
+            <CalendarIcon className="mr-2 h-4 w-4 text-zinc-400" />
+            <span className="truncate">
+              {date?.from ? (
+                date.to ? (
+                  <>
+                    {format(date.from, "dd/MM/yyyy", { locale: es })} -{" "}
+                    {format(date.to, "dd/MM/yyyy", { locale: es })}
+                  </>
+                ) : (
+                  format(date.from, "dd/MM/yyyy", { locale: es })
+                )
               ) : (
-                format(date.from, "LLL dd, y", { locale: es })
-              )
-            ) : (
-              <span>Selecciona un rango de fechas</span>
-            )}
+                <span>Rango de fechas</span>
+              )}
+            </span>
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
