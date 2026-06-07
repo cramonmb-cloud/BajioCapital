@@ -43,6 +43,7 @@ interface OverdueCardProps {
     plazaColor: string;
     isOverduePortfolio?: boolean; 
     appConfig?: AppConfig | null;
+    viewMode?: 'card' | 'table-row';
 }
 
 const getSaturdayOfWeek = (d: Date) => {
@@ -56,7 +57,15 @@ const getSaturdayOfWeek = (d: Date) => {
 
 const cleanPhone = (phone: string) => phone.replace(/\D/g, '');
 
-export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isOverduePortfolio, appConfig }: OverdueCardProps) {
+export function OverdueCard({ 
+    details, 
+    allClients, 
+    allLoanPlans, 
+    plazaColor, 
+    isOverduePortfolio, 
+    appConfig,
+    viewMode = 'card'
+}: OverdueCardProps) {
     const { client, loan, loanPlan, hierarchy } = details;
     const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
     const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -267,128 +276,258 @@ export function OverdueCard({ details, allClients, allLoanPlans, plazaColor, isO
 
     return (
         <>
-            <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-4 rounded-md" style={{ borderLeftColor: plazaColor }}>
-                <CardContent className="p-3.5 space-y-3.5">
-                    {/* HIERARCHY */}
-                    <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 pb-2">
-                        <Badge className="text-[8px] font-black uppercase px-2 h-4 shrink-0 shadow-sm rounded-sm" style={{ backgroundColor: plazaColor }}>
-                            PLAZA: {hierarchy.plazaName}
-                        </Badge>
-                        <Badge variant="outline" className="text-[8px] font-black text-zinc-600 uppercase border-zinc-300 h-4 px-2 rounded-sm">
-                            LOCALIDAD: {hierarchy.localidadName}
-                        </Badge>
-                        <Badge variant="outline" className="text-[8px] font-black text-blue-600 uppercase border-blue-200 h-4 px-2 bg-blue-50/50 rounded-sm">
-                            PROMOTORA: {hierarchy.promotoraName}
-                        </Badge>
-                    </div>
+            {viewMode === 'table-row' ? (
+                <TableRow className="hover:bg-zinc-50 border-zinc-200 text-xs font-bold text-zinc-700">
+                    {/* CLIENT & PLAN */}
+                    <TableCell className="border-r border-zinc-200 py-2" style={{ borderLeft: `4px solid ${plazaColor}` }}>
+                        <div className="flex flex-col gap-0.5">
+                            <span 
+                                onClick={() => setDetailModalOpen(true)}
+                                className="font-black uppercase text-zinc-900 cursor-pointer hover:underline"
+                            >
+                                {client.name}
+                            </span>
+                            <div className="flex flex-wrap gap-1 items-center mt-1">
+                                <Badge className="text-[7px] font-black uppercase px-1.5 h-3.5 rounded-sm" style={{ backgroundColor: plazaColor }}>
+                                    {hierarchy.plazaName}
+                                </Badge>
+                                <Badge variant="outline" className="text-[7px] font-black text-zinc-500 uppercase border-zinc-300 h-3.5 px-1.5 rounded-sm">
+                                    {hierarchy.localidadName}
+                                </Badge>
+                                <Badge variant="outline" className="text-[7px] font-black text-blue-600 uppercase border-blue-200 h-3.5 px-1.5 bg-blue-50/50 rounded-sm">
+                                    {hierarchy.promotoraName}
+                                </Badge>
+                            </div>
+                        </div>
+                    </TableCell>
 
-                    {/* CLIENT INFO */}
-                    <div className="space-y-2">
-                        <div className="flex justify-between items-start gap-2">
-                            <div className="flex-1 cursor-pointer" onClick={() => setDetailModalOpen(true)}>
-                                <h3 className="font-black text-sm uppercase leading-tight text-foreground tracking-tight">{client.name}</h3>
-                                <div className="flex items-center gap-1.5 text-zinc-500 mt-1">
-                                    <Home className="h-3 w-3 shrink-0 text-blue-500" />
-                                    <span className="text-[10px] font-bold uppercase leading-tight">
-                                        {client.street}, {client.neighborhood}
+                    {/* CLIENT ADDRESS & CONTACT */}
+                    <TableCell className="border-r border-zinc-200 py-2">
+                        <div className="flex flex-col gap-1.5">
+                            <span className="text-[10px] text-zinc-500 uppercase leading-tight font-medium">
+                                {client.street}, {client.neighborhood}
+                            </span>
+                            <div className="flex gap-1 items-center">
+                                <Button asChild variant="outline" className="h-6 px-2 rounded-sm border-blue-100 text-blue-700 hover:bg-blue-50 text-[9px] font-black" size="sm">
+                                    <a href={`tel:${cleanPhone(client.phone)}`}>
+                                        <Phone className="h-2.5 w-2.5 mr-1" /> {client.phone}
+                                    </a>
+                                </Button>
+                                <Button variant="outline" size="sm" onClick={() => handleWhatsApp('client')} className="h-6 px-2 border-green-100 text-green-700 hover:bg-green-50 rounded-sm font-black text-[9px]">
+                                    <MessageSquare className="h-2.5 w-2.5 mr-1" /> WA
+                                </Button>
+                            </div>
+                        </div>
+                    </TableCell>
+
+                    {/* AVAL DETAILS */}
+                    <TableCell className="border-r border-zinc-200 py-2">
+                        <div className="flex flex-col gap-1">
+                            <span className="font-black uppercase text-zinc-800 text-[10px]">{avalName}</span>
+                            <span className="text-[9px] text-zinc-500 uppercase leading-tight font-medium line-clamp-1">{avalAddress}</span>
+                            {avalPhone && (
+                                <div className="flex gap-1 items-center mt-1">
+                                    <Button asChild variant="outline" className="h-6 px-2 rounded-sm border-zinc-300 text-zinc-700 hover:bg-white bg-white text-[9px] font-black" size="sm">
+                                        <a href={`tel:${cleanPhone(avalPhone)}`}>
+                                            <Phone className="h-2.5 w-2.5 mr-1" /> {avalPhone}
+                                        </a>
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={() => handleWhatsApp('aval')} className="h-6 px-2 rounded-sm border-green-100 text-green-600 hover:bg-green-50 bg-white text-[9px] font-black">
+                                        <MessageSquare className="h-2.5 w-2.5 mr-1" /> WA
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    </TableCell>
+
+                    {/* DATES */}
+                    <TableCell className="border-r border-zinc-200 py-2 text-center text-[10px]">
+                        <div className="flex flex-col gap-0.5">
+                            <span className="text-zinc-500 font-bold uppercase text-[7px] leading-none">Inicio</span>
+                            <span className="text-zinc-700 font-black">{formatDate(loan.startDate)}</span>
+                            <span className="text-zinc-500 font-bold uppercase text-[7px] leading-none mt-1">Vence</span>
+                            <span className="text-red-600 font-black">{formatDate(metrics.maturityDate.toISOString())}</span>
+                        </div>
+                    </TableCell>
+
+                    {/* FINANCIAL STATUS */}
+                    <TableCell className="border-r border-zinc-200 py-2">
+                        <div className="flex flex-col gap-1">
+                            <div className="flex gap-1 items-center">
+                                <Badge variant="destructive" className="h-4 px-1.5 text-[8px] font-black uppercase rounded-sm shrink-0">
+                                    {metrics.missedCount} Fallos
+                                </Badge>
+                                {metrics.hasPenalty && (
+                                    <Badge className="h-4 px-1.5 text-[8px] font-black bg-orange-50 border border-orange-200 text-orange-700 uppercase rounded-sm shrink-0">
+                                        S. Extra
+                                    </Badge>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 text-[9px]">
+                                <span className="text-zinc-400 font-bold uppercase text-[8px]">Cuota:</span>
+                                <span className="text-zinc-700 font-black text-right">{formatCurrency(metrics.weeklyPayment)}</span>
+                                <span className="text-zinc-400 font-bold uppercase text-[8px]">Fallos $:</span>
+                                <span className="text-zinc-700 font-black text-right">{formatCurrency(metrics.baseArrears)}</span>
+                            </div>
+                            <div className="flex justify-between items-center border-t border-dashed border-zinc-200 pt-1 text-[10px] font-black">
+                                <span className="text-red-600 text-[8px] uppercase">A Deber:</span>
+                                <span className="text-red-700 text-xs font-black">{formatCurrency(metrics.totalDue)}</span>
+                            </div>
+                        </div>
+                    </TableCell>
+
+                    {/* ACTIONS */}
+                    <TableCell className="py-2 text-center">
+                        <div className="flex flex-col gap-1 justify-center max-w-[120px] mx-auto">
+                            <Button 
+                                size="sm" 
+                                onClick={() => setDetailModalOpen(true)} 
+                                className="h-7 bg-zinc-900 text-white font-black text-[9px] uppercase rounded-sm hover:bg-zinc-800 shadow-sm"
+                            >
+                                <Wallet className="mr-1 h-3 w-3" /> Detalle
+                            </Button>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                onClick={() => setHistoryDialogOpen(true)} 
+                                className="h-7 font-black uppercase text-[9px] rounded-sm border-zinc-300 bg-white hover:bg-zinc-50 shadow-sm"
+                            >
+                                <ListTodo className="mr-1 h-3 w-3 text-blue-600" /> Ver Abonos
+                            </Button>
+                            <Button 
+                                size="sm" 
+                                onClick={() => setPaymentDialogOpen(true)} 
+                                className="h-7 font-black uppercase text-[9px] rounded-sm bg-blue-600 text-white shadow-sm hover:bg-blue-700"
+                            >
+                                <Wallet className="mr-1 h-3 w-3" /> Abonar
+                            </Button>
+                        </div>
+                    </TableCell>
+                </TableRow>
+            ) : (
+                <Card className="overflow-hidden border-l-[6px] transition-all hover:shadow-lg bg-white mb-4 rounded-md" style={{ borderLeftColor: plazaColor }}>
+                    <CardContent className="p-3.5 space-y-3.5">
+                        {/* HIERARCHY */}
+                        <div className="flex flex-wrap items-center gap-1.5 border-b border-zinc-100 pb-2">
+                            <Badge className="text-[8px] font-black uppercase px-2 h-4 shrink-0 shadow-sm rounded-sm" style={{ backgroundColor: plazaColor }}>
+                                PLAZA: {hierarchy.plazaName}
+                            </Badge>
+                            <Badge variant="outline" className="text-[8px] font-black text-zinc-600 uppercase border-zinc-300 h-4 px-2 rounded-sm">
+                                LOCALIDAD: {hierarchy.localidadName}
+                            </Badge>
+                            <Badge variant="outline" className="text-[8px] font-black text-blue-600 uppercase border-blue-200 h-4 px-2 bg-blue-50/50 rounded-sm">
+                                PROMOTORA: {hierarchy.promotoraName}
+                            </Badge>
+                        </div>
+
+                        {/* CLIENT INFO */}
+                        <div className="space-y-2">
+                            <div className="flex justify-between items-start gap-2">
+                                <div className="flex-1 cursor-pointer" onClick={() => setDetailModalOpen(true)}>
+                                    <h3 className="font-black text-sm uppercase leading-tight text-foreground tracking-tight">{client.name}</h3>
+                                    <div className="flex items-center gap-1.5 text-zinc-500 mt-1">
+                                        <Home className="h-3 w-3 shrink-0 text-blue-500" />
+                                        <span className="text-[10px] font-bold uppercase leading-tight">
+                                            {client.street}, {client.neighborhood}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                    <Button asChild variant="outline" className="h-10 px-4 rounded-md border-blue-200 text-blue-700 hover:bg-blue-50 shadow-md font-black text-xs" size="sm">
+                                        <a href={`tel:${cleanPhone(client.phone)}`} title="Llamar Cliente">
+                                            <Phone className="h-4 w-4 mr-2" />
+                                            {client.phone}
+                                        </a>
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={() => handleWhatsApp('client')} className="h-9 w-full border-green-200 text-green-700 hover:bg-green-50 shadow-sm rounded-md font-black text-[10px]">
+                                        <MessageSquare className="h-4 w-4 mr-2" />
+                                        WHATSAPP
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* AVAL INFO */}
+                        <div className="p-3 rounded-md bg-zinc-50 border border-zinc-200 space-y-2 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-1 h-full bg-zinc-300" />
+                            <div className="flex justify-between items-start gap-2 pl-1">
+                                <div className="flex-1">
+                                    <p className="text-[7px] font-black uppercase text-muted-foreground tracking-widest mb-0.5">Responsable Solidario (Aval)</p>
+                                    <p className="text-[11px] font-black uppercase leading-tight text-zinc-800">{avalName}</p>
+                                    <div className="flex items-start gap-1.5 text-zinc-500 mt-1">
+                                        <MapPin className="h-2.5 w-2.5 shrink-0 mt-0.5" />
+                                        <span className="text-[9px] font-bold uppercase leading-tight">{avalAddress}</span>
+                                    </div>
+                                </div>
+                                <div className="flex flex-col items-end gap-1.5 shrink-0">
+                                    {avalPhone && (
+                                        <Button asChild variant="outline" className="h-9 px-3 rounded-md border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md font-black text-[10px]" size="sm">
+                                            <a href={`tel:${cleanPhone(avalPhone)}`} title="Llamar Aval">
+                                                <Phone className="h-3.5 w-3.5 mr-1" />
+                                                {avalPhone}
+                                            </a>
+                                        </Button>
+                                    )}
+                                    {avalPhone && (
+                                        <Button variant="outline" size="sm" onClick={() => handleWhatsApp('aval')} className="h-9 px-3 rounded-md border-green-100 text-green-600 hover:bg-green-50 bg-white shadow-sm font-black text-[10px]">
+                                            <MessageSquare className="h-3.5 w-3.5 mr-1" />
+                                            WA AVAL
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* FINANCIAL SUMMARY */}
+                        <div className="flex items-end justify-between gap-4 pt-1">
+                            <div className="flex flex-wrap gap-1.5">
+                                <Badge variant="destructive" className="h-5 px-2 text-[9px] font-black uppercase shadow-sm rounded-sm">
+                                    {metrics.missedCount} FALLOS
+                                </Badge>
+                                {metrics.hasPenalty && (
+                                    <Badge className="h-5 px-2 text-[9px] font-black bg-orange-50/50 border border-orange-200 text-orange-700 uppercase shadow-sm rounded-sm">
+                                        S. EXTRA
+                                    </Badge>
+                                )}
+                            </div>
+
+                            <div className="text-right bg-red-50 px-3 py-2 rounded-md border border-red-100 min-w-[140px] shadow-inner">
+                                <div className="flex flex-col">
+                                    <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-zinc-500 uppercase">
+                                        <span>Saldo Fallos:</span>
+                                        <span>{formatCurrency(metrics.baseArrears)}</span>
+                                    </div>
+                                    {metrics.hasPenalty && (
+                                        <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-orange-600 uppercase border-b border-orange-200 pb-1 mb-1">
+                                            <span>Semana Extra:</span>
+                                            <span>+{formatCurrency(metrics.penaltyArrear)}</span>
+                                        </div>
+                                    )}
+                                    <span className="text-[7px] font-black text-red-600 uppercase leading-none mb-0.5 mt-1">Total a Deber</span>
+                                    <span className="text-lg font-black text-red-700 tracking-tighter leading-none">
+                                        {formatCurrency(metrics.totalDue)}
                                     </span>
                                 </div>
                             </div>
-                            <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                <Button asChild variant="outline" className="h-10 px-4 rounded-md border-blue-200 text-blue-700 hover:bg-blue-50 shadow-md font-black text-xs" size="sm">
-                                    <a href={`tel:${cleanPhone(client.phone)}`} title="Llamar Cliente">
-                                        <Phone className="h-4 w-4 mr-2" />
-                                        {client.phone}
-                                    </a>
-                                </Button>
-                                <Button variant="outline" size="sm" onClick={() => handleWhatsApp('client')} className="h-9 w-full border-green-200 text-green-700 hover:bg-green-50 shadow-sm rounded-md font-black text-[10px]">
-                                    <MessageSquare className="h-4 w-4 mr-2" />
-                                    WHATSAPP
-                                </Button>
-                            </div>
                         </div>
-                    </div>
 
-                    {/* AVAL INFO */}
-                    <div className="p-3 rounded-md bg-zinc-50 border border-zinc-200 space-y-2 relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-zinc-300" />
-                        <div className="flex justify-between items-start gap-2 pl-1">
-                            <div className="flex-1">
-                                <p className="text-[7px] font-black uppercase text-muted-foreground tracking-widest mb-0.5">Responsable Solidario (Aval)</p>
-                                <p className="text-[11px] font-black uppercase leading-tight text-zinc-800">{avalName}</p>
-                                <div className="flex items-start gap-1.5 text-zinc-500 mt-1">
-                                    <MapPin className="h-2.5 w-2.5 shrink-0 mt-0.5" />
-                                    <span className="text-[9px] font-bold uppercase leading-tight">{avalAddress}</span>
+                        {/* FOOTER ACTIONS */}
+                        <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-dashed border-zinc-200">
+                            <div className="flex flex-col gap-0.5">
+                                <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1.5">
+                                    <Calendar className="h-3 w-3 text-blue-500" /> INICIO: {formatDate(loan.startDate)}
+                                </div>
+                                <div className="text-[9px] font-black text-red-600 uppercase opacity-90 flex items-center gap-1.5">
+                                    <AlertTriangle className="h-3 w-3" /> VENCE: {formatDate(metrics.maturityDate.toISOString())}
                                 </div>
                             </div>
-                            <div className="flex flex-col items-end gap-1.5 shrink-0">
-                                {avalPhone && (
-                                    <Button asChild variant="outline" className="h-9 px-3 rounded-md border-zinc-300 text-zinc-700 hover:bg-white bg-white shadow-md font-black text-[10px]" size="sm">
-                                        <a href={`tel:${cleanPhone(avalPhone)}`} title="Llamar Aval">
-                                            <Phone className="h-3.5 w-3.5 mr-1" />
-                                            {avalPhone}
-                                        </a>
-                                    </Button>
-                                )}
-                                {avalPhone && (
-                                    <Button variant="outline" size="sm" onClick={() => handleWhatsApp('aval')} className="h-9 px-3 rounded-md border-green-100 text-green-600 hover:bg-green-50 bg-white shadow-sm font-black text-[10px]">
-                                        <MessageSquare className="h-3.5 w-3.5 mr-1" />
-                                        WA AVAL
-                                    </Button>
-                                )}
-                            </div>
+                            <Button size="sm" onClick={() => setDetailModalOpen(true)} className="h-8 bg-zinc-900 text-white font-black text-[10px] uppercase px-6 rounded-md shadow-lg hover:bg-zinc-800 active:scale-95 transition-all">
+                                <Wallet className="mr-1.5 h-3.5 w-3.5" /> Detalle
+                            </Button>
                         </div>
-                    </div>
-
-                    {/* FINANCIAL SUMMARY */}
-                    <div className="flex items-end justify-between gap-4 pt-1">
-                        <div className="flex flex-wrap gap-1.5">
-                            <Badge variant="destructive" className="h-5 px-2 text-[9px] font-black uppercase shadow-sm rounded-sm">
-                                {metrics.missedCount} FALLOS
-                            </Badge>
-                            {metrics.hasPenalty && (
-                                <Badge className="h-5 px-2 text-[9px] font-black bg-orange-50/50 border border-orange-200 text-orange-700 uppercase shadow-sm rounded-sm">
-                                    S. EXTRA
-                                </Badge>
-                            )}
-                        </div>
-
-                        <div className="text-right bg-red-50 px-3 py-2 rounded-md border border-red-100 min-w-[140px] shadow-inner">
-                            <div className="flex flex-col">
-                                <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-zinc-500 uppercase">
-                                    <span>Saldo Fallos:</span>
-                                    <span>{formatCurrency(metrics.baseArrears)}</span>
-                                </div>
-                                {metrics.hasPenalty && (
-                                    <div className="flex justify-between items-center gap-4 text-[9px] font-bold text-orange-600 uppercase border-b border-orange-200 pb-1 mb-1">
-                                        <span>Semana Extra:</span>
-                                        <span>+{formatCurrency(metrics.penaltyArrear)}</span>
-                                    </div>
-                                )}
-                                <span className="text-[7px] font-black text-red-600 uppercase leading-none mb-0.5 mt-1">Total a Deber</span>
-                                <span className="text-lg font-black text-red-700 tracking-tighter leading-none">
-                                    {formatCurrency(metrics.totalDue)}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* FOOTER ACTIONS */}
-                    <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-dashed border-zinc-200">
-                        <div className="flex flex-col gap-0.5">
-                            <div className="text-[9px] font-black text-muted-foreground uppercase opacity-80 flex items-center gap-1.5">
-                                <Calendar className="h-3 w-3 text-blue-500" /> INICIO: {formatDate(loan.startDate)}
-                            </div>
-                            <div className="text-[9px] font-black text-red-600 uppercase opacity-90 flex items-center gap-1.5">
-                                <AlertTriangle className="h-3 w-3" /> VENCE: {formatDate(metrics.maturityDate.toISOString())}
-                            </div>
-                        </div>
-                        <Button size="sm" onClick={() => setDetailModalOpen(true)} className="h-8 bg-zinc-900 text-white font-black text-[10px] uppercase px-6 rounded-md shadow-lg hover:bg-zinc-800 active:scale-95 transition-all">
-                            <Wallet className="mr-1.5 h-3.5 w-3.5" /> Detalle
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            )}
 
             <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
                 <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm w-full h-auto max-h-[92vh] md:max-h-[85vh] flex flex-col">

@@ -13,9 +13,17 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { X, Search, Filter, ChevronDown, ChevronUp, CalendarDays, Eye, EyeOff, CalendarRange } from 'lucide-react';
+import { X, Search, Filter, ChevronDown, ChevronUp, CalendarDays, Eye, EyeOff, CalendarRange, LayoutGrid, List } from 'lucide-react';
 import { generateColorPalette, cn } from '@/lib/utils';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface OverduePortfolioClientPageProps {
     initialOverdueLoans: OverdueLoanDetails[];
@@ -42,6 +50,7 @@ export function OverduePortfolioClientPage({
     const [selectedLocalidad, setSelectedLocalidad] = useState('all');
     const [selectedPromotora, setSelectedPromotora] = useState('all');
     const [selectedFailures, setSelectedFailures] = useState('all');
+    const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
     
     // Date Filters
     const [selectedStartDate, setSelectedStartDate] = useState('all');
@@ -338,27 +347,109 @@ export function OverduePortfolioClientPage({
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-3 gap-y-1 pt-1">
-                    {filteredLoans.length > 0 ? (
-                        filteredLoans.map(details => (
-                           <OverdueCard 
-                                key={details.loan.id} 
-                                details={details} 
-                                allClients={clients}
-                                allLoanPlans={loanPlans}
-                                plazaColor={plazaColors[details.hierarchy.plazaId] || '#666'}
-                                isOverduePortfolio={isOverduePortfolio}
-                                appConfig={appConfig}
-                           />
-                        ))
-                    ) : (
-                        <div className="col-span-full py-8 text-center border-2 border-dashed rounded-lg bg-muted/20">
-                            <p className="text-[11px] text-muted-foreground font-black uppercase">
-                                Sin resultados para estos filtros
-                            </p>
-                        </div>
-                    )}
+                {/* VIEW MODE SELECTOR AND HEADER */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-zinc-50/50 p-3 rounded-lg border border-zinc-100 mt-2">
+                    <div className="space-y-0.5">
+                        <h3 className="text-xs font-black uppercase text-zinc-700 tracking-wider">
+                            {filteredLoans.length} {filteredLoans.length === 1 ? 'Préstamo Encontrado' : 'Préstamos Encontrados'}
+                        </h3>
+                        <p className="text-[10px] text-zinc-400 font-bold uppercase">
+                            Filtrados del total histórico de {initialOverdueLoans.length}
+                        </p>
+                    </div>
+                    <div className="flex bg-zinc-100 p-0.5 rounded-lg border border-zinc-200/60 shadow-inner shrink-0">
+                        <Button
+                            variant={viewMode === 'cards' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('cards')}
+                            className={cn(
+                                "h-7 text-[10px] uppercase font-black px-3 rounded-md gap-1.5 transition-all",
+                                viewMode === 'cards' ? "bg-white shadow-sm text-zinc-800" : "text-zinc-500 hover:text-zinc-700"
+                            )}
+                        >
+                            <LayoutGrid className="h-3.5 w-3.5" />
+                            Tarjetas
+                        </Button>
+                        <Button
+                            variant={viewMode === 'table' ? 'secondary' : 'ghost'}
+                            size="sm"
+                            onClick={() => setViewMode('table')}
+                            className={cn(
+                                "h-7 text-[10px] uppercase font-black px-3 rounded-md gap-1.5 transition-all",
+                                viewMode === 'table' ? "bg-white shadow-sm text-zinc-800" : "text-zinc-500 hover:text-zinc-700"
+                            )}
+                        >
+                            <List className="h-3.5 w-3.5" />
+                            Tabla Listado
+                        </Button>
+                    </div>
                 </div>
+
+                {viewMode === 'cards' ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-3 gap-y-1 pt-1">
+                        {filteredLoans.length > 0 ? (
+                            filteredLoans.map(details => (
+                               <OverdueCard 
+                                    key={details.loan.id} 
+                                    details={details} 
+                                    allClients={clients}
+                                    allLoanPlans={loanPlans}
+                                    plazaColor={plazaColors[details.hierarchy.plazaId] || '#666'}
+                                    isOverduePortfolio={isOverduePortfolio}
+                                    appConfig={appConfig}
+                                    viewMode="card"
+                               />
+                            ))
+                        ) : (
+                            <div className="col-span-full py-8 text-center border-2 border-dashed rounded-lg bg-muted/20">
+                                <p className="text-[11px] text-muted-foreground font-black uppercase">
+                                    Sin resultados para estos filtros
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="border border-zinc-200 rounded-lg overflow-hidden bg-white shadow-sm">
+                        <div className="overflow-x-auto min-h-[150px]">
+                            <Table>
+                                <TableHeader className="bg-zinc-50 border-b border-zinc-200">
+                                    <TableRow className="hover:bg-zinc-50">
+                                        <TableHead className="text-zinc-700 font-extrabold text-[9px] uppercase py-2 tracking-wider border-r border-zinc-200 min-w-[200px]">Cliente / Zona</TableHead>
+                                        <TableHead className="text-zinc-700 font-extrabold text-[9px] uppercase py-2 tracking-wider border-r border-zinc-200 min-w-[180px]">Domicilio / Contacto</TableHead>
+                                        <TableHead className="text-zinc-700 font-extrabold text-[9px] uppercase py-2 tracking-wider border-r border-zinc-200 min-w-[180px]">Responsable (Aval)</TableHead>
+                                        <TableHead className="text-zinc-700 font-extrabold text-center text-[9px] uppercase py-2 tracking-wider border-r border-zinc-200 min-w-[100px]">Fechas (Inicio/Vence)</TableHead>
+                                        <TableHead className="text-zinc-700 font-extrabold text-[9px] uppercase py-2 tracking-wider border-r border-zinc-200 min-w-[160px]">Estado Financiero</TableHead>
+                                        <TableHead className="text-zinc-700 font-extrabold text-center text-[9px] uppercase py-2 tracking-wider min-w-[120px]">Acciones</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {filteredLoans.length > 0 ? (
+                                        filteredLoans.map(details => (
+                                            <OverdueCard 
+                                                key={details.loan.id} 
+                                                details={details} 
+                                                allClients={clients}
+                                                allLoanPlans={loanPlans}
+                                                plazaColor={plazaColors[details.hierarchy.plazaId] || '#666'}
+                                                isOverduePortfolio={isOverduePortfolio}
+                                                appConfig={appConfig}
+                                                viewMode="table-row"
+                                            />
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={6} className="py-8 text-center border-dashed bg-muted/20">
+                                                <p className="text-[11px] text-muted-foreground font-black uppercase">
+                                                    Sin resultados para estos filtros
+                                                </p>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
