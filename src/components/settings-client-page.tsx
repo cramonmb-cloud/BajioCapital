@@ -57,6 +57,7 @@ const appNameSchema = z.object({
 });
 const logoFormSchema = z.object({
   logoUrl: z.string().url('URL no válida.').or(z.literal('')),
+  pwaLogoUrl: z.string().url('URL no válida.').or(z.literal('')),
   logoFormat: z.enum(['square', 'horizontal']).default('square'),
   logoHeightHeader: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(200).optional()),
   logoWidthHeader: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(800).optional()),
@@ -118,6 +119,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
         resolver: zodResolver(logoFormSchema),
         defaultValues: { 
             logoUrl: initialConfig?.logoUrl || '',
+            pwaLogoUrl: initialConfig?.pwaLogoUrl || '',
             logoFormat: initialConfig?.logoFormat || 'square',
             logoHeightHeader: initialConfig?.logoHeightHeader ?? undefined,
             logoWidthHeader: initialConfig?.logoWidthHeader ?? undefined,
@@ -328,7 +330,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                 logoWidthDashboard: values.logoWidthDashboard ?? undefined,
                 logoHeightLogin: values.logoHeightLogin ?? undefined,
                 logoWidthLogin: values.logoWidthLogin ?? undefined,
-            });
+            }, values.pwaLogoUrl);
             if (result.success) {
                 toast({ title: 'Actualizado', description: 'Logo guardado.' });
                 router.refresh();
@@ -406,6 +408,20 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                         </div>
                                         <FormDescription className="text-xs">
                                             Se admiten imágenes estáticas (PNG, JPG, SVG, GIF) y videos animados (MP4, WebM).
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+
+                                <FormField control={logoForm.control} name="pwaLogoUrl" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="font-bold">URL de la Imagen para la PWA (Icono)</FormLabel>
+                                        <div className="relative flex-grow">
+                                            <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                            <FormControl><Input placeholder="https://ejemplo.com/pwa-logo.png" {...field} className="pl-10" /></FormControl>
+                                        </div>
+                                        <FormDescription className="text-xs">
+                                            Esta imagen se utilizará como icono de la aplicación web progresiva (PWA) instalada en dispositivos móviles. Se recomienda que sea una imagen cuadrada en formato PNG.
                                         </FormDescription>
                                         <FormMessage />
                                     </FormItem>

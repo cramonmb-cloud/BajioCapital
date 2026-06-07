@@ -137,6 +137,7 @@ export type WhatsAppTemplates = {
 export type AppConfig = {
   appName?: string;
   logoUrl?: string;
+  pwaLogoUrl?: string;
   logoFormat?: 'square' | 'horizontal';
   logoHeightHeader?: number;
   logoWidthHeader?: number;

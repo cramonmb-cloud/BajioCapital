@@ -295,13 +295,15 @@ export async function saveLogoAction(
         logoWidthDashboard?: number;
         logoHeightLogin?: number;
         logoWidthLogin?: number;
-    }
+    },
+    pwaLogoUrl?: string
 ) {
     try {
         const configRef = doc(db, 'config', 'main');
         await setDoc(configRef, { 
             logoUrl, 
             logoFormat: logoFormat || 'square',
+            pwaLogoUrl: pwaLogoUrl || '',
             ...sizes
         }, { merge: true });
         revalidatePath('/dashboard', 'layout');
