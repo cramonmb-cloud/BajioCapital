@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { DollarSign, ArrowUpRight, ArrowDownLeft, ChevronLeft, ChevronRight } from "lucide-react";
+import { ArrowUpRight, ArrowDownLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -64,21 +64,6 @@ export function BitacoraClientPage({ wallet, transactions, clients, users }: Bit
                     Administra el flujo de dinero de tu negocio.
                 </p>
             </div>
-
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium">
-                        Saldo Actual
-                    </CardTitle>
-                    <DollarSign className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                    <div className="text-2xl font-bold">{formatCurrency(wallet.balance)}</div>
-                    <p className="text-xs text-muted-foreground">
-                        Dinero total disponible.
-                    </p>
-                </CardContent>
-            </Card>
 
             <Card>
                 <CardHeader>
