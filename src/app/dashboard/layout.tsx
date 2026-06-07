@@ -220,15 +220,15 @@ export default function DashboardLayout({
               </div>
 
               {/* Derecha: Acciones y Perfil */}
-              <div className="flex items-center gap-2">
-                  <div className="hidden sm:flex items-center gap-1.5">
-                     <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:bg-muted/50 transition-colors" asChild>
+              <div className="flex items-center gap-3">
+                  <div className="hidden sm:flex items-center gap-1">
+                     <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:bg-muted/50 transition-colors [&_svg]:size-[18px]" asChild>
                         <Link href="/dashboard/consultar-cliente">
-                            <Search className="h-4.5 w-4.5" />
+                            <Search />
                         </Link>
                      </Button>
-                     <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:bg-muted/50 transition-colors relative">
-                        <Bell className="h-4.5 w-4.5" />
+                     <Button variant="ghost" size="icon" className="rounded-full h-9 w-9 text-muted-foreground hover:bg-muted/50 transition-colors [&_svg]:size-[18px] relative">
+                        <Bell />
                         <span className="absolute top-2.5 right-2.5 w-1.5 h-1.5 bg-primary rounded-full animate-pulse" />
                         <span className="sr-only">Notificaciones</span>
                      </Button>

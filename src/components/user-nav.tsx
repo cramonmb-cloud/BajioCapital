@@ -112,17 +112,17 @@ export function UserNav() {
     <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative flex items-center gap-2 rounded-full p-1 h-9 hover:bg-muted/50 border border-transparent hover:border-border/40 transition-all active:scale-95">
+        <Button variant="ghost" className="relative flex items-center gap-2 rounded-full pl-1 pr-3 py-0 h-9 hover:bg-muted/50 border border-transparent hover:border-border/40 transition-all active:scale-95">
           <Avatar className="h-7 w-7 border shadow-sm ring-1 ring-background">
             <AvatarImage src={`https://picsum.photos/seed/${user?.uid}/40/40`} alt={displayUsername} />
             <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-bold">
               {displayUsername.charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
-          <span className="hidden sm:inline-block text-xs font-bold text-foreground/80 uppercase tracking-tight pr-1">
+          <span className="hidden sm:inline-block text-xs font-bold text-foreground/80 uppercase tracking-tight pr-1 leading-none">
             {displayUsername}
           </span>
-          <ChevronDown className="h-3 w-3 text-muted-foreground/60 mr-1" />
+          <ChevronDown className="h-3 w-3 text-muted-foreground/60" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56 mt-1 rounded-2xl p-2 shadow-2xl border-border/40" align="end" forceMount>
