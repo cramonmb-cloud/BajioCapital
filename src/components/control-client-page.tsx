@@ -406,8 +406,8 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
 
             {/* TAB CONTENT: PLAZAS */}
             {activeTab === 'plazas' && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
-                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-bottom-3 duration-300">
+                    <div className="grid gap-3 md:gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {stats.byPlaza.map(stat => {
                             const plazaCapitalRecuperado = Math.max(0, stat.totalColocadoActive - stat.totalPrestado);
                             const recPercent = stat.totalColocadoActive > 0 
@@ -421,61 +421,62 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                             return (
                                 <Card 
                                     key={stat.plazaName} 
-                                    className="relative overflow-hidden rounded-3xl border-2 hover:shadow-xl hover:shadow-zinc-200/50 dark:hover:shadow-none transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between"
+                                    className="relative overflow-hidden rounded-xl md:rounded-3xl border-2 hover:shadow-xl hover:shadow-zinc-200/50 dark:hover:shadow-none transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between"
                                     style={{ borderColor: `${stat.color}30` }}
+                                    id={`plaza-card-${stat.plazaName.toLowerCase().replace(/\s+/g, '-')}`}
                                 >
                                     <div className="absolute top-0 right-0 p-4 opacity-5">
-                                        <Building2 className="h-24 w-24" style={{ color: stat.color }} />
+                                        <Building2 className="h-16 w-16 md:h-24 md:w-24" style={{ color: stat.color }} />
                                     </div>
                                     
                                     <div>
-                                        <div className="p-5 border-b flex items-center justify-between" style={{ backgroundColor: `${stat.color}06` }}>
+                                        <div className="p-3.5 md:p-5 border-b flex items-center justify-between" style={{ backgroundColor: `${stat.color}06` }}>
                                             <div className="flex items-center gap-2">
-                                                <div className="h-2.5 w-2.5 rounded-full animate-pulse" style={{ backgroundColor: stat.color }} />
-                                                <CardTitle className="text-sm font-black uppercase tracking-wider" style={{ color: stat.color }}>
+                                                <div className="h-2 w-2 md:h-2.5 md:w-2.5 rounded-full animate-pulse" style={{ backgroundColor: stat.color }} />
+                                                <CardTitle className="text-xs md:text-sm font-black uppercase tracking-wider" style={{ color: stat.color }}>
                                                     {stat.plazaName}
                                                 </CardTitle>
                                             </div>
-                                            <span className="text-[9px] font-black uppercase px-2 py-1 rounded-full border" style={{ color: stat.color, borderColor: `${stat.color}40`, backgroundColor: `${stat.color}10` }}>
+                                            <span className="text-[9px] font-black uppercase px-2 py-0.5 md:py-1 rounded-full border" style={{ color: stat.color, borderColor: `${stat.color}40`, backgroundColor: `${stat.color}10` }}>
                                                 Activos
                                             </span>
                                         </div>
                                         
-                                        <div className="p-5 space-y-4">
+                                        <div className="p-3.5 md:p-5 space-y-3 md:space-y-4">
                                             {/* Metrics list */}
-                                            <div className="space-y-3">
+                                            <div className="space-y-2 md:space-y-3">
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">Cap. Pendiente:</span>
-                                                    <span className="text-sm font-extrabold text-zinc-800 dark:text-zinc-100">{formatCurrency(stat.totalPrestado)}</span>
+                                                    <span className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase">Cap. Pendiente:</span>
+                                                    <span className="text-xs md:text-sm font-extrabold text-zinc-800 dark:text-zinc-100">{formatCurrency(stat.totalPrestado)}</span>
                                                 </div>
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-[10px] font-bold text-muted-foreground uppercase">En Calle Vigente:</span>
-                                                    <span className="text-sm font-extrabold text-zinc-800 dark:text-zinc-100">{formatCurrency(stat.dineroEnCalle)}</span>
+                                                    <span className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase">En Calle Vigente:</span>
+                                                    <span className="text-xs md:text-sm font-extrabold text-zinc-800 dark:text-zinc-100">{formatCurrency(stat.dineroEnCalle)}</span>
                                                 </div>
-                                                <div className="flex justify-between items-center pt-2 border-t border-dashed">
-                                                    <span className="text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase">Cartera Vencida:</span>
-                                                    <span className="text-sm font-black text-rose-600 dark:text-rose-400">{formatCurrency(stat.carteraVencida)}</span>
+                                                <div className="flex justify-between items-center pt-1.5 md:pt-2 border-t border-dashed">
+                                                    <span className="text-[9px] md:text-[10px] font-black text-rose-600 dark:text-rose-400 uppercase">Cartera Vencida:</span>
+                                                    <span className="text-xs md:text-sm font-black text-rose-600 dark:text-rose-400">{formatCurrency(stat.carteraVencida)}</span>
                                                 </div>
                                             </div>
 
                                             {/* Micro Progress bars */}
-                                            <div className="space-y-2 pt-2">
+                                            <div className="space-y-2 pt-2 border-t md:border-none">
                                                 <div className="space-y-1">
-                                                    <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
+                                                    <div className="flex justify-between text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase">
                                                         <span>Recuperación de Capital</span>
                                                         <span className="font-extrabold" style={{ color: stat.color }}>{recPercent}%</span>
                                                     </div>
-                                                    <div className="h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                    <div className="h-1 md:h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                                                         <div className="h-full rounded-full" style={{ width: `${recPercent}%`, backgroundColor: stat.color }} />
                                                     </div>
                                                 </div>
                                                 
                                                 <div className="space-y-1">
-                                                    <div className="flex justify-between text-[9px] font-bold text-muted-foreground uppercase">
+                                                    <div className="flex justify-between text-[8px] md:text-[9px] font-bold text-muted-foreground uppercase">
                                                         <span>Tasa de Morosidad</span>
                                                         <span className="font-extrabold text-rose-600">{cvRatio}%</span>
                                                     </div>
-                                                    <div className="h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                                                    <div className="h-1 md:h-1.5 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                                                         <div className="h-full bg-rose-500 rounded-full" style={{ width: `${cvRatio}%` }} />
                                                     </div>
                                                 </div>
@@ -483,7 +484,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                                         </div>
                                     </div>
                                     
-                                    <div className="p-4 bg-zinc-50 dark:bg-zinc-900 border-t flex justify-between items-center text-[10px] font-bold text-muted-foreground uppercase">
+                                    <div className="p-3 md:p-4 bg-zinc-50 dark:bg-zinc-900 border-t flex justify-between items-center text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase">
                                         <span>Colocación Activa:</span>
                                         <span className="font-extrabold text-zinc-700 dark:text-zinc-300">{formatCurrency(stat.totalColocadoActive)}</span>
                                     </div>
@@ -492,7 +493,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                         })}
                     </div>
                     {stats.byPlaza.length === 0 && (
-                        <Card className="rounded-3xl border border-dashed p-12 text-center text-muted-foreground bg-zinc-50/50">
+                        <Card className="rounded-xl md:rounded-3xl border border-dashed p-12 text-center text-muted-foreground bg-zinc-50/50">
                             <ShieldAlert className="h-12 w-12 mx-auto text-muted-foreground/50 mb-4" />
                             <p className="font-medium">No hay plazas definidas o no hay datos de préstamos activos.</p>
                         </Card>

@@ -692,30 +692,30 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
   };
 
   return (
-    <Card className="rounded-3xl border border-zinc-200/60 dark:border-zinc-800 shadow-sm overflow-hidden bg-white dark:bg-zinc-950">
-      <CardHeader className="bg-zinc-50/50 dark:bg-zinc-900/40 border-b pb-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-500/10 text-blue-600 rounded-2xl">
-            <FileBarChart2 className="h-6 w-6" />
+    <Card className="rounded-xl md:rounded-3xl border border-zinc-200/60 dark:border-zinc-800 shadow-sm overflow-hidden bg-white dark:bg-zinc-950">
+      <CardHeader className="bg-zinc-50/50 dark:bg-zinc-900/40 border-b p-4 md:p-6 pb-4 md:pb-6">
+        <div className="flex items-center gap-2.5 md:gap-3">
+          <div className="p-1.5 md:p-2 bg-blue-500/10 text-blue-600 rounded-xl md:rounded-2xl shrink-0">
+            <FileBarChart2 className="h-5 w-5 md:h-6 md:w-6" />
           </div>
           <div>
-            <CardTitle className="text-xl font-bold uppercase">Centro de Informes Avanzados</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-base md:text-xl font-bold uppercase">Centro de Informes Avanzados</CardTitle>
+            <CardDescription className="text-[10px] md:text-xs">
               Genera y descarga reportes detallados en formatos Excel y PDF con filtros dinámicos.
             </CardDescription>
           </div>
         </div>
       </CardHeader>
       
-      <CardContent className="p-6 space-y-6">
+      <CardContent className="p-3.5 md:p-6 space-y-4 md:space-y-6">
         {/* Filters Form Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-6">
           
           {/* Report Type Selector */}
           <div className="space-y-2">
             <label className="text-xs font-black uppercase text-zinc-500 dark:text-zinc-400">Tipo de Reporte</label>
             <Select value={reportType} onValueChange={(val: ReportType) => setReportType(val)}>
-              <SelectTrigger className="h-10 rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
+              <SelectTrigger className="h-9 md:h-10 rounded-lg md:rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
                 <SelectValue placeholder="Selecciona el reporte" />
               </SelectTrigger>
               <SelectContent>
@@ -735,7 +735,7 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
               setSelectedLocalidad('all');
               setSelectedPromotora('all');
             }}>
-              <SelectTrigger className="h-10 rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
+              <SelectTrigger className="h-9 md:h-10 rounded-lg md:rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -752,7 +752,7 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
               setSelectedLocalidad(val);
               setSelectedPromotora('all');
             }}>
-              <SelectTrigger className="h-10 rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
+              <SelectTrigger className="h-9 md:h-10 rounded-lg md:rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -766,7 +766,7 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
           <div className="space-y-2">
             <label className="text-xs font-black uppercase text-zinc-500 dark:text-zinc-400">Promotora</label>
             <Select value={selectedPromotora} onValueChange={setSelectedPromotora}>
-              <SelectTrigger className="h-10 rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
+              <SelectTrigger className="h-9 md:h-10 rounded-lg md:rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -781,7 +781,7 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
             <div className="space-y-2">
               <label className="text-xs font-black uppercase text-zinc-500 dark:text-zinc-400">Plan de Préstamo</label>
               <Select value={selectedPlan} onValueChange={setSelectedPlan}>
-                <SelectTrigger className="h-10 rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
+                <SelectTrigger className="h-9 md:h-10 rounded-lg md:rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -794,7 +794,7 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
             <div className="space-y-2">
               <label className="text-xs font-black uppercase text-zinc-500 dark:text-zinc-400">Estatus del Cliente</label>
               <Select value={clientStatusFilter} onValueChange={(val: any) => setClientStatusFilter(val)}>
-                <SelectTrigger className="h-10 rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
+                <SelectTrigger className="h-9 md:h-10 rounded-lg md:rounded-xl bg-zinc-50/50 focus:bg-background border-zinc-200 transition-all font-semibold text-xs">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -810,14 +810,14 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
           {/* Date Picker Filter */}
           <div className="space-y-2 md:col-span-2">
             <label className="text-xs font-black uppercase text-zinc-500 dark:text-zinc-400">Rango de Fecha de Inicio</label>
-            <div className="flex items-center gap-2 bg-zinc-50/50 dark:bg-zinc-900/40 p-1.5 rounded-xl border border-zinc-200">
-              <DatePicker date={dateRange} onDateChange={setDateRange} />
+            <div className="flex items-center bg-zinc-50/50 dark:bg-zinc-900/40 rounded-lg md:rounded-xl border border-zinc-200 h-9 md:h-10 overflow-hidden">
+              <DatePicker date={dateRange} onDateChange={setDateRange} variant="ghost" className="w-full" />
               {dateRange && (
                 <Button 
                   variant="ghost" 
                   size="icon" 
                   onClick={() => setDateRange(undefined)}
-                  className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-lg"
+                  className="h-9 w-9 md:h-10 md:w-10 text-destructive hover:bg-destructive/10 rounded-none border-l shrink-0"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -827,37 +827,37 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
         </div>
 
         {/* Dynamic Pre-visualizer Banner & Stats Summary */}
-        <div className="p-5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/80 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-start gap-3">
-            <Info className="h-5 w-5 text-blue-500 mt-0.5" />
+        <div className="p-3.5 md:p-5 rounded-xl md:rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-200/50 dark:border-zinc-800/80 flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
+          <div className="flex items-start gap-2.5 md:gap-3">
+            <Info className="h-4.5 w-4.5 md:h-5 md:w-5 text-blue-500 mt-0.5 shrink-0" />
             <div className="space-y-0.5">
-              <h4 className="text-xs font-black uppercase text-zinc-800 dark:text-zinc-200">Previsualización de Reporte</h4>
-              <p className="text-xs text-muted-foreground">
+              <h4 className="text-[11px] md:text-xs font-black uppercase text-zinc-800 dark:text-zinc-200">Previsualización de Reporte</h4>
+              <p className="text-[10px] md:text-xs text-muted-foreground leading-normal">
                 Se detectaron <span className="font-extrabold text-blue-600 dark:text-blue-400">{summaryStats.count} registros</span> que coinciden con los filtros aplicados.
               </p>
             </div>
           </div>
           
-          <div className="flex items-center gap-6 self-end md:self-auto">
+          <div className="flex items-center gap-4 md:gap-6 justify-between md:justify-end w-full md:w-auto pt-2 md:pt-0 border-t md:border-none border-zinc-100 dark:border-zinc-800">
             {reportType !== 'clients_list' && (
-              <div className="text-right">
-                <span className="text-[10px] font-bold text-muted-foreground uppercase block leading-none">Monto Colocado</span>
-                <span className="text-sm font-extrabold text-zinc-800 dark:text-zinc-100">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(summaryStats.totalColocado)}</span>
+              <div className="text-left md:text-right">
+                <span className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase block leading-none">Monto Colocado</span>
+                <span className="text-xs md:text-sm font-extrabold text-zinc-800 dark:text-zinc-100">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(summaryStats.totalColocado)}</span>
               </div>
             )}
             <div className="text-right">
-              <span className="text-[10px] font-bold text-muted-foreground uppercase block leading-none">{reportType === 'clients_list' ? 'Deuda Total Acumulada' : 'Saldo Restante'}</span>
-              <span className="text-sm font-black text-rose-600 dark:text-rose-400">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(summaryStats.totalSaldo)}</span>
+              <span className="text-[9px] md:text-[10px] font-bold text-muted-foreground uppercase block leading-none">{reportType === 'clients_list' ? 'Deuda Total' : 'Saldo Restante'}</span>
+              <span className="text-xs md:text-sm font-black text-rose-600 dark:text-rose-400">{new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(summaryStats.totalSaldo)}</span>
             </div>
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 pt-2 justify-end">
+        <div className="flex flex-col sm:flex-row gap-2.5 md:gap-4 pt-1.5 md:pt-2 justify-end">
           <Button 
             onClick={handleExportExcel} 
             disabled={isExportingExcel || reportData.length === 0}
-            className="rounded-xl h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase gap-2 min-w-[180px]"
+            className="rounded-lg md:rounded-xl h-9 md:h-11 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] md:text-xs uppercase gap-2 min-w-full sm:min-w-[180px]"
           >
             {isExportingExcel ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -870,7 +870,7 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
           <Button 
             onClick={handleExportPDF} 
             disabled={isExportingPDF || reportData.length === 0}
-            className="rounded-xl h-11 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs uppercase gap-2 min-w-[180px]"
+            className="rounded-lg md:rounded-xl h-9 md:h-11 bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] md:text-xs uppercase gap-2 min-w-full sm:min-w-[180px]"
           >
             {isExportingPDF ? (
               <Loader2 className="h-4 w-4 animate-spin" />
