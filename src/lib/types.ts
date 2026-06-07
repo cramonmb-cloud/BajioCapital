@@ -114,6 +114,7 @@ export type UserPermissions = {
     managePlans: boolean;
     manageSystem: boolean;
     manageMaintenance: boolean;
+    manageAvisos: boolean;
     // Mobile
     showMobileNavBar: boolean;
     mobileSections: string[];
@@ -150,4 +151,15 @@ export type AppConfig = {
   menuConfig?: Record<string, 'operacion' | 'administracion'>;
   operacionColor?: string;
   administracionColor?: string;
+};
+
+export type Aviso = {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl?: string;
+  createdAt: string; // ISO string
+  createdBy: string; // Username
+  readBy: string[]; // List of usernames who marked Enterado
+  active: boolean;
 };

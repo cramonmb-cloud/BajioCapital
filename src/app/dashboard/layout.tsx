@@ -4,6 +4,7 @@ import { Logo } from '@/components/logo';
 import { MainNav, allLinks } from '@/components/main-nav';
 import { UserNav } from '@/components/user-nav';
 import { MobileNavBar } from '@/components/mobile-nav-bar';
+import { FloatingAviso } from '@/components/floating-aviso';
 import { Button } from '@/components/ui/button';
 import { Bell, Menu, Search } from 'lucide-react';
 import Link from 'next/link';
@@ -47,6 +48,7 @@ export default function DashboardLayout({
       wallet: 'administracion',
       control: 'administracion',
       settings: 'administracion',
+      avisos: 'administracion',
     };
     return { ...defaultMenuConfig, ...menuConfig };
   }, [menuConfig]);
@@ -253,6 +255,7 @@ export default function DashboardLayout({
         {children}
       </main>
       <MobileNavBar />
+      <FloatingAviso />
     </div>
   );
 }

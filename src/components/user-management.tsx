@@ -47,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound, Building, CheckCircle2, Coins } from 'lucide-react';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound, Building, CheckCircle2, Coins, Megaphone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -78,6 +78,7 @@ const permissionsSchema = z.object({
   managePlans: z.boolean().default(false),
   manageSystem: z.boolean().default(false),
   manageMaintenance: z.boolean().default(false),
+  manageAvisos: z.boolean().default(false),
   // Mobile
   showMobileNavBar: z.boolean().default(false),
   mobileSections: z.array(z.string()).default([]),
@@ -126,6 +127,7 @@ const granularSettingsLabels: { id: keyof UserPermissions; label: string; descri
     { id: 'managePlans', label: 'Gestionar Planes', description: 'Creación de productos financieros', icon: Lock },
     { id: 'manageSystem', label: 'Gestionar Personalización', description: 'Nombre y Logo del negocio', icon: Edit },
     { id: 'manageMaintenance', label: 'Gestionar Mantenimiento', description: 'Sincronización y borrado crítico', icon: Wrench },
+    { id: 'manageAvisos', label: 'Gestionar Avisos', description: 'Publicación y control de avisos del sistema', icon: Megaphone },
 ];
 
 interface UserManagementProps {
@@ -541,7 +543,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                     )}>
                                         <FormControl>
                                             <Checkbox
-                                                checked={addUserForm.watch('role') === 'admin' ? true : field.value}
+                                                checked={addUserForm.watch('role') === 'admin' ? true : field.value as boolean}
                                                 onCheckedChange={field.onChange}
                                                 className="mt-1"
                                             />
@@ -913,7 +915,7 @@ export function UserManagement({ users }: UserManagementProps) {
                                             field.value || editUserForm.watch('role') === 'admin' ? "bg-blue-500/5 border-blue-500/20" : "bg-background"
                                         )}>
                                             <FormControl>
-                                                <Checkbox checked={editUserForm.watch('role') === 'admin' ? true : field.value} onCheckedChange={field.onChange} />
+                                                <Checkbox checked={editUserForm.watch('role') === 'admin' ? true : field.value as boolean} onCheckedChange={field.onChange} />
                                             </FormControl>
                                             <FormLabel className="text-sm font-medium cursor-pointer">{item.label}</FormLabel>
                                         </FormItem>

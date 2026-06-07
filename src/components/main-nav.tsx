@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { UserPermissions } from '@/lib/types';
-import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, Coins, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, Coins, Megaphone, type LucideIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo } from 'react';
 
@@ -20,6 +20,7 @@ export const allLinks: { href: string; label: string; id: string, icon: LucideIc
   { href: '/dashboard/bitacora', label: 'Bitacora', id: 'wallet', icon: Wallet },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity },
   { href: '/dashboard/ajustes', label: 'Ajustes', id: 'settings', icon: Settings },
+  { href: '/dashboard/avisos', label: 'Avisos', id: 'avisos', icon: Megaphone },
 ];
 
 interface MainNavProps {
@@ -58,6 +59,7 @@ export function MainNav({
       wallet: 'administracion',
       control: 'administracion',
       settings: 'administracion',
+      avisos: 'administracion',
     };
     return { ...defaultMenuConfig, ...menuConfig };
   }, [menuConfig]);
@@ -74,6 +76,10 @@ export function MainNav({
     if (link.id === 'settings') {
         const p = appUser.permissions;
         return p.settings || p.manageUsers || p.manageZones || p.manageMigration || p.managePlans || p.manageSystem || p.manageMaintenance;
+    }
+
+    if (link.id === 'avisos') {
+        return appUser.permissions && appUser.permissions.manageAvisos;
     }
 
     return appUser.permissions && appUser.permissions[link.id as keyof UserPermissions];

@@ -72,6 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 managePlans: true,
                 manageSystem: true,
                 manageMaintenance: true,
+                manageAvisos: true,
                 showMobileNavBar: true,
                 mobileSections: ['dashboard', 'loans', 'overduePortfolio', 'wallet', 'consultarCliente']
               };
