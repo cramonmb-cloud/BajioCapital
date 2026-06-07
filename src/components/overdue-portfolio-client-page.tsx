@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { OverdueLoanDetails } from '@/app/dashboard/cartera-vencida/page';
 import { Input } from '@/components/ui/input';
 import { OverdueCard } from '@/components/overdue-card';
@@ -50,7 +50,14 @@ export function OverduePortfolioClientPage({
     const [selectedLocalidad, setSelectedLocalidad] = useState('all');
     const [selectedPromotora, setSelectedPromotora] = useState('all');
     const [selectedFailures, setSelectedFailures] = useState('all');
-    const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+    const [viewMode, setViewMode] = useState<'cards' | 'table'>('table');
+    
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const isMobile = window.innerWidth < 768;
+            setViewMode(isMobile ? 'cards' : 'table');
+        }
+    }, []);
     
     // Date Filters
     const [selectedStartDate, setSelectedStartDate] = useState('all');
