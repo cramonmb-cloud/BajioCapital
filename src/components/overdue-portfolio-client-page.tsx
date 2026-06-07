@@ -200,6 +200,11 @@ export function OverduePortfolioClientPage({
         return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' });
     };
 
+    const activePromotoraName = useMemo(() => {
+        if (selectedPromotora === 'all') return null;
+        return promotoras.find(p => p.id === selectedPromotora)?.name;
+    }, [selectedPromotora, promotoras]);
+
     const hasActiveFilters = useMemo(() => {
         return searchTerm !== '' || 
             selectedPlaza !== 'all' || 
@@ -594,6 +599,12 @@ export function OverduePortfolioClientPage({
                 <div className="space-y-0.5">
                     <h3 className="text-xs font-black uppercase text-zinc-700 tracking-wider">
                         {filteredLoans.length} {filteredLoans.length === 1 ? 'Préstamo Encontrado' : 'Préstamos Encontrados'}
+                        {activePromotoraName && (
+                            <>
+                                {' de la promotora '}
+                                <span className="font-extrabold text-blue-700">{activePromotoraName}</span>
+                            </>
+                        )}
                     </h3>
                     <p className="text-[10px] text-zinc-400 font-bold uppercase">
                         Filtrados del total histórico de {initialOverdueLoans.length}
