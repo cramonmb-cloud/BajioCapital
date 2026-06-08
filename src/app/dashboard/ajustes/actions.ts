@@ -296,7 +296,8 @@ export async function saveLogoAction(
         logoHeightLogin?: number;
         logoWidthLogin?: number;
     },
-    pwaLogoUrl?: string
+    pwaLogoUrl?: string,
+    loginCoverUrl?: string
 ) {
     try {
         const configRef = doc(db, 'config', 'main');
@@ -304,12 +305,14 @@ export async function saveLogoAction(
             logoUrl, 
             logoFormat: logoFormat || 'square',
             pwaLogoUrl: pwaLogoUrl || '',
+            loginCoverUrl: loginCoverUrl || '',
             ...sizes
         }, { merge: true });
         revalidatePath('/dashboard', 'layout');
-        return { success: true, message: 'Logo actualizado con éxito.' };
+        revalidatePath('/login');
+        return { success: true, message: 'Identidad visual y logotipo actualizados con éxito.' };
     } catch (error: any) {
-        return { success: false, message: `Error al guardar el logo: ${error.message}` };
+        return { success: false, message: `Error al guardar la identidad visual: ${error.message}` };
     }
 }
 

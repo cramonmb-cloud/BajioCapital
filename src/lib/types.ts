@@ -155,6 +155,7 @@ export type AppConfig = {
   operacionColor?: string;
   administracionColor?: string;
   staffTypes?: string[];
+  loginCoverUrl?: string;
 };
 
 export type Aviso = {

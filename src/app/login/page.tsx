@@ -7,95 +7,108 @@ export default async function LoginPage() {
   const config = await getAppConfig();
   const logoUrl = config?.logoUrl;
   const appName = config?.appName || 'CrediControl';
+  const coverImageUrl = config?.loginCoverUrl;
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#F4F6F9] px-4 overflow-hidden select-none">
+    <div className="flex min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 select-none overflow-hidden">
       
-      {/* CSS Animation Keyframes for rotate gold border and glow breathing */}
-      <style>{`
-        @keyframes rotateGold {
-          0% {
-            transform: rotate(0deg);
-          }
-          100% {
-            transform: rotate(360deg);
-          }
-        }
-
-        @keyframes borderGoldGlow {
-          0%, 100% {
-            background-position: 0% 50%;
-          }
-          50% {
-            background-position: 100% 50%;
-          }
-        }
-
-        .animate-rotate-gold {
-          animation: rotateGold 8s linear infinite;
-        }
-
-        .animate-gold-glow {
-          background-size: 200% 200%;
-          animation: borderGoldGlow 6s ease infinite;
-        }
-      `}</style>
-
-      {/* Ambient background glows for light color mesh */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400/5 blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-purple-400/5 blur-[120px] pointer-events-none" />
-      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[40%] h-[40%] rounded-full bg-amber-400/[0.02] blur-[150px] pointer-events-none" />
-
-      {/* Floating Dollar Signs Animation */}
-      <FloatingDollars />
-
-      {/* Main card wrapper with group for hover states and entry animation */}
-      <div className="relative z-10 w-full max-w-[400px] group animate-in fade-in zoom-in-95 duration-500 ease-out">
+      {/* Columna Izquierda: Imagen de Portada configurable (Visible solo en desktop) */}
+      <div className="hidden md:flex md:w-[50%] lg:w-[60%] relative overflow-hidden bg-slate-950">
+        {/* Imagen de Fondo de Portada */}
+        {coverImageUrl ? (
+          <img 
+            src={coverImageUrl} 
+            alt="Portada de Login" 
+            className="absolute inset-0 w-full h-full object-cover select-none pointer-events-none animate-in fade-in duration-1000 ease-out"
+          />
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-tr from-slate-950 via-slate-900 to-indigo-950" />
+        )}
         
-        {/* Glowing aura shadow behind the card (pulsing gold glow) */}
-        <div 
-          className="absolute -inset-1.5 rounded-[34px] bg-gradient-to-r from-[#BF953F] via-[#FCF6BA] via-[#B38728] to-[#BF953F] opacity-15 blur-xl transition duration-1000 group-hover:opacity-25 group-hover:blur-2xl animate-gold-glow"
-        />
-        
-        {/* 1.5px Outer Container with Rotating Gold Gradient Border */}
-        <div 
-          className="relative overflow-hidden rounded-[32px] p-[1.5px] transition-all duration-500 ease-out shadow-[0_25px_55px_-12px_rgba(15,23,42,0.12),_0_12px_24px_-8px_rgba(15,23,42,0.06),_0_0_80px_rgba(59,130,246,0.02)] group-hover:-translate-y-1.5 group-hover:shadow-[0_45px_80px_-15px_rgba(15,23,42,0.2),_0_20px_35px_-8px_rgba(15,23,42,0.1),_0_0_100px_rgba(59,130,246,0.05)]"
-        >
-          {/* Rotating Conic Gold Gradient Background for Circular Animation */}
-          <div className="absolute inset-[-150%] bg-[conic-gradient(from_0deg,#BF953F,#FCF6BA,#B38728,#FBF5B7,#BF953F)] animate-rotate-gold pointer-events-none" />
+        {/* Máscara oscura para contraste */}
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/25 to-black/35 z-10" />
 
-          {/* Card Body: Glassmorphic White Container */}
-          <div className="relative w-full bg-white/95 backdrop-blur-xl rounded-[30.5px] p-8 border border-white/50 z-10">
-            
-            {/* Header section: Logo & App Title */}
-            <div className="flex flex-col items-center justify-center mb-6 gap-3.5 text-center">
-              {logoUrl && (
-                <div className="p-1 rounded-2xl bg-white border border-slate-100/80 shadow-[0_4px_12px_rgba(15,23,42,0.03)] transition duration-500 group-hover:scale-105">
-                  <Logo 
-                    logoUrl={logoUrl} 
-                    logoFormat={config?.logoFormat} 
-                    size="xl" 
-                    customHeight={config?.logoHeightLogin}
-                    customWidth={config?.logoWidthLogin}
-                    className="flex items-center justify-center scale-95" 
-                  />
-                </div>
-              )}
-              <div className="space-y-1.5">
-                <h1 className="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-slate-900 via-slate-800 to-slate-950">
-                  {appName}
-                </h1>
-                <p className="text-[9px] text-slate-400 font-extrabold uppercase tracking-[0.25em]">
-                  Portal de Acceso
-                </p>
+        {/* Luces decorativas */}
+        <div className="absolute top-1/4 left-1/4 w-[40%] h-[40%] rounded-full bg-blue-500/10 blur-[100px] pointer-events-none z-10" />
+        <div className="absolute bottom-1/4 right-1/4 w-[40%] h-[40%] rounded-full bg-indigo-500/10 blur-[100px] pointer-events-none z-10" />
+
+        {/* Textos y Marca */}
+        <div className="relative z-20 flex flex-col justify-between h-full w-full p-12 lg:p-16 text-white animate-in fade-in slide-in-from-left-6 duration-700">
+          {/* Top Header */}
+          <div className="flex items-center gap-3">
+            {logoUrl && (
+              <div className="p-1.5 rounded-xl bg-white/10 backdrop-blur-md border border-white/20 shadow-lg">
+                <Logo 
+                  logoUrl={logoUrl} 
+                  logoFormat={config?.logoFormat} 
+                  size="md" 
+                  className="invert brightness-0 scale-95" 
+                />
               </div>
-            </div>
+            )}
+            <span className="text-lg font-black tracking-tight">{appName}</span>
+          </div>
 
-            {/* Inputs & submit button form */}
-            <LoginForm />
+          {/* Bottom Info */}
+          <div className="space-y-4 max-w-lg">
+            <h2 className="text-4xl lg:text-5xl font-black leading-tight tracking-tight drop-shadow-md">
+              Control Integral de tu Negocio
+            </h2>
+            <p className="text-sm lg:text-base text-white/80 leading-relaxed font-medium">
+              Administra expedientes de personal, supervisa la cobranza en tiempo real, organiza zonas, planes de crédito y asegura el control operativo de tu negocio.
+            </p>
+            <div className="h-1.5 w-16 bg-primary rounded-full mt-2" />
           </div>
         </div>
       </div>
+
+      {/* Columna Derecha: Formulario de Login */}
+      <div className="w-full md:w-[50%] lg:w-[40%] flex flex-col justify-between bg-[#F8FAFC] dark:bg-slate-950 p-8 md:p-12 lg:p-16 relative">
+        {/* Iluminación de fondo */}
+        <div className="absolute top-[-10%] right-[-10%] w-[60%] h-[60%] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[60%] h-[60%] rounded-full bg-blue-500/5 blur-[120px] pointer-events-none" />
+
+        {/* Animación de Dólares flotando */}
+        <FloatingDollars />
+
+        {/* Card Contenedor */}
+        <div className="flex-1 flex flex-col justify-center max-w-[380px] w-full mx-auto relative z-10 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Logo y Encabezado */}
+          <div className="flex flex-col items-center mb-8 gap-4 text-center">
+            {logoUrl && (
+              <div className="p-1 rounded-2xl bg-white border border-slate-100/80 shadow-[0_4px_16px_rgba(15,23,42,0.04)] transition duration-500 hover:scale-105">
+                <Logo 
+                  logoUrl={logoUrl} 
+                  logoFormat={config?.logoFormat} 
+                  size="xl" 
+                  customHeight={config?.logoHeightLogin}
+                  customWidth={config?.logoWidthLogin}
+                  className="flex items-center justify-center scale-95" 
+                />
+              </div>
+            )}
+            <div className="space-y-1">
+              <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+                {appName}
+              </h1>
+              <p className="text-[10px] text-slate-400 font-extrabold uppercase tracking-[0.25em]">
+                Ingresa al Sistema
+              </p>
+            </div>
+          </div>
+
+          {/* Formulario */}
+          <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/40 rounded-3xl p-6 md:p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
+            <LoginForm />
+          </div>
+        </div>
+
+        {/* Copyright */}
+        <div className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-wider relative z-10 mt-8">
+          © {new Date().getFullYear()} {appName} · Todos los derechos reservados
+        </div>
+      </div>
+      
     </div>
   );
 }
