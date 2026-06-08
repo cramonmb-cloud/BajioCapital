@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { UserPermissions } from '@/lib/types';
-import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, Coins, Megaphone, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, Coins, Megaphone, UserCheck, type LucideIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo } from 'react';
 
@@ -19,6 +19,7 @@ export const allLinks: { href: string; label: string; id: string, icon: LucideIc
   { href: '/dashboard/debes', label: 'Debes', id: 'debes', icon: Coins },
   { href: '/dashboard/bitacora', label: 'Bitacora', id: 'wallet', icon: Wallet },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity },
+  { href: '/dashboard/personal', label: 'Personal', id: 'personal', icon: UserCheck },
   { href: '/dashboard/ajustes', label: 'Ajustes', id: 'settings', icon: Settings },
   { href: '/dashboard/avisos', label: 'Avisos', id: 'avisos', icon: Megaphone },
 ];
@@ -27,6 +28,7 @@ interface MainNavProps {
     isMobile?: boolean;
     onLinkClick?: () => void;
     menuConfig?: Record<string, 'operacion' | 'administracion'>;
+    menuOrder?: string[];
     activeTab: 'operacion' | 'administracion';
     setActiveTab: (tab: 'operacion' | 'administracion') => void;
     operacionColor?: string;
@@ -37,6 +39,7 @@ export function MainNav({
   isMobile = false, 
   onLinkClick, 
   menuConfig, 
+  menuOrder,
   activeTab, 
   setActiveTab,
   operacionColor = '#3b82f6',
@@ -60,6 +63,7 @@ export function MainNav({
       control: 'administracion',
       settings: 'administracion',
       avisos: 'administracion',
+      personal: 'administracion',
     };
     return { ...defaultMenuConfig, ...menuConfig };
   }, [menuConfig]);
@@ -82,8 +86,32 @@ export function MainNav({
         return appUser.permissions && appUser.permissions.manageAvisos;
     }
 
+    if (link.id === 'personal') {
+        return appUser.permissions && appUser.permissions.managePersonal;
+    }
+
     return appUser.permissions && appUser.permissions[link.id as keyof UserPermissions];
   });
+
+  const orderedAllowedLinks = useMemo(() => {
+    if (!menuOrder || menuOrder.length === 0) {
+      return allowedLinks;
+    }
+    return [...allowedLinks].sort((a, b) => {
+      const indexA = menuOrder.indexOf(a.id);
+      const indexB = menuOrder.indexOf(b.id);
+      const posA = indexA === -1 ? 999 : indexA;
+      const posB = indexB === -1 ? 999 : indexB;
+      return posA - posB;
+    });
+  }, [allowedLinks, menuOrder]);
+
+  const filteredLinks = useMemo(() => {
+    return orderedAllowedLinks.filter(link => {
+      const category = mergedMenuConfig[link.id] || 'operacion';
+      return category === activeTab;
+    });
+  }, [orderedAllowedLinks, mergedMenuConfig, activeTab]);
 
   const getIconClass = (id: string, isActive: boolean, sizeClass = "h-5 w-5") => {
     return cn(
@@ -97,10 +125,6 @@ export function MainNav({
   };
 
   if (isMobile) {
-    const filteredLinks = allowedLinks.filter(link => {
-      const category = mergedMenuConfig[link.id] || 'operacion';
-      return category === activeTab;
-    });
 
     return (
         <div className="flex flex-col gap-4">
@@ -175,11 +199,6 @@ export function MainNav({
         </div>
     );
   }
-
-  const filteredLinks = allowedLinks.filter(link => {
-    const category = mergedMenuConfig[link.id] || 'operacion';
-    return category === activeTab;
-  });
 
   return (
         <div className="flex items-center bg-muted/40 p-1 rounded-full border border-border/50 backdrop-blur-sm shadow-inner h-10 transition-all duration-300">

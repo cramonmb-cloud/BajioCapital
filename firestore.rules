@@ -119,5 +119,11 @@ service cloud.firestore {
       allow create, delete: if isAdmin() || isCristobal() || (isSignedIn() && getUserData().permissions.manageAvisos == true);
       allow update: if isStaff();
     }
+
+    // Fichas de Personal (Expedientes de Empleados)
+    match /personal/{id} {
+      allow read: if isStaff();
+      allow write: if isAdmin() || isCristobal() || (isSignedIn() && getUserData().permissions.managePersonal == true);
+    }
   }
 }

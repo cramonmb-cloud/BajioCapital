@@ -115,6 +115,7 @@ export type UserPermissions = {
     manageSystem: boolean;
     manageMaintenance: boolean;
     manageAvisos: boolean;
+    managePersonal: boolean;
     // Mobile
     showMobileNavBar: boolean;
     mobileSections: string[];
@@ -128,6 +129,7 @@ export type AppUser = {
     password?: string;
     assignedPlazaIds?: string[];
     assignedLocalidadIds?: string[];
+    personalId?: string;
 };
 
 export type WhatsAppTemplates = {
@@ -149,8 +151,10 @@ export type AppConfig = {
   whatsappTemplate?: string; // Mantener por compatibilidad con default client
   whatsappTemplates?: Record<string, WhatsAppTemplates>; // PlazaId -> Templates
   menuConfig?: Record<string, 'operacion' | 'administracion'>;
+  menuOrder?: string[];
   operacionColor?: string;
   administracionColor?: string;
+  staffTypes?: string[];
 };
 
 export type Aviso = {
@@ -162,4 +166,25 @@ export type Aviso = {
   createdBy: string; // Username
   readBy: string[]; // List of usernames who marked Enterado
   active: boolean;
+};
+
+export type Personal = {
+  id: string;
+  tipoPersonal: string; // Seleccionado del catálogo
+  nombre: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  domicilio: string; // Calle y número
+  colonia: string;
+  codigoPostal: string;
+  celular: string;
+  entregoDocumentacion: boolean;
+  firmoDocumentacion: boolean;
+  fechaNacimiento: string; // YYYY-MM-DD
+  fechaIngreso: string; // YYYY-MM-DD
+  genero: 'H' | 'M';
+  estadoNacimiento: string; // Código de 2 caracteres del estado mexicano
+  curp: string; // CURP de 18 caracteres
+  createdAt: string; // ISO String
+  registeredBy?: string; // Username of the user who registered this employee
 };

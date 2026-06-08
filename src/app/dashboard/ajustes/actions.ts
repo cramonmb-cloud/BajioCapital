@@ -647,10 +647,13 @@ export async function syncWithSupervisorAppAction(
     }
 }
 
-export async function saveMenuConfigAction(menuConfig: Record<string, 'operacion' | 'administracion'>) {
+export async function saveMenuConfigAction(
+    menuConfig: Record<string, 'operacion' | 'administracion'>,
+    menuOrder?: string[]
+) {
     try {
         const configRef = doc(db, 'config', 'main');
-        await setDoc(configRef, { menuConfig }, { merge: true });
+        await setDoc(configRef, { menuConfig, menuOrder: menuOrder || null }, { merge: true });
         revalidatePath('/dashboard', 'layout');
         return { success: true, message: 'Distribución del menú guardada con éxito.' };
     } catch (error: any) {
@@ -666,5 +669,17 @@ export async function saveMenuColorsAction(operacionColor: string, administracio
         return { success: true, message: 'Colores de los menús guardados con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar los colores: ${error.message}` };
+    }
+}
+
+export async function saveStaffTypesAction(staffTypes: string[]) {
+    try {
+        const configRef = doc(db, 'config', 'main');
+        await setDoc(configRef, { staffTypes }, { merge: true });
+        revalidatePath('/dashboard', 'layout');
+        revalidatePath('/dashboard/ajustes');
+        return { success: true, message: 'Tipos de personal guardados con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar los tipos de personal: ${error.message}` };
     }
 }

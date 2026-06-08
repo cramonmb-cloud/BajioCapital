@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Users, MapPin, Settings as SettingsIcon, Wrench, FileText, ArrowRightLeft, CloudDownload } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import Loading from "../loading";
-import { useMemo } from "react";
+import { useMemo, Fragment } from "react";
+import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
     const { data, loading } = useRealtimeData();
@@ -44,6 +45,63 @@ export default function SettingsPage() {
         };
     }, [appUser]);
 
+    const visibleTabs = useMemo(() => {
+        const tabs: { value: string; label: string; icon: React.ReactNode; className?: string }[] = [];
+        if (!permissions) return tabs;
+        if (permissions.users) {
+            tabs.push({
+                value: "users",
+                label: "Usuarios",
+                icon: <Users className="h-4 w-4" />,
+            });
+        }
+        if (permissions.zones) {
+            tabs.push({
+                value: "zones",
+                label: "Localidades y Promotoras",
+                icon: <MapPin className="h-4 w-4" />,
+            });
+        }
+        if (permissions.migration) {
+            tabs.push({
+                value: "migration",
+                label: "Migración",
+                icon: <ArrowRightLeft className="h-4 w-4" />,
+            });
+        }
+        if (permissions.plans) {
+            tabs.push({
+                value: "plans",
+                label: "Planes",
+                icon: <FileText className="h-4 w-4" />,
+            });
+        }
+        if (permissions.sync) {
+            tabs.push({
+                value: "sync",
+                label: "Sincronización",
+                icon: <CloudDownload className="h-4 w-4" />,
+                className: "text-blue-600 dark:text-blue-400 data-[state=active]:text-white",
+            });
+        }
+        if (permissions.system) {
+            tabs.push({
+                value: "system",
+                label: "Personalización",
+                icon: <SettingsIcon className="h-4 w-4" />,
+            });
+        }
+        if (permissions.maintenance) {
+            tabs.push({
+                value: "maintenance",
+                label: "Mantenimiento",
+                icon: <Wrench className="h-4 w-4" />,
+                className: "text-destructive data-[state=active]:text-white",
+            });
+        }
+        return tabs;
+    }, [permissions]);
+
     if (loading || !data || !permissions) {
         return <Loading />;
     }
@@ -62,56 +120,28 @@ export default function SettingsPage() {
         <div className="container mx-auto space-y-8 py-6">
             <div className="flex flex-col gap-2 border-b pb-6">
                 <h1 className="text-4xl font-extrabold tracking-tight">Ajustes del Sistema</h1>
-                <p className="text-lg text-muted-foreground">
-                    Administra los parámetros operativos y de seguridad de la plataforma.
-                </p>
             </div>
 
             <Tabs defaultValue={defaultTab} className="space-y-8">
                 <div className="flex justify-center md:justify-start">
-                    <TabsList className="inline-flex h-12 items-center justify-center rounded-lg bg-muted p-1 text-muted-foreground w-full md:w-auto overflow-x-auto">
-                        {permissions.users && (
-                            <TabsTrigger value="users" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
-                                <Users className="h-4 w-4" />
-                                <span className="hidden sm:inline">Personal</span>
-                            </TabsTrigger>
-                        )}
-                        {permissions.zones && (
-                            <TabsTrigger value="zones" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
-                                <MapPin className="h-4 w-4" />
-                                <span className="hidden sm:inline">Localidades y Promotoras</span>
-                            </TabsTrigger>
-                        )}
-                        {permissions.migration && (
-                            <TabsTrigger value="migration" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
-                                <ArrowRightLeft className="h-4 w-4" />
-                                <span className="hidden sm:inline">Migración</span>
-                            </TabsTrigger>
-                        )}
-                        {permissions.plans && (
-                            <TabsTrigger value="plans" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
-                                <FileText className="h-4 w-4" />
-                                <span className="hidden sm:inline">Planes</span>
-                            </TabsTrigger>
-                        )}
-                        {permissions.sync && (
-                            <TabsTrigger value="sync" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-blue-600">
-                                <CloudDownload className="h-4 w-4" />
-                                <span className="hidden sm:inline">Sincronización</span>
-                            </TabsTrigger>
-                        )}
-                        {permissions.system && (
-                            <TabsTrigger value="system" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm">
-                                <SettingsIcon className="h-4 w-4" />
-                                <span className="hidden sm:inline">Personalización</span>
-                            </TabsTrigger>
-                        )}
-                        {permissions.maintenance && (
-                            <TabsTrigger value="maintenance" className="flex items-center gap-2 px-6 py-2 transition-all data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-sm text-destructive data-[state=active]:text-destructive">
-                                <Wrench className="h-4 w-4" />
-                                <span className="hidden sm:inline">Mantenimiento</span>
-                            </TabsTrigger>
-                        )}
+                    <TabsList className="inline-flex h-auto items-center justify-start md:justify-center rounded-xl bg-slate-100 dark:bg-slate-900/50 p-1 text-muted-foreground border border-slate-200/60 dark:border-slate-800/40 shadow-inner w-full md:w-auto overflow-x-auto flex-nowrap md:flex-wrap gap-1">
+                        {visibleTabs.map((tab, idx) => (
+                            <Fragment key={tab.value}>
+                                {idx > 0 && (
+                                    <span className="h-4 w-[1px] bg-slate-300/80 dark:bg-slate-700/80 shrink-0" />
+                                )}
+                                <TabsTrigger
+                                    value={tab.value}
+                                    className={cn(
+                                        "flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 active:scale-95 border border-transparent data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:font-black data-[state=active]:shadow-primary/25 text-muted-foreground hover:text-foreground hover:bg-background/50 shrink-0",
+                                        tab.className
+                                    )}
+                                >
+                                    {tab.icon}
+                                    <span className="hidden sm:inline">{tab.label}</span>
+                                </TabsTrigger>
+                            </Fragment>
+                        ))}
                     </TabsList>
                 </div>
 

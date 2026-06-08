@@ -47,16 +47,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound, Building, CheckCircle2, Coins, Megaphone } from 'lucide-react';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound, Building, CheckCircle2, Coins, Megaphone, UserCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import type { AppUser, UserPermissions, Plaza, Localidad } from '@/lib/types';
+import type { AppUser, UserPermissions, Plaza, Localidad, Personal } from '@/lib/types';
 import { deleteUserAction, saveUserAction } from '@/app/dashboard/ajustes/actions';
 import { Badge } from './ui/badge';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
+import { db } from '@/lib/firebase';
+import { collection, onSnapshot } from 'firebase/firestore';
 
 const permissionsSchema = z.object({
   dashboard: z.boolean().default(false),
@@ -79,6 +81,7 @@ const permissionsSchema = z.object({
   manageSystem: z.boolean().default(false),
   manageMaintenance: z.boolean().default(false),
   manageAvisos: z.boolean().default(false),
+  managePersonal: z.boolean().default(false),
   // Mobile
   showMobileNavBar: z.boolean().default(false),
   mobileSections: z.array(z.string()).default([]),
@@ -117,17 +120,19 @@ const permissionLabels: { id: keyof Omit<UserPermissions, 'showMobileNavBar' | '
     { id: 'wallet', label: 'Bitacora', description: 'Flujo de caja y movimientos', icon: Wallet },
     { id: 'control', label: 'Control', description: 'Capital en calle y proyecciones', icon: Activity },
     { id: 'editClients', label: 'Editar Clientes', description: 'Modificar datos de clientes existentes', icon: Edit },
+    { id: 'plans', label: 'Planes (Ajustes)', description: 'Ver pestaña de planes en ajustes', icon: Lock },
     { id: 'settings', label: 'Ajustes (Maestro)', description: 'Acceso total a la página de ajustes', icon: Settings },
 ];
 
 const granularSettingsLabels: { id: keyof UserPermissions; label: string; description: string; icon: any }[] = [
-    { id: 'manageUsers', label: 'Gestionar Personal', description: 'Control de usuarios y permisos', icon: Users },
+    { id: 'manageUsers', label: 'Gestionar Accesos (Usuarios)', description: 'Control de cuentas de acceso y sus permisos', icon: Users },
     { id: 'manageZones', label: 'Gestionar Localidades y Promotoras', description: 'Plazas, Localidades y Promotoras', icon: MapPin },
     { id: 'manageMigration', label: 'Gestionar Migración', description: 'Traslado masivo de localidades', icon: ArrowRightLeft },
     { id: 'managePlans', label: 'Gestionar Planes', description: 'Creación de productos financieros', icon: Lock },
     { id: 'manageSystem', label: 'Gestionar Personalización', description: 'Nombre y Logo del negocio', icon: Edit },
     { id: 'manageMaintenance', label: 'Gestionar Mantenimiento', description: 'Sincronización y borrado crítico', icon: Wrench },
     { id: 'manageAvisos', label: 'Gestionar Avisos', description: 'Publicación y control de avisos del sistema', icon: Megaphone },
+    { id: 'managePersonal', label: 'Gestionar Expedientes (Personal)', description: 'Registro y administración de fichas de empleados', icon: UserCheck },
 ];
 
 interface UserManagementProps {
@@ -139,10 +144,45 @@ export function UserManagement({ users }: UserManagementProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedUser, setSelectedUser] = useState<AppUser | null>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
   const { signUp, appUser } = useAuth();
   const { data: systemData } = useRealtimeData();
+
+  const [personalList, setPersonalList] = useState<Personal[]>([]);
+  const [isFromPersonal, setIsFromPersonal] = useState(false);
+  const [personalSearch, setPersonalSearch] = useState('');
+  const [selectedPersonal, setSelectedPersonal] = useState<Personal | null>(null);
+  const [showPersonalDropdown, setShowPersonalDropdown] = useState(false);
+
+  useEffect(() => {
+    const q = collection(db, 'personal');
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: Personal[] = [];
+      snapshot.forEach((doc) => {
+        list.push({ id: doc.id, ...doc.data() } as Personal);
+      });
+      setPersonalList(list);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    if (!showPersonalDropdown) return;
+    const handleOutsideClick = () => setShowPersonalDropdown(false);
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, [showPersonalDropdown]);
+
+  const personalMatches = useMemo(() => {
+    if (!personalSearch.trim()) return [];
+    const clean = personalSearch.toLowerCase().trim();
+    return personalList.filter(p => {
+      const fullName = `${p.nombre} ${p.apellidoPaterno} ${p.apellidoMaterno}`.toLowerCase();
+      return fullName.includes(clean) || (p.curp || '').toLowerCase().includes(clean);
+    });
+  }, [personalList, personalSearch]);
 
   const plazas = useMemo(() => systemData?.plazas || [], [systemData]);
   const localidades = useMemo(() => systemData?.localidades || [], [systemData]);
@@ -176,6 +216,8 @@ export function UserManagement({ users }: UserManagementProps) {
         managePlans: true,
         manageSystem: false,
         manageMaintenance: false,
+        manageAvisos: false,
+        managePersonal: false,
         showMobileNavBar: true,
         mobileSections: ['dashboard', 'loans', 'overduePortfolio', 'wallet', 'consultarCliente'],
       },
@@ -212,6 +254,8 @@ export function UserManagement({ users }: UserManagementProps) {
             managePlans: selectedUser.permissions?.managePlans ?? false,
             manageSystem: selectedUser.permissions?.manageSystem ?? false,
             manageMaintenance: selectedUser.permissions?.manageMaintenance ?? false,
+            manageAvisos: selectedUser.permissions?.manageAvisos ?? false,
+            managePersonal: selectedUser.permissions?.managePersonal ?? false,
             showMobileNavBar: selectedUser.permissions?.showMobileNavBar ?? false,
             mobileSections: selectedUser.permissions?.mobileSections ?? [],
         },
@@ -231,10 +275,15 @@ export function UserManagement({ users }: UserManagementProps) {
             password: values.password,
             assignedPlazaIds: values.assignedPlazaIds,
             assignedLocalidadIds: values.assignedLocalidadIds,
+            personalId: isFromPersonal && selectedPersonal ? selectedPersonal.id : undefined,
         });
 
         toast({ title: 'Usuario Creado', description: `El usuario "${values.username}" ha sido registrado.` });
         addUserForm.reset();
+        setIsFromPersonal(false);
+        setPersonalSearch('');
+        setSelectedPersonal(null);
+        setAddDialogOpen(false);
         router.refresh(); 
     } catch (error: any) {
         toast({ variant: 'destructive', title: 'Error', description: error.message });
@@ -292,20 +341,193 @@ export function UserManagement({ users }: UserManagementProps) {
   return (
     <div className="grid gap-8">
         <Card className="shadow-lg border-primary/10 overflow-hidden">
-            <CardHeader className="bg-primary/5 pb-8">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary rounded-lg">
-                        <UserPlus className="h-6 w-6 text-primary-foreground" />
-                    </div>
-                    <div>
-                        <CardTitle className="text-2xl font-bold">Registro de Personal</CardTitle>
-                        <CardDescription>Crea cuentas para supervisores y define sus niveles de acceso.</CardDescription>
-                    </div>
+            <CardHeader className="border-b bg-muted/30 py-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <CardTitle className="text-xl font-black flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                        <Users className="h-5.5 w-5.5 text-primary" />
+                        Directorio de Usuarios Activos
+                    </CardTitle>
+                    <Button 
+                        onClick={() => {
+                            addUserForm.reset();
+                            setIsFromPersonal(false);
+                            setPersonalSearch('');
+                            setSelectedPersonal(null);
+                            setAddDialogOpen(true);
+                        }}
+                        className="bg-primary hover:bg-primary/95 text-primary-foreground font-black px-5 py-2.5 rounded-xl shadow-md shadow-primary/10 flex items-center gap-2 text-xs active:scale-95 transition-transform animate-in fade-in"
+                    >
+                        <UserPlus className="h-4.5 w-4.5" />
+                        Registrar nuevo usuario
+                    </Button>
                 </div>
             </CardHeader>
-            <CardContent className="pt-8">
+            <CardContent className="p-0 overflow-x-auto">
+                <Table>
+                    <TableHeader className="bg-muted/50">
+                        <TableRow>
+                            <TableHead className="pl-8 py-4 font-bold">Usuario</TableHead>
+                            <TableHead className="font-bold">Rol de Acceso</TableHead>
+                            {isCristobal && <TableHead className="font-bold">Contraseña</TableHead>}
+                            <TableHead className="hidden md:table-cell font-bold">Privilegios</TableHead>
+                            <TableHead className="text-right pr-8 font-bold">Gestión</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {users.map(user => (
+                            <TableRow key={user.id} className="hover:bg-muted/20">
+                                <TableCell className="pl-8 font-medium py-4 uppercase">{user.username}</TableCell>
+                                <TableCell>
+                                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="font-bold px-3">
+                                        {user.role === 'admin' ? 'ADMINISTRADOR' : 'SUPERVISOR'}
+                                    </Badge>
+                                </TableCell>
+                                {isCristobal && (
+                                    <TableCell className="font-mono text-xs font-bold text-primary">
+                                        {user.password || '---'}
+                                    </TableCell>
+                                )}
+                                <TableCell className="text-[10px] text-muted-foreground max-w-[400px] hidden md:table-cell">
+                                   <div className='flex flex-wrap gap-1'>
+                                        {user.role === 'admin' ? 
+                                            <span className="text-primary font-bold">ACCESO TOTAL (POR ROL)</span> : 
+                                            [...permissionLabels, ...granularSettingsLabels]
+                                                .filter(p => user.permissions?.[p.id as keyof UserPermissions])
+                                                .map(p => <Badge key={p.id} variant="outline" className='text-[9px] h-4'>{p.label}</Badge>)
+                                        }
+                                   </div>
+                                </TableCell>
+                                <TableCell className="text-right pr-8">
+                                    <div className="flex justify-end gap-2">
+                                        <Button variant="outline" size="icon" onClick={() => openEditDialog(user)} className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600 transition-colors">
+                                            <Edit className="h-4 w-4"/>
+                                        </Button>
+                                        <Button variant="outline" size="icon" onClick={() => handleDeleteUser(user.id)} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive transition-colors">
+                                            <Trash className="h-4 w-4"/>
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                        ))}
+                    </TableBody>
+                </Table>
+            </CardContent>
+        </Card>
+
+        {/* Modal para Registrar Nuevo Usuario */}
+        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+            <DialogContent className="max-w-3xl rounded-2xl max-h-[90vh] overflow-y-auto">
                 <Form {...addUserForm}>
-                    <form onSubmit={addUserForm.handleSubmit(onAddUserSubmit)} className="space-y-8">
+                    <form onSubmit={addUserForm.handleSubmit(onAddUserSubmit)} className="space-y-6">
+                        <DialogHeader className="border-b pb-4">
+                            <DialogTitle className="text-2xl font-bold uppercase flex items-center gap-2 text-slate-800 dark:text-slate-100">
+                                <UserPlus className="h-6 w-6 text-primary" />
+                                Registrar Nuevo Usuario
+                            </DialogTitle>
+                            <DialogDescription>Crea una nueva cuenta de acceso y define sus permisos de sistema.</DialogDescription>
+                        </DialogHeader>
+
+                        {/* ¿Ya registrado como personal? */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 border rounded-2xl bg-muted/10">
+                            <div className="space-y-1">
+                                <label className="text-sm font-black text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                                    <UserCheck className="h-4.5 w-4.5 text-primary" /> ¿El usuario ya está registrado en la sección de Personal?
+                                </label>
+                                <span className="text-xs text-muted-foreground block max-w-xl">
+                                    Si seleccionas "Sí", podrás buscarlo por su nombre para vincular su cuenta y rellenar automáticamente sus datos de usuario.
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-900/50 p-1 rounded-xl border border-slate-200/60 dark:border-slate-800/40 shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsFromPersonal(true);
+                                        addUserForm.setValue('username', '');
+                                        setPersonalSearch('');
+                                        setSelectedPersonal(null);
+                                    }}
+                                    className={cn(
+                                        "px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-sm",
+                                        isFromPersonal
+                                            ? "bg-primary text-white shadow-sm font-black shadow-primary/25"
+                                            : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                                    )}
+                                >
+                                    Sí, ya es Personal
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsFromPersonal(false);
+                                        addUserForm.setValue('username', '');
+                                        setPersonalSearch('');
+                                        setSelectedPersonal(null);
+                                    }}
+                                    className={cn(
+                                        "px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 active:scale-95 border border-transparent shadow-sm",
+                                        !isFromPersonal
+                                            ? "bg-primary text-white shadow-sm font-black shadow-primary/25"
+                                            : "text-muted-foreground hover:text-foreground hover:bg-background/40"
+                                    )}
+                                >
+                                    No, crear desde cero
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Búsqueda de Personal si aplica */}
+                        {isFromPersonal && (
+                            <div className="relative border rounded-2xl p-5 bg-primary/5 border-primary/10 animate-in fade-in slide-in-from-top-2 duration-200" onClick={(e) => e.stopPropagation()}>
+                                <label className="font-extrabold text-xs text-slate-700 dark:text-slate-300 uppercase tracking-wider block mb-2">Buscar y Seleccionar Personal</label>
+                                <div className="relative max-w-md">
+                                    <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4.5 w-4.5 text-muted-foreground" />
+                                    <Input
+                                        placeholder="Escribe el nombre del empleado..."
+                                        value={personalSearch}
+                                        onChange={(e) => {
+                                            setPersonalSearch(e.target.value);
+                                            setShowPersonalDropdown(true);
+                                            setSelectedPersonal(null);
+                                            addUserForm.setValue('username', '');
+                                        }}
+                                        onFocus={() => setShowPersonalDropdown(true)}
+                                        className="pl-10 h-10 rounded-xl bg-card border-slate-200 focus-visible:ring-primary focus-visible:border-primary w-full shadow-sm"
+                                    />
+                                </div>
+                                {showPersonalDropdown && personalMatches.length > 0 && (
+                                    <div className="absolute z-50 w-full max-w-md mt-1.5 bg-popover text-popover-foreground border border-border rounded-xl shadow-xl max-h-60 overflow-y-auto divide-y">
+                                        {personalMatches.map((p) => (
+                                            <div
+                                                key={p.id}
+                                                onClick={() => {
+                                                    setSelectedPersonal(p);
+                                                    setPersonalSearch(`${p.nombre} ${p.apellidoPaterno} ${p.apellidoMaterno}`);
+                                                    setShowPersonalDropdown(false);
+                                                    
+                                                    // Normalize username to UPPERCASE_SAFE
+                                                    const cleanUsername = `${p.nombre}_${p.apellidoPaterno}`
+                                                        .toUpperCase()
+                                                        .normalize("NFD")
+                                                        .replace(/[\u0300-\u036f]/g, "") // remove accents
+                                                        .replace(/[^A-Z0-9_]/g, ""); // keep only letters, numbers, underscores
+                                                    addUserForm.setValue('username', cleanUsername);
+                                                }}
+                                                className="px-4 py-3 hover:bg-muted/80 cursor-pointer transition-colors text-sm font-semibold flex items-center justify-between"
+                                            >
+                                                <span>{p.nombre} {p.apellidoPaterno} {p.apellidoMaterno}</span>
+                                                <Badge className="bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary font-bold text-[10px] uppercase">{p.tipoPersonal}</Badge>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                                {showPersonalDropdown && personalSearch.trim() && personalMatches.length === 0 && (
+                                    <div className="absolute z-50 w-full max-w-md mt-1.5 bg-popover text-popover-foreground border rounded-xl shadow-lg p-4 text-center text-xs text-muted-foreground">
+                                        No se encontraron coincidencias en el personal registrado.
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <FormField
                                 control={addUserForm.control}
@@ -314,8 +536,18 @@ export function UserManagement({ users }: UserManagementProps) {
                                 <FormItem>
                                     <FormLabel className="font-bold">Nombre de Usuario</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="Ej: ALONSO_M" {...field} className="uppercase bg-muted/30 focus:bg-background transition-all" />
+                                        <Input 
+                                            placeholder="Ej: ALONSO_M" 
+                                            {...field} 
+                                            readOnly={isFromPersonal}
+                                            className={cn("uppercase bg-muted/30 focus:bg-background transition-all", isFromPersonal && "bg-slate-100/70 border-slate-200 cursor-not-allowed dark:bg-slate-800/40 text-muted-foreground")}
+                                        />
                                     </FormControl>
+                                    {isFromPersonal && selectedPersonal && (
+                                        <div className="mt-1 text-[10px] text-emerald-600 dark:text-emerald-500 font-extrabold flex items-center gap-1 uppercase tracking-wide">
+                                            <CheckCircle2 className="h-3.5 w-3.5" /> Vinculado: {selectedPersonal.nombre} ({selectedPersonal.tipoPersonal})
+                                        </div>
+                                    )}
                                     <FormMessage />
                                 </FormItem>
                                 )}
@@ -401,7 +633,6 @@ export function UserManagement({ users }: UserManagementProps) {
                                                                     field.onChange([...current, plaza.id]);
                                                                 } else {
                                                                     field.onChange(current.filter((val) => val !== plaza.id));
-                                                                    // Limpiar localidades de esta plaza
                                                                     const locsInPlaza = localidades.filter(l => l.plazaId === plaza.id).map(l => l.id);
                                                                     const currentLocs = addUserForm.getValues('assignedLocalidadIds') || [];
                                                                     addUserForm.setValue('assignedLocalidadIds', currentLocs.filter(id => !locsInPlaza.includes(id)));
@@ -618,75 +849,19 @@ export function UserManagement({ users }: UserManagementProps) {
                             )}
                         </div>
 
-                        <div className="flex justify-end pt-4">
-                            <Button type="submit" size="lg" disabled={isSaving} className="px-8 font-bold">
-                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                                Registrar Personal
+                        <DialogFooter className="pt-4 border-t gap-2 flex justify-end">
+                            <Button type="button" variant="outline" onClick={() => setAddDialogOpen(false)} className="rounded-xl font-bold">
+                                Cancelar
                             </Button>
-                        </div>
+                            <Button type="submit" disabled={isSaving} className="bg-primary hover:bg-primary/95 text-white rounded-xl font-black px-6 shadow-md shadow-primary/20 animate-in fade-in">
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin text-white" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                                Registrar Usuario
+                            </Button>
+                        </DialogFooter>
                     </form>
                 </Form>
-            </CardContent>
-        </Card>
-        
-        <Card className="shadow-lg border-primary/10 overflow-hidden">
-            <CardHeader className="border-b bg-muted/30">
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                    Directorio de Personal Activo
-                </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-                <Table>
-                    <TableHeader className="bg-muted/50">
-                        <TableRow>
-                            <TableHead className="pl-8 py-4 font-bold">Usuario</TableHead>
-                            <TableHead className="font-bold">Rol de Acceso</TableHead>
-                            {isCristobal && <TableHead className="font-bold">Contraseña</TableHead>}
-                            <TableHead className="hidden md:table-cell font-bold">Privilegios</TableHead>
-                            <TableHead className="text-right pr-8 font-bold">Gestión</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {users.map(user => (
-                            <TableRow key={user.id} className="hover:bg-muted/20">
-                                <TableCell className="pl-8 font-medium py-4 uppercase">{user.username}</TableCell>
-                                <TableCell>
-                                    <Badge variant={user.role === 'admin' ? 'default' : 'secondary'} className="font-bold px-3">
-                                        {user.role === 'admin' ? 'ADMINISTRADOR' : 'SUPERVISOR'}
-                                    </Badge>
-                                </TableCell>
-                                {isCristobal && (
-                                    <TableCell className="font-mono text-xs font-bold text-primary">
-                                        {user.password || '---'}
-                                    </TableCell>
-                                )}
-                                <TableCell className="text-[10px] text-muted-foreground max-w-[400px] hidden md:table-cell">
-                                   <div className='flex flex-wrap gap-1'>
-                                        {user.role === 'admin' ? 
-                                            <span className="text-primary font-bold">ACCESO TOTAL (POR ROL)</span> : 
-                                            [...permissionLabels, ...granularSettingsLabels]
-                                                .filter(p => user.permissions?.[p.id as keyof UserPermissions])
-                                                .map(p => <Badge key={p.id} variant="outline" className='text-[9px] h-4'>{p.label}</Badge>)
-                                        }
-                                   </div>
-                                </TableCell>
-                                <TableCell className="text-right pr-8">
-                                    <div className="flex justify-end gap-2">
-                                        <Button variant="outline" size="icon" onClick={() => openEditDialog(user)} className="h-8 w-8 hover:bg-blue-50 hover:text-blue-600 transition-colors">
-                                            <Edit className="h-4 w-4"/>
-                                        </Button>
-                                        <Button variant="outline" size="icon" onClick={() => handleDeleteUser(user.id)} className="h-8 w-8 hover:bg-destructive/10 hover:text-destructive transition-colors">
-                                            <Trash className="h-4 w-4"/>
-                                        </Button>
-                                    </div>
-                                </TableCell>
-                            </TableRow>
-                        ))}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+            </DialogContent>
+        </Dialog>
 
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
             <DialogContent className="max-w-3xl rounded-2xl max-h-[90vh] overflow-y-auto">

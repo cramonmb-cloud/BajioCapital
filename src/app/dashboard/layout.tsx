@@ -30,6 +30,7 @@ export default function DashboardLayout({
   const [logoWidthHeader, setLogoWidthHeader] = useState<number | undefined>(undefined);
   const [appName, setAppName] = useState<string>('CrediControl');
   const [menuConfig, setMenuConfig] = useState<Record<string, 'operacion' | 'administracion'> | undefined>(undefined);
+  const [menuOrder, setMenuOrder] = useState<string[] | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<'operacion' | 'administracion'>('operacion');
   const [operacionColor, setOperacionColor] = useState<string>('#3b82f6');
   const [administracionColor, setAdministracionColor] = useState<string>('#8b5cf6');
@@ -45,10 +46,12 @@ export default function DashboardLayout({
       loans: 'operacion',
       overduePortfolio: 'operacion',
       carteraVencida: 'operacion',
+      debes: 'operacion',
       wallet: 'administracion',
       control: 'administracion',
       settings: 'administracion',
       avisos: 'administracion',
+      personal: 'administracion',
     };
     return { ...defaultMenuConfig, ...menuConfig };
   }, [menuConfig]);
@@ -99,6 +102,11 @@ export default function DashboardLayout({
       }
       if (config?.menuConfig) {
         setMenuConfig(config.menuConfig);
+      }
+      if (config?.menuOrder) {
+        setMenuOrder(config.menuOrder);
+      } else {
+        setMenuOrder(undefined);
       }
       if (config?.operacionColor) {
         setOperacionColor(config.operacionColor);
@@ -159,6 +167,7 @@ export default function DashboardLayout({
                             isMobile={true} 
                             onLinkClick={() => setMobileMenuOpen(false)} 
                             menuConfig={menuConfig} 
+                            menuOrder={menuOrder}
                             activeTab={activeTab} 
                             setActiveTab={setActiveTab}
                             operacionColor={operacionColor}
@@ -244,6 +253,7 @@ export default function DashboardLayout({
           <div className="hidden md:flex w-full justify-center py-1">
               <MainNav 
                 menuConfig={menuConfig} 
+                menuOrder={menuOrder}
                 activeTab={activeTab} 
                 setActiveTab={setActiveTab}
                 operacionColor={operacionColor}
