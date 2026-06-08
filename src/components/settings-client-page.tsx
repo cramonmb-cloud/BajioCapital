@@ -60,6 +60,8 @@ const logoFormSchema = z.object({
   logoUrl: z.string().url('URL no válida.').or(z.literal('')),
   pwaLogoUrl: z.string().url('URL no válida.').or(z.literal('')),
   loginCoverUrl: z.string().url('URL no válida.').or(z.literal('')),
+  loginTitle: z.string().optional(),
+  loginSubtitle: z.string().optional(),
   logoFormat: z.enum(['square', 'horizontal']).default('square'),
   logoHeightHeader: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(200).optional()),
   logoWidthHeader: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(800).optional()),
@@ -123,6 +125,8 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
             logoUrl: initialConfig?.logoUrl || '',
             pwaLogoUrl: initialConfig?.pwaLogoUrl || '',
             loginCoverUrl: initialConfig?.loginCoverUrl || '',
+            loginTitle: initialConfig?.loginTitle || '',
+            loginSubtitle: initialConfig?.loginSubtitle || '',
             logoFormat: initialConfig?.logoFormat || 'square',
             logoHeightHeader: initialConfig?.logoHeightHeader ?? undefined,
             logoWidthHeader: initialConfig?.logoWidthHeader ?? undefined,
@@ -431,7 +435,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                 logoWidthDashboard: values.logoWidthDashboard ?? undefined,
                 logoHeightLogin: values.logoHeightLogin ?? undefined,
                 logoWidthLogin: values.logoWidthLogin ?? undefined,
-            }, values.pwaLogoUrl, values.loginCoverUrl);
+            }, values.pwaLogoUrl, values.loginCoverUrl, values.loginTitle, values.loginSubtitle);
             if (result.success) {
                 toast({ title: 'Actualizado', description: 'Cambios de identidad visual guardados con éxito.' });
                 router.refresh();
@@ -575,6 +579,28 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                                 </div>
                                                 <FormDescription className="text-xs">
                                                     Esta imagen se utilizará como fondo en el panel lateral de la pantalla de inicio de sesión.
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+
+                                        <FormField control={logoForm.control} name="loginTitle" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="font-bold">Título de Portada para Inicio de Sesión</FormLabel>
+                                                <FormControl><Input placeholder="Ej: Control Integral de tu Negocio" {...field} /></FormControl>
+                                                <FormDescription className="text-xs">
+                                                    Título principal que aparecerá en negrita sobre la imagen de portada.
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+
+                                        <FormField control={logoForm.control} name="loginSubtitle" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="font-bold">Subtítulo de Portada para Inicio de Sesión</FormLabel>
+                                                <FormControl><Textarea placeholder="Escribe el subtítulo aquí..." className="resize-none text-sm min-h-[80px]" {...field} /></FormControl>
+                                                <FormDescription className="text-xs">
+                                                    Texto descriptivo que aparecerá debajo del título principal en la portada.
                                                 </FormDescription>
                                                 <FormMessage />
                                             </FormItem>

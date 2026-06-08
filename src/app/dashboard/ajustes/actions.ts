@@ -297,7 +297,9 @@ export async function saveLogoAction(
         logoWidthLogin?: number;
     },
     pwaLogoUrl?: string,
-    loginCoverUrl?: string
+    loginCoverUrl?: string,
+    loginTitle?: string,
+    loginSubtitle?: string
 ) {
     try {
         const configRef = doc(db, 'config', 'main');
@@ -306,6 +308,8 @@ export async function saveLogoAction(
             logoFormat: logoFormat || 'square',
             pwaLogoUrl: pwaLogoUrl || '',
             loginCoverUrl: loginCoverUrl || '',
+            loginTitle: loginTitle || '',
+            loginSubtitle: loginSubtitle || '',
             ...sizes
         }, { merge: true });
         revalidatePath('/dashboard', 'layout');

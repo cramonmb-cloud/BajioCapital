@@ -8,6 +8,8 @@ export default async function LoginPage() {
   const logoUrl = config?.logoUrl;
   const appName = config?.appName || 'CrediControl';
   const coverImageUrl = config?.loginCoverUrl;
+  const loginTitle = config?.loginTitle || 'Control Integral de tu Negocio';
+  const loginSubtitle = config?.loginSubtitle || 'Administra expedientes de personal, supervisa la cobranza en tiempo real, organiza zonas, planes de crédito y asegura el control operativo de tu negocio.';
 
   return (
     <div className="flex min-h-screen bg-white dark:bg-slate-950 text-slate-900 dark:text-slate-50 select-none overflow-hidden">
@@ -52,10 +54,10 @@ export default async function LoginPage() {
           {/* Bottom Info */}
           <div className="space-y-4 max-w-lg">
             <h2 className="text-4xl lg:text-5xl font-black leading-tight tracking-tight drop-shadow-md">
-              Control Integral de tu Negocio
+              {loginTitle}
             </h2>
             <p className="text-sm lg:text-base text-white/80 leading-relaxed font-medium">
-              Administra expedientes de personal, supervisa la cobranza en tiempo real, organiza zonas, planes de crédito y asegura el control operativo de tu negocio.
+              {loginSubtitle}
             </p>
             <div className="h-1.5 w-16 bg-primary rounded-full mt-2" />
           </div>
