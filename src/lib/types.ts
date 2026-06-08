@@ -158,6 +158,7 @@ export type AppConfig = {
   loginCoverUrl?: string;
   loginTitle?: string;
   loginSubtitle?: string;
+  imgbbApiKey?: string;
 };
 
 export type Aviso = {

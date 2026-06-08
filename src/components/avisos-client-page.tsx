@@ -5,6 +5,7 @@ import { collection, query, onSnapshot, doc, addDoc, updateDoc, deleteDoc } from
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/hooks/use-auth';
 import type { Aviso } from '@/lib/types';
+import { ImageUploadButton } from './image-upload-button';
 import { Megaphone, Trash, Plus, CheckCircle2, Eye, EyeOff, Calendar, User, Image as ImageIcon, AlertCircle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,7 +36,11 @@ import {
   TableRow,
 } from '@/components/ui/table';
 
-export function AvisosClientPage() {
+interface AvisosClientPageProps {
+  imgbbApiKey?: string;
+}
+
+export function AvisosClientPage({ imgbbApiKey }: AvisosClientPageProps) {
   const { appUser } = useAuth();
   const { toast } = useToast();
   const [avisos, setAvisos] = useState<Aviso[]>([]);
@@ -247,19 +252,25 @@ export function AvisosClientPage() {
                   />
                 </div>
 
-                <div className="space-y-2">
+                 <div className="space-y-2">
                   <label htmlFor="imageUrl" className="text-[10px] font-black uppercase text-muted-foreground tracking-widest flex items-center gap-1">
                     <ImageIcon className="h-3.5 w-3.5" />
                     URL de la Imagen (Opcional)
                   </label>
-                  <Input
-                    id="imageUrl"
-                    type="url"
-                    placeholder="https://ejemplo.com/imagen.jpg"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    className="h-11 border-2 focus:ring-primary rounded-xl text-xs font-semibold"
-                  />
+                  <div className="flex gap-2 items-center">
+                    <Input
+                      id="imageUrl"
+                      type="url"
+                      placeholder="https://ejemplo.com/imagen.jpg"
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      className="h-11 border-2 focus:ring-primary rounded-xl text-xs font-semibold flex-grow"
+                    />
+                    <ImageUploadButton 
+                      apiKey={imgbbApiKey} 
+                      onUploadSuccess={(url) => setImageUrl(url)} 
+                    />
+                  </div>
                 </div>
 
                 {imageUrl.trim() && (

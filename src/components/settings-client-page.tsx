@@ -42,7 +42,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck, MapPin, Route, Building, ChevronUp, ChevronDown } from "lucide-react";
+import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck, MapPin, Route, Building, ChevronUp, ChevronDown, Key } from "lucide-react";
+import { ImageUploadButton } from "./image-upload-button";
 import { useToast } from "@/hooks/use-toast";
 import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction, saveMenuConfigAction, saveMenuColorsAction, saveStaffTypesAction } from "@/app/dashboard/ajustes/actions";
 import { useRouter } from "next/navigation";
@@ -62,6 +63,7 @@ const logoFormSchema = z.object({
   loginCoverUrl: z.string().url('URL no válida.').or(z.literal('')),
   loginTitle: z.string().optional(),
   loginSubtitle: z.string().optional(),
+  imgbbApiKey: z.string().optional(),
   logoFormat: z.enum(['square', 'horizontal']).default('square'),
   logoHeightHeader: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(200).optional()),
   logoWidthHeader: z.preprocess((val) => (val === '' || val === null || val === undefined ? undefined : Number(val)), z.number().min(10).max(800).optional()),
@@ -127,6 +129,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
             loginCoverUrl: initialConfig?.loginCoverUrl || '',
             loginTitle: initialConfig?.loginTitle || '',
             loginSubtitle: initialConfig?.loginSubtitle || '',
+            imgbbApiKey: initialConfig?.imgbbApiKey || '',
             logoFormat: initialConfig?.logoFormat || 'square',
             logoHeightHeader: initialConfig?.logoHeightHeader ?? undefined,
             logoWidthHeader: initialConfig?.logoWidthHeader ?? undefined,
@@ -136,6 +139,8 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
             logoWidthLogin: initialConfig?.logoWidthLogin ?? undefined,
         },
     });
+
+    const watchedApiKey = logoForm.watch('imgbbApiKey');
 
     const whatsappForm = useForm<WhatsappTemplatesFormValues>({
         resolver: zodResolver(whatsappTemplatesSchema),
@@ -435,7 +440,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                 logoWidthDashboard: values.logoWidthDashboard ?? undefined,
                 logoHeightLogin: values.logoHeightLogin ?? undefined,
                 logoWidthLogin: values.logoWidthLogin ?? undefined,
-            }, values.pwaLogoUrl, values.loginCoverUrl, values.loginTitle, values.loginSubtitle);
+            }, values.pwaLogoUrl, values.loginCoverUrl, values.loginTitle, values.loginSubtitle, values.imgbbApiKey);
             if (result.success) {
                 toast({ title: 'Actualizado', description: 'Cambios de identidad visual guardados con éxito.' });
                 router.refresh();
@@ -559,9 +564,15 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                         <FormField control={logoForm.control} name="pwaLogoUrl" render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="font-bold">URL de la Imagen para la PWA (Icono)</FormLabel>
-                                                <div className="relative flex-grow">
-                                                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    <FormControl><Input placeholder="https://ejemplo.com/pwa-logo.png" {...field} className="pl-10" /></FormControl>
+                                                <div className="flex gap-2 items-center">
+                                                    <div className="relative flex-grow">
+                                                        <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                        <FormControl><Input placeholder="https://ejemplo.com/pwa-logo.png" {...field} className="pl-10" /></FormControl>
+                                                    </div>
+                                                    <ImageUploadButton 
+                                                        apiKey={watchedApiKey} 
+                                                        onUploadSuccess={(url) => field.onChange(url)} 
+                                                    />
                                                 </div>
                                                 <FormDescription className="text-xs">
                                                     Esta imagen se utilizará como icono de la aplicación web progresiva (PWA) instalada en dispositivos móviles. Se recomienda que sea una imagen cuadrada en formato PNG.
@@ -573,9 +584,15 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                         <FormField control={logoForm.control} name="loginCoverUrl" render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="font-bold">URL de la Imagen de Portada para Inicio de Sesión</FormLabel>
-                                                <div className="relative flex-grow">
-                                                    <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                                    <FormControl><Input placeholder="https://ejemplo.com/portada-login.jpg" {...field} className="pl-10" /></FormControl>
+                                                <div className="flex gap-2 items-center">
+                                                    <div className="relative flex-grow">
+                                                        <ImageIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                        <FormControl><Input placeholder="https://ejemplo.com/portada-login.jpg" {...field} className="pl-10" /></FormControl>
+                                                    </div>
+                                                    <ImageUploadButton 
+                                                        apiKey={watchedApiKey} 
+                                                        onUploadSuccess={(url) => field.onChange(url)} 
+                                                    />
                                                 </div>
                                                 <FormDescription className="text-xs">
                                                     Esta imagen se utilizará como fondo en el panel lateral de la pantalla de inicio de sesión.
@@ -605,6 +622,39 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
+
+                                        <Separator />
+                                        
+                                        <div className="space-y-4 pt-2">
+                                            <h4 className="text-xs font-black uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                                                Integración de Imágenes (ImgBB)
+                                            </h4>
+                                            <p className="text-[11px] text-muted-foreground">
+                                                Configura tu API Key de ImgBB para habilitar la carga directa de archivos desde tu dispositivo para la portada del login, el logo de la PWA y los avisos.
+                                            </p>
+                                            <FormField control={logoForm.control} name="imgbbApiKey" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="font-bold">API Key de ImgBB</FormLabel>
+                                                    <div className="relative flex-grow">
+                                                        <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                        <FormControl>
+                                                            <Input 
+                                                                type="password" 
+                                                                placeholder="Ingresa tu API Key de ImgBB" 
+                                                                {...field} 
+                                                                className="pl-10" 
+                                                            />
+                                                        </FormControl>
+                                                    </div>
+                                                    <FormDescription className="text-xs">
+                                                        Consigue una clave gratuita registrándote en <a href="https://api.imgbb.com/" target="_blank" rel="noreferrer" className="underline text-primary hover:text-primary/85 font-black">api.imgbb.com</a>.
+                                                    </FormDescription>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
+                                        </div>
+                                        
+                                        <Separator />
 
                                         <FormField control={logoForm.control} name="logoFormat" render={({ field }) => (
                                             <FormItem className="space-y-2">

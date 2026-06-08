@@ -299,7 +299,8 @@ export async function saveLogoAction(
     pwaLogoUrl?: string,
     loginCoverUrl?: string,
     loginTitle?: string,
-    loginSubtitle?: string
+    loginSubtitle?: string,
+    imgbbApiKey?: string
 ) {
     try {
         const configRef = doc(db, 'config', 'main');
@@ -310,6 +311,7 @@ export async function saveLogoAction(
             loginCoverUrl: loginCoverUrl || '',
             loginTitle: loginTitle || '',
             loginSubtitle: loginSubtitle || '',
+            imgbbApiKey: imgbbApiKey || '',
             ...sizes
         }, { merge: true });
         revalidatePath('/dashboard', 'layout');
