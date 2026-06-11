@@ -692,3 +692,15 @@ export async function saveStaffTypesAction(staffTypes: string[]) {
         return { success: false, message: `Error al guardar los tipos de personal: ${error.message}` };
     }
 }
+
+export async function saveImprentaUrlAction(imprentaIframeUrl: string) {
+    try {
+        const configRef = doc(db, 'config', 'main');
+        await setDoc(configRef, { imprentaIframeUrl }, { merge: true });
+        revalidatePath('/dashboard', 'layout');
+        revalidatePath('/dashboard/imprenta');
+        return { success: true, message: 'URL del iframe de Imprenta guardada con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar la URL del iframe: ${error.message}` };
+    }
+}

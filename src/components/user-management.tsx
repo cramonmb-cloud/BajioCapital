@@ -47,7 +47,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound, Building, CheckCircle2, Coins, Megaphone, UserCheck } from 'lucide-react';
+import { PlusCircle, Loader2, Trash, Edit, ShieldCheck, Lock, UserPlus, Users, LayoutDashboard, Landmark, FileWarning, Wallet, History, Activity, Search, AlertCircle, Smartphone, MapPin, Wrench, Settings, ArrowRightLeft, KeyRound, Building, CheckCircle2, Coins, Megaphone, UserCheck, Printer } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
@@ -73,6 +73,7 @@ const permissionsSchema = z.object({
   editClients: z.boolean().default(false),
   control: z.boolean().default(false),
   debes: z.boolean().default(false),
+  imprenta: z.boolean().default(false),
   // Granular settings
   manageUsers: z.boolean().default(false),
   manageZones: z.boolean().default(false),
@@ -120,6 +121,7 @@ const permissionLabels: { id: keyof Omit<UserPermissions, 'showMobileNavBar' | '
     { id: 'wallet', label: 'Bitacora', description: 'Flujo de caja y movimientos', icon: Wallet },
     { id: 'control', label: 'Control', description: 'Capital en calle y proyecciones', icon: Activity },
     { id: 'editClients', label: 'Editar Clientes', description: 'Modificar datos de clientes existentes', icon: Edit },
+    { id: 'imprenta', label: 'Imprenta', description: 'Acceso a la app de Imprenta en iframe', icon: Printer },
     { id: 'plans', label: 'Planes (Ajustes)', description: 'Ver pestaña de planes en ajustes', icon: Lock },
     { id: 'settings', label: 'Ajustes (Maestro)', description: 'Acceso total a la página de ajustes', icon: Settings },
 ];
@@ -210,6 +212,7 @@ export function UserManagement({ users }: UserManagementProps) {
         editClients: false,
         control: true,
         debes: true,
+        imprenta: true,
         manageUsers: false,
         manageZones: true,
         manageMigration: false,
@@ -248,6 +251,7 @@ export function UserManagement({ users }: UserManagementProps) {
             editClients: selectedUser.permissions?.editClients ?? false,
             control: selectedUser.permissions?.control ?? false,
             debes: selectedUser.permissions?.debes ?? false,
+            imprenta: selectedUser.permissions?.imprenta ?? false,
             manageUsers: selectedUser.permissions?.manageUsers ?? false,
             manageZones: selectedUser.permissions?.manageZones ?? false,
             manageMigration: selectedUser.permissions?.manageMigration ?? false,

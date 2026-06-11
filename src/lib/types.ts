@@ -107,6 +107,7 @@ export type UserPermissions = {
     editClients: boolean;
     control: boolean;
     debes: boolean;
+    imprenta: boolean;
     // Granular settings
     manageUsers: boolean;
     manageZones: boolean;
@@ -159,6 +160,7 @@ export type AppConfig = {
   loginTitle?: string;
   loginSubtitle?: string;
   imgbbApiKey?: string;
+  imprentaIframeUrl?: string;
 };
 
 export type Aviso = {

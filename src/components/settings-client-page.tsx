@@ -42,10 +42,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck, MapPin, Route, Building, ChevronUp, ChevronDown, Key } from "lucide-react";
+import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck, MapPin, Route, Building, ChevronUp, ChevronDown, Key, Printer } from "lucide-react";
 import { ImageUploadButton } from "./image-upload-button";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction, saveMenuConfigAction, saveMenuColorsAction, saveStaffTypesAction } from "@/app/dashboard/ajustes/actions";
+import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction, saveMenuConfigAction, saveMenuColorsAction, saveStaffTypesAction, saveImprentaUrlAction } from "@/app/dashboard/ajustes/actions";
 import { useRouter } from "next/navigation";
 import type { AppConfig, WhatsAppTemplates } from "@/lib/types";
 import { Separator } from "./ui/separator";
@@ -184,6 +184,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
             settings: 'administracion',
             avisos: 'administracion',
             personal: 'administracion',
+            imprenta: 'administracion',
         };
         setMenuConfigState({ ...defaultMenuConfig, ...initialConfig?.menuConfig });
         if (initialConfig?.operacionColor) {
@@ -196,6 +197,27 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
 
     const [staffTypesState, setStaffTypesState] = useState<string[]>(initialConfig?.staffTypes || ['EJECUTIVO/A', 'SUPERVISOR/A', 'PROMOTOR/A']);
     const [newStaffType, setNewStaffType] = useState('');
+
+    const [imprentaUrlState, setImprentaUrlState] = useState<string>('');
+
+    useEffect(() => {
+        setImprentaUrlState(initialConfig?.imprentaIframeUrl || 'https://ais-dev-gigbsa3huhlib2awffzpiu-361305856613.us-west2.run.app/?portal=token-xivg8-5268');
+    }, [initialConfig]);
+
+    const onSaveImprentaUrl = async () => {
+        setIsSaving(true);
+        try {
+            const result = await saveImprentaUrlAction(imprentaUrlState);
+            if (result.success) {
+                toast({ title: 'Configuración Guardada', description: result.message });
+                router.refresh();
+            } else throw new Error(result.message);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const [menuOrderState, setMenuOrderState] = useState<string[]>([]);
     const [activeMenuSettingsTab, setActiveMenuSettingsTab] = useState<'operacion' | 'administracion'>('operacion');
@@ -864,6 +886,34 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                                         Guardar Colores
                                     </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="shadow-lg border-primary/10">
+                            <CardHeader className="bg-primary/5 border-b mb-6">
+                                <CardTitle className="flex items-center gap-2 text-xl">
+                                    <Printer className="h-5 w-5 text-primary" /> Configuración de Imprenta
+                                </CardTitle>
+                                <CardDescription>Personaliza la URL de la aplicación financiera que se cargará en la sección Imprenta.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-sm font-bold block">URL del Iframe</label>
+                                    <div className="flex gap-2">
+                                        <Input 
+                                            type="text" 
+                                            value={imprentaUrlState} 
+                                            onChange={(e) => setImprentaUrlState(e.target.value)}
+                                            placeholder="https://ais-dev-... /?portal=..."
+                                        />
+                                        <Button onClick={onSaveImprentaUrl} disabled={isSaving} className="bg-primary hover:bg-primary/95 font-bold h-10 px-4 rounded-lg">
+                                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Pencil className="h-4 w-4" />}
+                                        </Button>
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Esta URL se cargará dentro de la sección Imprenta en un iframe adaptativo.
+                                    </p>
                                 </div>
                             </CardContent>
                         </Card>

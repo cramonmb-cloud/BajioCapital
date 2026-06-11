@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { UserPermissions } from '@/lib/types';
-import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, Coins, Megaphone, UserCheck, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, Coins, Megaphone, UserCheck, Printer, type LucideIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo } from 'react';
 
@@ -22,6 +22,7 @@ export const allLinks: { href: string; label: string; id: string, icon: LucideIc
   { href: '/dashboard/personal', label: 'Personal', id: 'personal', icon: UserCheck },
   { href: '/dashboard/ajustes', label: 'Ajustes', id: 'settings', icon: Settings },
   { href: '/dashboard/avisos', label: 'Avisos', id: 'avisos', icon: Megaphone },
+  { href: '/dashboard/imprenta', label: 'Imprenta', id: 'imprenta', icon: Printer },
 ];
 
 interface MainNavProps {
@@ -64,6 +65,7 @@ export function MainNav({
       settings: 'administracion',
       avisos: 'administracion',
       personal: 'administracion',
+      imprenta: 'administracion',
     };
     return { ...defaultMenuConfig, ...menuConfig };
   }, [menuConfig]);

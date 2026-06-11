@@ -52,6 +52,7 @@ export default function DashboardLayout({
       settings: 'administracion',
       avisos: 'administracion',
       personal: 'administracion',
+      imprenta: 'administracion',
     };
     return { ...defaultMenuConfig, ...menuConfig };
   }, [menuConfig]);
