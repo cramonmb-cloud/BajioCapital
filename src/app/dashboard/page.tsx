@@ -12,7 +12,6 @@ import { Users, Landmark, Banknote, TrendingUp, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Logo } from '@/components/logo';
-import { ClientesConFallos } from '@/components/clientes-con-fallos';
 import { useEffect, useState, useMemo } from 'react';
 import Loading from './loading';
 import { getSaturdayOfWeek, getMexicoNow } from '@/lib/utils';
@@ -26,7 +25,7 @@ export default function DashboardPage() {
         getAppConfig().then(setConfig);
     }, []);
 
-    const { clients = [], loans = [], loanPlans = [] } = data || {};
+    const { clients = [], loans = [] } = data || {};
 
     const stats = useMemo(() => {
         if (!data || !appUser) return null;
@@ -66,7 +65,7 @@ export default function DashboardPage() {
             totalCollectedThisWeek,
             totalPaymentsThisWeek
         };
-    }, [clients, loans, loanPlans, appUser, data]);
+    }, [clients, loans, appUser, data]);
 
 
 
@@ -150,7 +149,7 @@ export default function DashboardPage() {
                 </Card>
             </div>
             
-            <ClientesConFallos loans={loans} clients={clients} loanPlans={loanPlans} />
+
 
 
         </div>
