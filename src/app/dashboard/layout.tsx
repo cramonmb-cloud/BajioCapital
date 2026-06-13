@@ -10,7 +10,7 @@ import { Bell, Menu, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import Loading from './loading';
 import type { UserPermissions } from '@/lib/types';
 import { getAppConfig } from '@/lib/firestore-data';
@@ -130,19 +130,20 @@ export default function DashboardLayout({
     }
     fetchConfig();
   }, [pathname]); 
-  
+  const lastPathRef = useRef('');
+  const lastWriteTimeRef = useRef(0);
+
   // Track user activity and section path
   useEffect(() => {
     if (!appUser || !appUser.id) return;
 
-    let lastWriteTime = 0;
     const WRITE_INTERVAL = 60 * 1000; // Throttle to 1 write per minute maximum
 
     const updateActivity = async (section: string, force = false) => {
       const now = Date.now();
-      if (!force && (now - lastWriteTime < WRITE_INTERVAL)) return;
+      if (!force && (now - lastWriteTimeRef.current < WRITE_INTERVAL)) return;
 
-      lastWriteTime = now;
+      lastWriteTimeRef.current = now;
       const userRef = doc(db, 'users', appUser.id);
       try {
         await updateDoc(userRef, {
@@ -154,8 +155,11 @@ export default function DashboardLayout({
       }
     };
 
-    // Force write immediately on route changes
-    updateActivity(pathname, true);
+    // Force write immediately ONLY when pathname actually changes
+    if (pathname !== lastPathRef.current) {
+      lastPathRef.current = pathname;
+      updateActivity(pathname, true);
+    }
 
     // Throttled writes on interactions
     const handleInteraction = () => {
@@ -169,7 +173,7 @@ export default function DashboardLayout({
       window.removeEventListener('click', handleInteraction);
       window.removeEventListener('keydown', handleInteraction);
     };
-  }, [appUser, pathname]);
+  }, [appUser?.id, pathname]);
 
   if (loading || !user || !appUser) {
     return <div className="flex h-screen w-full items-center justify-center bg-background"><Loading /></div>;
