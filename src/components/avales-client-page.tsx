@@ -50,6 +50,7 @@ import {
   Users
 } from 'lucide-react';
 import Link from 'next/link';
+import { cn } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 15;
 
@@ -793,27 +794,41 @@ export function AvalesClientPage({ initialClients, initialLoans, initialPlans }:
             const client = initialClients.find(c => c.id === selectedLoan.clientId);
             const plan = initialPlans.find(p => p.id === selectedLoan.loanPlanId);
             const weeklyPayment = plan ? (selectedLoan.amount / 1000) * plan.weeklyPaymentRate : 0;
-            const term = plan?.termInWeeks || 16;
+            const baseTerm = plan?.termInWeeks || 16;
             
-            const totalPaid = (selectedLoan.payments || []).reduce((sum, p) => sum + p.amount, 0);
+            const now = new Date();
+            const loanStartDate = new Date(selectedLoan.startDate);
+            const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
+            const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+            const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
+            const currentWeekSafe = Math.max(1, Math.floor((daysDiff - 1) / 7) + 1);
             
-            // Calculate elapsed weeks
-            const elapsedDays = Math.round((new Date().getTime() - new Date(selectedLoan.startDate).getTime()) / (1000 * 3600 * 24));
-            const rawCurrentWeek = Math.max(1, Math.floor((elapsedDays - 1) / 7) + 1);
-            
-            // Missed payments count
+            const isExpired = currentWeekSafe > baseTerm + 1;
+
             let missedCount = 0;
-            for (let i = 1; i <= term; i++) {
+            let totalPaidInBaseTerm = 0;
+            let baseArrears = 0;
+            
+            for (let i = 1; i <= baseTerm; i++) {
               const p = (selectedLoan.payments || []).find(pay => pay.weekNumber === i);
-              if (!p && i < rawCurrentWeek) {
+              if (p) {
+                totalPaidInBaseTerm += p.amount;
+                if (p.amount < weeklyPayment) {
+                  missedCount++;
+                  baseArrears += (weeklyPayment - p.amount);
+                }
+              } else if (i < currentWeekSafe - 1) {
                 missedCount++;
-              } else if (p && p.amount < weeklyPayment) {
-                missedCount++;
+                baseArrears += weeklyPayment;
               }
             }
 
-            const totalExpectedBase = term * weeklyPayment;
-            const remainingBase = Math.max(0, totalExpectedBase - totalPaid);
+            const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
+            const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
+
+            const actualTotalPaid = (selectedLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
+            const totalExpected = totalTerm * weeklyPayment;
+            const totalBalanceDue = Math.max(0, totalExpected - actualTotalPaid);
 
             return (
               <>
@@ -823,12 +838,12 @@ export function AvalesClientPage({ initialClients, initialLoans, initialPlans }:
                       Detalle del Préstamo
                     </DialogTitle>
                     <DialogDescription className="text-[10px] uppercase font-bold text-muted-foreground mt-0.5">
-                      Información esencial y estado de cobranza
+                      Estado de cuenta y desglose completo de abonos
                     </DialogDescription>
                   </div>
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-5">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
                   {/* General Info Grid */}
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200/50 text-center">
@@ -836,90 +851,149 @@ export function AvalesClientPage({ initialClients, initialLoans, initialPlans }:
                       <p className="text-[11px] font-black text-zinc-800 uppercase truncate">{client?.name || 'Desconocido'}</p>
                     </div>
                     <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200/50 text-center">
-                      <p className="text-[8px] font-black text-muted-foreground uppercase tracking-wider mb-0.5">Monto</p>
+                      <p className="text-[8px] font-black text-muted-foreground uppercase tracking-wider mb-0.5">Monto Autorizado</p>
                       <p className="text-[11px] font-black text-zinc-800">{formatCurrency(selectedLoan.amount)}</p>
                     </div>
                     <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200/50 text-center">
                       <p className="text-[8px] font-black text-muted-foreground uppercase tracking-wider mb-0.5">Plan / Plazo</p>
-                      <p className="text-[11px] font-black text-zinc-800 uppercase">{plan?.name || `${term} Semanas`}</p>
+                      <p className="text-[11px] font-black text-zinc-800 uppercase">{plan?.name || `${baseTerm} Semanas`}</p>
                     </div>
                     <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200/50 text-center">
                       <p className="text-[8px] font-black text-muted-foreground uppercase tracking-wider mb-0.5">Estado</p>
-                      <Badge className={`h-5 text-[8px] font-black uppercase rounded-lg px-2 mt-0.5 ${
+                      <Badge className={cn(
+                        "h-5 text-[8px] font-black uppercase rounded-lg px-2 mt-0.5",
                         selectedLoan.status === 'Overdue' ? 'bg-red-600 text-white animate-pulse' : 'bg-blue-600 text-white'
-                      }`}>
+                      )}>
                         {selectedLoan.status === 'Overdue' ? 'Vencido' : 'Activo'}
                       </Badge>
                     </div>
                   </div>
 
-                  {/* financial summary */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-zinc-50/50 p-4 rounded-xl border border-zinc-200/50">
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-zinc-400 uppercase">Abono Semanal</span>
-                      <span className="text-sm font-black text-zinc-700">{formatCurrency(weeklyPayment)}</span>
+                  {/* Estado de Cuenta Summary (from consultar-cliente-page) */}
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-3">
+                      <div className="bg-white border rounded-xl p-2.5 text-center shadow-sm">
+                        <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Semana</p>
+                        <p className="text-lg font-black text-zinc-900 leading-none">
+                          {Math.min(currentWeekSafe, totalTerm)} <span className="text-zinc-300 text-xs">/ {totalTerm}</span>
+                        </p>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-100 rounded-xl p-2.5 text-center shadow-sm">
+                        <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">Abono</p>
+                        <p className="text-lg font-black text-blue-600 leading-none">{formatCurrency(weeklyPayment)}</p>
+                      </div>
+                      <div className="bg-red-50 border border-red-100 rounded-xl p-2.5 text-center shadow-sm">
+                        <p className="text-[8px] font-black text-red-500 uppercase tracking-widest mb-1">Fallos</p>
+                        <p className="text-lg font-black text-red-600 leading-none">{missedCount}</p>
+                      </div>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-zinc-400 uppercase">Total Cobrado</span>
-                      <span className="text-sm font-black text-green-700">{formatCurrency(totalPaid)}</span>
-                    </div>
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-zinc-400 uppercase">Restante Base</span>
-                      <span className="text-sm font-black text-red-700">{formatCurrency(remainingBase)}</span>
+
+                    <div className="bg-zinc-100/80 rounded-2xl p-4 space-y-3 border border-zinc-200/50">
+                      <div className="flex justify-between items-center px-2">
+                        <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Total Cobrado</span>
+                        <span className="text-sm font-black text-green-700">{formatCurrency(actualTotalPaid)}</span>
+                      </div>
+                      <div className="flex justify-between items-center px-2 border-t border-zinc-200/50 pt-2.5">
+                        <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Saldo de Fallos</span>
+                        <span className="text-sm font-black text-zinc-800">{formatCurrency(baseArrears)}</span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end pt-3 border-t border-zinc-200 px-2 gap-2">
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-black text-red-700 uppercase tracking-widest block">Total a Liquidar</span>
+                          <span className="text-[8px] font-bold text-red-600 uppercase opacity-70">Incluye cuotas vigentes + penalización</span>
+                        </div>
+                        <span className="text-2xl font-black text-red-700 tracking-tighter leading-none">
+                          {formatCurrency(totalBalanceDue)}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   {/* Payments history */}
-                  <div className="space-y-2">
-                    <h4 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest border-b border-zinc-100 pb-2">
-                      Historial de Semanas ({selectedLoan.payments?.length || 0} de {term} pagadas)
+                  <div className="space-y-3">
+                    <h4 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest border-b border-zinc-100 pb-2 flex items-center justify-between">
+                      <span>Historial de Amortizaciones</span>
+                      <span className="text-zinc-500 lowercase font-medium">({selectedLoan.payments?.length || 0} de {totalTerm} pagadas)</span>
                     </h4>
 
-                    <div className="max-h-[200px] overflow-y-auto rounded-xl border border-zinc-200">
+                    <div className="max-h-[250px] overflow-y-auto rounded-xl border border-zinc-250/50">
                       <Table>
-                        <TableHeader className="bg-zinc-50">
+                        <TableHeader className="bg-zinc-50 sticky top-0 z-10">
                           <TableRow>
-                            <TableHead className="py-2 text-[8px] font-black uppercase text-center w-[60px]">Semana</TableHead>
-                            <TableHead className="py-2 text-[8px] font-black uppercase">Fecha de Pago</TableHead>
-                            <TableHead className="py-2 text-[8px] font-black uppercase text-right">Importe</TableHead>
-                            <TableHead className="py-2 text-[8px] font-black uppercase text-center w-[100px]">Estado</TableHead>
+                            <TableHead className="py-2 text-[9px] font-black uppercase text-center w-[60px] text-zinc-700 border-r border-zinc-200">Num</TableHead>
+                            <TableHead className="py-2 text-[9px] font-black uppercase text-zinc-700 border-r border-zinc-200">Vencimiento</TableHead>
+                            <TableHead className="py-2 text-[9px] font-black uppercase text-right text-zinc-700 border-r border-zinc-200">Abono</TableHead>
+                            <TableHead className="py-2 text-[9px] font-black uppercase text-right text-zinc-700 border-r border-zinc-200">Recibido</TableHead>
+                            <TableHead className="py-2 text-[9px] font-black uppercase text-center w-[120px] text-zinc-700">Estado</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {Array.from({ length: term }).map((_, i) => {
+                          {Array.from({ length: totalTerm }).map((_, i) => {
                             const weekNum = i + 1;
                             const payment = (selectedLoan.payments || []).find(p => p.weekNumber === weekNum);
+                            const isPenalty = weekNum > baseTerm;
+                            const isRecovered = payment?.isRecovered || false;
+                            
+                            const dueDate = new Date(selectedLoan.startDate);
+                            dueDate.setDate(dueDate.getDate() + (weekNum * 7));
+                            const isPastDate = now > dueDate;
                             
                             let statusText = 'Pendiente';
                             let statusColor = 'bg-zinc-100 text-zinc-500 border-zinc-200';
+                            let statusType: 'PAID' | 'MISSED' | 'PENDING' = 'PENDING';
                             
                             if (payment) {
                               if (payment.amount >= weeklyPayment) {
-                                statusText = 'Pagado';
+                                statusText = isRecovered ? 'RECUPERADO' : new Date(payment.date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
                                 statusColor = 'bg-green-50 text-green-700 border-green-200';
+                                statusType = 'PAID';
                               } else if (payment.amount > 0) {
-                                statusText = 'Incompleto';
-                                statusColor = 'bg-yellow-50 text-yellow-700 border-yellow-200';
+                                statusText = isRecovered ? 'RECUPERADO PARCIAL' : 'PARCIAL';
+                                statusColor = 'bg-amber-50 text-amber-700 border-amber-200';
+                                statusType = 'MISSED';
                               } else {
-                                statusText = 'Fallo';
+                                statusText = 'FALLO';
                                 statusColor = 'bg-red-50 text-red-700 border-red-200';
+                                statusType = 'MISSED';
                               }
-                            } else if (weekNum < rawCurrentWeek) {
-                              statusText = 'Fallo';
+                            } else if (isPastDate || weekNum < currentWeekSafe - 1) {
+                              statusText = 'FALLO';
                               statusColor = 'bg-red-50 text-red-700 border-red-200';
+                              statusType = 'MISSED';
+                            } else {
+                              statusText = 'PENDIENTE';
+                              statusColor = 'bg-zinc-100 text-zinc-500 border-zinc-200';
+                              statusType = 'PENDING';
                             }
 
                             return (
-                              <TableRow key={weekNum} className="hover:bg-zinc-50/50 text-[10px] font-bold text-zinc-700">
-                                <TableCell className="text-center py-2">{weekNum}</TableCell>
-                                <TableCell className="py-2">
-                                  {payment ? new Date(payment.date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' }) : '-'}
+                              <TableRow key={weekNum} className="hover:bg-zinc-50/50 text-[10px] font-bold text-zinc-700 border-b animate-in fade-in">
+                                <TableCell className="text-center py-2 border-r border-zinc-100">{weekNum}</TableCell>
+                                <TableCell className="py-2 border-r border-zinc-100">
+                                  {dueDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })}
                                 </TableCell>
-                                <TableCell className="text-right py-2">
-                                  {payment ? formatCurrency(payment.amount) : '-'}
+                                <TableCell className="text-right py-2 border-r border-zinc-100">
+                                  {formatCurrency(weeklyPayment)}
+                                </TableCell>
+                                <TableCell className={cn(
+                                  "text-right py-2 border-r border-zinc-100 font-black",
+                                  isRecovered ? "bg-purple-50 text-purple-700" :
+                                  payment ? (payment.amount >= weeklyPayment ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700") : "bg-red-50 text-red-700"
+                                )}>
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    {formatCurrency(payment ? payment.amount : 0)}
+                                    {isPenalty && (
+                                      <Badge className="bg-amber-600 text-white text-[7px] font-black h-3.5 px-1 uppercase shrink-0">EXTRA</Badge>
+                                    )}
+                                  </div>
                                 </TableCell>
                                 <TableCell className="text-center py-2">
-                                  <Badge className={`h-4.5 px-1.5 text-[8px] font-black uppercase rounded-lg border ${statusColor}`}>
+                                  <Badge className={cn(
+                                    "h-4.5 px-1.5 text-[8px] font-black uppercase rounded-lg border",
+                                    isRecovered ? "bg-purple-50 text-purple-700 border-purple-200" :
+                                    statusType === 'PAID' ? "bg-green-50 text-green-700 border-green-200" :
+                                    statusType === 'MISSED' ? "bg-red-50 text-red-700 border-red-200" : "bg-zinc-100 text-zinc-500 border-zinc-200"
+                                  )}>
                                     {statusText}
                                   </Badge>
                                 </TableCell>
