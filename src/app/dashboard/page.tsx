@@ -5,10 +5,17 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import { useAuth } from '@/hooks/use-auth';
 import { getAppConfig } from '@/lib/firestore-data';
-import { Users, Landmark, Banknote, TrendingUp, Receipt } from 'lucide-react';
+import { Users, Landmark, Banknote, TrendingUp, Receipt, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Logo } from '@/components/logo';
@@ -20,6 +27,7 @@ export default function DashboardPage() {
     const { data, loading: dataLoading } = useRealtimeData();
     const { appUser, loading: authLoading } = useAuth();
     const [config, setConfig] = useState<{logoUrl?: string, logoFormat?: 'square' | 'horizontal', logoHeightDashboard?: number, logoWidthDashboard?: number} | null>(null);
+    const [selectedWeekValue, setSelectedWeekValue] = useState<string>('');
     
     useEffect(() => {
         getAppConfig().then(setConfig);
@@ -27,23 +35,81 @@ export default function DashboardPage() {
 
     const { clients = [], loans = [] } = data || {};
 
+    // Calculate the complete list of operative weeks (Saturday to Friday) since the oldest loan
+    const weeksList = useMemo(() => {
+        if (loans.length === 0) return [];
+        let minTime = Infinity;
+        loans.forEach(loan => {
+            if (loan.startDate) {
+                const time = new Date(loan.startDate.includes('T') ? loan.startDate : loan.startDate + 'T00:00:00').getTime();
+                if (!isNaN(time) && time < minTime) {
+                    minTime = time;
+                }
+            }
+        });
+
+        if (minTime === Infinity) return [];
+        
+        const oldestSat = getSaturdayOfWeek(new Date(minTime));
+        const currentSat = getSaturdayOfWeek(getMexicoNow());
+        
+        const list: { start: Date; end: Date; label: string; value: string }[] = [];
+        let temp = new Date(oldestSat);
+        
+        while (temp <= currentSat) {
+            const start = new Date(temp);
+            start.setHours(0, 0, 0, 0);
+            
+            const end = new Date(start);
+            end.setDate(start.getDate() + 6);
+            end.setHours(23, 59, 59, 999);
+            
+            const startStr = start.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            const endStr = end.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            
+            list.push({
+                start,
+                end,
+                label: `Semana: Del ${startStr} al ${endStr}`,
+                value: start.toISOString()
+            });
+            
+            temp.setDate(temp.getDate() + 7);
+        }
+        
+        return list.reverse();
+    }, [loans]);
+
+    // Initialize state with current week when list loads
+    useEffect(() => {
+        if (weeksList.length > 0 && !selectedWeekValue) {
+            setSelectedWeekValue(weeksList[0].value);
+        }
+    }, [weeksList, selectedWeekValue]);
+
+    // Retrieve currently selected week range dates
+    const activeWeek = useMemo(() => {
+        if (weeksList.length === 0) return null;
+        return weeksList.find(w => w.value === selectedWeekValue) || weeksList[0];
+    }, [weeksList, selectedWeekValue]);
+
     const stats = useMemo(() => {
         if (!data || !appUser) return null;
 
-        const mexicoNow = getMexicoNow();
         const totalClients = clients.length;
         const activeLoansCount = loans.filter((loan) => loan.status === 'Active' || loan.status === 'Overdue').length;
         const totalLoaned = loans.reduce((acc, loan) => acc + loan.amount, 0);
 
+        // Calculate defaults if activeWeek is not loaded yet
+        const mexicoNow = getMexicoNow();
+        const defaultStart = getSaturdayOfWeek(mexicoNow);
+        defaultStart.setHours(0, 0, 0, 0);
+        const defaultEnd = new Date(defaultStart);
+        defaultEnd.setDate(defaultStart.getDate() + 6);
+        defaultEnd.setHours(23, 59, 59, 999);
 
-
-        // Weekly report logic (Saturday to Friday)
-        const weekStart = getSaturdayOfWeek(mexicoNow);
-        weekStart.setHours(0, 0, 0, 0);
-
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekStart.getDate() + 6);
-        weekEnd.setHours(23, 59, 59, 999);
+        const weekStart = activeWeek ? activeWeek.start : defaultStart;
+        const weekEnd = activeWeek ? activeWeek.end : defaultEnd;
 
         let totalCollectedThisWeek = 0;
         let totalPaymentsThisWeek = 0;
@@ -86,9 +152,7 @@ export default function DashboardPage() {
             weekEndStr,
             newLoansCountThisWeek
         };
-    }, [clients, loans, appUser, data]);
-
-
+    }, [clients, loans, appUser, data, activeWeek]);
 
     if (dataLoading || authLoading || !data || !appUser || !stats) {
         return <Loading />;
@@ -113,6 +177,43 @@ export default function DashboardPage() {
                             customHeight={config.logoHeightDashboard}
                             customWidth={config.logoWidthDashboard}
                         />
+                    </div>
+                </div>
+            )}
+
+            {/* Week Selector Dropdown */}
+            {weeksList.length > 0 && (
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white/50 backdrop-blur p-4 rounded-2xl border border-border/40 shadow-sm animate-in fade-in slide-in-from-top-1 duration-300">
+                    <div className="space-y-0.5">
+                        <h2 className="text-sm font-black uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
+                            <Calendar className="h-4.5 w-4.5" />
+                            Reporte Semanal Operativo
+                        </h2>
+                        <p className="text-[10px] uppercase font-bold text-muted-foreground">
+                            Consulta la cobranza, abonos y préstamos registrados de semanas anteriores
+                        </p>
+                    </div>
+
+                    <div className="w-full sm:w-[320px] shrink-0">
+                        <Select 
+                            value={selectedWeekValue || (weeksList[0] ? weeksList[0].value : '')} 
+                            onValueChange={setSelectedWeekValue}
+                        >
+                            <SelectTrigger className="h-10 text-xs border-2 uppercase font-bold rounded-xl focus:ring-indigo-500 bg-white">
+                                <SelectValue placeholder="Seleccionar Semana" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[300px] rounded-xl">
+                                {weeksList.map((week) => (
+                                    <SelectItem 
+                                        key={week.value} 
+                                        value={week.value} 
+                                        className="text-xs font-bold uppercase"
+                                    >
+                                        {week.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
             )}
