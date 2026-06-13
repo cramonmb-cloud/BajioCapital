@@ -315,74 +315,40 @@ export function AvalesClientPage({ initialClients, initialLoans, initialPlans }:
 
   return (
     <div className="space-y-6">
-      {/* Header section with micro-animation */}
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between border-b pb-4">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-foreground uppercase flex items-center gap-2">
-            <ShieldCheck className="h-7 w-7 text-indigo-600 drop-shadow-[0_0_8px_rgba(79,70,229,0.3)] animate-pulse" />
-            Administración de Avales
-          </h1>
-        </div>
-      </div>
-
       {/* Grid of customized Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="border-l-4 border-l-zinc-500 bg-white/40 hover:bg-white/60 transition-all duration-300 shadow-sm relative overflow-hidden group">
-          <div className="absolute right-2 -bottom-2 opacity-5 group-hover:scale-110 transition-transform duration-300">
-            <ShieldCheck className="h-20 w-20 text-zinc-900" />
-          </div>
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Total Avales Únicos</p>
               <h3 className="text-2xl font-black tracking-tight text-zinc-800">{stats.total}</h3>
             </div>
-            <div className="h-10 w-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-500 shadow-sm">
-              <CircleDot className="h-5 w-5" />
-            </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-red-500 bg-white/40 hover:bg-white/60 transition-all duration-300 shadow-sm relative overflow-hidden group">
-          <div className="absolute right-2 -bottom-2 opacity-5 group-hover:scale-110 transition-transform duration-300">
-            <AlertCircle className="h-20 w-20 text-red-900" />
-          </div>
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Préstamos Avalados Activos</p>
               <h3 className="text-2xl font-black tracking-tight text-red-600">{stats.linkedActive}</h3>
             </div>
-            <div className="h-10 w-10 rounded-full bg-red-50 flex items-center justify-center text-red-600 shadow-sm">
-              <Link2 className="h-5 w-5" />
-            </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-orange-500 bg-white/40 hover:bg-white/60 transition-all duration-300 shadow-sm relative overflow-hidden group">
-          <div className="absolute right-2 -bottom-2 opacity-5 group-hover:scale-110 transition-transform duration-300">
-            <UserCheck className="h-20 w-20 text-orange-900" />
-          </div>
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Con Préstamo Propio Activo</p>
               <h3 className="text-2xl font-black tracking-tight text-orange-600">{stats.selfActive}</h3>
             </div>
-            <div className="h-10 w-10 rounded-full bg-orange-50 flex items-center justify-center text-orange-500 shadow-sm">
-              <UserCheck className="h-5 w-5" />
-            </div>
           </CardContent>
         </Card>
 
         <Card className="border-l-4 border-l-indigo-500 bg-white/40 hover:bg-white/60 transition-all duration-300 shadow-sm relative overflow-hidden group">
-          <div className="absolute right-2 -bottom-2 opacity-5 group-hover:scale-110 transition-transform duration-300">
-            <Users className="h-20 w-20 text-indigo-900" />
-          </div>
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
               <p className="text-[9px] font-black uppercase text-muted-foreground tracking-widest">Avales Múltiples (2+)</p>
               <h3 className="text-2xl font-black tracking-tight text-indigo-600">{stats.multiple}</h3>
-            </div>
-            <div className="h-10 w-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600 shadow-sm">
-              <Users className="h-5 w-5" />
             </div>
           </CardContent>
         </Card>
