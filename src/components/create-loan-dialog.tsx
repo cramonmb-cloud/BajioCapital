@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
@@ -16,14 +15,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import {
   Form,
@@ -75,6 +74,7 @@ const stepTwoSchema = z.object({
   endorsementPostalCode: z.string().optional(),
   endorsementCity: z.string().optional(),
   endorsementPhone: z.string().optional(),
+  endorsementGuarantee: z.string().optional(),
 });
 
 const formSchema = stepOneSchema.merge(stepTwoSchema);
@@ -107,6 +107,30 @@ interface ActiveLoanDetails {
     };
 }
 
+const cleanGuaranteeValue = (val: string | undefined) => {
+  if (!val) return '';
+  const lines = val.split('\n');
+  let lastNonEmptyIndex = -1;
+  const processedLines = lines.map(line => {
+    const hasText = line.replace(/^\d+\.-\s*/, '').trim().length > 0;
+    return { text: line, hasText };
+  });
+
+  for (let i = processedLines.length - 1; i >= 0; i--) {
+    if (processedLines[i].hasText) {
+      lastNonEmptyIndex = i;
+      break;
+    }
+  }
+
+  if (lastNonEmptyIndex === -1) return '';
+  
+  return processedLines
+    .slice(0, lastNonEmptyIndex + 1)
+    .map(pl => pl.text)
+    .join('\n');
+};
+
 export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidades, promotoras, initialSelection }: CreateLoanDialogProps) {
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState(1);
@@ -137,13 +161,14 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
       neighborhood: '',
       postalCode: '',
       city: '',
-      guarantee: '',
+      guarantee: '1.- \n2.- \n3.- \n4.- ',
       endorsement: '',
       endorsementStreet: '',
       endorsementNeighborhood: '',
       endorsementPostalCode: '',
       endorsementCity: '',
       endorsementPhone: '',
+      endorsementGuarantee: '1.- \n2.- \n3.- \n4.- ',
     },
   });
 
@@ -151,6 +176,100 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
   const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => a.name.localeCompare(b.name)), [localidades, selectedPlaza]);
   const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => a.name.localeCompare(b.name)), [promotoras, selectedLocalidad]);
   const sortedLoanPlans = useMemo(() => [...loanPlans].sort((a, b) => a.name.localeCompare(b.name)), [loanPlans]);
+
+  const watchLoanPlanId = form.watch('loanPlanId');
+  const watchAmount = form.watch('amount');
+  const watchPromotoraId = form.watch('promotoraId');
+
+  const calculatedAbono = useMemo(() => {
+    if (!watchLoanPlanId || !watchAmount) return 0;
+    const plan = loanPlans.find(p => p.id === watchLoanPlanId);
+    if (!plan) return 0;
+    return (Number(watchAmount) / 1000) * plan.weeklyPaymentRate;
+  }, [watchLoanPlanId, watchAmount, loanPlans]);
+
+  const currentHierarchy = useMemo(() => {
+    const currentPromotoraId = watchPromotoraId || initialSelection?.promotoraId;
+    const promotora = promotoras.find(p => p.id === currentPromotoraId);
+    const localidad = localidades.find(l => l.id === promotora?.localidadId);
+    const plaza = plazas.find(p => p.id === localidad?.plazaId);
+    return {
+      promotoraName: promotora?.name || 'N/A',
+      localidadName: localidad?.name || 'N/A',
+      plazaName: plaza?.name || 'N/A',
+    };
+  }, [watchPromotoraId, initialSelection, promotoras, localidades, plazas]);
+
+  const handleGuaranteeKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, fieldName: 'guarantee' | 'endorsementGuarantee') => {
+    if (e.key === 'Enter') {
+      const textarea = e.currentTarget;
+      const val = textarea.value;
+      const start = textarea.selectionStart;
+      const end = textarea.selectionEnd;
+
+      const lines = val.split('\n');
+      
+      let accumulatedChars = 0;
+      let currentLineIndex = -1;
+      for (let i = 0; i < lines.length; i++) {
+        const lineLength = lines[i].length + 1;
+        if (start >= accumulatedChars && start <= accumulatedChars + lineLength - 1) {
+          currentLineIndex = i;
+          break;
+        }
+        accumulatedChars += lineLength;
+      }
+
+      if (currentLineIndex !== -1) {
+        const currentLineText = lines[currentLineIndex];
+        const match = currentLineText.match(/^(\d+)\.-\s*(.*)/);
+        
+        if (match) {
+          e.preventDefault();
+          const currentItemNumber = parseInt(match[1], 10);
+          const nextItemNumber = currentItemNumber + 1;
+          
+          const hasNextLine = currentLineIndex + 1 < lines.length;
+          const nextLineText = hasNextLine ? lines[currentLineIndex + 1] : '';
+          const nextLineMatch = nextLineText.match(/^(\d+)\.-\s*(.*)/);
+          
+          if (hasNextLine && nextLineMatch && parseInt(nextLineMatch[1], 10) === nextItemNumber) {
+            let nextLineCursorPos = 0;
+            for (let i = 0; i <= currentLineIndex; i++) {
+              nextLineCursorPos += lines[i].length + 1;
+            }
+            const targetPos = nextLineCursorPos + lines[currentLineIndex + 1].length;
+            
+            setTimeout(() => {
+              textarea.setSelectionRange(targetPos, targetPos);
+            }, 0);
+          } else {
+            const newPrefix = `\n${nextItemNumber}.- `;
+            const before = val.substring(0, start);
+            const after = val.substring(end);
+            
+            const newValue = before + newPrefix + after;
+            form.setValue(fieldName, newValue);
+            
+            const targetPos = start + newPrefix.length;
+            setTimeout(() => {
+              textarea.focus();
+              textarea.setSelectionRange(targetPos, targetPos);
+            }, 0);
+          }
+        }
+      }
+    }
+  };
+
+  const handleGuaranteeFocus = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    const textarea = e.currentTarget;
+    if (textarea.value === '1.- \n2.- \n3.- \n4.- ') {
+      setTimeout(() => {
+        textarea.setSelectionRange(4, 4);
+      }, 0);
+    }
+  };
 
   useEffect(() => {
     if (initialSelection) {
@@ -256,9 +375,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     form.setValue('neighborhood', client.neighborhood || '');
     form.setValue('postalCode', client.postalCode || '');
     form.setValue('city', client.city || '');
-    form.setValue('guarantee', client.guarantee || '');
+    form.setValue('guarantee', client.guarantee || '1.- \n2.- \n3.- \n4.- ');
     
-    // Parse combined endorsement string: "NAME (STREET, NEIGHBORHOOD, CP, CITY, Tel: PHONE)"
+    // Parse combined endorsement string: "NAME (STREET, NEIGHBORHOOD, CP, CITY, Tel: PHONE, Garantía: GUARANTEE)"
     const endorsementMatch = client.endorsement.match(/(.*) \((.*)\)/);
     if (endorsementMatch) {
         const name = endorsementMatch[1].trim();
@@ -277,6 +396,16 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             form.setValue('endorsementPhone', '');
         }
 
+        // Extract guarantee
+        const guaranteeIndex = details.findIndex(d => d.toUpperCase().startsWith('GARANTÍA:') || d.toUpperCase().startsWith('GARANTIA:'));
+        if (guaranteeIndex !== -1) {
+            const guarantee = details[guaranteeIndex].replace(/Garantía:\s*|Garantia:\s*/i, '');
+            form.setValue('endorsementGuarantee', guarantee || '1.- \n2.- \n3.- \n4.- ');
+            details.splice(guaranteeIndex, 1);
+        } else {
+            form.setValue('endorsementGuarantee', '1.- \n2.- \n3.- \n4.- ');
+        }
+
         // Remaining parts are usually Street, Neighborhood, CP, City in order
         if (details[0]) form.setValue('endorsementStreet', details[0]);
         if (details[1]) form.setValue('endorsementNeighborhood', details[1]);
@@ -289,6 +418,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         form.setValue('endorsementPostalCode', '');
         form.setValue('endorsementCity', '');
         form.setValue('endorsementPhone', '');
+        form.setValue('endorsementGuarantee', '1.- \n2.- \n3.- \n4.- ');
     }
   };
 
@@ -368,12 +498,16 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     const proceedWithSubmission = async (values: LoanFormValues) => {
         setIsSubmitting(true);
         try {
+            const cleanedGuarantee = cleanGuaranteeValue(values.guarantee);
+            const cleanedEndorsementGuarantee = cleanGuaranteeValue(values.endorsementGuarantee);
+
             const endorsementAddressParts = [
                 values.endorsementStreet?.toUpperCase(),
                 values.endorsementNeighborhood?.toUpperCase(),
                 values.endorsementPostalCode?.toUpperCase(),
                 values.endorsementCity?.toUpperCase(),
-                values.endorsementPhone ? `Tel: ${values.endorsementPhone.toUpperCase()}` : ''
+                values.endorsementPhone ? `Tel: ${values.endorsementPhone.toUpperCase()}` : '',
+                cleanedEndorsementGuarantee ? `Garantía: ${cleanedEndorsementGuarantee.toUpperCase()}` : ''
             ].filter(Boolean);
 
             const endorsementAddress = endorsementAddressParts.join(', ');
@@ -389,7 +523,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     postalCode: values.postalCode?.toUpperCase() || '',
                     city: values.city?.toUpperCase() || '',
                     phone: values.phone?.toUpperCase() || '',
-                    guarantee: values.guarantee?.toUpperCase() || '',
+                    guarantee: cleanedGuarantee.toUpperCase() || '',
                     endorsement: fullEndorsement,
                 } :
                 {
@@ -400,7 +534,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     postalCode: values.postalCode?.toUpperCase() || '',
                     city: values.city?.toUpperCase() || '',
                     phone: values.phone?.toUpperCase() || '',
-                    guarantee: values.guarantee?.toUpperCase() || '',
+                    guarantee: cleanedGuarantee.toUpperCase() || '',
                     endorsement: fullEndorsement,
                 };
 
@@ -440,11 +574,14 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
 
 
   const onSubmit = async (values: LoanFormValues) => {
+    const cleanedGuarantee = cleanGuaranteeValue(values.guarantee);
+    const cleanedEndorsementGuarantee = cleanGuaranteeValue(values.endorsementGuarantee);
+
     const step2Fields = [
         values.phone, values.street, values.neighborhood, values.postalCode,
-        values.city, values.guarantee, values.endorsement, values.endorsementStreet,
+        values.city, cleanedGuarantee, values.endorsement, values.endorsementStreet,
         values.endorsementNeighborhood, values.endorsementPostalCode,
-        values.endorsementCity, values.endorsementPhone
+        values.endorsementCity, values.endorsementPhone, cleanedEndorsementGuarantee
     ];
 
     const areStep2FieldsEmpty = step2Fields.every(field => !field || field.trim() === '');
@@ -507,126 +644,39 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
           Crear Préstamo
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[650px] max-h-[95vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[850px] max-h-[95vh] overflow-y-auto p-5">
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <DialogHeader>
-              <DialogTitle className="uppercase font-black tracking-tight">Crear Nuevo Préstamo - Paso {step} de 2</DialogTitle>
-              <DialogDescription>
-                {step === 1 ? 'Completa la información inicial del préstamo.' : 'Completa los datos del cliente y su aval (opcional).'}
-              </DialogDescription>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+            <DialogHeader className="space-y-0.5 pb-2 border-b">
+              <DialogTitle className="uppercase font-black tracking-tight text-lg">Crear Nuevo Préstamo - Paso {step} de 2</DialogTitle>
             </DialogHeader>
 
             {step === 1 && (
-              <div className="space-y-4 py-4">
-                <div className='grid grid-cols-1 md:grid-cols-3 gap-4'>
-                    <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Plaza</FormLabel>
-                        <Select onValueChange={handlePlazaChange} value={selectedPlaza} disabled={!!initialSelection?.plazaId}>
-                            <FormControl>
-                            <SelectTrigger className="h-11 uppercase font-bold">
-                                <SelectValue placeholder="Selecciona..." />
-                            </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {sortedPlazas.map((plaza) => (
-                                <SelectItem key={plaza.id} value={plaza.id} className="uppercase font-bold">
-                                {plaza.name}
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                    </FormItem>
-                    <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Localidad</FormLabel>
-                        <Select onValueChange={handleLocalidadChange} value={selectedLocalidad} disabled={!selectedPlaza || !!initialSelection?.localidadId}>
-                            <FormControl>
-                            <SelectTrigger className="h-11 uppercase font-bold">
-                                <SelectValue placeholder="Selecciona..." />
-                            </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {filteredLocalidades.map((localidad) => (
-                                <SelectItem key={localidad.id} value={localidad.id} className="uppercase font-bold">
-                                {localidad.name}
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                    </FormItem>
-                    <FormField
-                        control={form.control}
-                        name="promotoraId"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Promotora</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value} disabled={!selectedLocalidad || !!initialSelection?.promotoraId}>
-                                <FormControl>
-                                <SelectTrigger className="h-11 uppercase font-bold">
-                                    <SelectValue placeholder="Selecciona..." />
-                                </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                {filteredPromotoras.map((promotora) => (
-                                    <SelectItem key={promotora.id} value={promotora.id} className="uppercase font-bold">
-                                    {promotora.name}
-                                    </SelectItem>
-                                ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                            </FormItem>
-                        )}
-                        />
+              <div className="space-y-3 py-1">
+                {/* Etiquetas de ubicación informativas */}
+                <div className="flex flex-wrap items-center gap-1.5 p-2 bg-muted/40 rounded-lg border border-zinc-200/50">
+                  <span className="text-[9px] font-black text-zinc-500 uppercase mr-1">Ubicación:</span>
+                  <Badge variant="secondary" className="text-[9px] font-extrabold uppercase bg-white border border-zinc-200 text-zinc-700 shadow-sm">
+                    Plaza: {currentHierarchy.plazaName}
+                  </Badge>
+                  <Badge variant="secondary" className="text-[9px] font-extrabold uppercase bg-white border border-zinc-200 text-zinc-700 shadow-sm">
+                    Localidad: {currentHierarchy.localidadName}
+                  </Badge>
+                  <Badge variant="secondary" className="text-[9px] font-extrabold uppercase bg-white border border-zinc-200 text-zinc-700 shadow-sm">
+                    Promotora: {currentHierarchy.promotoraName}
+                  </Badge>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                    control={form.control}
-                    name="loanPlanId"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Tipo de Préstamo</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                            <SelectTrigger className="h-11 uppercase font-bold">
-                                <SelectValue placeholder="Selecciona..." />
-                            </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                            {sortedLoanPlans.map((plan) => (
-                                <SelectItem key={plan.id} value={plan.id} className="uppercase font-bold">
-                                {plan.name}
-                                </SelectItem>
-                            ))}
-                            </SelectContent>
-                        </Select>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField
-                    control={form.control}
-                    name="amount"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Monto del Préstamo ($)</FormLabel>
-                        <FormControl>
-                            <Input type="number" placeholder="Ej: 1000" {...field} className="h-11 font-bold text-lg" />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                </div>
+
+                {/* 1. Nombre del Cliente */}
                 <FormField
                   control={form.control}
                   name="clientName"
                   render={({ field }) => (
-                    <FormItem className="relative">
+                    <FormItem className="relative space-y-1">
                       <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Nombre del Cliente</FormLabel>
                         <div className="flex items-center gap-2">
                           <FormControl>
-                            <Input placeholder="Busca o registra un cliente" {...field} onChange={handleClientNameChange} autoComplete="off" className="uppercase h-11 font-bold flex-grow" />
+                            <Input placeholder="Busca o registra un cliente" {...field} onChange={handleClientNameChange} autoComplete="off" className="uppercase h-10 font-bold flex-grow text-sm placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
                           </FormControl>
                           <IdScanner onDataExtracted={handleDataExtracted} />
                         </div>
@@ -694,18 +744,18 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                                             </div>
 
                                              <Button 
-                                                type="button" 
-                                                variant="destructive" 
-                                                size="sm" 
-                                                className="w-full h-10 font-black uppercase text-xs shadow-lg"
-                                                onClick={handlePayOffLoan}
-                                                disabled={isPayingOff}
-                                            >
-                                                {isPayingOff ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeDollarSign className="mr-2 h-4 w-4" />}
-                                                {isPayingOff ? 'Liquidando...' : 'Liquidar Préstamo Ahora'}
-                                            </Button>
-                                        </div>
-                                    </div>
+                                                 type="button" 
+                                                 variant="destructive" 
+                                                 size="sm" 
+                                                 className="w-full h-10 font-black uppercase text-xs shadow-lg"
+                                                 onClick={handlePayOffLoan}
+                                                 disabled={isPayingOff}
+                                             >
+                                                 {isPayingOff ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BadgeDollarSign className="mr-2 h-4 w-4" />}
+                                                 {isPayingOff ? 'Liquidando...' : 'Liquidar Préstamo Ahora'}
+                                             </Button>
+                                         </div>
+                                     </div>
                                 </CardContent>
                             </Card>
                         )}
@@ -720,176 +770,300 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     </FormItem>
                   )}
                 />
+
+                {/* 2. Tipo de Préstamo, Monto del Préstamo y Abono del Cliente */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <FormField
+                    control={form.control}
+                    name="loanPlanId"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Tipo de Préstamo</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ''}>
+                          <FormControl>
+                            <SelectTrigger className="h-10 uppercase font-bold text-sm">
+                              <SelectValue placeholder={<span className="text-zinc-400 font-normal normal-case">Selecciona...</span>} />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {sortedLoanPlans.map((plan) => (
+                              <SelectItem key={plan.id} value={plan.id} className="uppercase font-bold text-sm">
+                                {plan.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="amount"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Monto del Préstamo ($)</FormLabel>
+                        <FormControl>
+                          <Input type="number" placeholder="Ej: 1000" {...field} className="h-10 font-bold text-sm placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormItem className="space-y-1">
+                    <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Abono Semanal</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        readOnly
+                        disabled
+                        value={calculatedAbono > 0 ? formatCurrency(calculatedAbono) : '—'}
+                        className="h-10 font-black text-sm bg-zinc-50 border-zinc-200 text-blue-600 dark:bg-zinc-900 dark:border-zinc-800 dark:text-blue-400 cursor-not-allowed"
+                      />
+                    </FormControl>
+                  </FormItem>
+                </div>
               </div>
             )}
             
             {step === 2 && (
-              <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto pr-2">
-                 <h3 className="text-sm font-black uppercase tracking-widest text-primary border-b pb-1">Datos del Cliente</h3>
-                 <FormField
-                    control={form.control}
-                    name="phone"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Teléfono</FormLabel>
-                        <FormControl>
-                            <Input placeholder="Ej: 311-000-0000" {...field} value={field.value || ''} className="uppercase font-bold" />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                 <FormField
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 py-1">
+                {/* Column 1: Datos del Cliente */}
+                <div className="space-y-3 p-4 bg-zinc-50/70 dark:bg-zinc-900/40 border border-zinc-200/50 dark:border-zinc-800/80 shadow-md rounded-xl">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-blue-900 dark:text-blue-300 border-b pb-1">Datos del Cliente</h3>
+                  
+                  {/* 1.- CALLE Y NUMERO */}
+                  <FormField
                     control={form.control}
                     name="street"
                     render={({ field }) => (
-                        <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Calle y Número</FormLabel>
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Calle y Número</FormLabel>
                         <FormControl>
-                            <Input placeholder="Ej: Av. Principal 123" {...field} value={field.value || ''} className="uppercase font-bold" />
+                          <Input placeholder="Ej: Av. Principal 123" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
                         </FormControl>
-                        <FormMessage />
-                        </FormItem>
+                        <FormMessage className="text-[9px]" />
+                      </FormItem>
                     )}
-                 />
-                 <div className="grid grid-cols-3 gap-4">
-                    <FormField
+                  />
+
+                  {/* 2.- COLONIA y 3.- C.P. */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <FormField
                         control={form.control}
                         name="neighborhood"
                         render={({ field }) => (
-                            <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Colonia</FormLabel>
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Colonia</FormLabel>
                             <FormControl>
-                                <Input placeholder="Centro" {...field} value={field.value || ''} className="uppercase font-bold" />
+                              <Input placeholder="Centro" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
                             </FormControl>
-                            <FormMessage />
-                            </FormItem>
+                            <FormMessage className="text-[9px]" />
+                          </FormItem>
                         )}
-                    />
-                     <FormField
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <FormField
                         control={form.control}
                         name="postalCode"
                         render={({ field }) => (
-                            <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">C.P.</FormLabel>
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">C.P.</FormLabel>
                             <FormControl>
-                                <Input placeholder="63000" {...field} value={field.value || ''} className="uppercase font-bold" />
+                              <Input placeholder="63000" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
                             </FormControl>
-                            <FormMessage />
-                            </FormItem>
+                            <FormMessage className="text-[9px]" />
+                          </FormItem>
                         )}
-                    />
-                     <FormField
+                      />
+                    </div>
+                  </div>
+
+                  {/* 4.- CIUDAD O LOCALIDAD y 5.- TELEFONO */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <FormField
                         control={form.control}
                         name="city"
                         render={({ field }) => (
-                            <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Ciudad</FormLabel>
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Ciudad o Localidad</FormLabel>
                             <FormControl>
-                                <Input placeholder="Tepic" {...field} value={field.value || ''} className="uppercase font-bold" />
+                              <Input placeholder="Tepic" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
                             </FormControl>
-                            <FormMessage />
-                            </FormItem>
+                            <FormMessage className="text-[9px]" />
+                          </FormItem>
                         )}
-                    />
-                 </div>
-                 <FormField
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Teléfono</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ej: 311-000-000" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
+                            </FormControl>
+                            <FormMessage className="text-[9px]" />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 6.- GARANTIAS */}
+                  <FormField
                     control={form.control}
                     name="guarantee"
                     render={({ field }) => (
-                        <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Garantías</FormLabel>
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Garantías</FormLabel>
                         <FormControl>
-                            <Textarea placeholder="Describe las garantías..." {...field} value={field.value || ''} className="uppercase font-bold min-h-[60px]" />
+                          <Textarea 
+                            placeholder="Describe las garantías del cliente..." 
+                            {...field} 
+                            value={field.value || ''} 
+                            onKeyDown={(e) => handleGuaranteeKeyDown(e, 'guarantee')}
+                            onFocus={handleGuaranteeFocus}
+                            className="uppercase font-bold min-h-[96px] text-xs py-1.5 placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" 
+                          />
                         </FormControl>
-                        <FormMessage />
-                        </FormItem>
+                        <FormMessage className="text-[9px]" />
+                      </FormItem>
                     )}
-                 />
+                  />
+                </div>
 
-                 <hr className="my-6"/>
-
-                 <h3 className="text-sm font-black uppercase tracking-widest text-blue-600 border-b pb-1">Datos del Responsable (Aval)</h3>
-                 <FormField
+                {/* Column 2: Datos del Responsable (Aval) */}
+                <div className="space-y-3 p-4 bg-blue-50/30 dark:bg-blue-950/10 border border-blue-100/60 dark:border-blue-900/30 shadow-md rounded-xl">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-blue-600 border-b pb-1">Datos del Responsable (Aval)</h3>
+                  
+                  {/* NOMBRE DEL AVAL (Siempre Primero) */}
+                  <FormField
                     control={form.control}
                     name="endorsement"
                     render={({ field }) => (
-                        <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Nombre del Aval</FormLabel>
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Nombre del Aval</FormLabel>
                         <FormControl>
-                            <Input placeholder="Nombre completo del aval" {...field} value={field.value || ''} className="uppercase font-bold" />
+                          <Input placeholder="Nombre completo del aval" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
                         </FormControl>
-                        <FormMessage />
-                        </FormItem>
+                        <FormMessage className="text-[9px]" />
+                      </FormItem>
                     )}
-                />
-                 <FormField
-                    control={form.control}
-                    name="endorsementPhone"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Teléfono del Aval</FormLabel>
-                        <FormControl>
-                            <Input placeholder="Teléfono de contacto" {...field} value={field.value || ''} className="uppercase font-bold" />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                />
-                <FormField
+                  />
+
+                  {/* 2.- CALLE Y NUMERO */}
+                  <FormField
                     control={form.control}
                     name="endorsementStreet"
                     render={({ field }) => (
-                        <FormItem>
-                        <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Calle y Número del Aval</FormLabel>
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Calle y Número del Aval</FormLabel>
                         <FormControl>
-                             <Input placeholder="Domicilio del aval" {...field} value={field.value || ''} className="uppercase font-bold" />
+                          <Input placeholder="Domicilio del aval" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
                         </FormControl>
-                        <FormMessage />
-                        </FormItem>
+                        <FormMessage className="text-[9px]" />
+                      </FormItem>
                     )}
-                />
-                <div className="grid grid-cols-3 gap-4">
-                    <FormField
+                  />
+
+                  {/* 3.- COLONIA y 4.- C.P. */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <FormField
                         control={form.control}
                         name="endorsementNeighborhood"
                         render={({ field }) => (
-                            <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Colonia</FormLabel>
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Colonia</FormLabel>
                             <FormControl>
-                                <Input placeholder="Centro" {...field} value={field.value || ''} className="uppercase font-bold" />
+                              <Input placeholder="Centro" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
                             </FormControl>
-                            <FormMessage />
-                            </FormItem>
+                            <FormMessage className="text-[9px]" />
+                          </FormItem>
                         )}
-                    />
-                     <FormField
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <FormField
                         control={form.control}
                         name="endorsementPostalCode"
                         render={({ field }) => (
-                            <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">C.P.</FormLabel>
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">C.P.</FormLabel>
                             <FormControl>
-                                <Input placeholder="63000" {...field} value={field.value || ''} className="uppercase font-bold" />
+                              <Input placeholder="63000" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
                             </FormControl>
-                            <FormMessage />
-                            </FormItem>
+                            <FormMessage className="text-[9px]" />
+                          </FormItem>
                         )}
-                    />
-                     <FormField
+                      />
+                    </div>
+                  </div>
+
+                  {/* 5.- CIUDAD O LOCALIDAD y 6.- TELEFONO */}
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="col-span-2">
+                      <FormField
                         control={form.control}
                         name="endorsementCity"
                         render={({ field }) => (
-                            <FormItem>
-                            <FormLabel className="text-[10px] font-black uppercase text-muted-foreground">Ciudad</FormLabel>
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Ciudad o Localidad</FormLabel>
                             <FormControl>
-                                <Input placeholder="Tepic" {...field} value={field.value || ''} className="uppercase font-bold" />
+                              <Input placeholder="Tepic" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
                             </FormControl>
-                            <FormMessage />
-                            </FormItem>
+                            <FormMessage className="text-[9px]" />
+                          </FormItem>
                         )}
-                    />
-                 </div>
+                      />
+                    </div>
+                    <div className="col-span-1">
+                      <FormField
+                        control={form.control}
+                        name="endorsementPhone"
+                        render={({ field }) => (
+                          <FormItem className="space-y-1">
+                            <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Teléfono</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Ej: 311-000-00" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
+                            </FormControl>
+                            <FormMessage className="text-[9px]" />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 7.- GARANTIAS del aval */}
+                  <FormField
+                    control={form.control}
+                    name="endorsementGuarantee"
+                    render={({ field }) => (
+                      <FormItem className="space-y-1">
+                        <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Garantías del Aval</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Describe las garantías del aval..." 
+                            {...field} 
+                            value={field.value || ''} 
+                            onKeyDown={(e) => handleGuaranteeKeyDown(e, 'endorsementGuarantee')}
+                            onFocus={handleGuaranteeFocus}
+                            className="uppercase font-bold min-h-[96px] text-xs py-1.5 placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" 
+                          />
+                        </FormControl>
+                        <FormMessage className="text-[9px]" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
               </div>
             )}
 
@@ -898,13 +1072,13 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                      <Button type="button" onClick={handleNextStep} disabled={!!activeLoanDetails} className="w-full sm:w-auto font-black uppercase h-11 px-8">Siguiente Paso</Button>
                 )}
                 {step === 2 && (
-                    <>
+                     <>
                         <Button type="button" variant="outline" onClick={() => setStep(1)} className="font-black uppercase h-11">Atrás</Button>
                         <Button type="submit" disabled={isSubmitting} className="font-black uppercase h-11 px-8">
                             {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Confirmar y Crear Crédito
                         </Button>
-                    </>
+                     </>
                 )}
             </DialogFooter>
           </form>

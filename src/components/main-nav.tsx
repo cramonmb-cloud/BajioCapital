@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/use-auth';
 import type { UserPermissions } from '@/lib/types';
-import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, Coins, Megaphone, UserCheck, Printer, type LucideIcon } from 'lucide-react';
+import { LayoutDashboard, Users, Landmark, FileWarning, Wallet, Settings, Activity, Search, History, Coins, Megaphone, UserCheck, Printer, ShieldCheck, type LucideIcon } from 'lucide-react';
 
 import { useState, useEffect, useMemo } from 'react';
 
@@ -20,6 +20,7 @@ export const allLinks: { href: string; label: string; id: string, icon: LucideIc
   { href: '/dashboard/bitacora', label: 'Bitacora', id: 'wallet', icon: Wallet },
   { href: '/dashboard/control', label: 'Control', id: 'control', icon: Activity },
   { href: '/dashboard/personal', label: 'Personal', id: 'personal', icon: UserCheck },
+  { href: '/dashboard/avales', label: 'Avales', id: 'avales', icon: ShieldCheck },
   { href: '/dashboard/ajustes', label: 'Ajustes', id: 'settings', icon: Settings },
   { href: '/dashboard/avisos', label: 'Avisos', id: 'avisos', icon: Megaphone },
   { href: '/dashboard/imprenta', label: 'Imprenta', id: 'imprenta', icon: Printer },
@@ -65,6 +66,7 @@ export function MainNav({
       settings: 'administracion',
       avisos: 'administracion',
       personal: 'administracion',
+      avales: 'administracion',
       imprenta: 'administracion',
     };
     return { ...defaultMenuConfig, ...menuConfig };

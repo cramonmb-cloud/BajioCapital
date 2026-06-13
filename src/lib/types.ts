@@ -108,6 +108,7 @@ export type UserPermissions = {
     control: boolean;
     debes: boolean;
     imprenta: boolean;
+    avales: boolean;
     // Granular settings
     manageUsers: boolean;
     manageZones: boolean;
@@ -131,6 +132,9 @@ export type AppUser = {
     assignedPlazaIds?: string[];
     assignedLocalidadIds?: string[];
     personalId?: string;
+    lastActive?: string;
+    currentSection?: string;
+    forceLogout?: boolean;
 };
 
 export type WhatsAppTemplates = {

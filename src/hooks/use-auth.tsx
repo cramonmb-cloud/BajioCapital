@@ -10,7 +10,7 @@ import {
   signOut as firebaseSignOut,
   type User 
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, onSnapshot, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { saveUserAction } from '@/app/dashboard/ajustes/actions';
 import type { AppUser, UserPermissions } from '@/lib/types';
@@ -35,77 +35,101 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+    let unsubscribeDoc: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, async (firebaseUser) => {
       setUser(firebaseUser);
+      
+      if (unsubscribeDoc) {
+        unsubscribeDoc();
+        unsubscribeDoc = null;
+      }
+
       if (firebaseUser) {
         const userDocRef = doc(db, 'users', firebaseUser.uid);
-        try {
-            const userDocSnap = await getDoc(userDocRef).catch(async (err) => {
+
+        unsubscribeDoc = onSnapshot(userDocRef, async (snapshot) => {
+          if (snapshot.exists()) {
+            const userData = snapshot.data();
+            
+            // Check for remote force logout request
+            if (userData?.forceLogout) {
+              try {
+                // Reset the flag before signing out while still authenticated
+                await updateDoc(userDocRef, { forceLogout: false });
+              } catch (err) {
+                console.error("Error resetting forceLogout flag:", err);
+              }
+              firebaseSignOut(auth).then(() => {
+                router.push('/login');
+              });
+              return;
+            }
+
+            setAppUser({ id: snapshot.id, ...userData } as AppUser);
+            setLoading(false);
+          } else {
+            // User doc doesn't exist, create it
+            const username = firebaseUser.email?.split('@')[0] || 'admin';
+            const defaultAdminPermissions: UserPermissions = {
+              dashboard: true,
+              clients: true,
+              consultarCliente: true,
+              loans: true,
+              overduePortfolio: true,
+              carteraVencida: true,
+              wallet: true,
+              plans: true,
+              settings: true,
+              editClients: true,
+              control: true,
+              debes: true,
+              imprenta: true,
+              avales: true,
+              manageUsers: true,
+              manageZones: true,
+              manageMigration: true,
+              managePlans: true,
+              manageSystem: true,
+              manageMaintenance: true,
+              manageAvisos: true,
+              managePersonal: true,
+              showMobileNavBar: true,
+              mobileSections: ['dashboard', 'loans', 'overduePortfolio', 'wallet', 'consultarCliente']
+            };
+            const newAppUser: Omit<AppUser, 'id'> = {
+              username: username.charAt(0).toUpperCase() + username.slice(1),
+              role: 'admin',
+              permissions: defaultAdminPermissions,
+            };
+            
+            await setDoc(userDocRef, newAppUser).catch(async (err) => {
                 const permissionError = new FirestorePermissionError({
                     path: userDocRef.path,
-                    operation: 'get'
+                    operation: 'create',
+                    requestResourceData: newAppUser
                 } satisfies SecurityRuleContext);
                 errorEmitter.emit('permission-error', permissionError);
                 throw permissionError;
             });
-
-            if (userDocSnap.exists()) {
-              setAppUser({ id: userDocSnap.id, ...userDocSnap.data() } as AppUser);
-            } else {
-              const username = firebaseUser.email?.split('@')[0] || 'admin';
-              const defaultAdminPermissions: UserPermissions = {
-                dashboard: true,
-                clients: true,
-                consultarCliente: true,
-                loans: true,
-                overduePortfolio: true,
-                carteraVencida: true,
-                wallet: true,
-                plans: true,
-                settings: true,
-                editClients: true,
-                control: true,
-                debes: true,
-                imprenta: true,
-                manageUsers: true,
-                manageZones: true,
-                manageMigration: true,
-                managePlans: true,
-                manageSystem: true,
-                manageMaintenance: true,
-                manageAvisos: true,
-                managePersonal: true,
-                showMobileNavBar: true,
-                mobileSections: ['dashboard', 'loans', 'overduePortfolio', 'wallet', 'consultarCliente']
-              };
-              const newAppUser: Omit<AppUser, 'id'> = {
-                username: username.charAt(0).toUpperCase() + username.slice(1),
-                role: 'admin',
-                permissions: defaultAdminPermissions,
-              };
-              
-              await setDoc(userDocRef, newAppUser).catch(async (err) => {
-                  const permissionError = new FirestorePermissionError({
-                      path: userDocRef.path,
-                      operation: 'create',
-                      requestResourceData: newAppUser
-                  } satisfies SecurityRuleContext);
-                  errorEmitter.emit('permission-error', permissionError);
-                  throw permissionError;
-              });
-              setAppUser({ id: firebaseUser.uid, ...newAppUser } as AppUser);
-            }
-        } catch (err: any) {
-            // Error handling is centralized
-        }
+          }
+        }, (err) => {
+          console.error("Error listening to user doc:", err);
+          setLoading(false);
+        });
       } else {
         setAppUser(null);
+        setLoading(false);
       }
-      setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, []);
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeDoc) {
+        unsubscribeDoc();
+      }
+    };
+  }, [router]);
 
   const signUp = async (email: string, password: string, role: 'admin' | 'supervisor', username: string, permissions: AppUser['permissions']) => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);

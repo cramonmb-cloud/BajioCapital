@@ -211,10 +211,11 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead>Fecha del Préstamo</TableHead>
             <TableHead>Monto</TableHead>
             <TableHead>Plan</TableHead>
-            <TableHead>Fecha del Préstamo</TableHead>
             <TableHead>Estado</TableHead>
+            <TableHead className="text-center">Abonos</TableHead>
             <TableHead className="text-right">Acciones</TableHead>
           </TableRow>
         </TableHeader>
@@ -227,22 +228,26 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
                   className="cursor-pointer hover:bg-muted/50" 
                   onClick={() => handleRowClick(loan)}
                 >
-                  <TableCell className="font-semibold">{formatCurrency(loan.amount)}</TableCell>
+                  <TableCell className="font-semibold">{formatDate(loan.startDate)}</TableCell>
+                  <TableCell>{formatCurrency(loan.amount)}</TableCell>
                   <TableCell>{getPlanName(loan.loanPlanId)}</TableCell>
-                  <TableCell>{formatDate(loan.startDate)}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
                   </TableCell>
-                  <TableCell className="text-right flex justify-end gap-2">
+                  <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
                       <Button variant="ghost" size="sm" onClick={() => handleRowClick(loan)}>
                           <ListTodo className="h-4 w-4 mr-1" />
                           Abonos
                       </Button>
-                      {canEdit && (
+                  </TableCell>
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      {canEdit ? (
                           <Button variant="ghost" size="icon" onClick={(e) => handleEditClick(e, loan)}>
-                          <Edit className="h-4 w-4" />
-                          <span className="sr-only">Editar Préstamo</span>
+                            <Edit className="h-4 w-4" />
+                            <span className="sr-only">Editar Préstamo</span>
                           </Button>
+                      ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
                       )}
                   </TableCell>
                 </TableRow>
@@ -250,7 +255,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={5} className="text-center">No hay préstamos para este cliente.</TableCell>
+              <TableCell colSpan={6} className="text-center">No hay préstamos para este cliente.</TableCell>
             </TableRow>
           )}
         </TableBody>

@@ -28,11 +28,40 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
   const fullAddress = `${client.street}, ${client.neighborhood}, C.P. ${client.postalCode}, ${client.city}`;
   
   let endorsementName = client.endorsement;
-  let endorsementDetails = '';
+  let endorsementStreet = '';
+  let endorsementNeighborhood = '';
+  let endorsementPostalCode = '';
+  let endorsementCity = '';
+  let endorsementPhone = '';
+  let endorsementGuarantee = '';
+  let hasEndorsementDetails = false;
+
   const endorsementMatch = client.endorsement.match(/(.*) \((.*)\)/);
   if (endorsementMatch) {
-    endorsementName = endorsementMatch[1];
-    endorsementDetails = endorsementMatch[2];
+    endorsementName = endorsementMatch[1].trim();
+    const detailsStr = endorsementMatch[2];
+    const details = detailsStr.split(',').map(s => s.trim());
+    hasEndorsementDetails = true;
+
+    // Find phone
+    const phoneIdx = details.findIndex(d => d.toUpperCase().startsWith('TEL:'));
+    if (phoneIdx !== -1) {
+      endorsementPhone = details[phoneIdx].replace(/Tel:\s*/i, '');
+      details.splice(phoneIdx, 1);
+    }
+
+    // Find guarantee
+    const guaranteeIdx = details.findIndex(d => d.toUpperCase().startsWith('GARANTÍA:') || d.toUpperCase().startsWith('GARANTIA:'));
+    if (guaranteeIdx !== -1) {
+      endorsementGuarantee = details[guaranteeIdx].replace(/Garantía:\s*|Garantia:\s*/i, '');
+      details.splice(guaranteeIdx, 1);
+    }
+
+    // Remaining parts are address parts
+    if (details[0]) endorsementStreet = details[0];
+    if (details[1]) endorsementNeighborhood = details[1];
+    if (details[2]) endorsementPostalCode = details[2];
+    if (details[3]) endorsementCity = details[3];
   }
 
 
@@ -103,23 +132,66 @@ export default async function ClientDetailPage({ params }: { params: { id: strin
             </CardContent>
           </Card>
            <Card>
-            <CardHeader>
-              <CardTitle>Garantías y Avales</CardTitle>
+            <CardHeader className="pb-3 border-b">
+              <CardTitle className="text-sm font-black uppercase tracking-wider text-blue-900 dark:text-blue-300">Garantías y Avales</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4 text-sm">
-               <div className="flex items-start gap-3">
-                <Shield className="h-4 w-4 mt-1 text-muted-foreground" />
-                <div>
-                    <span className="font-medium">Garantía</span>
-                    <p className="text-muted-foreground">{client.guarantee}</p>
+            <CardContent className="space-y-4 text-sm pt-4">
+              {/* Garantías del Cliente */}
+              <div className="space-y-1 bg-zinc-50/50 dark:bg-zinc-900/20 p-3 rounded-lg border border-zinc-100 dark:border-zinc-800">
+                <div className="flex items-center gap-2 text-xs font-black uppercase text-zinc-500">
+                  <Shield className="h-3.5 w-3.5" />
+                  <span>Garantías del Cliente</span>
+                </div>
+                <div className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mt-1 whitespace-pre-line">
+                  {client.guarantee || 'SIN GARANTÍAS REGISTRADAS'}
                 </div>
               </div>
-              <div className="flex items-start gap-3">
-                <UserCheck className="h-4 w-4 mt-1 text-muted-foreground" />
-                <div>
-                    <span className="font-medium">Aval</span>
-                    <p className="text-muted-foreground font-semibold">{endorsementName}</p>
-                    {endorsementDetails && <p className="text-muted-foreground">{endorsementDetails}</p>}
+
+              {/* Aval y sus Detalles */}
+              <div className="space-y-3 bg-blue-50/20 dark:bg-blue-950/10 p-3 rounded-lg border border-blue-100/50 dark:border-blue-900/30">
+                <div className="flex items-center gap-2 text-xs font-black uppercase text-blue-700">
+                  <UserCheck className="h-3.5 w-3.5" />
+                  <span>Información del Aval</span>
+                </div>
+                <div className="space-y-1.5 text-xs">
+                  <div>
+                    <span className="text-[10px] font-black uppercase text-zinc-500">Nombre del Aval</span>
+                    <p className="font-bold text-zinc-800 dark:text-zinc-200 uppercase">{endorsementName || 'SIN AVAL REGISTRADO'}</p>
+                  </div>
+
+                  {hasEndorsementDetails && (
+                    <>
+                      {(endorsementStreet || endorsementNeighborhood || endorsementPostalCode || endorsementCity) && (
+                        <div>
+                          <span className="text-[10px] font-black uppercase text-zinc-500">Dirección del Aval</span>
+                          <p className="text-zinc-600 dark:text-zinc-400 font-semibold uppercase">
+                            {[
+                              endorsementStreet,
+                              endorsementNeighborhood,
+                              endorsementPostalCode ? `C.P. ${endorsementPostalCode}` : '',
+                              endorsementCity
+                            ].filter(Boolean).join(', ')}
+                          </p>
+                        </div>
+                      )}
+
+                      {endorsementPhone && (
+                        <div>
+                          <span className="text-[10px] font-black uppercase text-zinc-500">Teléfono del Aval</span>
+                          <p className="text-zinc-600 dark:text-zinc-400 font-semibold">{endorsementPhone}</p>
+                        </div>
+                      )}
+
+                      {endorsementGuarantee && (
+                        <div>
+                          <span className="text-[10px] font-black uppercase text-blue-500">Garantías del Aval</span>
+                          <div className="text-zinc-700 dark:text-zinc-300 font-semibold whitespace-pre-line mt-0.5">
+                            {endorsementGuarantee}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>

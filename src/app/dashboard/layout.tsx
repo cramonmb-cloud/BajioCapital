@@ -16,6 +16,8 @@ import type { UserPermissions } from '@/lib/types';
 import { getAppConfig } from '@/lib/firestore-data';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
+import { db } from '@/lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
 
 
 export default function DashboardLayout({
@@ -52,6 +54,7 @@ export default function DashboardLayout({
       settings: 'administracion',
       avisos: 'administracion',
       personal: 'administracion',
+      avales: 'administracion',
       imprenta: 'administracion',
     };
     return { ...defaultMenuConfig, ...menuConfig };
@@ -128,6 +131,46 @@ export default function DashboardLayout({
     fetchConfig();
   }, [pathname]); 
   
+  // Track user activity and section path
+  useEffect(() => {
+    if (!appUser || !appUser.id) return;
+
+    let lastWriteTime = 0;
+    const WRITE_INTERVAL = 60 * 1000; // Throttle to 1 write per minute maximum
+
+    const updateActivity = async (section: string, force = false) => {
+      const now = Date.now();
+      if (!force && (now - lastWriteTime < WRITE_INTERVAL)) return;
+
+      lastWriteTime = now;
+      const userRef = doc(db, 'users', appUser.id);
+      try {
+        await updateDoc(userRef, {
+          lastActive: new Date().toISOString(),
+          currentSection: section
+        });
+      } catch (err) {
+        console.error("Error updating user activity:", err);
+      }
+    };
+
+    // Force write immediately on route changes
+    updateActivity(pathname, true);
+
+    // Throttled writes on interactions
+    const handleInteraction = () => {
+      updateActivity(pathname, false);
+    };
+
+    window.addEventListener('click', handleInteraction);
+    window.addEventListener('keydown', handleInteraction);
+
+    return () => {
+      window.removeEventListener('click', handleInteraction);
+      window.removeEventListener('keydown', handleInteraction);
+    };
+  }, [appUser, pathname]);
+
   if (loading || !user || !appUser) {
     return <div className="flex h-screen w-full items-center justify-center bg-background"><Loading /></div>;
   }

@@ -74,6 +74,7 @@ const permissionsSchema = z.object({
   control: z.boolean().default(false),
   debes: z.boolean().default(false),
   imprenta: z.boolean().default(false),
+  avales: z.boolean().default(false),
   // Granular settings
   manageUsers: z.boolean().default(false),
   manageZones: z.boolean().default(false),
@@ -122,6 +123,7 @@ const permissionLabels: { id: keyof Omit<UserPermissions, 'showMobileNavBar' | '
     { id: 'control', label: 'Control', description: 'Capital en calle y proyecciones', icon: Activity },
     { id: 'editClients', label: 'Editar Clientes', description: 'Modificar datos de clientes existentes', icon: Edit },
     { id: 'imprenta', label: 'Imprenta', description: 'Acceso a la app de Imprenta en iframe', icon: Printer },
+    { id: 'avales', label: 'Avales', description: 'Listado y consulta de avales registrados', icon: ShieldCheck },
     { id: 'plans', label: 'Planes (Ajustes)', description: 'Ver pestaña de planes en ajustes', icon: Lock },
     { id: 'settings', label: 'Ajustes (Maestro)', description: 'Acceso total a la página de ajustes', icon: Settings },
 ];
@@ -213,6 +215,7 @@ export function UserManagement({ users }: UserManagementProps) {
         control: true,
         debes: true,
         imprenta: true,
+        avales: true,
         manageUsers: false,
         manageZones: true,
         manageMigration: false,
@@ -252,6 +255,7 @@ export function UserManagement({ users }: UserManagementProps) {
             control: selectedUser.permissions?.control ?? false,
             debes: selectedUser.permissions?.debes ?? false,
             imprenta: selectedUser.permissions?.imprenta ?? false,
+            avales: selectedUser.permissions?.avales ?? false,
             manageUsers: selectedUser.permissions?.manageUsers ?? false,
             manageZones: selectedUser.permissions?.manageZones ?? false,
             manageMigration: selectedUser.permissions?.manageMigration ?? false,

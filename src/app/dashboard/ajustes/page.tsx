@@ -7,8 +7,9 @@ import { SettingsClientPage } from "@/components/settings-client-page";
 import { PlanManagement } from "@/components/plan-management";
 import { MigrationManagement } from "@/components/migration-management";
 import { SupervisorAppSync } from "@/components/supervisor-app-sync";
+import { MonitoreoManagement } from "@/components/monitoreo-management";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, MapPin, Settings as SettingsIcon, Wrench, FileText, ArrowRightLeft, CloudDownload } from "lucide-react";
+import { Users, MapPin, Settings as SettingsIcon, Wrench, FileText, ArrowRightLeft, CloudDownload, Activity } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import Loading from "../loading";
 import { useMemo, Fragment } from "react";
@@ -31,7 +32,8 @@ export default function SettingsPage() {
                 plans: true,
                 system: true,
                 maintenance: true,
-                sync: true
+                sync: true,
+                monitoreo: true
             };
         }
         return {
@@ -41,7 +43,8 @@ export default function SettingsPage() {
             plans: appUser.permissions?.managePlans || appUser.permissions?.settings,
             system: appUser.permissions?.manageSystem || appUser.permissions?.settings,
             maintenance: appUser.permissions?.manageMaintenance || appUser.permissions?.settings,
-            sync: appUser.permissions?.manageSystem || appUser.permissions?.settings
+            sync: appUser.permissions?.manageSystem || appUser.permissions?.settings,
+            monitoreo: false
         };
     }, [appUser]);
 
@@ -91,6 +94,14 @@ export default function SettingsPage() {
                 icon: <SettingsIcon className="h-4 w-4" />,
             });
         }
+        if (permissions.monitoreo) {
+            tabs.push({
+                value: "monitoreo",
+                label: "Monitoreo",
+                icon: <Activity className="h-4 w-4" />,
+                className: "text-indigo-600 dark:text-indigo-400 data-[state=active]:text-white",
+            });
+        }
         if (permissions.maintenance) {
             tabs.push({
                 value: "maintenance",
@@ -118,10 +129,6 @@ export default function SettingsPage() {
     
     return (
         <div className="container mx-auto space-y-8 py-6">
-            <div className="flex flex-col gap-2 border-b pb-6">
-                <h1 className="text-4xl font-extrabold tracking-tight">Ajustes del Sistema</h1>
-            </div>
-
             <Tabs defaultValue={defaultTab} className="space-y-8">
                 <div className="flex justify-center md:justify-start">
                     <TabsList className="inline-flex h-auto items-center justify-start md:justify-center rounded-xl bg-slate-100 dark:bg-slate-900/50 p-1 text-muted-foreground border border-slate-200/60 dark:border-slate-800/40 shadow-inner w-full md:w-auto overflow-x-auto flex-nowrap md:flex-wrap gap-1">
@@ -202,6 +209,14 @@ export default function SettingsPage() {
                     <TabsContent value="system" className="mt-0 focus-visible:outline-none">
                         <div className="animate-in fade-in-50 duration-500">
                             <SettingsClientPage initialConfig={config} mode="system" />
+                        </div>
+                    </TabsContent>
+                )}
+
+                {permissions.monitoreo && (
+                    <TabsContent value="monitoreo" className="mt-0 focus-visible:outline-none">
+                        <div className="animate-in fade-in-50 duration-500">
+                            <MonitoreoManagement users={users} />
                         </div>
                     </TabsContent>
                 )}
