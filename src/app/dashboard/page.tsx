@@ -15,7 +15,7 @@ import {
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import { useAuth } from '@/hooks/use-auth';
 import { getAppConfig } from '@/lib/firestore-data';
-import { Users, Landmark, Banknote, TrendingUp, Receipt, Calendar, ChevronLeft, RotateCcw } from 'lucide-react';
+import { Users, Landmark, Banknote, TrendingUp, Receipt, Calendar, ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Logo } from '@/components/logo';
@@ -166,6 +166,12 @@ export default function DashboardPage() {
         }
     };
 
+    const handleGoNext = () => {
+        if (activeWeekIndex > 0) {
+            setSelectedWeekValue(weeksList[activeWeekIndex - 1].value);
+        }
+    };
+
     const handleGoCurrent = () => {
         if (weeksList.length > 0) {
             setSelectedWeekValue(weeksList[0].value);
@@ -213,6 +219,18 @@ export default function DashboardPage() {
                             <ChevronLeft className="h-4 w-4" />
                             Atrás
                         </Button>
+
+                        {activeWeekIndex > 0 && (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={handleGoNext}
+                                className="h-10 text-xs font-bold uppercase rounded-xl border-border/60 hover:bg-indigo-50/20 shrink-0 gap-1.5 px-4"
+                            >
+                                Siguiente
+                                <ChevronRight className="h-4 w-4" />
+                            </Button>
+                        )}
 
                         <Button
                             variant="outline"
