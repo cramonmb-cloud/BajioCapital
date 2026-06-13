@@ -51,8 +51,11 @@ const initialData: RealtimeData = {
     config: null,
 };
 
-export function useRealtimeData() {
-  const [data, setData] = useState<RealtimeData>(initialData);
+export function useRealtimeData(initialProps?: Partial<RealtimeData>) {
+  const [data, setData] = useState<RealtimeData>(() => ({
+    ...initialData,
+    ...initialProps
+  }));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 

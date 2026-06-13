@@ -107,7 +107,13 @@ interface LoansClientPageProps {
 }
 
 export function LoansClientPage({ initialClients, initialLoanPlans, initialPlazas, initialLocalidades, initialPromotoras }: LoansClientPageProps) {
-  const { data, loading: dataLoading } = useRealtimeData();
+  const { data, loading: dataLoading } = useRealtimeData({
+    clients: initialClients,
+    loanPlans: initialLoanPlans,
+    plazas: initialPlazas,
+    localidades: initialLocalidades,
+    promotoras: initialPromotoras
+  });
   const { loans, clients, loanPlans, plazas, localidades, promotoras } = data || { 
       loans: [], 
       clients: initialClients, 

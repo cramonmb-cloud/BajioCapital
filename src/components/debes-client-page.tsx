@@ -52,7 +52,13 @@ export function DebesClientPage({
   initialPromotoras,
 }: DebesClientPageProps) {
   const { toast } = useToast();
-  const { data: realtime } = useRealtimeData();
+  const { data: realtime } = useRealtimeData({
+    clients: initialClients,
+    loanPlans: initialLoanPlans,
+    plazas: initialPlazas,
+    localidades: initialLocalidades,
+    promotoras: initialPromotoras
+  });
   const { appUser } = useAuth();
   const isCristobal = appUser?.username?.toLowerCase() === 'cristobal';
 

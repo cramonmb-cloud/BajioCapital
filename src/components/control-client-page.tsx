@@ -63,7 +63,13 @@ const checkPenalty = (loan: Loan, loanPlan: LoanPlan) => {
 export function ControlClientPage({ initialClients, initialLoanPlans, initialPlazas, initialLocalidades, initialPromotoras }: ControlClientPageProps) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [activeTab, setActiveTab] = useState<'resumen' | 'plazas' | 'informes'>('resumen');
-    const { data, loading: dataLoading } = useRealtimeData();
+    const { data, loading: dataLoading } = useRealtimeData({
+        clients: initialClients,
+        loanPlans: initialLoanPlans,
+        plazas: initialPlazas,
+        localidades: initialLocalidades,
+        promotoras: initialPromotoras,
+    });
 
     const { loans, clients, loanPlans, plazas, localidades, promotoras } = data || {
         loans: [],
