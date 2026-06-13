@@ -58,12 +58,22 @@ export default function DashboardPage() {
             });
         });
 
+        const formatDate = (date: Date) => {
+            const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+            const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+            return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        };
+        const weekStartStr = formatDate(weekStart);
+        const weekEndStr = formatDate(currentSaturday);
+
         return {
             totalClients,
             activeLoans: activeLoansCount,
             totalLoaned,
             totalCollectedThisWeek,
-            totalPaymentsThisWeek
+            totalPaymentsThisWeek,
+            weekStartStr,
+            weekEndStr
         };
     }, [clients, loans, appUser, data]);
 
@@ -104,7 +114,7 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">{formatCurrency(stats.totalCollectedThisWeek)}</div>
-                        <p className="text-xs text-muted-foreground">Total recaudado en la semana actual</p>
+                        <p className="text-xs text-muted-foreground">Del {stats.weekStartStr} al {stats.weekEndStr}</p>
                     </CardContent>
                 </Card>
                 <Card>
@@ -114,7 +124,7 @@ export default function DashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <div className="text-2xl font-bold">+{stats.totalPaymentsThisWeek}</div>
-                        <p className="text-xs text-muted-foreground">Pagos registrados en la semana</p>
+                        <p className="text-xs text-muted-foreground">Del {stats.weekStartStr} al {stats.weekEndStr}</p>
                     </CardContent>
                 </Card>
                 <Card>
