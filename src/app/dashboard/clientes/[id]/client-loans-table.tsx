@@ -206,6 +206,11 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
     setIsAdjustDialogOpen(true);
   };
 
+  const getWeeklyPayment = (loan: Loan) => {
+    const plan = loanPlans.find(p => p.id === loan.loanPlanId);
+    return plan ? (loan.amount / 1000) * plan.weeklyPaymentRate : 0;
+  };
+
   return (
     <>
       <Table>
@@ -213,6 +218,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
           <TableRow>
             <TableHead>Fecha del Préstamo</TableHead>
             <TableHead>Monto</TableHead>
+            <TableHead>Abono</TableHead>
             <TableHead>Plan</TableHead>
             <TableHead>Estado</TableHead>
             <TableHead className="text-center">Abonos</TableHead>
@@ -222,6 +228,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
         <TableBody>
           {sortedLoans.length > 0 ? (
             sortedLoans.map((loan) => {
+              const weeklyPayment = getWeeklyPayment(loan);
               return (
                 <TableRow 
                   key={loan.id} 
@@ -230,6 +237,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
                 >
                   <TableCell className="font-semibold">{formatDate(loan.startDate)}</TableCell>
                   <TableCell>{formatCurrency(loan.amount)}</TableCell>
+                  <TableCell className="font-semibold text-indigo-600 dark:text-indigo-400">{formatCurrency(weeklyPayment)}</TableCell>
                   <TableCell>{getPlanName(loan.loanPlanId)}</TableCell>
                   <TableCell>
                     <Badge variant={getStatusVariant(loan.status)}>{translateStatus(loan.status)}</Badge>
@@ -255,7 +263,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={6} className="text-center">No hay préstamos para este cliente.</TableCell>
+              <TableCell colSpan={7} className="text-center">No hay préstamos para este cliente.</TableCell>
             </TableRow>
           )}
         </TableBody>
