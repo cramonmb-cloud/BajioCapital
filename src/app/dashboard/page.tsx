@@ -15,7 +15,7 @@ import {
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import { useAuth } from '@/hooks/use-auth';
 import { getAppConfig } from '@/lib/firestore-data';
-import { Users, Landmark, Banknote, TrendingUp, Receipt, Calendar } from 'lucide-react';
+import { Users, Landmark, Banknote, TrendingUp, Receipt, Calendar, ChevronLeft, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Image from 'next/image';
 import { Logo } from '@/components/logo';
@@ -154,6 +154,24 @@ export default function DashboardPage() {
         };
     }, [clients, loans, appUser, data, activeWeek]);
 
+    const activeWeekIndex = useMemo(() => {
+        if (weeksList.length === 0) return 0;
+        const idx = weeksList.findIndex(w => w.value === selectedWeekValue);
+        return idx !== -1 ? idx : 0;
+    }, [weeksList, selectedWeekValue]);
+
+    const handleGoBack = () => {
+        if (activeWeekIndex < weeksList.length - 1) {
+            setSelectedWeekValue(weeksList[activeWeekIndex + 1].value);
+        }
+    };
+
+    const handleGoCurrent = () => {
+        if (weeksList.length > 0) {
+            setSelectedWeekValue(weeksList[0].value);
+        }
+    };
+
     if (dataLoading || authLoading || !data || !appUser || !stats) {
         return <Loading />;
     }
@@ -181,40 +199,38 @@ export default function DashboardPage() {
                 </div>
             )}
 
-            {/* Week Selector Dropdown */}
+            {/* Week Navigation Buttons */}
             {weeksList.length > 0 && (
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white/50 backdrop-blur p-4 rounded-2xl border border-border/40 shadow-sm animate-in fade-in slide-in-from-top-1 duration-300">
-                    <div className="space-y-0.5">
-                        <h2 className="text-sm font-black uppercase tracking-wider text-indigo-600 flex items-center gap-1.5">
-                            <Calendar className="h-4.5 w-4.5" />
-                            Reporte Semanal Operativo
-                        </h2>
-                        <p className="text-[10px] uppercase font-bold text-muted-foreground">
-                            Consulta la cobranza, abonos y préstamos registrados de semanas anteriores
-                        </p>
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white/50 backdrop-blur p-4 rounded-2xl border border-border/40 shadow-sm animate-in fade-in duration-300">
+                    <div className="flex gap-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleGoBack}
+                            disabled={activeWeekIndex >= weeksList.length - 1}
+                            className="h-10 text-xs font-bold uppercase rounded-xl border-border/60 hover:bg-indigo-50/20 shrink-0 gap-1.5 px-4"
+                        >
+                            <ChevronLeft className="h-4 w-4" />
+                            Atrás
+                        </Button>
+
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleGoCurrent}
+                            disabled={activeWeekIndex === 0}
+                            className="h-10 text-xs font-bold uppercase rounded-xl border-border/60 hover:bg-indigo-50/20 shrink-0 gap-1.5 px-4"
+                        >
+                            <RotateCcw className="h-3.5 w-3.5" />
+                            Actual
+                        </Button>
                     </div>
 
-                    <div className="w-full sm:w-[320px] shrink-0">
-                        <Select 
-                            value={selectedWeekValue || (weeksList[0] ? weeksList[0].value : '')} 
-                            onValueChange={setSelectedWeekValue}
-                        >
-                            <SelectTrigger className="h-10 text-xs border-2 uppercase font-bold rounded-xl focus:ring-indigo-500 bg-white">
-                                <SelectValue placeholder="Seleccionar Semana" />
-                            </SelectTrigger>
-                            <SelectContent className="max-h-[300px] rounded-xl">
-                                {weeksList.map((week) => (
-                                    <SelectItem 
-                                        key={week.value} 
-                                        value={week.value} 
-                                        className="text-xs font-bold uppercase"
-                                    >
-                                        {week.label}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
+                    {activeWeek && (
+                        <div className="text-xs font-black uppercase text-zinc-700 tracking-wider bg-indigo-50/50 border border-indigo-150 px-4 py-2.5 rounded-xl shrink-0">
+                            {activeWeek.label}
+                        </div>
+                    )}
                 </div>
             )}
             
