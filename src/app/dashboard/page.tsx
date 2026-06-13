@@ -37,13 +37,13 @@ export default function DashboardPage() {
 
 
 
-        // Weekly report logic
-        const currentSaturday = getSaturdayOfWeek(mexicoNow);
-        currentSaturday.setHours(23, 59, 59, 999);
-
-        const weekStart = new Date(currentSaturday);
-        weekStart.setDate(currentSaturday.getDate() - 6);
+        // Weekly report logic (Saturday to Friday)
+        const weekStart = getSaturdayOfWeek(mexicoNow);
         weekStart.setHours(0, 0, 0, 0);
+
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekStart.getDate() + 6);
+        weekEnd.setHours(23, 59, 59, 999);
 
         let totalCollectedThisWeek = 0;
         let totalPaymentsThisWeek = 0;
@@ -51,7 +51,7 @@ export default function DashboardPage() {
         loans.forEach(loan => {
             (loan.payments || []).forEach(payment => {
                 const paymentDate = new Date(payment.date);
-                if (paymentDate >= weekStart && paymentDate <= currentSaturday) {
+                if (paymentDate >= weekStart && paymentDate <= weekEnd) {
                     totalCollectedThisWeek += payment.amount;
                     totalPaymentsThisWeek += 1;
                 }
@@ -64,7 +64,7 @@ export default function DashboardPage() {
             return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
         };
         const weekStartStr = formatDate(weekStart);
-        const weekEndStr = formatDate(currentSaturday);
+        const weekEndStr = formatDate(weekEnd);
 
         return {
             totalClients,
