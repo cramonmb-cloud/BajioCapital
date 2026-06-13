@@ -59,9 +59,7 @@ export default function DashboardPage() {
         });
 
         const formatDate = (date: Date) => {
-            const userTimezoneOffset = date.getTimezoneOffset() * 60000;
-            const correctedDate = new Date(date.getTime() + userTimezoneOffset);
-            return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+            return date.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
         };
         const weekStartStr = formatDate(weekStart);
         const weekEndStr = formatDate(weekEnd);
