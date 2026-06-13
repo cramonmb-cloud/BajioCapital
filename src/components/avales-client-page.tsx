@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import type { Client, Loan, LoanPlan } from '@/lib/types';
+import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { 
   Card, 
   CardContent, 
@@ -47,7 +47,15 @@ import {
   CircleDot,
   FileSpreadsheet,
   Link2,
-  Users
+  Users,
+  Calendar,
+  Building,
+  User,
+  Wallet,
+  Shield,
+  Monitor,
+  X,
+  Home
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -58,7 +66,11 @@ interface AvalesClientPageProps {
   initialClients: Client[];
   initialLoans: Loan[];
   initialPlans: LoanPlan[];
+  initialPlazas?: Plaza[];
+  initialLocalidades?: Localidad[];
+  initialPromotoras?: Promotora[];
 }
+
 
 export interface ParsedEndorser {
   name: string;
@@ -136,8 +148,22 @@ function parseEndorsement(endorsementStr: string) {
   return { name, street, neighborhood, postalCode, city, phone, guarantees };
 }
 
-export function AvalesClientPage({ initialClients, initialLoans, initialPlans }: AvalesClientPageProps) {
+export function AvalesClientPage({ 
+  initialClients, 
+  initialLoans, 
+  initialPlans,
+  initialPlazas = [],
+  initialLocalidades = [],
+  initialPromotoras = []
+}: AvalesClientPageProps) {
   const { appUser } = useAuth();
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+    const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+    return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'linked-active' | 'self-active' | 'multiple' | 'clean'>('all');
   const [backedClientsFilter, setBackedClientsFilter] = useState<string>('all');
@@ -789,7 +815,7 @@ export function AvalesClientPage({ initialClients, initialLoans, initialPlans }:
 
       {/* Modal para detalles del préstamo */}
       <Dialog open={isLoanModalOpen} onOpenChange={setIsLoanModalOpen}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden border-0 shadow-2xl rounded-2xl w-full max-h-[85vh] flex flex-col bg-white">
+        <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm w-full h-auto max-h-[92vh] md:max-h-[85vh] flex flex-col bg-white">
           {selectedLoan && (() => {
             const client = initialClients.find(c => c.id === selectedLoan.clientId);
             const plan = initialPlans.find(p => p.id === selectedLoan.loanPlanId);
@@ -830,196 +856,271 @@ export function AvalesClientPage({ initialClients, initialLoans, initialPlans }:
             const totalExpected = totalTerm * weeklyPayment;
             const totalBalanceDue = Math.max(0, totalExpected - actualTotalPaid);
 
+            const promotora = initialPromotoras?.find(p => p.id === selectedLoan.promotoraId);
+            const localidad = initialLocalidades?.find(l => l.id === promotora?.localidadId);
+            const plaza = initialPlazas?.find(pz => pz.id === localidad?.plazaId);
+            const endorserDetails = parseEndorsement(client?.endorsement || '');
+
             return (
               <>
-                <DialogHeader className="px-6 py-4 border-b shrink-0 flex flex-row items-center justify-between bg-zinc-50/50">
-                  <div>
-                    <DialogTitle className="text-base font-black uppercase tracking-tight text-zinc-900">
-                      Detalle del Préstamo
-                    </DialogTitle>
-                    <DialogDescription className="text-[10px] uppercase font-bold text-muted-foreground mt-0.5">
-                      Estado de cuenta y desglose completo de abonos
-                    </DialogDescription>
-                  </div>
+                <DialogHeader className="sr-only">
+                  <DialogTitle>Detalle del Préstamo</DialogTitle>
+                  <DialogDescription>Expediente financiero, deudor y amortizaciones detalladas del avalado.</DialogDescription>
                 </DialogHeader>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                  {/* General Info Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                    <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200/50 text-center">
-                      <p className="text-[8px] font-black text-muted-foreground uppercase tracking-wider mb-0.5">Cliente</p>
-                      <p className="text-[11px] font-black text-zinc-800 uppercase truncate">{client?.name || 'Desconocido'}</p>
-                    </div>
-                    <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200/50 text-center">
-                      <p className="text-[8px] font-black text-muted-foreground uppercase tracking-wider mb-0.5">Monto Autorizado</p>
-                      <p className="text-[11px] font-black text-zinc-800">{formatCurrency(selectedLoan.amount)}</p>
-                    </div>
-                    <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200/50 text-center">
-                      <p className="text-[8px] font-black text-muted-foreground uppercase tracking-wider mb-0.5">Plan / Plazo</p>
-                      <p className="text-[11px] font-black text-zinc-800 uppercase">{plan?.name || `${baseTerm} Semanas`}</p>
-                    </div>
-                    <div className="p-3 bg-zinc-50 rounded-xl border border-zinc-200/50 text-center">
-                      <p className="text-[8px] font-black text-muted-foreground uppercase tracking-wider mb-0.5">Estado</p>
-                      <Badge className={cn(
-                        "h-5 text-[8px] font-black uppercase rounded-lg px-2 mt-0.5",
-                        selectedLoan.status === 'Overdue' ? 'bg-red-600 text-white animate-pulse' : 'bg-blue-600 text-white'
-                      )}>
-                        {selectedLoan.status === 'Overdue' ? 'Vencido' : 'Activo'}
-                      </Badge>
+                {/* Custom absolute close button */}
+                <div className="absolute right-4 top-4 z-50">
+                  <button 
+                    onClick={() => setIsLoanModalOpen(false)}
+                    className="h-10 w-10 text-indigo-600 hover:bg-indigo-50 rounded-full flex items-center justify-center bg-white/80 shadow-lg backdrop-blur-sm border-2 border-indigo-200"
+                  >
+                    <X className="h-6 w-6 stroke-[3]" />
+                  </button>
+                </div>
+
+                {/* Header info sheet matching consultar-cliente */}
+                <div className="p-4 md:p-5 flex flex-col md:flex-row justify-between gap-4 border-b bg-muted/5 pr-14 md:pr-16 shrink-0">
+                  <div className="flex items-center gap-3 md:gap-4">
+                    <Avatar className="h-12 w-12 md:h-16 md:w-16 border-2 border-white shadow-md rounded-full overflow-hidden shrink-0">
+                      <AvatarFallback className="text-xl md:text-2xl font-black bg-zinc-100 text-zinc-400">
+                        {client?.name?.charAt(0) || '?'}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0 flex-1">
+                      <h2 className="text-lg md:text-xl font-black uppercase tracking-tight text-zinc-900 leading-tight break-words">
+                        {client?.name || 'Cliente Desconocido'}
+                      </h2>
+                      <p className="text-[9px] md:text-[10px] font-black text-zinc-500 uppercase">
+                        ID CLIENTE: {client?.id || 'N/A'}
+                      </p>
                     </div>
                   </div>
-
-                  {/* Estado de Cuenta Summary (from consultar-cliente-page) */}
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-3 gap-3">
-                      <div className="bg-white border rounded-xl p-2.5 text-center shadow-sm">
-                        <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-1">Semana</p>
-                        <p className="text-lg font-black text-zinc-900 leading-none">
-                          {Math.min(currentWeekSafe, totalTerm)} <span className="text-zinc-300 text-xs">/ {totalTerm}</span>
-                        </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 min-w-0 md:min-w-[300px]">
+                    <div className="flex items-center gap-2 text-indigo-600">
+                      <Phone className="h-3.5 w-3.5" />
+                      <span className="text-xs font-black tracking-tight">{client?.phone || 'Sin Teléfono'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-zinc-600">
+                      <Calendar className="h-3.5 w-3.5" />
+                      <span className="text-[10px] font-black uppercase">
+                        Inició: {selectedLoan.startDate ? formatDate(selectedLoan.startDate) : 'N/A'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 text-indigo-600 sm:col-span-2">
+                      <Home className="h-3.5 w-3.5 shrink-0" />
+                      <span className="text-[10px] font-black uppercase line-clamp-2 md:truncate">
+                        {client?.street ? `${client.street}, ${client.neighborhood}` : 'Sin dirección registrada'}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-zinc-500 sm:col-span-2 pt-1">
+                      <div className="flex items-center gap-1">
+                        <Building className="h-3 w-3" />
+                        <span className="text-[9px] font-black uppercase">{plaza?.name || 'Sin Plaza'}</span>
                       </div>
-                      <div className="bg-blue-50 border border-blue-100 rounded-xl p-2.5 text-center shadow-sm">
-                        <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-1">Abono</p>
-                        <p className="text-lg font-black text-blue-600 leading-none">{formatCurrency(weeklyPayment)}</p>
+                      <div className="flex items-center gap-1 border-l pl-2 border-zinc-200">
+                        <MapPin className="h-3 w-3" />
+                        <span className="text-[9px] font-black uppercase">{localidad?.name || 'Sin Localidad'}</span>
                       </div>
-                      <div className="bg-red-50 border border-red-100 rounded-xl p-2.5 text-center shadow-sm">
-                        <p className="text-[8px] font-black text-red-500 uppercase tracking-widest mb-1">Fallos</p>
-                        <p className="text-lg font-black text-red-600 leading-none">{missedCount}</p>
+                      <div className="flex items-center gap-1 border-l pl-2 border-zinc-200">
+                        <User className="h-3 w-3" />
+                        <span className="text-[9px] font-black uppercase">{promotora?.name || 'Sin Promotora'}</span>
                       </div>
                     </div>
-
-                    <div className="bg-zinc-100/80 rounded-2xl p-4 space-y-3 border border-zinc-200/50">
-                      <div className="flex justify-between items-center px-2">
-                        <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Total Cobrado</span>
-                        <span className="text-sm font-black text-green-700">{formatCurrency(actualTotalPaid)}</span>
-                      </div>
-                      <div className="flex justify-between items-center px-2 border-t border-zinc-200/50 pt-2.5">
-                        <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Saldo de Fallos</span>
-                        <span className="text-sm font-black text-zinc-800">{formatCurrency(baseArrears)}</span>
-                      </div>
-                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end pt-3 border-t border-zinc-200 px-2 gap-2">
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] font-black text-red-700 uppercase tracking-widest block">Total a Liquidar</span>
-                          <span className="text-[8px] font-bold text-red-600 uppercase opacity-70">Incluye cuotas vigentes + penalización</span>
-                        </div>
-                        <span className="text-2xl font-black text-red-700 tracking-tighter leading-none">
-                          {formatCurrency(totalBalanceDue)}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Payments history */}
-                  <div className="space-y-3">
-                    <h4 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest border-b border-zinc-100 pb-2 flex items-center justify-between">
-                      <span>Historial de Amortizaciones</span>
-                      <span className="text-zinc-500 lowercase font-medium">({selectedLoan.payments?.length || 0} de {totalTerm} pagadas)</span>
-                    </h4>
-
-                    <div className="max-h-[250px] overflow-y-auto rounded-xl border border-zinc-250/50">
-                      <Table>
-                        <TableHeader className="bg-zinc-50 sticky top-0 z-10">
-                          <TableRow>
-                            <TableHead className="py-2 text-[9px] font-black uppercase text-center w-[60px] text-zinc-700 border-r border-zinc-200">Num</TableHead>
-                            <TableHead className="py-2 text-[9px] font-black uppercase text-zinc-700 border-r border-zinc-200">Vencimiento</TableHead>
-                            <TableHead className="py-2 text-[9px] font-black uppercase text-right text-zinc-700 border-r border-zinc-200">Abono</TableHead>
-                            <TableHead className="py-2 text-[9px] font-black uppercase text-right text-zinc-700 border-r border-zinc-200">Recibido</TableHead>
-                            <TableHead className="py-2 text-[9px] font-black uppercase text-center w-[120px] text-zinc-700">Estado</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {Array.from({ length: totalTerm }).map((_, i) => {
-                            const weekNum = i + 1;
-                            const payment = (selectedLoan.payments || []).find(p => p.weekNumber === weekNum);
-                            const isPenalty = weekNum > baseTerm;
-                            const isRecovered = payment?.isRecovered || false;
-                            
-                            const dueDate = new Date(selectedLoan.startDate);
-                            dueDate.setDate(dueDate.getDate() + (weekNum * 7));
-                            const isPastDate = now > dueDate;
-                            
-                            let statusText = 'Pendiente';
-                            let statusColor = 'bg-zinc-100 text-zinc-500 border-zinc-200';
-                            let statusType: 'PAID' | 'MISSED' | 'PENDING' = 'PENDING';
-                            
-                            if (payment) {
-                              if (payment.amount >= weeklyPayment) {
-                                statusText = isRecovered ? 'RECUPERADO' : new Date(payment.date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
-                                statusColor = 'bg-green-50 text-green-700 border-green-200';
-                                statusType = 'PAID';
-                              } else if (payment.amount > 0) {
-                                statusText = isRecovered ? 'RECUPERADO PARCIAL' : 'PARCIAL';
-                                statusColor = 'bg-amber-50 text-amber-700 border-amber-200';
-                                statusType = 'MISSED';
-                              } else {
-                                statusText = 'FALLO';
-                                statusColor = 'bg-red-50 text-red-700 border-red-200';
-                                statusType = 'MISSED';
-                              }
-                            } else if (isPastDate || weekNum < currentWeekSafe - 1) {
-                              statusText = 'FALLO';
-                              statusColor = 'bg-red-50 text-red-700 border-red-200';
-                              statusType = 'MISSED';
-                            } else {
-                              statusText = 'PENDIENTE';
-                              statusColor = 'bg-zinc-100 text-zinc-500 border-zinc-200';
-                              statusType = 'PENDING';
-                            }
-
-                            return (
-                              <TableRow key={weekNum} className="hover:bg-zinc-50/50 text-[10px] font-bold text-zinc-700 border-b animate-in fade-in">
-                                <TableCell className="text-center py-2 border-r border-zinc-100">{weekNum}</TableCell>
-                                <TableCell className="py-2 border-r border-zinc-100">
-                                  {dueDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                                </TableCell>
-                                <TableCell className="text-right py-2 border-r border-zinc-100">
-                                  {formatCurrency(weeklyPayment)}
-                                </TableCell>
-                                <TableCell className={cn(
-                                  "text-right py-2 border-r border-zinc-100 font-black",
-                                  isRecovered ? "bg-purple-50 text-purple-700" :
-                                  payment ? (payment.amount >= weeklyPayment ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700") : "bg-red-50 text-red-700"
-                                )}>
-                                  <div className="flex items-center justify-end gap-1.5">
-                                    {formatCurrency(payment ? payment.amount : 0)}
-                                    {isPenalty && (
-                                      <Badge className="bg-amber-600 text-white text-[7px] font-black h-3.5 px-1 uppercase shrink-0">EXTRA</Badge>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-center py-2">
-                                  <Badge className={cn(
-                                    "h-4.5 px-1.5 text-[8px] font-black uppercase rounded-lg border",
-                                    isRecovered ? "bg-purple-50 text-purple-700 border-purple-200" :
-                                    statusType === 'PAID' ? "bg-green-50 text-green-700 border-green-200" :
-                                    statusType === 'MISSED' ? "bg-red-50 text-red-700 border-red-200" : "bg-zinc-100 text-zinc-500 border-zinc-200"
-                                  )}>
-                                    {statusText}
-                                  </Badge>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 items-center bg-indigo-50/20 p-3 rounded-xl border border-indigo-100/50 text-[10px] text-indigo-900 leading-tight font-medium">
-                    <AlertCircle className="h-4 w-4 text-indigo-600 shrink-0" />
-                    <span>
-                      Fecha de Inicio del Préstamo: <strong>{new Date(selectedLoan.startDate).toLocaleDateString('es-MX')}</strong>.
-                      {missedCount > 0 && (
-                        <span> Actualmente cuenta con <strong>{missedCount} fallos</strong> acumulados.</span>
-                      )}
-                    </span>
                   </div>
                 </div>
 
+                {/* 2-Column Body */}
+                <div className="flex-1 overflow-y-auto min-h-0 grid grid-cols-1 md:grid-cols-12 gap-0 md:divide-x divide-zinc-150">
+                  
+                  {/* LEFT Column: Account statement and endorsement details */}
+                  <div className="md:col-span-5 p-4 md:p-5 space-y-5 bg-zinc-50/30">
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2">
+                        <Wallet className="h-4 w-4 text-indigo-600" />
+                        <h3 className="text-sm font-black uppercase tracking-tight text-zinc-800">Estado de Cuenta</h3>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-white border rounded-xl p-2 text-center shadow-sm">
+                          <p className="text-[8px] font-black text-zinc-400 uppercase tracking-widest mb-0.5">Semana</p>
+                          <p className="text-base font-black text-zinc-900 leading-none">
+                            {Math.min(currentWeekSafe, totalTerm)} <span className="text-zinc-300 text-xs">/ {totalTerm}</span>
+                          </p>
+                        </div>
+                        <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-2 text-center shadow-sm">
+                          <p className="text-[8px] font-black text-indigo-500 uppercase tracking-widest mb-0.5">Abono</p>
+                          <p className="text-base font-black text-indigo-600 leading-none">{formatCurrency(weeklyPayment)}</p>
+                        </div>
+                        <div className="bg-red-50 border border-red-100 rounded-xl p-2 text-center shadow-sm">
+                          <p className="text-[8px] font-black text-red-500 uppercase tracking-widest mb-0.5">Fallos</p>
+                          <p className="text-base font-black text-red-600 leading-none">{missedCount}</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-zinc-100/80 rounded-2xl p-4 space-y-2 border border-zinc-200/50">
+                        <div className="flex justify-between items-center px-1">
+                          <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Total Cobrado</span>
+                          <span className="text-xs font-black text-green-700">{formatCurrency(actualTotalPaid)}</span>
+                        </div>
+                        <div className="flex justify-between items-center px-1 border-t border-zinc-200/50 pt-2">
+                          <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">Saldo de Fallos</span>
+                          <span className="text-xs font-black text-zinc-800">{formatCurrency(baseArrears)}</span>
+                        </div>
+                        <div className="flex flex-col pt-3 border-t border-zinc-200 px-1 gap-1">
+                          <div className="flex justify-between items-end">
+                            <div className="space-y-0.5">
+                              <span className="text-[9px] font-black text-red-700 uppercase tracking-widest block leading-none">Total a Liquidar</span>
+                              <span className="text-[7px] font-bold text-red-600 uppercase opacity-70">Incluye penalización</span>
+                            </div>
+                            <span className="text-xl font-black text-red-700 tracking-tighter leading-none">
+                              {formatCurrency(totalBalanceDue)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 pt-2">
+                      <div className="flex items-center gap-2">
+                        <Shield className="h-4 w-4 text-indigo-600" />
+                        <h3 className="text-sm font-black uppercase tracking-tight text-zinc-800">Aval y Garantía</h3>
+                      </div>
+                      <div className="bg-indigo-600 rounded-xl p-4 text-white shadow-lg shadow-indigo-900/10 space-y-2 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-2 opacity-5 group-hover:rotate-12 transition-transform">
+                          <UserCheck className="h-16 w-16" />
+                        </div>
+                        <p className="text-[8px] font-bold uppercase text-indigo-200 tracking-widest">Responsable Solidario</p>
+                        <h4 className="text-sm font-black uppercase leading-tight">{endorserDetails.name || 'SIN AVAL REGISTRADO'}</h4>
+                        <p className="text-[9px] font-medium leading-tight opacity-90 line-clamp-3">
+                          {endorserDetails.street ? `${endorserDetails.street}, Col. ${endorserDetails.neighborhood}` : 'SIN DIRECCIÓN REGISTRADA'}
+                          {endorserDetails.phone ? ` | Tel: ${endorserDetails.phone}` : ''}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Monitor className="h-4 w-4 text-zinc-500" />
+                          <span className="text-[9px] font-black uppercase text-zinc-500 tracking-widest">Garantías del Deudor</span>
+                        </div>
+                        <div className="border border-zinc-200 rounded-xl p-3 bg-zinc-50/50 min-h-[60px] flex items-center justify-center">
+                          <p className="text-[10px] font-bold uppercase text-zinc-600 leading-snug tracking-wide text-center italic">
+                            {client?.guarantee || 'SIN GARANTÍAS REGISTRADAS'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RIGHT Column: Payments schedule and records */}
+                  <div className="md:col-span-7 p-4 md:p-5 flex flex-col space-y-4">
+                    <div className="flex-1 flex flex-col min-h-0 space-y-3">
+                      <h4 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest border-b border-zinc-150 pb-2 flex items-center justify-between shrink-0">
+                        <span>Historial de Amortizaciones</span>
+                        <span className="text-zinc-500 lowercase font-medium">({selectedLoan.payments?.length || 0} de {totalTerm} pagadas)</span>
+                      </h4>
+
+                      <div className="flex-1 min-h-[200px] overflow-y-auto rounded-xl border border-zinc-200 bg-white">
+                        <Table>
+                          <TableHeader className="bg-zinc-50 sticky top-0 z-10">
+                            <TableRow>
+                              <TableHead className="py-2 text-[9px] font-black uppercase text-center w-[50px] text-zinc-700 border-r border-zinc-200">Sem</TableHead>
+                              <TableHead className="py-2 text-[9px] font-black uppercase text-zinc-700 border-r border-zinc-200">Vence</TableHead>
+                              <TableHead className="py-2 text-[9px] font-black uppercase text-right text-zinc-700 border-r border-zinc-200">Cobro</TableHead>
+                              <TableHead className="py-2 text-[9px] font-black uppercase text-right text-zinc-700 border-r border-zinc-200">Abono</TableHead>
+                              <TableHead className="py-2 text-[9px] font-black uppercase text-center w-[100px] text-zinc-700">Estado</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {Array.from({ length: totalTerm }).map((_, i) => {
+                              const weekNum = i + 1;
+                              const payment = (selectedLoan.payments || []).find(p => p.weekNumber === weekNum);
+                              const isPenalty = weekNum > baseTerm;
+                              const isRecovered = payment?.isRecovered || false;
+                              
+                              const dueDate = new Date(selectedLoan.startDate);
+                              dueDate.setDate(dueDate.getDate() + (weekNum * 7));
+                              const isPastDate = now > dueDate;
+                              
+                              let statusText = 'Pendiente';
+                              let statusType: 'PAID' | 'MISSED' | 'PENDING' = 'PENDING';
+                              
+                              if (payment) {
+                                if (payment.amount >= weeklyPayment) {
+                                  statusText = isRecovered ? 'RECUPERADO' : new Date(payment.date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
+                                  statusType = 'PAID';
+                                } else if (payment.amount > 0) {
+                                  statusText = isRecovered ? 'RECU. PARCIAL' : 'PARCIAL';
+                                  statusType = 'MISSED';
+                                } else {
+                                  statusText = 'FALLO';
+                                  statusType = 'MISSED';
+                                }
+                              } else if (isPastDate || weekNum < currentWeekSafe - 1) {
+                                statusText = 'FALLO';
+                                statusType = 'MISSED';
+                              } else {
+                                statusText = 'PENDIENTE';
+                                statusType = 'PENDING';
+                              }
+
+                              return (
+                                <TableRow key={weekNum} className="hover:bg-zinc-50/50 text-[10px] font-bold text-zinc-700 border-b">
+                                  <TableCell className="text-center py-2 border-r border-zinc-100">{weekNum}</TableCell>
+                                  <TableCell className="py-2 border-r border-zinc-100">
+                                    {dueDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })}
+                                  </TableCell>
+                                  <TableCell className="text-right py-2 border-r border-zinc-100">
+                                    {formatCurrency(weeklyPayment)}
+                                  </TableCell>
+                                  <TableCell className={cn(
+                                    "text-right py-2 border-r border-zinc-100 font-black",
+                                    isRecovered ? "bg-purple-50/70 text-purple-700" :
+                                    payment ? (payment.amount >= weeklyPayment ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700") : "bg-red-50 text-red-700"
+                                  )}>
+                                    <div className="flex items-center justify-end gap-1">
+                                      {formatCurrency(payment ? payment.amount : 0)}
+                                      {isPenalty && (
+                                        <Badge className="bg-amber-600 text-white text-[7px] font-black h-3.5 px-1 uppercase shrink-0">EXTRA</Badge>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-center py-2">
+                                    <Badge className={cn(
+                                      "h-4.5 px-1.5 text-[8px] font-black uppercase rounded-lg border",
+                                      isRecovered ? "bg-purple-50 text-purple-700 border-purple-200" :
+                                      statusType === 'PAID' ? "bg-green-50 text-green-700" :
+                                      statusType === 'MISSED' ? "bg-red-50 text-red-700 border-red-200" : "bg-zinc-100 text-zinc-500 border-zinc-200"
+                                    )}>
+                                      {statusText}
+                                    </Badge>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 items-center bg-indigo-50/20 p-2.5 rounded-xl border border-indigo-100/50 text-[10px] text-indigo-900 leading-tight font-medium shrink-0">
+                      <AlertCircle className="h-4 w-4 text-indigo-600 shrink-0" />
+                      <span>
+                        Fecha de Inicio del Préstamo: <strong>{formatDate(selectedLoan.startDate)}</strong>.
+                        {missedCount > 0 && (
+                          <span> Actualmente cuenta con <strong>{missedCount} fallos</strong> acumulados.</span>
+                        )}
+                      </span>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Footer close bar */}
                 <div className="p-4 bg-zinc-50 border-t flex justify-end shrink-0">
                   <Button 
                     onClick={() => setIsLoanModalOpen(false)}
-                    className="rounded-xl h-9 text-xs font-black uppercase px-6"
+                    className="rounded-xl h-10 text-xs font-black uppercase px-6 border-2 border-indigo-200 text-indigo-700 bg-white hover:bg-indigo-50 shadow-sm"
                   >
                     Cerrar Detalles
                   </Button>

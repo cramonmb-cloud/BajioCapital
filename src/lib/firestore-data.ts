@@ -130,9 +130,12 @@ export async function getWallet(): Promise<Wallet> {
 }
 
 // Fetch all wallet transactions
-export async function getWalletTransactions(): Promise<WalletTransaction[]> {
+export async function getWalletTransactions(cutoffDate?: Date): Promise<WalletTransaction[]> {
     const transactionsCol = collection(db, 'walletTransactions');
-    const q = query(transactionsCol, orderBy('date', 'desc'));
+    let q = query(transactionsCol, orderBy('date', 'desc'));
+    if (cutoffDate) {
+        q = query(transactionsCol, where('date', '>=', cutoffDate), orderBy('date', 'desc'));
+    }
     try {
         const transactionSnapshot = await getDocs(q);
         return transactionSnapshot.docs.map(doc => {

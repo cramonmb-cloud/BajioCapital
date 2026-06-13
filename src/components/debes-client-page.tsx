@@ -163,27 +163,8 @@ export function DebesClientPage({
       }
     }
 
-    // Calculate the latest expiration Saturday of all loans for this promoter
-    let latestExpirationDate = startSaturday;
-    if (activeLoansForPromotora.length > 0) {
-      activeLoansForPromotora.forEach(loan => {
-        const plan = loanPlans.find(lp => lp.id === loan.loanPlanId);
-        if (plan) {
-          const term = plan.termInWeeks + 1; // term + potential penalty week
-          const startDate = parseLocalDate(loan.startDate);
-          const expirationDate = new Date(startDate);
-          expirationDate.setDate(startDate.getDate() + (term * 7));
-          
-          const expirationSaturday = getSaturdayOfWeek(expirationDate);
-          if (expirationSaturday.getTime() > latestExpirationDate.getTime()) {
-            latestExpirationDate = expirationSaturday;
-          }
-        }
-      });
-    }
-
-    // Generate Saturdays from startSaturday to the min of currentSaturday and latestExpirationDate
-    const maxDate = new Date(Math.min(currentSaturday.getTime(), latestExpirationDate.getTime()));
+    // Generate Saturdays from startSaturday to currentSaturday
+    const maxDate = new Date(currentSaturday);
     const currentTemp = new Date(startSaturday);
 
     while (currentTemp <= maxDate) {
@@ -196,7 +177,7 @@ export function DebesClientPage({
 
     // Sort descending (newest weeks at the top)
     return filteredSaturdays.sort((a, b) => b.getTime() - a.getTime());
-  }, [activeLoansForPromotora, selectedPromotora, loanPlans]);
+  }, [activeLoansForPromotora, selectedPromotora]);
 
   const getVentaForWeek = (weekDate: Date) => {
     const targetTime = weekDate.getTime();
@@ -548,25 +529,8 @@ export function DebesClientPage({
       };
     }
 
-    // Calculate the latest expiration Saturday of all loans for this promoter
-    let latestExpirationDate = startSaturday;
-    pLoans.forEach(loan => {
-      const plan = loanPlans.find(lp => lp.id === loan.loanPlanId);
-      if (plan) {
-        const term = plan.termInWeeks + 1; // term + potential penalty week
-        const startDate = parseLocalDate(loan.startDate);
-        const expirationDate = new Date(startDate);
-        expirationDate.setDate(startDate.getDate() + (term * 7));
-        
-        const expirationSaturday = getSaturdayOfWeek(expirationDate);
-        if (expirationSaturday.getTime() > latestExpirationDate.getTime()) {
-          latestExpirationDate = expirationSaturday;
-        }
-      }
-    });
-
     const saturdays: Date[] = [];
-    const maxDate = new Date(Math.min(currentSaturday.getTime(), latestExpirationDate.getTime()));
+    const maxDate = new Date(currentSaturday);
     const currentTemp = new Date(startSaturday);
 
     while (currentTemp <= maxDate) {
