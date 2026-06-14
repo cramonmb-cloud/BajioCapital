@@ -45,14 +45,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck, MapPin, Route, Building, ChevronUp, ChevronDown, Key, Printer } from "lucide-react";
 import { ImageUploadButton } from "./image-upload-button";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAllDataAction, saveLogoAction, saveAppNameAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction, saveMenuConfigAction, saveMenuColorsAction, saveStaffTypesAction, saveImprentaUrlAction } from "@/app/dashboard/ajustes/actions";
+import { deleteAllDataAction, saveLogoAction, saveAppNameAction, saveGuarantorLimitAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction, saveMenuConfigAction, saveMenuColorsAction, saveStaffTypesAction, saveImprentaUrlAction } from "@/app/dashboard/ajustes/actions";
 import { useRouter } from "next/navigation";
 import type { AppConfig, WhatsAppTemplates } from "@/lib/types";
 import { Separator } from "./ui/separator";
 import { useAuth } from "@/hooks/use-auth";
 import { useRealtimeData } from "@/hooks/use-realtime-data";
 import { allLinks } from "./main-nav";
-import { cn } from "@/lib/utils";
+import { cn, getMexicoNow, getSaturdayOfWeek } from "@/lib/utils";
 
 const appNameSchema = z.object({
   appName: z.string().min(3, 'Mínimo 3 caracteres.'),
@@ -195,19 +195,114 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
         }
     }, [initialConfig]);
 
+    const getPriorWeekSaturdayString = () => {
+        try {
+            const mexicoNow = getMexicoNow();
+            const currentSaturday = getSaturdayOfWeek(mexicoNow);
+            const priorSaturday = new Date(currentSaturday);
+            priorSaturday.setDate(currentSaturday.getDate() - 7);
+            return priorSaturday.toLocaleDateString('es-MX', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        } catch (e) {
+            return '';
+        }
+    };
+
+    const getPriorWeekFridayString = () => {
+        try {
+            const mexicoNow = getMexicoNow();
+            const currentSaturday = getSaturdayOfWeek(mexicoNow);
+            const priorSaturday = new Date(currentSaturday);
+            priorSaturday.setDate(currentSaturday.getDate() - 7);
+            const priorFriday = new Date(priorSaturday);
+            priorFriday.setDate(priorSaturday.getDate() + 6);
+            return priorFriday.toLocaleDateString('es-MX', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        } catch (e) {
+            return '';
+        }
+    };
+
+    const getCurrentWeekSaturdayString = () => {
+        try {
+            const mexicoNow = getMexicoNow();
+            const currentSaturday = getSaturdayOfWeek(mexicoNow);
+            return currentSaturday.toLocaleDateString('es-MX', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        } catch (e) {
+            return '';
+        }
+    };
+
+    const getCurrentWeekFridayString = () => {
+        try {
+            const mexicoNow = getMexicoNow();
+            const currentSaturday = getSaturdayOfWeek(mexicoNow);
+            const currentFriday = new Date(currentSaturday);
+            currentFriday.setDate(currentSaturday.getDate() + 6);
+            return currentFriday.toLocaleDateString('es-MX', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+            });
+        } catch (e) {
+            return '';
+        }
+    };
+
     const [staffTypesState, setStaffTypesState] = useState<string[]>(initialConfig?.staffTypes || ['EJECUTIVO/A', 'SUPERVISOR/A', 'PROMOTOR/A']);
     const [newStaffType, setNewStaffType] = useState('');
 
     const [imprentaUrlState, setImprentaUrlState] = useState<string>('');
+    const [maxGuarantorClientsState, setMaxGuarantorClientsState] = useState<number | string>('');
+    const [guarantorAuthCodeState, setGuarantorAuthCodeState] = useState<string>('');
 
     useEffect(() => {
         setImprentaUrlState(initialConfig?.imprentaIframeUrl || 'https://ais-dev-gigbsa3huhlib2awffzpiu-361305856613.us-west2.run.app/?portal=token-xivg8-5268');
+        setMaxGuarantorClientsState(initialConfig?.maxGuarantorClients !== undefined ? initialConfig.maxGuarantorClients : '');
+        setGuarantorAuthCodeState(initialConfig?.guarantorAuthCode || '');
     }, [initialConfig]);
 
     const onSaveImprentaUrl = async () => {
         setIsSaving(true);
         try {
             const result = await saveImprentaUrlAction(imprentaUrlState);
+            if (result.success) {
+                toast({ title: 'Configuración Guardada', description: result.message });
+                router.refresh();
+            } else throw new Error(result.message);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const onSaveGuarantorLimit = async () => {
+        setIsSaving(true);
+        try {
+            const limit = maxGuarantorClientsState === '' ? 0 : Number(maxGuarantorClientsState);
+            const authCode = guarantorAuthCodeState.trim();
+            
+            if (limit > 0) {
+                if (authCode.length !== 6) {
+                    throw new Error('La clave de autorización debe tener exactamente 6 dígitos.');
+                }
+                if (!/^\d{6}$/.test(authCode)) {
+                    throw new Error('La clave de autorización debe contener solo números (6 dígitos).');
+                }
+            }
+
+            const result = await saveGuarantorLimitAction(limit, authCode);
             if (result.success) {
                 toast({ title: 'Configuración Guardada', description: result.message });
                 router.refresh();
@@ -357,10 +452,10 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
         }
     };
 
-    const handleAccumulateAll = async () => {
+    const handleAccumulateAll = async (onlyPriorWeek: boolean = false) => {
         setIsAccumulating(true);
         try {
-            const result = await accumulateAllSystemPaymentsAction(appUser?.id);
+            const result = await accumulateAllSystemPaymentsAction(appUser?.id, onlyPriorWeek);
             if (result.success) {
                 toast({ title: "Sincronización Exitosa", description: result.message });
                 router.refresh();
@@ -804,6 +899,53 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                         <Card className="shadow-lg border-primary/10">
                             <CardHeader className="bg-primary/5 border-b mb-6">
                                 <CardTitle className="flex items-center gap-2 text-xl">
+                                    <ShieldAlert className="h-5 w-5 text-primary" /> Reglas de Clientes y Avales
+                                </CardTitle>
+                                <CardDescription>Establece restricciones operativas y claves de autorización para avales.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold block">Límite de Clientes Activos por Aval</label>
+                                        <Input 
+                                            type="number" 
+                                            value={maxGuarantorClientsState} 
+                                            onChange={(e) => setMaxGuarantorClientsState(e.target.value)}
+                                            placeholder="Ej: 2 (dejar vacío o 0 para ilimitados)"
+                                            min="0"
+                                            className="bg-white dark:bg-zinc-950"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Si se especifica un límite, el sistema impedirá registrar un préstamo si el aval seleccionado ya respalda a ese número de clientes activos a menos que sea autorizado.
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold block">Clave de Autorización (6 dígitos)</label>
+                                        <Input 
+                                            type="text" 
+                                            maxLength={6}
+                                            value={guarantorAuthCodeState} 
+                                            onChange={(e) => setGuarantorAuthCodeState(e.target.value)}
+                                            placeholder="Ej: 123456"
+                                            className="bg-white dark:bg-zinc-950"
+                                        />
+                                        <p className="text-xs text-muted-foreground">
+                                            Código de seguridad de 6 dígitos requerido para ignorar el límite del aval desde el formulario de registro de créditos.
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex justify-end pt-4 border-t">
+                                    <Button onClick={onSaveGuarantorLimit} disabled={isSaving} className="bg-primary hover:bg-primary/95 font-bold h-10 px-6 rounded-lg">
+                                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pencil className="mr-2 h-4 w-4" />}
+                                        Guardar Reglas de Aval
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="shadow-lg border-primary/10">
+                            <CardHeader className="bg-primary/5 border-b mb-6">
+                                <CardTitle className="flex items-center gap-2 text-xl">
                                     <Sparkles className="h-5 w-5 text-primary" /> Personalización de Colores
                                 </CardTitle>
                                 <CardDescription>Configura los colores principales para las pestañas y secciones de Operación y Administración.</CardDescription>
@@ -1205,32 +1347,68 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                     <CardDescription>Operaciones para mantener la integridad financiera de la cartera global.</CardDescription>
                 </CardHeader>
                 <CardContent className="pt-8 space-y-6">
-                    {/* Sincronización Global */}
+                    {/* Sincronización hasta Semana Anterior */}
                     <div className="flex flex-col md:flex-row items-center justify-between gap-8 p-6 border-2 border-blue-100 rounded-3xl bg-blue-50/20">
                         <div className="space-y-3 flex-1">
-                            <h3 className="text-lg font-bold text-blue-900">Sincronización de Cartera (Base)</h3>
+                            <h3 className="text-lg font-bold text-blue-900 flex items-center gap-2">
+                                <History className="h-5 w-5 text-blue-600" /> Cerrar Semana ({getPriorWeekSaturdayString()})
+                            </h3>
                             <p className="text-xs text-muted-foreground max-w-2xl">
-                                Formaliza abonos asumidos <strong>solo en semanas del contrato base</strong>. La semana extra nunca se llenará automáticamente.
+                                Formaliza abonos asumidos <strong>solo hasta la semana anterior a la actual (Semana del Sábado {getPriorWeekSaturdayString()} al Viernes {getPriorWeekFridayString()})</strong>. Evita registrar automáticamente pagos de la semana en curso de los cuales aún no hay certeza.
                             </p>
                         </div>
                         <AlertDialog>
                             <AlertDialogTrigger asChild>
                                 <Button variant="default" className="bg-blue-600 hover:bg-blue-700 text-white font-bold h-12 px-6 rounded-xl shadow-lg" disabled={isAccumulating}>
                                     <History className="mr-2 h-5 w-5" />
-                                    Sincronizar Todo
+                                    Cerrar Semana
                                 </Button>
                             </AlertDialogTrigger>
                             <AlertDialogContent className="rounded-3xl p-8">
                                 <AlertDialogHeader>
-                                    <AlertDialogTitle className="text-2xl font-bold">¿Deseas formalizar la cartera base?</AlertDialogTitle>
+                                    <AlertDialogTitle className="text-2xl font-bold">¿Cerrar la semana {getPriorWeekSaturdayString()}?</AlertDialogTitle>
                                     <AlertDialogDescription className="text-base py-4">
-                                        Se registrarán abonos permanentes para semanas vencidas del contrato. La semana de penalización no se verá afectada.
+                                        Se registrarán abonos permanentes para semanas vencidas hasta la <strong>Semana del Sábado {getPriorWeekSaturdayString()} al Viernes {getPriorWeekFridayString()}</strong>. Los préstamos liquidados en ceros se marcarán automáticamente como pagados.
                                     </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter className="gap-2">
                                     <AlertDialogCancel className="rounded-xl h-12">Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction onClick={handleAccumulateAll} className="bg-blue-600 hover:bg-blue-700 rounded-xl h-12 px-8">
-                                        Sí, Ejecutar
+                                    <AlertDialogAction onClick={() => handleAccumulateAll(true)} className="bg-blue-600 hover:bg-blue-700 rounded-xl h-12 px-8">
+                                        Sí, Cerrar Semana
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+
+                    {/* Sincronización Total */}
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-8 p-6 border-2 border-slate-100 rounded-3xl bg-slate-50/30">
+                        <div className="space-y-3 flex-1">
+                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <History className="h-5 w-5 text-slate-600" /> Cerrar todas las semanas, incluyendo {getCurrentWeekSaturdayString()}
+                            </h3>
+                            <p className="text-xs text-muted-foreground max-w-2xl">
+                                Formaliza abonos asumidos de todas las semanas transcurridas, <strong>incluyendo la semana actual en curso (Semana del Sábado {getCurrentWeekSaturdayString()} al Viernes {getCurrentWeekFridayString()})</strong>.
+                            </p>
+                        </div>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="secondary" className="border border-slate-200 font-bold h-12 px-6 rounded-xl" disabled={isAccumulating}>
+                                    <History className="mr-2 h-5 w-5" />
+                                    Cerrar Todo
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="rounded-3xl p-8">
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle className="text-2xl font-bold">¿Cerrar todas las semanas incluyendo la actual?</AlertDialogTitle>
+                                    <AlertDialogDescription className="text-base py-4">
+                                        Se registrarán abonos para todas las semanas transcurridas incluyendo la semana en curso del <strong>Sábado {getCurrentWeekSaturdayString()} al Viernes {getCurrentWeekFridayString()}</strong>. Esta acción completará e ingresará los cobros esperados de esta semana a tu balance.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="gap-2">
+                                    <AlertDialogCancel className="rounded-xl h-12">Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={() => handleAccumulateAll(false)} className="bg-slate-800 hover:bg-slate-900 rounded-xl h-12 px-8 text-white">
+                                        Sí, Cerrar Todo
                                     </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>

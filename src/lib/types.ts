@@ -165,6 +165,8 @@ export type AppConfig = {
   loginSubtitle?: string;
   imgbbApiKey?: string;
   imprentaIframeUrl?: string;
+  maxGuarantorClients?: number;
+  guarantorAuthCode?: string;
 };
 
 export type Aviso = {

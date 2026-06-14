@@ -2,6 +2,17 @@
 
 import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useAuth } from '@/hooks/use-auth';
+import { useRealtimeData } from '@/hooks/use-realtime-data';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
+import type { UserOptions } from 'jspdf-autotable';
+import { useToast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from '@/components/ui/dropdown-menu';
 import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { 
   Card, 
@@ -60,6 +71,10 @@ import {
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: UserOptions) => jsPDF;
+}
+
 const ITEMS_PER_PAGE = 15;
 
 interface AvalesClientPageProps {
@@ -87,6 +102,7 @@ export interface ParsedEndorser {
     phone: string;
     hasActiveLoan: boolean;
     activeLoans: Loan[];
+    allLoans: Loan[];
   }[];
   selfClientId: string;
   selfHasActiveLoan: boolean;
@@ -157,11 +173,178 @@ export function AvalesClientPage({
   initialPromotoras = []
 }: AvalesClientPageProps) {
   const { appUser } = useAuth();
+  const { toast } = useToast();
+  
+  const { data: realtimeData } = useRealtimeData({
+    clients: initialClients,
+    loans: initialLoans,
+    loanPlans: initialPlans,
+    plazas: initialPlazas,
+    localidades: initialLocalidades,
+    promotoras: initialPromotoras
+  });
+  
+  const { clients, loans, loanPlans: plans, plazas, localidades, promotoras } = realtimeData;
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const userTimezoneOffset = date.getTimezoneOffset() * 60000;
     const correctedDate = new Date(date.getTime() + userTimezoneOffset);
     return correctedDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  };
+
+  const getExpirationDate = (startDateStr: string, termInWeeks: number) => {
+    const date = new Date(startDateStr);
+    const userTimezoneOffset = date.getTimezoneOffset() * 60000;
+    const correctedDate = new Date(date.getTime() + userTimezoneOffset);
+    correctedDate.setDate(correctedDate.getDate() + (termInWeeks * 7));
+    return correctedDate.toISOString().split('T')[0];
+  };
+
+  const getClientLocationHierarchy = (clientLoans: Loan[]) => {
+    const referenceLoan = clientLoans.find(l => l.status === 'Active' || l.status === 'Overdue') || clientLoans[0];
+    if (!referenceLoan || !referenceLoan.promotoraId) return null;
+
+    const promotoraObj = promotoras.find(p => p.id === referenceLoan.promotoraId);
+    if (!promotoraObj) return null;
+
+    const localidadObj = localidades.find(l => l.id === promotoraObj.localidadId);
+    const plazaObj = localidadObj ? plazas.find(pz => pz.id === localidadObj.plazaId) : null;
+
+    return {
+      promotora: promotoraObj.name,
+      localidad: localidadObj?.name || '',
+      plaza: plazaObj?.name || ''
+    };
+  };
+
+  const handleExportPDF = (type: 'current' | 'all' | 'overdue' | 'multiple') => {
+    let exportList = filteredEndorsers;
+    let titleText = 'REPORTE DE AVALES - VISTA ACTUAL';
+
+    if (type === 'all') {
+      exportList = endorsers.filter(e => e.isLinkedToActiveLoan);
+      titleText = 'REPORTE GENERAL DE AVALES ACTIVOS';
+    } else if (type === 'overdue') {
+      exportList = endorsers.filter(e => 
+        e.clientsBacked.some(c => c.activeLoans.some(l => l.status === 'Overdue'))
+      );
+      titleText = 'REPORTE DE AVALES EN CARTERA VENCIDA (RIESGO)';
+    } else if (type === 'multiple') {
+      exportList = endorsers.filter(e => e.backedClientsCount >= 2);
+      titleText = 'REPORTE DE AVALES MÚLTIPLES (2+ CLIENTES)';
+    }
+
+    if (exportList.length === 0) {
+      toast({
+        variant: 'destructive',
+        title: 'Reporte vacío',
+        description: 'No hay datos para exportar con el filtro seleccionado.',
+      });
+      return;
+    }
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 30;
+    const topMargin = 50;
+
+    // Header rect
+    doc.setFillColor(79, 70, 229); // Indigo-600
+    doc.rect(0, 0, pageWidth, 40, 'F');
+
+    // Title
+    doc.setFontSize(14);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text(titleText, margin, 25);
+
+    // Metadata
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('TOTAL REGISTROS:', margin, topMargin + 10);
+    doc.text('FECHA GENERACIÓN:', margin, topMargin + 25);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${exportList.length}`, margin + 120, topMargin + 10);
+    doc.text(new Date().toLocaleDateString('es-MX'), margin + 120, topMargin + 25);
+
+    // Columns: Name, Address, Phone, Backed Clients & Loans, Guarantee, Self Loan Status
+    const tableHeaders = [[
+      'NOMBRE DEL AVAL',
+      'TELÉFONO',
+      'DIRECCIÓN / GARANTÍAS AVAL',
+      'CLIENTES AVALADOS Y PRÉSTAMOS ACTIVOS',
+      'PRÉSTAMO PROPIO'
+    ]];
+
+    const tableData = exportList.map(e => {
+      const address = e.street || e.neighborhood ? `${e.street}, ${e.neighborhood}` : 'Sin dirección';
+      const guarantees = e.guarantees ? `\nGarantía: ${e.guarantees}` : '';
+      const addressAndGuarantees = `${address}${guarantees}`.toUpperCase();
+
+      const clientsStr = e.clientsBacked.map((c, index) => {
+        const loc = getClientLocationHierarchy(c.allLoans || []);
+        const zoneStr = loc ? ` (${loc.plaza} > ${loc.localidad} > ${loc.promotora})` : '';
+        const loansStr = c.activeLoans.map(l => 
+          `$${l.amount.toLocaleString('es-MX')} (${l.status === 'Overdue' ? 'VENCIDO' : 'ACTIVO'})`
+        ).join(', ');
+        return `${index + 1}.- ${c.name}${zoneStr}: ${loansStr}`;
+      }).join('\n\n').toUpperCase();
+
+      let selfStr = 'NO ES CLIENTE';
+      if (e.selfClientId) {
+        if (e.selfHasActiveLoan) {
+          selfStr = e.selfActiveLoans.map(l => 
+            `ACTIVO: $${l.amount.toLocaleString('es-MX')}`
+          ).join(', ').toUpperCase();
+        } else {
+          selfStr = 'CLIENTE SIN ADEUDO';
+        }
+      }
+
+      return [
+        e.name.toUpperCase(),
+        e.phone || 'SIN TELÉFONO',
+        addressAndGuarantees,
+        clientsStr || 'SIN CLIENTES ACTIVOS',
+        selfStr
+      ];
+    });
+
+    doc.autoTable({
+      startY: topMargin + 40,
+      head: tableHeaders,
+      body: tableData,
+      theme: 'grid',
+      styles: {
+        fontSize: 7,
+        cellPadding: 6,
+        halign: 'left',
+        valign: 'middle',
+      },
+      headStyles: {
+        fillColor: [79, 70, 229], // Indigo-600
+        textColor: 255,
+        fontStyle: 'bold',
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold', minCellWidth: 120 }, // Name
+        1: { minCellWidth: 60, halign: 'center' }, // Phone
+        2: { minCellWidth: 150 }, // Address / Guarantee
+        3: { minCellWidth: 250 }, // Backed clients
+        4: { minCellWidth: 90, halign: 'center' } // Self status
+      }
+    });
+
+    const fileName = `${titleText.toLowerCase().replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+
+    toast({
+      title: 'Reporte Exportado',
+      description: `El PDF ha sido generado y descargado exitosamente.`,
+    });
   };
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -183,7 +366,7 @@ export function AvalesClientPage({
   const endorsers = useMemo(() => {
     const grouped: Record<string, ParsedEndorser> = {};
 
-    initialClients.forEach(client => {
+    clients.forEach(client => {
       if (!client.endorsement || !client.endorsement.trim()) return;
 
       const parsed = parseEndorsement(client.endorsement);
@@ -191,18 +374,22 @@ export function AvalesClientPage({
 
       const normName = parsed.name.trim().toUpperCase();
 
-      // Check if client has active loans (Active or Overdue)
-      const clientActiveLoans = initialLoans.filter(
+      // Get all active loans for this client
+      const clientActiveLoans = loans.filter(
         l => l.clientId === client.id && (l.status === 'Active' || l.status === 'Overdue')
       );
       const clientHasActiveLoan = clientActiveLoans.length > 0;
+
+      // Only add to backed clients if they have an active loan
+      if (!clientHasActiveLoan) return;
 
       const backedClientInfo = {
         id: client.id,
         name: client.name,
         phone: client.phone,
-        hasActiveLoan: clientHasActiveLoan,
-        activeLoans: clientActiveLoans
+        hasActiveLoan: true,
+        activeLoans: clientActiveLoans,
+        allLoans: clientActiveLoans
       };
 
       if (!grouped[normName]) {
@@ -215,12 +402,12 @@ export function AvalesClientPage({
           city: parsed.city,
           phone: parsed.phone,
           guarantees: parsed.guarantees,
-          clientsBacked: clientHasActiveLoan ? [backedClientInfo] : [],
+          clientsBacked: [backedClientInfo],
           selfClientId: '',
           selfHasActiveLoan: false,
           selfActiveLoans: [],
-          backedClientsCount: clientHasActiveLoan ? 1 : 0,
-          isLinkedToActiveLoan: clientHasActiveLoan
+          backedClientsCount: 1,
+          isLinkedToActiveLoan: true
         };
       } else {
         const existing = grouped[normName];
@@ -233,25 +420,23 @@ export function AvalesClientPage({
         if (!existing.city && parsed.city) existing.city = parsed.city;
         if (!existing.guarantees && parsed.guarantees) existing.guarantees = parsed.guarantees;
 
-        // Prevent duplicate backed clients and only add if they have an active loan
-        if (clientHasActiveLoan) {
-          if (!existing.clientsBacked.some(c => c.id === client.id)) {
-            existing.clientsBacked.push(backedClientInfo);
-          }
+        // Prevent duplicate backed clients
+        if (!existing.clientsBacked.some(c => c.id === client.id)) {
+          existing.clientsBacked.push(backedClientInfo);
         }
 
         existing.backedClientsCount = existing.clientsBacked.length;
-        existing.isLinkedToActiveLoan = existing.isLinkedToActiveLoan || clientHasActiveLoan;
+        existing.isLinkedToActiveLoan = true;
       }
     });
 
     // Match endorsers with their own loans if they exist as clients
     Object.keys(grouped).forEach(normName => {
       const endorser = grouped[normName];
-      const matchingClient = initialClients.find(c => c.name.trim().toUpperCase() === normName);
+      const matchingClient = clients.find(c => c.name.trim().toUpperCase() === normName);
       if (matchingClient) {
         endorser.selfClientId = matchingClient.id;
-        endorser.selfActiveLoans = initialLoans.filter(
+        endorser.selfActiveLoans = loans.filter(
           l => l.clientId === matchingClient.id && (l.status === 'Active' || l.status === 'Overdue')
         );
         endorser.selfHasActiveLoan = endorser.selfActiveLoans.length > 0;
@@ -259,7 +444,7 @@ export function AvalesClientPage({
     });
 
     return Object.values(grouped);
-  }, [initialClients, initialLoans]);
+  }, [clients, loans]);
 
   // Statistics
   const stats = useMemo(() => {
@@ -397,18 +582,44 @@ export function AvalesClientPage({
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => {
-                setShowAll(!showAll);
-                setCurrentPage(1);
-              }}
-              className="gap-2 h-9 text-xs font-bold uppercase rounded-xl border-border/60 hover:bg-indigo-50/20"
-            >
-              <List className="h-4 w-4" />
-              {showAll ? "Paginado" : "Mostrar todo"}
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-2 h-9 text-xs font-bold uppercase rounded-xl border-border/60 hover:bg-indigo-50/20"
+                >
+                  <FileSpreadsheet className="h-4 w-4 text-indigo-600" />
+                  Exportar PDF
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="rounded-xl border-border/40 p-1 bg-white shadow-xl" align="end">
+                <DropdownMenuItem 
+                  onClick={() => handleExportPDF('current')}
+                  className="text-xs font-bold uppercase rounded-lg hover:bg-zinc-50 cursor-pointer"
+                >
+                  Vista Actual (Filtrada)
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => handleExportPDF('all')}
+                  className="text-xs font-bold uppercase rounded-lg hover:bg-zinc-50 cursor-pointer"
+                >
+                  Todos los Avales Activos
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => handleExportPDF('overdue')}
+                  className="text-xs font-bold uppercase rounded-lg hover:bg-zinc-50 cursor-pointer"
+                >
+                  Avales en Cartera Vencida
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => handleExportPDF('multiple')}
+                  className="text-xs font-bold uppercase rounded-lg hover:bg-zinc-50 cursor-pointer"
+                >
+                  Avales Múltiples (2+)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardHeader>
 
@@ -422,8 +633,17 @@ export function AvalesClientPage({
                   placeholder="Buscar aval por nombre, teléfono, dirección o garantía..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 h-10 border-2 rounded-xl uppercase font-semibold text-xs tracking-wide focus-visible:ring-indigo-500 w-full"
+                  className="pl-10 pr-10 h-10 border-2 rounded-xl uppercase font-semibold text-xs tracking-wide focus-visible:ring-indigo-500 w-full text-zinc-800 placeholder:text-zinc-400/80"
                 />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm('')}
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 focus:outline-none transition-colors"
+                    aria-label="Limpiar búsqueda"
+                  >
+                    <X className="h-4 w-4 stroke-[2.5]" />
+                  </button>
+                )}
               </div>
 
               <div className="w-full sm:w-[220px] shrink-0">
@@ -673,33 +893,58 @@ export function AvalesClientPage({
                                     {endorser.clientsBacked.map(client => (
                                       <div key={client.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2.5 rounded-xl border border-zinc-100 bg-zinc-50/50 hover:bg-zinc-50 transition-colors gap-2">
                                         <div className="space-y-0.5">
-                                          <Link 
-                                            href={`/dashboard/clientes/${client.id}`} 
-                                            className="text-xs font-black text-indigo-600 hover:underline uppercase tracking-tight flex items-center gap-1"
-                                            onClick={(e) => e.stopPropagation()}
-                                          >
-                                            {client.name}
-                                          </Link>
+                                          <div className="flex flex-wrap items-center gap-x-2">
+                                            <Link 
+                                              href={`/dashboard/clientes/${client.id}`} 
+                                              className="text-xs font-black text-indigo-600 hover:underline uppercase tracking-tight flex items-center gap-1"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              {client.name}
+                                            </Link>
+                                            {(() => {
+                                              const loc = getClientLocationHierarchy(client.allLoans || []);
+                                              if (!loc) return null;
+                                              return (
+                                                <span className="text-[9px] font-extrabold text-black uppercase">
+                                                  ({loc.plaza} &gt; {loc.localidad} &gt; {loc.promotora})
+                                                </span>
+                                              );
+                                            })()}
+                                          </div>
                                           <p className="text-[9px] text-zinc-400 font-bold">Tel: {client.phone || 'Sin Teléfono'}</p>
                                         </div>
 
-                                        <div className="flex gap-1.5 items-center">
-                                          {client.hasActiveLoan ? (
-                                            client.activeLoans.map(loan => (
-                                              <Badge 
-                                                key={loan.id} 
-                                                variant="destructive" 
-                                                className={`h-5 text-[8px] font-black uppercase rounded-lg px-2 shadow-sm cursor-pointer hover:opacity-90 transition-opacity ${
-                                                  loan.status === 'Overdue' ? 'bg-red-600 text-white animate-pulse' : 'bg-blue-600 text-white'
-                                                }`}
-                                                onClick={(e) => handleLoanClick(loan, e)}
-                                              >
-                                                Préstamo Activo: {formatCurrency(loan.amount)} ({loan.status === 'Overdue' ? 'Vencido' : 'Activo'})
-                                              </Badge>
-                                            ))
+                                        <div className="flex flex-col gap-1 items-end">
+                                          {client.allLoans && client.allLoans.length > 0 ? (
+                                            [...client.allLoans]
+                                              .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+                                              .map(loan => {
+                                                const plan = plans.find(p => p.id === loan.loanPlanId);
+                                                const termInWeeks = plan?.termInWeeks || 16;
+                                                const expDateStr = getExpirationDate(loan.startDate, termInWeeks);
+                                                
+                                                return (
+                                                  <div key={loan.id} className="flex flex-wrap items-center gap-2">
+                                                    <span className="text-[9px] font-extrabold text-black">
+                                                      Inicio: {formatDate(loan.startDate)} | Vence: {formatDate(expDateStr)}
+                                                    </span>
+                                                    <Badge 
+                                                      variant="destructive" 
+                                                      className={`h-5 text-[8px] font-black uppercase rounded-lg px-2 shadow-sm cursor-pointer hover:opacity-90 transition-opacity ${
+                                                        loan.status === 'Overdue' 
+                                                          ? 'bg-red-600 text-white animate-pulse' 
+                                                          : 'bg-blue-600 text-white'
+                                                      }`}
+                                                      onClick={(e) => handleLoanClick(loan, e)}
+                                                    >
+                                                      Préstamo Activo: {formatCurrency(loan.amount)} ({loan.status === 'Overdue' ? 'Vencido' : 'Activo'})
+                                                    </Badge>
+                                                  </div>
+                                                );
+                                              })
                                           ) : (
                                             <Badge className="h-5 text-[8px] font-black uppercase rounded-lg bg-green-50 text-green-700 border border-green-200 shadow-sm px-2">
-                                              Préstamos Liquidados / Ninguno
+                                              Sin Préstamos Activos
                                             </Badge>
                                           )}
                                         </div>
@@ -817,13 +1062,14 @@ export function AvalesClientPage({
       <Dialog open={isLoanModalOpen} onOpenChange={setIsLoanModalOpen}>
         <DialogContent className="max-w-4xl p-0 overflow-hidden border-0 shadow-2xl rounded-sm w-full h-auto max-h-[92vh] md:max-h-[85vh] flex flex-col bg-white">
           {selectedLoan && (() => {
-            const client = initialClients.find(c => c.id === selectedLoan.clientId);
-            const plan = initialPlans.find(p => p.id === selectedLoan.loanPlanId);
-            const weeklyPayment = plan ? (selectedLoan.amount / 1000) * plan.weeklyPaymentRate : 0;
+            const currentSelectedLoan = loans.find(l => l.id === selectedLoan.id) || selectedLoan;
+            const client = clients.find(c => c.id === currentSelectedLoan.clientId);
+            const plan = plans.find(p => p.id === currentSelectedLoan.loanPlanId);
+            const weeklyPayment = plan ? (currentSelectedLoan.amount / 1000) * plan.weeklyPaymentRate : 0;
             const baseTerm = plan?.termInWeeks || 16;
             
             const now = new Date();
-            const loanStartDate = new Date(selectedLoan.startDate);
+            const loanStartDate = new Date(currentSelectedLoan.startDate);
             const startDayUTC = new Date(Date.UTC(loanStartDate.getUTCFullYear(), loanStartDate.getUTCMonth(), loanStartDate.getUTCDate()));
             const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
             const daysDiff = Math.round((todayUTC.getTime() - startDayUTC.getTime()) / (1000 * 3600 * 24));
@@ -836,7 +1082,7 @@ export function AvalesClientPage({
             let baseArrears = 0;
             
             for (let i = 1; i <= baseTerm; i++) {
-              const p = (selectedLoan.payments || []).find(pay => pay.weekNumber === i);
+              const p = (currentSelectedLoan.payments || []).find(pay => pay.weekNumber === i);
               if (p) {
                 totalPaidInBaseTerm += p.amount;
                 if (p.amount < weeklyPayment) {
@@ -852,13 +1098,13 @@ export function AvalesClientPage({
             const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
             const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
 
-            const actualTotalPaid = (selectedLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
+            const actualTotalPaid = (currentSelectedLoan.payments || []).reduce((acc, p) => acc + p.amount, 0);
             const totalExpected = totalTerm * weeklyPayment;
             const totalBalanceDue = Math.max(0, totalExpected - actualTotalPaid);
 
-            const promotora = initialPromotoras?.find(p => p.id === selectedLoan.promotoraId);
-            const localidad = initialLocalidades?.find(l => l.id === promotora?.localidadId);
-            const plaza = initialPlazas?.find(pz => pz.id === localidad?.plazaId);
+            const promotora = promotoras?.find(p => p.id === currentSelectedLoan.promotoraId);
+            const localidad = localidades?.find(l => l.id === promotora?.localidadId);
+            const plaza = plazas?.find(pz => pz.id === localidad?.plazaId);
             const endorserDetails = parseEndorsement(client?.endorsement || '');
 
             return (
@@ -904,7 +1150,7 @@ export function AvalesClientPage({
                     <div className="flex items-center gap-2 text-zinc-600">
                       <Calendar className="h-3.5 w-3.5" />
                       <span className="text-[10px] font-black uppercase">
-                        Inició: {selectedLoan.startDate ? formatDate(selectedLoan.startDate) : 'N/A'}
+                        Inició: {currentSelectedLoan.startDate ? formatDate(currentSelectedLoan.startDate) : 'N/A'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-indigo-600 sm:col-span-2">
@@ -1017,7 +1263,7 @@ export function AvalesClientPage({
                     <div className="flex-1 flex flex-col min-h-0 space-y-3">
                       <h4 className="text-[10px] font-black text-indigo-700 uppercase tracking-widest border-b border-zinc-150 pb-2 flex items-center justify-between shrink-0">
                         <span>Historial de Amortizaciones</span>
-                        <span className="text-zinc-500 lowercase font-medium">({selectedLoan.payments?.length || 0} de {totalTerm} pagadas)</span>
+                        <span className="text-zinc-500 lowercase font-medium">({currentSelectedLoan.payments?.length || 0} de {totalTerm} pagadas)</span>
                       </h4>
 
                       <div className="flex-1 min-h-[200px] overflow-y-auto rounded-xl border border-zinc-200 bg-white">
@@ -1034,11 +1280,11 @@ export function AvalesClientPage({
                           <TableBody>
                             {Array.from({ length: totalTerm }).map((_, i) => {
                               const weekNum = i + 1;
-                              const payment = (selectedLoan.payments || []).find(p => p.weekNumber === weekNum);
+                              const payment = (currentSelectedLoan.payments || []).find(p => p.weekNumber === weekNum);
                               const isPenalty = weekNum > baseTerm;
                               const isRecovered = payment?.isRecovered || false;
                               
-                              const dueDate = new Date(selectedLoan.startDate);
+                              const dueDate = new Date(currentSelectedLoan.startDate);
                               dueDate.setDate(dueDate.getDate() + (weekNum * 7));
                               const isPastDate = now > dueDate;
                               
@@ -1046,16 +1292,16 @@ export function AvalesClientPage({
                               let statusType: 'PAID' | 'MISSED' | 'PENDING' = 'PENDING';
                               
                               if (payment) {
-                                if (payment.amount >= weeklyPayment) {
-                                  statusText = isRecovered ? 'RECUPERADO' : new Date(payment.date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
-                                  statusType = 'PAID';
-                                } else if (payment.amount > 0) {
-                                  statusText = isRecovered ? 'RECU. PARCIAL' : 'PARCIAL';
-                                  statusType = 'MISSED';
-                                } else {
-                                  statusText = 'FALLO';
-                                  statusType = 'MISSED';
-                                }
+                                  if (payment.amount >= weeklyPayment) {
+                                    statusText = isRecovered ? 'RECUPERADO' : new Date(payment.date).toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' });
+                                    statusType = 'PAID';
+                                  } else if (payment.amount > 0) {
+                                    statusText = isRecovered ? 'RECU. PARCIAL' : 'PARCIAL';
+                                    statusType = 'MISSED';
+                                  } else {
+                                    statusText = 'FALLO';
+                                    statusType = 'MISSED';
+                                  }
                               } else if (isPastDate || weekNum < currentWeekSafe - 1) {
                                 statusText = 'FALLO';
                                 statusType = 'MISSED';
@@ -1064,8 +1310,16 @@ export function AvalesClientPage({
                                 statusType = 'PENDING';
                               }
 
+                              const isCurrentWeek = weekNum === currentWeekSafe;
+
                               return (
-                                <TableRow key={weekNum} className="hover:bg-zinc-50/50 text-[10px] font-bold text-zinc-700 border-b">
+                                <TableRow 
+                                  key={weekNum} 
+                                  className={cn(
+                                    "hover:bg-zinc-50/50 text-[10px] font-bold text-zinc-700 border-b transition-colors",
+                                    isCurrentWeek && "bg-indigo-50/70 border-l-4 border-l-indigo-600 font-extrabold"
+                                  )}
+                                >
                                   <TableCell className="text-center py-2 border-r border-zinc-100">{weekNum}</TableCell>
                                   <TableCell className="py-2 border-r border-zinc-100">
                                     {dueDate.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit', year: '2-digit' })}
@@ -1106,7 +1360,7 @@ export function AvalesClientPage({
                     <div className="flex gap-2 items-center bg-indigo-50/20 p-2.5 rounded-xl border border-indigo-100/50 text-[10px] text-indigo-900 leading-tight font-medium shrink-0">
                       <AlertCircle className="h-4 w-4 text-indigo-600 shrink-0" />
                       <span>
-                        Fecha de Inicio del Préstamo: <strong>{formatDate(selectedLoan.startDate)}</strong>.
+                        Fecha de Inicio del Préstamo: <strong>{formatDate(currentSelectedLoan.startDate)}</strong>.
                         {missedCount > 0 && (
                           <span> Actualmente cuenta con <strong>{missedCount} fallos</strong> acumulados.</span>
                         )}

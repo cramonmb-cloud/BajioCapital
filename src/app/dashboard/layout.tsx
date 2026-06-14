@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTr
 import { cn } from '@/lib/utils';
 import { db } from '@/lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { VERSION } from '@/version';
 
 
 export default function DashboardLayout({
@@ -311,6 +312,11 @@ export default function DashboardLayout({
       </header>
       <main className="flex flex-1 flex-col gap-4 px-4 py-2 md:gap-4 md:px-8 md:py-3 max-w-[1600px] mx-auto w-full animate-in fade-in slide-in-from-bottom-2 duration-500 ease-out pb-24 md:pb-8">
         {children}
+        <footer className="w-full text-center py-6 border-t border-border/10 mt-auto shrink-0">
+          <p className="text-[10px] font-bold text-muted-foreground/50 uppercase tracking-wider">
+            Version: {VERSION}
+          </p>
+        </footer>
       </main>
       <MobileNavBar />
       <FloatingAviso />

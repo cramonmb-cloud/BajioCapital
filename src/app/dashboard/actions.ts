@@ -44,6 +44,39 @@ export async function createLoanAction(input: CreateLoanInput) {
             await updateDoc(clientRef, updateData);
         }
 
+        // Sincronizar datos del aval con otros clientes que compartan el mismo aval
+        if (input.client.endorsement) {
+            const newEndorsement = input.client.endorsement;
+            const newEndorsementMatch = newEndorsement.match(/(.*) \((.*)\)/);
+            const newEndorsementName = newEndorsementMatch ? newEndorsementMatch[1].trim().toUpperCase() : newEndorsement.trim().toUpperCase();
+            
+            if (newEndorsementName) {
+                const clientsSnap = await getDocs(collection(db, 'clients'));
+                const batch = writeBatch(db);
+                let hasUpdates = false;
+                
+                clientsSnap.docs.forEach(clientDoc => {
+                    if (clientDoc.id === clientId) return;
+                    
+                    const clientData = clientDoc.data();
+                    const existingEndorsement = clientData.endorsement;
+                    if (existingEndorsement) {
+                        const existingMatch = existingEndorsement.match(/(.*) \((.*)\)/);
+                        const existingName = existingMatch ? existingMatch[1].trim().toUpperCase() : existingEndorsement.trim().toUpperCase();
+                        
+                        if (existingName === newEndorsementName && existingEndorsement !== newEndorsement) {
+                            batch.update(clientDoc.ref, { endorsement: newEndorsement });
+                            hasUpdates = true;
+                        }
+                    }
+                });
+                
+                if (hasUpdates) {
+                    await batch.commit();
+                }
+            }
+        }
+
         const newLoan = {
             clientId: clientId,
             promotoraId: input.promotoraId,
@@ -483,8 +516,43 @@ export async function accumulateAssumedPaymentsAction(loanIds: string[], userId?
                     }
                 }
 
-                if (hasChanges) {
-                    updateOps.push({ ref: loanSnap.ref, data: { payments: newPayments } });
+                // REGLA DINÁMICA DE CARTERA VENCIDA Y LIQUIDACIÓN AUTOMÁTICA
+                const baseTerm = plan.termInWeeks;
+                let missedCount = 0;
+                let totalPaidInBaseTerm = 0;
+                for (let i = 1; i <= baseTerm; i++) {
+                    const p = newPayments.find(pay => pay.weekNumber === i);
+                    if (p) {
+                        totalPaidInBaseTerm += p.amount;
+                        if (p.amount < weeklyPayment) missedCount++;
+                    } else if (i < rawCurrentLoanWeek - 1) {
+                        missedCount++;
+                    }
+                }
+
+                const isExpired = rawCurrentLoanWeek > baseTerm + 1;
+                const hasPenalty = (missedCount >= 2) || (isExpired && totalPaidInBaseTerm < (baseTerm * weeklyPayment));
+                
+                const totalTerm = baseTerm + (hasPenalty ? 1 : 0);
+                const totalExpected = totalTerm * weeklyPayment;
+                const newTotalPaid = newPayments.reduce((acc, p) => acc + p.amount, 0);
+                const balance = Math.max(0, totalExpected - newTotalPaid);
+
+                let newStatus = loan.status;
+                if (balance <= 0) {
+                    newStatus = (isExpired || hasPenalty) ? 'Pagado desde CV' : 'Paid Off';
+                } else {
+                    newStatus = (isExpired || rawCurrentLoanWeek > totalTerm + 1) ? 'Overdue' : 'Active';
+                }
+
+                if (hasChanges || newStatus !== loan.status) {
+                    updateOps.push({ 
+                        ref: loanSnap.ref, 
+                        data: { 
+                            payments: newPayments, 
+                            status: newStatus 
+                        } 
+                    });
                 }
             }
             

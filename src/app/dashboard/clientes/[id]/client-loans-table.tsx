@@ -179,7 +179,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
           let note = '';
           let dateStr = isRegistered ? formatDate(payment.date) : '';
 
-          if (!isRegistered && isLiquidated && i > lastNormalWeek) {
+          if (!isRegistered && isLiquidated) {
               received = weeklyPayment;
               note = 'AD';
               dateStr = 'LIQUIDADO';

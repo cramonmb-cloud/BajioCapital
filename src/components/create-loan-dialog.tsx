@@ -53,6 +53,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { IdScanner } from './id-scanner';
 import type { IdDataOutput } from '@/ai/flows/extract-id-data-flow';
 import { useAuth } from '@/hooks/use-auth';
+import { useRealtimeData } from '@/hooks/use-realtime-data';
 
 const stepOneSchema = z.object({
   promotoraId: z.string().min(1, 'Debes seleccionar una promotora.'),
@@ -80,6 +81,16 @@ const stepTwoSchema = z.object({
 const formSchema = stepOneSchema.merge(stepTwoSchema);
 
 type LoanFormValues = z.infer<typeof formSchema>;
+
+interface GuarantorSuggestion {
+  name: string;
+  street: string;
+  neighborhood: string;
+  postalCode: string;
+  city: string;
+  phone: string;
+  guarantee: string;
+}
 
 interface CreateLoanDialogProps {
     clients: Client[];
@@ -148,6 +159,16 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
   const { toast } = useToast();
   const router = useRouter();
   const { appUser } = useAuth();
+  const { data: realtimeData } = useRealtimeData();
+  const maxGuarantorClients = realtimeData?.config?.maxGuarantorClients || 0;
+
+  const [showGuarantorLimitAlert, setShowGuarantorLimitAlert] = useState(false);
+  const [matchingGuarantors, setMatchingGuarantors] = useState<GuarantorSuggestion[]>([]);
+  const [blockedGuarantorDetails, setBlockedGuarantorDetails] = useState<{ clientName: string; plaza: string; localidad: string; promotora: string }[]>([]);
+  const [showAuthCodeModal, setShowAuthCodeModal] = useState(false);
+  const [authCodeInput, setAuthCodeInput] = useState('');
+  const [authCodeError, setAuthCodeError] = useState(false);
+
 
   const form = useForm<LoanFormValues>({
     resolver: zodResolver(step === 1 ? stepOneSchema : formSchema),
@@ -290,6 +311,10 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         form.reset();
         setStep(1);
         setMatchingClients([]);
+        setMatchingGuarantors([]);
+        setShowAuthCodeModal(false);
+        setAuthCodeInput('');
+        setAuthCodeError(false);
         setSelectedClient(null);
         setActiveLoanDetails(null);
         setSelectedPlaza('');
@@ -428,6 +453,187 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     setMatchingClients([]);
     checkActiveLoanForClient(client);
   };
+
+  const registeredGuarantors = useMemo(() => {
+    const guarantorMap = new Map<string, GuarantorSuggestion>();
+    
+    clients.forEach(client => {
+      if (client.endorsement) {
+        const match = client.endorsement.match(/(.*) \((.*)\)/);
+        const guarantorName = match ? match[1].trim().toUpperCase() : client.endorsement.trim().toUpperCase();
+        
+        if (guarantorName && !guarantorMap.has(guarantorName)) {
+          if (match) {
+            const detailsStr = match[2];
+            const details = detailsStr.split(',').map(s => s.trim());
+            
+            // Extract phone
+            const phoneIndex = details.findIndex(d => d.toUpperCase().startsWith('TEL:'));
+            let phone = '';
+            if (phoneIndex !== -1) {
+              phone = details[phoneIndex].replace(/Tel:\s*/i, '');
+              details.splice(phoneIndex, 1);
+            }
+            
+            // Extract guarantee
+            const guaranteeIndex = details.findIndex(d => d.toUpperCase().startsWith('GARANTÍA:') || d.toUpperCase().startsWith('GARANTIA:'));
+            let guarantee = '';
+            if (guaranteeIndex !== -1) {
+              guarantee = details[guaranteeIndex].replace(/Garantía:\s*|Garantia:\s*/i, '');
+              details.splice(guaranteeIndex, 1);
+            }
+            
+            guarantorMap.set(guarantorName, {
+              name: guarantorName,
+              street: details[0] || '',
+              neighborhood: details[1] || '',
+              postalCode: details[2] || '',
+              city: details[3] || '',
+              phone,
+              guarantee
+            });
+          } else {
+            guarantorMap.set(guarantorName, {
+              name: guarantorName,
+              street: '',
+              neighborhood: '',
+              postalCode: '',
+              city: '',
+              phone: '',
+              guarantee: ''
+            });
+          }
+        }
+      }
+    });
+    
+    return Array.from(guarantorMap.values());
+  }, [clients]);
+
+  const handleGuarantorNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const name = e.target.value.toUpperCase();
+    form.setValue('endorsement', name);
+    
+    if (name.length >= 2) {
+      const matches = registeredGuarantors.filter(g => 
+        g.name.includes(name)
+      );
+      setMatchingGuarantors(matches);
+    } else {
+      setMatchingGuarantors([]);
+    }
+  };
+
+  const selectGuarantor = (guarantor: GuarantorSuggestion) => {
+    form.setValue('endorsement', guarantor.name);
+    form.setValue('endorsementStreet', guarantor.street);
+    form.setValue('endorsementNeighborhood', guarantor.neighborhood);
+    form.setValue('endorsementPostalCode', guarantor.postalCode);
+    form.setValue('endorsementCity', guarantor.city);
+    form.setValue('endorsementPhone', guarantor.phone);
+    if (guarantor.guarantee) {
+      form.setValue('endorsementGuarantee', guarantor.guarantee);
+    }
+    setMatchingGuarantors([]);
+    toast({
+      title: 'Aval Seleccionado',
+      description: `Se cargaron los datos de dirección y contacto de ${guarantor.name}.`,
+    });
+  };
+
+  // Finds the first client with a matching guarantor name to autofill details
+  const findMatchingGuarantor = (name: string) => {
+    if (!name || name.trim().length < 3) return null;
+    const searchName = name.trim().toUpperCase();
+    
+    for (const client of clients) {
+      if (client.endorsement) {
+        const match = client.endorsement.match(/(.*) \((.*)\)/);
+        const guarantorName = match ? match[1].trim().toUpperCase() : client.endorsement.trim().toUpperCase();
+        if (guarantorName === searchName) {
+          if (match) {
+            const detailsStr = match[2];
+            const details = detailsStr.split(',').map(s => s.trim());
+            
+            // Extract phone
+            const phoneIndex = details.findIndex(d => d.toUpperCase().startsWith('TEL:'));
+            let phone = '';
+            if (phoneIndex !== -1) {
+              phone = details[phoneIndex].replace(/Tel:\s*/i, '');
+              details.splice(phoneIndex, 1);
+            }
+            
+            // Extract guarantee
+            const guaranteeIndex = details.findIndex(d => d.toUpperCase().startsWith('GARANTÍA:') || d.toUpperCase().startsWith('GARANTIA:'));
+            let guarantee = '';
+            if (guaranteeIndex !== -1) {
+              guarantee = details[guaranteeIndex].replace(/Garantía:\s*|Garantia:\s*/i, '');
+              details.splice(guaranteeIndex, 1);
+            }
+            
+            return {
+              name: guarantorName,
+              street: details[0] || '',
+              neighborhood: details[1] || '',
+              postalCode: details[2] || '',
+              city: details[3] || '',
+              phone,
+              guarantee
+            };
+          } else {
+            return {
+              name: guarantorName,
+              street: '',
+              neighborhood: '',
+              postalCode: '',
+              city: '',
+              phone: '',
+              guarantee: ''
+            };
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  // Find all active/overdue clients backed by this guarantor name
+  const getGuarantorActiveBacking = (guarantorNameInput: string) => {
+    if (!guarantorNameInput || guarantorNameInput.trim().length < 3) return [];
+    
+    const searchName = guarantorNameInput.trim().toUpperCase();
+    const activeBackings: { clientName: string; plaza: string; localidad: string; promotora: string }[] = [];
+    
+    clients.forEach(client => {
+      if (selectedClient && client.id === selectedClient.id) return;
+      
+      if (client.endorsement) {
+        const match = client.endorsement.match(/(.*) \((.*)\)/);
+        const name = match ? match[1].trim().toUpperCase() : client.endorsement.trim().toUpperCase();
+        
+        if (name === searchName) {
+          const activeLoans = loans.filter(l => l.clientId === client.id && (l.status === 'Active' || l.status === 'Overdue'));
+          
+          if (activeLoans.length > 0) {
+            const promotora = promotoras.find(p => p.id === activeLoans[0].promotoraId);
+            const localidad = promotora ? localidades.find(loc => loc.id === promotora.localidadId) : null;
+            const plaza = localidad ? plazas.find(pl => pl.id === localidad.plazaId) : null;
+            
+            activeBackings.push({
+              clientName: client.name,
+              promotora: promotora?.name || '—',
+              localidad: localidad?.name || '—',
+              plaza: plaza?.name || '—'
+            });
+          }
+        }
+      }
+    });
+    
+    return activeBackings;
+  };
+
+
 
   const handleClientNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const name = e.target.value.toUpperCase();
@@ -574,6 +780,17 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
 
 
   const onSubmit = async (values: LoanFormValues) => {
+    // Check guarantor client limit if configured
+    if (maxGuarantorClients > 0 && values.endorsement) {
+      const activeBackings = getGuarantorActiveBacking(values.endorsement);
+      if (activeBackings.length >= maxGuarantorClients) {
+        setBlockedGuarantorDetails(activeBackings);
+        setFormValues(values);
+        setShowGuarantorLimitAlert(true);
+        return;
+      }
+    }
+
     const cleanedGuarantee = cleanGuaranteeValue(values.guarantee);
     const cleanedEndorsementGuarantee = cleanGuaranteeValue(values.endorsementGuarantee);
 
@@ -591,6 +808,34 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         setShowConfirmation(true);
     } else {
         await proceedWithSubmission(values);
+    }
+  };
+
+  const handleAuthorize = () => {
+    const correctCode = realtimeData?.config?.guarantorAuthCode;
+    if (!correctCode) {
+      toast({
+        variant: 'destructive',
+        title: 'Error de Configuración',
+        description: 'No se ha configurado ninguna clave de autorización en Ajustes. Configure una antes de continuar.'
+      });
+      return;
+    }
+    setShowAuthCodeModal(true);
+  };
+
+  const handleConfirmAuthorization = () => {
+    const correctCode = realtimeData?.config?.guarantorAuthCode;
+    if (authCodeInput.trim() === correctCode) {
+      setShowAuthCodeModal(false);
+      setShowGuarantorLimitAlert(false);
+      setAuthCodeInput('');
+      setAuthCodeError(false);
+      if (formValues) {
+        proceedWithSubmission(formValues);
+      }
+    } else {
+      setAuthCodeError(true);
     }
   };
   
@@ -820,7 +1065,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                         readOnly
                         disabled
                         value={calculatedAbono > 0 ? formatCurrency(calculatedAbono) : '—'}
-                        className="h-10 font-black text-sm bg-zinc-50 border-zinc-200 text-blue-600 dark:bg-zinc-900 dark:border-zinc-800 dark:text-blue-400 cursor-not-allowed"
+                        className="h-10 font-black text-sm bg-blue-700 border-blue-800 text-white disabled:bg-blue-700 disabled:text-white disabled:opacity-100 dark:bg-blue-800 dark:border-blue-900 dark:disabled:bg-blue-800 dark:text-white cursor-not-allowed shadow-inner"
                       />
                     </FormControl>
                   </FormItem>
@@ -949,11 +1194,43 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                     control={form.control}
                     name="endorsement"
                     render={({ field }) => (
-                      <FormItem className="space-y-1">
+                      <FormItem className="relative space-y-1">
                         <FormLabel className="text-[9px] font-black uppercase text-muted-foreground">Nombre del Aval</FormLabel>
                         <FormControl>
-                          <Input placeholder="Nombre completo del aval" {...field} value={field.value || ''} className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" />
+                          <Input 
+                            placeholder="Nombre completo del aval" 
+                            {...field} 
+                            value={field.value || ''} 
+                            onChange={handleGuarantorNameChange}
+                            autoComplete="off"
+                            className="h-9 text-xs uppercase font-bold placeholder:text-zinc-400 placeholder:normal-case placeholder:font-normal" 
+                            onBlur={(e) => {
+                              field.onBlur();
+                              setTimeout(() => {
+                                setMatchingGuarantors([]);
+                              }, 200);
+                            }}
+                          />
                         </FormControl>
+                        {matchingGuarantors.length > 0 && (
+                          <Card className="absolute left-0 right-0 z-50 mt-1 shadow-2xl border-2 dark:bg-zinc-950">
+                              <ul className="max-h-60 overflow-y-auto divide-y">
+                                  {matchingGuarantors.map((guarantor, idx) => (
+                                      <li key={idx}
+                                          className="px-4 py-3 cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-950/40 flex items-center justify-between transition-colors"
+                                          onClick={() => selectGuarantor(guarantor)}>
+                                          <div className="flex flex-col">
+                                              <span className="font-black text-xs uppercase text-blue-900 dark:text-blue-300">{guarantor.name}</span>
+                                              {guarantor.street && (
+                                                 <span className="text-[9px] font-bold text-muted-foreground uppercase">{guarantor.street}, {guarantor.neighborhood}</span>
+                                              )}
+                                          </div>
+                                          <Badge variant="outline" className="text-[8px] font-black border-blue-200 text-blue-600 bg-blue-50 dark:bg-blue-950/50">REGISTRADO</Badge>
+                                      </li>
+                                  ))}
+                              </ul>
+                          </Card>
+                        )}
                         <FormMessage className="text-[9px]" />
                       </FormItem>
                     )}
@@ -1098,6 +1375,100 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                 <AlertDialogAction onClick={() => { if (formValues) proceedWithSubmission(formValues); }} className="rounded-lg font-bold bg-blue-600">
                     Sí, Crear Préstamo
                 </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    <AlertDialog open={showGuarantorLimitAlert} onOpenChange={setShowGuarantorLimitAlert}>
+        <AlertDialogContent className="rounded-xl max-w-md">
+            <AlertDialogHeader>
+                <AlertDialogTitle className="font-black text-red-600 uppercase tracking-tight flex items-center gap-2">
+                    <AlertTriangle className="h-5 w-5 text-red-500" /> Límite de Aval Excedido
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                    <div className="font-bold text-xs text-slate-700 space-y-4">
+                        <p className="text-sm">
+                            Este aval ya respalda a <strong>({blockedGuarantorDetails.length})</strong> clientes:
+                        </p>
+                        <div className="space-y-3 bg-red-50/50 dark:bg-red-950/10 p-4 rounded-xl border border-red-100 max-h-[250px] overflow-y-auto">
+                            {blockedGuarantorDetails.map((b, i) => (
+                                <div key={i} className="text-xs uppercase border-b border-red-100/50 pb-2 last:border-0 last:pb-0">
+                                    <span className="font-extrabold text-red-950 dark:text-red-300 block">{i + 1}.- {b.clientName}</span>
+                                    <span className="text-[10px] text-muted-foreground font-black block">
+                                        PLAZA: {b.plaza} | LOCALIDAD: {b.localidad} | PROMOTORA: {b.promotora}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="border-t pt-4 gap-2 flex justify-end">
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {
+                        setShowGuarantorLimitAlert(false);
+                    }} 
+                    className="rounded-lg font-bold"
+                >
+                    Cancelar
+                </Button>
+                <Button 
+                    type="button" 
+                    onClick={handleAuthorize} 
+                    className="rounded-lg font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                    Autorizar
+                </Button>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    <AlertDialog open={showAuthCodeModal} onOpenChange={setShowAuthCodeModal}>
+        <AlertDialogContent className="rounded-xl max-w-sm">
+            <AlertDialogHeader>
+                <AlertDialogTitle className="font-black text-slate-900 dark:text-slate-100 uppercase tracking-tight">
+                    Código de Autorización
+                </AlertDialogTitle>
+                <AlertDialogDescription asChild>
+                    <div className="space-y-4 pt-2">
+                        <Input 
+                            type="password"
+                            maxLength={6}
+                            placeholder="******"
+                            value={authCodeInput}
+                            onChange={(e) => {
+                                setAuthCodeInput(e.target.value);
+                                setAuthCodeError(false);
+                            }}
+                            className={`h-11 text-center font-black tracking-widest text-lg bg-white dark:bg-zinc-950 ${authCodeError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                            autoFocus
+                        />
+                        {authCodeError && (
+                            <p className="text-[10px] text-red-500 font-bold text-center">Clave incorrecta. Por favor verifique.</p>
+                        )}
+                    </div>
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="gap-2 flex justify-end">
+                <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => {
+                        setShowAuthCodeModal(false);
+                        setAuthCodeInput('');
+                        setAuthCodeError(false);
+                    }} 
+                    className="rounded-lg font-bold"
+                >
+                    Cancelar
+                </Button>
+                <Button 
+                    type="button" 
+                    onClick={handleConfirmAuthorization} 
+                    className="rounded-lg font-bold bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                    Confirmar
+                </Button>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>

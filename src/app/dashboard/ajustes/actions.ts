@@ -63,7 +63,7 @@ export async function deleteAllDataAction() {
 }
 
 // Global Payment Accumulation
-export async function accumulateAllSystemPaymentsAction(userId?: string) {
+export async function accumulateAllSystemPaymentsAction(userId?: string, onlyPriorWeek: boolean = false) {
     try {
         const [loansSnap, plansSnap, clientsSnap] = await Promise.all([
             getDocs(collection(db, 'loans')),
@@ -102,7 +102,8 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
             
             // REGLA DE SEGURIDAD: Solo procesar hasta el plazo base (loanPlan.termInWeeks)
             // No autocompletar la semana extra en sincronización masiva.
-            const currentWeekToFill = Math.min(rawCurrentLoanWeek, loanPlan.termInWeeks);
+            const rawLimit = onlyPriorWeek ? rawCurrentLoanWeek - 1 : rawCurrentLoanWeek;
+            const currentWeekToFill = Math.min(rawLimit, loanPlan.termInWeeks);
 
             const currentPayments = (loan.payments || []).map((p: any) => ({
                 ...p,
@@ -142,20 +143,25 @@ export async function accumulateAllSystemPaymentsAction(userId?: string) {
                 }
             }
 
-            if (loanChanged) {
-                // Closing logic
-                let effectivePaid = 0;
-                for (let i = 1; i <= loanPlan.termInWeeks; i++) {
-                    const p = updatedPayments.find((pay: any) => pay.weekNumber === i);
-                    if (p) effectivePaid += p.amount;
-                }
+            // Closing logic
+            let effectivePaid = 0;
+            for (let i = 1; i <= loanPlan.termInWeeks; i++) {
+                const p = updatedPayments.find((pay: any) => pay.weekNumber === i);
+                if (p) effectivePaid += p.amount;
+            }
 
-                const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
-                let newStatus = loan.status;
-                if (effectivePaid >= totalLoanAmount) {
-                    newStatus = (loan.status === 'Overdue' || rawCurrentLoanWeek > loanPlan.termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
+            const totalLoanAmount = weeklyPaymentAmount * loanPlan.termInWeeks;
+            let newStatus = loan.status;
+            if (effectivePaid >= totalLoanAmount) {
+                newStatus = (loan.status === 'Overdue' || rawCurrentLoanWeek > loanPlan.termInWeeks) ? 'Pagado desde CV' : 'Paid Off';
+            } else {
+                const isExpired = rawCurrentLoanWeek > loanPlan.termInWeeks + 1;
+                if (isExpired) {
+                    newStatus = 'Overdue';
                 }
+            }
 
+            if (loanChanged || newStatus !== loan.status) {
                 batch.update(doc(db, 'loans', loan.id), { payments: updatedPayments, status: newStatus });
                 batchCount++;
             }
@@ -330,6 +336,17 @@ export async function saveAppNameAction(appName: string) {
         return { success: true, message: 'Nombre de la aplicación actualizado con éxito.' };
     } catch (error: any) {
         return { success: false, message: `Error al guardar el nombre de la aplicación: ${error.message}` };
+    }
+}
+
+export async function saveGuarantorLimitAction(limit: number, authCode: string) {
+    try {
+        const configRef = doc(db, 'config', 'main');
+        await setDoc(configRef, { maxGuarantorClients: limit, guarantorAuthCode: authCode }, { merge: true });
+        revalidatePath('/dashboard', 'layout');
+        return { success: true, message: 'Configuración de límite y clave de aval guardados con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar la configuración de avales: ${error.message}` };
     }
 }
 
