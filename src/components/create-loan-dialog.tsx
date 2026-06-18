@@ -639,8 +639,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     const name = e.target.value.toUpperCase();
     form.setValue('clientName', name);
     
-    // Check for exact match automatically
-    const exactMatch = clients.find(c => c.name.toUpperCase() === name);
+    const trimmedName = name.trim();
+    // Check for exact match automatically (ignoring case, trimming whitespaces)
+    const exactMatch = clients.find(c => c.name.trim().toUpperCase() === trimmedName);
     if (exactMatch) {
         setSelectedClient(exactMatch);
         populateClientData(exactMatch);
@@ -650,9 +651,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         setSelectedClient(null);
         setActiveLoanDetails(null);
 
-        if (name.length >= 2) {
+        if (trimmedName.length >= 2) {
           const matches = clients.filter((client) =>
-            client.name.toUpperCase().includes(name)
+            client.name.trim().toUpperCase().includes(trimmedName)
           );
           setMatchingClients(matches);
         } else {
@@ -862,8 +863,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             const nameUpper = data.name.toUpperCase();
             form.setValue('clientName', nameUpper);
             
-            // Check for exact match with scanned name
-            const exactMatch = clients.find(c => c.name.toUpperCase() === nameUpper);
+            const trimmedName = nameUpper.trim();
+            // Check for exact match with scanned name (ignoring case, trimming whitespaces)
+            const exactMatch = clients.find(c => c.name.trim().toUpperCase() === trimmedName);
             if (exactMatch) {
                 selectClient(exactMatch);
                 return;

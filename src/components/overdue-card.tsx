@@ -115,7 +115,7 @@ export function OverdueCard({
         let totalPaidInBaseTerm = 0;
         for (let i = 1; i <= baseTerm; i++) {
             const p = (loan.payments || []).find(pay => pay.weekNumber === i);
-            if (p) {
+            if (p && !p.isReverted) {
                 totalPaidInBaseTerm += p.amount;
                 if (p.amount < weeklyPayment) missedCount++;
             } else if (i < rawCurrentLoanWeek - 1) {
@@ -186,7 +186,7 @@ export function OverdueCard({
             dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
             
             const payment = (loan.payments || []).find(p => p.weekNumber === i);
-            const isRegistered = !!payment;
+            const isRegistered = !!payment && !payment.isReverted;
             const isPast = today > dueDate;
             
             let statusType: 'PAID' | 'MISSED' | 'PENDING' = 'PENDING';

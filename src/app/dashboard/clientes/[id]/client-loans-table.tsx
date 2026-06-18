@@ -149,7 +149,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
       let totalPaidInBaseTerm = 0;
       for (let i = 1; i <= baseTerm; i++) {
           const p = loanForDetails.payments.find(pay => pay.weekNumber === i);
-          if (p) {
+          if (p && !p.isReverted) {
               totalPaidInBaseTerm += p.amount;
               if (p.amount < weeklyPayment) missedCount++;
           } else if (i < currentWeekSafe - 1) {
@@ -173,7 +173,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
           dueDate.setUTCDate(dueDate.getUTCDate() + (i * 7));
           
           const payment = loanForDetails.payments.find(p => p.weekNumber === i);
-          const isRegistered = !!payment;
+          const isRegistered = !!payment && !payment.isReverted;
           
           let received: number | null = isRegistered ? payment.amount : null;
           let note = '';

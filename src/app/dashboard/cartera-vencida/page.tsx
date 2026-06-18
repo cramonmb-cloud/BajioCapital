@@ -66,7 +66,7 @@ export default async function CarteraVencidaPage() {
             let totalPaidInBaseTerm = 0;
             for (let i = 1; i <= baseTerm; i++) {
                 const p = currentPayments.find(pay => pay.weekNumber === i);
-                if (p) {
+                if (p && !p.isReverted) {
                     totalPaidInBaseTerm += p.amount;
                     if (p.amount < weeklyPayment) missedCount++;
                 } else {

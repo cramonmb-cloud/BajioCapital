@@ -31,17 +31,62 @@ export async function createLoanAction(input: CreateLoanInput) {
         let clientId = input.client.id;
 
         if (!clientId) {
-            const newClientData = {
-                ...input.client,
-                avatarUrl: `https://picsum.photos/seed/${Math.random()}/40/40`
-            };
-            const docRef = await addDoc(collection(db, 'clients'), newClientData);
-            clientId = docRef.id;
+            const clientNameNormalized = input.client.name.trim().toUpperCase();
+            const clientsRef = collection(db, 'clients');
+            
+            // Search for client with same name (exact matching uppercase)
+            const q = query(clientsRef, where('name', '==', clientNameNormalized));
+            const querySnapshot = await getDocs(q);
+            
+            let matchedClientDoc = null;
+            if (!querySnapshot.empty) {
+                matchedClientDoc = querySnapshot.docs[0];
+            } else {
+                // Robust check for trailing/leading space differences in the database
+                const allClientsSnap = await getDocs(clientsRef);
+                const matchedDoc = allClientsSnap.docs.find(doc => {
+                    const dbName = (doc.data().name || '').trim().toUpperCase();
+                    return dbName === clientNameNormalized;
+                });
+                if (matchedDoc) {
+                    matchedClientDoc = matchedDoc;
+                }
+            }
+
+            if (matchedClientDoc) {
+                clientId = matchedClientDoc.id;
+                // Synchronize the existing client information
+                const clientRef = doc(db, 'clients', clientId);
+                const { id, ...updateData } = input.client;
+                await updateDoc(clientRef, {
+                    ...updateData,
+                    name: clientNameNormalized
+                });
+            } else {
+                const newClientData = {
+                    ...input.client,
+                    name: clientNameNormalized,
+                    avatarUrl: `https://picsum.photos/seed/${Math.random()}/40/40`
+                };
+                const docRef = await addDoc(collection(db, 'clients'), newClientData);
+                clientId = docRef.id;
+            }
         } else {
             // Sincronizar la información del cliente
             const clientRef = doc(db, 'clients', clientId);
             const { id, ...updateData } = input.client;
             await updateDoc(clientRef, updateData);
+        }
+
+        // Check if the client already has an active or overdue loan
+        const loansQuery = query(
+            collection(db, 'loans'),
+            where('clientId', '==', clientId),
+            where('status', 'in', ['Active', 'Overdue'])
+        );
+        const activeLoansSnap = await getDocs(loansQuery);
+        if (!activeLoansSnap.empty) {
+            return { success: false, message: 'El cliente ya tiene un préstamo activo o vencido en el sistema.' };
         }
 
         // Sincronizar datos del aval con otros clientes que compartan el mismo aval
@@ -102,14 +147,15 @@ export async function createLoanAction(input: CreateLoanInput) {
     }
 }
 
-export async function updateLoanAction(loanId: string, data: { loanPlanId: string; amount: number; startDate: string; promotoraId: string }) {
+export async function updateLoanAction(loanId: string, data: { loanPlanId: string; amount: number; startDate: string; promotoraId: string; status?: Loan['status'] }) {
     try {
         const loanRef = doc(db, 'loans', loanId);
         await updateDoc(loanRef, {
             loanPlanId: data.loanPlanId,
             amount: data.amount,
             startDate: new Date(data.startDate),
-            promotoraId: data.promotoraId
+            promotoraId: data.promotoraId,
+            status: data.status
         });
 
         revalidatePath('/dashboard/prestamos');
@@ -202,8 +248,16 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
             let allPayments: Payment[] = [];
 
             if (amountPaid < 0) {
-                // Modo eliminación: quitar el pago de la semana
-                allPayments = currentPayments.filter(p => p.weekNumber !== startingWeekNumber);
+                // Modo eliminación: marcar como revertido/eliminado
+                allPayments = [
+                    ...currentPayments.filter(p => p.weekNumber !== startingWeekNumber),
+                    {
+                        date: new Date().toISOString(),
+                        amount: 0,
+                        weekNumber: startingWeekNumber,
+                        isReverted: true
+                    }
+                ];
             } else {
                 // Modo registro/ajuste: lógica existente de distribución
                 const missedWeeks: { weekNumber: number; paidSoFar: number }[] = [];
@@ -216,12 +270,12 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                 }
 
                 let remaining = amountPaid;
-                const updatedPaymentsMap = new Map<number, { amount: number; isRecovered?: boolean }>();
+                const updatedPaymentsMap = new Map<number, { amount: number; isRecovered?: boolean; isReverted?: boolean }>();
 
                 // Inicializar el mapa con los pagos existentes excluyendo la semana de inicio
                 currentPayments.forEach(p => {
                     if (p.weekNumber !== startingWeekNumber) {
-                        updatedPaymentsMap.set(p.weekNumber, { amount: p.amount, isRecovered: p.isRecovered });
+                        updatedPaymentsMap.set(p.weekNumber, { amount: p.amount, isRecovered: p.isRecovered, isReverted: p.isReverted });
                     }
                 });
 
@@ -270,7 +324,8 @@ export async function registerPaymentAction(loanId: string, paymentStartDate: Da
                         date: existingDate,
                         amount: val.amount,
                         weekNumber: wk,
-                        isRecovered: val.isRecovered || false
+                        isRecovered: val.isRecovered || false,
+                        isReverted: val.isReverted || false
                     });
                 });
             }
@@ -599,7 +654,15 @@ export async function revertPaymentsForWeekAction(loanIds: string[], weekNumber:
                     totalToSubtract += paymentToRevert.amount;
                     count++;
 
-                    const updatedPayments = currentPayments.filter(p => p.weekNumber !== weekNumber);
+                    const updatedPayments = [
+                        ...currentPayments.filter(p => p.weekNumber !== weekNumber),
+                        {
+                            date: paymentToRevert.date || new Date().toISOString(),
+                            amount: 0,
+                            weekNumber: weekNumber,
+                            isReverted: true
+                        }
+                    ];
                     
                     let newStatus = loan.status;
                     if (newStatus === 'Paid Off' || newStatus === 'Pagado desde CV') {

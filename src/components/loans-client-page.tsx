@@ -360,17 +360,18 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           const weekDate = new Date(loanStartDate.getTime());
           weekDate.setUTCDate(weekDate.getUTCDate() + (weekNumber * 7));
 
+          const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
+          if (paymentForWeek && paymentForWeek.isReverted) {
+              return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false, isRecovered: false };
+          }
+          
           const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
           const termInWeeks = loanPlan.termInWeeks + (penalty ? 1 : 0);
           
           if ((loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') && weekNumber <= termInWeeks) {
-              const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
               const paidAmount = paymentForWeek ? paymentForWeek.amount : weeklyPaymentAmount;
               return { status: 'paid' as const, date: weekDate, amountPaid: paidAmount, isAssumedPaid: false, isRecovered: false };
           }
-          
-          const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
-          
           if (paymentForWeek) {
               const totalPaidForWeek = paymentForWeek.amount;
               if (totalPaidForWeek >= weeklyPaymentAmount) {
@@ -488,6 +489,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const termInWeeks = loanPlan.termInWeeks + (hasPenalty ? 1 : 0);
         
         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
+        
+        if (paymentForWeek && paymentForWeek.isReverted) {
+            return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false, isRecovered: false };
+        }
         
         if (paymentForWeek) {
             const totalPaidForWeek = paymentForWeek.amount;

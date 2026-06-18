@@ -26,6 +26,7 @@ export type Payment = {
   amount: number;
   weekNumber: number;
   isRecovered?: boolean;
+  isReverted?: boolean;
 };
 
 export type Loan = {

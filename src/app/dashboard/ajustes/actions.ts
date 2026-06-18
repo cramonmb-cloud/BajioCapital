@@ -721,3 +721,129 @@ export async function saveImprentaUrlAction(imprentaIframeUrl: string) {
         return { success: false, message: `Error al guardar la URL del iframe: ${error.message}` };
     }
 }
+
+/**
+ * Detects and merges duplicate clients in the database.
+ * Duplicates are determined by name (case-insensitive, trimmed).
+ * It merges all duplicates into a single client (retaining the most complete info),
+ * updates all loans to point to the unified client ID,
+ * updates all walletTransactions to point to the unified client ID,
+ * and deletes the duplicate client documents.
+ */
+export async function mergeDuplicateClientsAction() {
+    try {
+        const [clientsSnap, loansSnap, transactionsSnap] = await Promise.all([
+            getDocs(collection(db, 'clients')),
+            getDocs(collection(db, 'loans')),
+            getDocs(collection(db, 'walletTransactions'))
+        ]);
+
+        const clients = clientsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Client));
+        const loans = loansSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Loan));
+        const transactions = transactionsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() } as WalletTransaction));
+
+        // Group clients by normalized name
+        const groups: Record<string, Client[]> = {};
+        clients.forEach(client => {
+            const normalizedName = (client.name || '').trim().toUpperCase();
+            if (!normalizedName) return;
+            if (!groups[normalizedName]) {
+                groups[normalizedName] = [];
+            }
+            groups[normalizedName].push(client);
+        });
+
+        let mergeCount = 0;
+        let clientsDeleted = 0;
+        let loansUpdated = 0;
+        let transactionsUpdated = 0;
+
+        let batch = writeBatch(db);
+        let batchCount = 0;
+
+        for (const [name, group] of Object.entries(groups)) {
+            if (group.length <= 1) continue;
+
+            mergeCount++;
+            
+            // Choose the primary client
+            // Rule: choose the one with the most complete contact/address info, or simply the first/oldest
+            const primaryClient = group.reduce((prev, curr) => {
+                const prevScore = (prev.street ? 1 : 0) + (prev.phone ? 1 : 0) + (prev.neighborhood ? 1 : 0) + (prev.endorsement ? 1 : 0);
+                const currScore = (curr.street ? 1 : 0) + (curr.phone ? 1 : 0) + (curr.neighborhood ? 1 : 0) + (curr.endorsement ? 1 : 0);
+                return currScore > prevScore ? curr : prev;
+            }, group[0]);
+
+            const duplicateClients = group.filter(c => c.id !== primaryClient.id);
+
+            // Merge details into primaryClient (if duplicates have details primary doesn't have)
+            const updatedPrimaryData = { ...primaryClient };
+            duplicateClients.forEach(dup => {
+                if (!updatedPrimaryData.street && dup.street) updatedPrimaryData.street = dup.street;
+                if (!updatedPrimaryData.neighborhood && dup.neighborhood) updatedPrimaryData.neighborhood = dup.neighborhood;
+                if (!updatedPrimaryData.postalCode && dup.postalCode) updatedPrimaryData.postalCode = dup.postalCode;
+                if (!updatedPrimaryData.city && dup.city) updatedPrimaryData.city = dup.city;
+                if (!updatedPrimaryData.phone && dup.phone) updatedPrimaryData.phone = dup.phone;
+                if (!updatedPrimaryData.guarantee && dup.guarantee) updatedPrimaryData.guarantee = dup.guarantee;
+                if (!updatedPrimaryData.endorsement && dup.endorsement) updatedPrimaryData.endorsement = dup.endorsement;
+            });
+
+            // Update primary client in firestore
+            const primaryRef = doc(db, 'clients', primaryClient.id);
+            const { id, ...saveData } = updatedPrimaryData;
+            batch.update(primaryRef, saveData);
+            batchCount++;
+
+            // Gather duplicate client IDs
+            const dupIds = duplicateClients.map(c => c.id);
+
+            // Update associated loans to use the primaryClient ID
+            const loansToUpdate = loans.filter(l => dupIds.includes(l.clientId));
+            loansToUpdate.forEach(loan => {
+                const loanRef = doc(db, 'loans', loan.id);
+                batch.update(loanRef, { clientId: primaryClient.id });
+                loansUpdated++;
+                batchCount++;
+            });
+
+            // Update associated wallet transactions to use the primaryClient ID
+            const transactionsToUpdate = transactions.filter(t => t.clientId && dupIds.includes(t.clientId));
+            transactionsToUpdate.forEach(tx => {
+                const txRef = doc(db, 'walletTransactions', tx.id);
+                batch.update(txRef, { clientId: primaryClient.id });
+                transactionsUpdated++;
+                batchCount++;
+            });
+
+            // Delete duplicate clients
+            duplicateClients.forEach(dup => {
+                const dupRef = doc(db, 'clients', dup.id);
+                batch.delete(dupRef);
+                clientsDeleted++;
+                batchCount++;
+            });
+
+            if (batchCount >= 400) {
+                await batch.commit();
+                batch = writeBatch(db);
+                batchCount = 0;
+            }
+        }
+
+        if (batchCount > 0) {
+            await batch.commit();
+        }
+
+        revalidatePath('/dashboard/clientes');
+        revalidatePath('/dashboard/prestamos');
+        revalidatePath('/dashboard/ajustes');
+
+        return {
+            success: true,
+            message: `Se unificaron ${mergeCount} grupos de clientes duplicados. Se eliminaron ${clientsDeleted} duplicados, se actualizaron ${loansUpdated} préstamos y ${transactionsUpdated} transacciones.`
+        };
+    } catch (error: any) {
+        console.error('Error merging duplicate clients:', error);
+        return { success: false, message: `Error al unificar clientes duplicados: ${error.message}` };
+    }
+}

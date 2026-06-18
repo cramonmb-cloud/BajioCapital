@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -31,7 +31,15 @@ import { useAuth } from '@/hooks/use-auth';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 const formSchema = z.object({
-  amountPaid: z.coerce.number().min(0, 'El monto debe ser un número positivo.'),
+  amountPaid: z.string()
+    .min(1, 'El monto es obligatorio.')
+    .refine((val) => {
+      if (val === '0000000') return true;
+      const num = Number(val);
+      return !isNaN(num) && num >= 0;
+    }, {
+      message: 'El monto debe ser un número positivo o "0000000".'
+    }),
   password: z.string().min(1, 'La contraseña de autorización es obligatoria.'),
 });
 
@@ -63,10 +71,19 @@ export function ManualPaymentAdjustmentDialog({
   const form = useForm<AdjustmentFormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      amountPaid: currentAmount,
+      amountPaid: currentAmount !== null && currentAmount !== undefined ? currentAmount.toString() : '0',
       password: '',
     },
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      form.reset({
+        amountPaid: currentAmount !== null && currentAmount !== undefined ? currentAmount.toString() : '0',
+        password: '',
+      });
+    }
+  }, [isOpen, currentAmount, form]);
 
   const onSubmit = async (values: AdjustmentFormValues) => {
     if (values.password !== AUTH_PASSWORD) {
@@ -76,20 +93,25 @@ export function ManualPaymentAdjustmentDialog({
 
     setIsSubmitting(true);
     try {
+      const isDeletion = values.amountPaid === '0000000';
+      const numericAmount = isDeletion ? -1 : parseFloat(values.amountPaid);
+
       // Usamos registerPaymentAction ya que maneja la lógica de añadir/sobrescribir el pago de una semana específica
       // y recalcula automáticamente si el préstamo debe ir a semana extra basándose en el conteo total de fallos.
       const result = await registerPaymentAction(
         loan.id, 
         new Date(loan.startDate), // La fecha exacta no importa tanto para la corrección, sino el weekNumber
-        values.amountPaid, 
+        numericAmount, 
         weekNumber, 
         appUser?.id
       );
 
       if (result.success) {
         toast({
-          title: 'Ajuste Realizado',
-          description: `El abono de la semana ${weekNumber} ha sido procesado por ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(values.amountPaid)}.`,
+          title: isDeletion ? 'Ajuste Realizado (Eliminación)' : 'Ajuste Realizado',
+          description: isDeletion
+            ? `Se ha eliminado el abono de la semana ${weekNumber} y restablecido su estado.`
+            : `El abono de la semana ${weekNumber} ha sido procesado por ${new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(numericAmount)}.`,
         });
         onOpenChange(false);
         if (onSuccess) onSuccess();
@@ -131,8 +153,11 @@ export function ManualPaymentAdjustmentDialog({
                     <FormItem>
                     <FormLabel className="font-bold text-xs uppercase">Importe Recibido ($)</FormLabel>
                     <FormControl>
-                        <Input type="number" step="0.01" {...field} className="h-11 border-2 focus:ring-primary" />
+                        <Input type="text" {...field} className="h-11 border-2 focus:ring-primary font-bold" />
                     </FormControl>
+                    <p className="text-[10px] text-zinc-500 mt-1">
+                      Tip: Escribe <strong>"0000000"</strong> (7 ceros) para eliminar este abono por completo, limpiar la fecha y recalcular.
+                    </p>
                     <FormMessage />
                     </FormItem>
                 )}

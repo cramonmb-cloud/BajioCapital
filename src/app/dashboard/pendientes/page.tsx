@@ -43,7 +43,7 @@ export default async function OverduePortfolioPage() {
             // Calcular fallos reales y monto pagado en contrato base
             for (let i = 1; i <= baseTerm; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
-                if (p) {
+                if (p && !p.isReverted) {
                     totalPaidInBaseTerm += p.amount;
                     if (p.amount < weeklyPayment) {
                         missedCount++;

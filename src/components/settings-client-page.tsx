@@ -42,10 +42,10 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck, MapPin, Route, Building, ChevronUp, ChevronDown, Key, Printer } from "lucide-react";
+import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck, MapPin, Route, Building, ChevronUp, ChevronDown, Key, Printer, Users } from "lucide-react";
 import { ImageUploadButton } from "./image-upload-button";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAllDataAction, saveLogoAction, saveAppNameAction, saveGuarantorLimitAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction, saveMenuConfigAction, saveMenuColorsAction, saveStaffTypesAction, saveImprentaUrlAction } from "@/app/dashboard/ajustes/actions";
+import { deleteAllDataAction, saveLogoAction, saveAppNameAction, saveGuarantorLimitAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction, saveMenuConfigAction, saveMenuColorsAction, saveStaffTypesAction, saveImprentaUrlAction, mergeDuplicateClientsAction } from "@/app/dashboard/ajustes/actions";
 import { useRouter } from "next/navigation";
 import type { AppConfig, WhatsAppTemplates } from "@/lib/types";
 import { Separator } from "./ui/separator";
@@ -108,6 +108,7 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
     const [isAccumulating, setIsAccumulating] = useState(false);
     const [isReverting, setIsReverting] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
+    const [isMerging, setIsMerging] = useState(false);
     const [selectedPlazaId, setSelectedPlazaId] = useState<string>('default');
     const fileInputRef = useRef<HTMLInputElement>(null);
     
@@ -479,6 +480,21 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
             toast({ variant: 'destructive', title: "Error", description: error.message });
         } finally {
             setIsReverting(false);
+        }
+    };
+
+    const handleMergeDuplicates = async () => {
+        setIsMerging(true);
+        try {
+            const result = await mergeDuplicateClientsAction();
+            if (result.success) {
+                toast({ title: "Unificación Completada", description: result.message });
+                router.refresh();
+            } else throw new Error(result.message);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: "Error", description: error.message });
+        } finally {
+            setIsMerging(false);
         }
     };
 
@@ -1445,6 +1461,42 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                     <AlertDialogCancel className="rounded-xl h-12">Cancelar</AlertDialogCancel>
                                     <AlertDialogAction onClick={handleRevertExtras} className="bg-orange-600 hover:bg-orange-700 rounded-xl h-12 px-8 text-white">
                                         Sí, Revertir Pagos
+                                    </AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </div>
+
+                    {/* UNIFICACIÓN DE CLIENTES DUPLICADOS */}
+                    <div className="flex flex-col md:flex-row items-center justify-between gap-8 p-6 border-2 border-indigo-100 rounded-3xl bg-indigo-50/10">
+                        <div className="space-y-3 flex-1">
+                            <h3 className="text-lg font-bold text-indigo-900 flex items-center gap-2">
+                                <Users className="h-5 w-5 text-indigo-600" /> Unificar Clientes Duplicados
+                            </h3>
+                            <p className="text-xs text-muted-foreground max-w-2xl">
+                                Escanea la base de datos de clientes, detecta aquellos con nombres idénticos (sin importar espacios o mayúsculas) y los fusiona en un solo registro. Todos sus préstamos e historial de transacciones se vincularán al cliente unificado.
+                            </p>
+                        </div>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button variant="outline" className="border-indigo-200 text-indigo-700 hover:bg-indigo-50 font-bold h-12 px-6 rounded-xl" disabled={isMerging}>
+                                    {isMerging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Users className="mr-2 h-4 w-4" />}
+                                    Unificar Duplicados
+                                </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent className="rounded-3xl p-8 border-indigo-200">
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle className="text-2xl font-bold text-indigo-900 flex items-center gap-2">
+                                        <AlertTriangle className="h-6 w-6 text-indigo-600" /> ¿Unificar registros duplicados?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription className="text-base py-4 text-indigo-800">
+                                        Este proceso fusionará los clientes con el mismo nombre en un único registro, asociando todos sus préstamos y abonos al perfil unificado. Los registros duplicados vacíos serán eliminados de forma permanente para evitar confusiones.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter className="gap-2">
+                                    <AlertDialogCancel className="rounded-xl h-12">Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleMergeDuplicates} className="bg-indigo-600 hover:bg-indigo-700 rounded-xl h-12 px-8 text-white">
+                                        Sí, Unificar Clientes
                                     </AlertDialogAction>
                                 </AlertDialogFooter>
                             </AlertDialogContent>

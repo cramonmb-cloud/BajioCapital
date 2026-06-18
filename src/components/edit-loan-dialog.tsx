@@ -54,6 +54,7 @@ const formSchema = z.object({
   amount: z.coerce.number().min(1, 'El monto debe ser mayor a 0.'),
   startDate: z.string().min(1, 'Debes seleccionar una fecha de inicio.'),
   promotoraId: z.string().min(1, 'Debes seleccionar una promotora.'),
+  status: z.enum(['Active', 'Overdue', 'Paid Off', 'Pagado desde CV']),
 });
 
 type EditLoanFormValues = z.infer<typeof formSchema>;
@@ -120,6 +121,7 @@ export function EditLoanDialog({
         amount: loan.amount,
         startDate: saturdayOfLoan,
         promotoraId: loan.promotoraId || '',
+        status: loan.status,
       });
       setDeleteAuthCode('');
     }
@@ -217,7 +219,7 @@ export function EditLoanDialog({
         <DialogHeader>
           <DialogTitle>Gestionar Préstamo</DialogTitle>
           <DialogDescription>
-            {isPaid ? 'Este préstamo ya está liquidado. Solo se permite su eliminación bajo autorización.' : 'Modifica los detalles del préstamo seleccionado.'}
+            {isPaid ? 'Este préstamo ya está liquidado. Puedes cambiar su estado o eliminarlo bajo autorización.' : 'Modifica los detalles del préstamo seleccionado.'}
           </DialogDescription>
         </DialogHeader>
         <Form {...form}>
@@ -278,6 +280,29 @@ export function EditLoanDialog({
                             {formatDate(week)}
                           </SelectItem>
                         ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Estado del Préstamo</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecciona un estado" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="Active">Activo</SelectItem>
+                        <SelectItem value="Overdue">Vencido</SelectItem>
+                        <SelectItem value="Paid Off">Pagado</SelectItem>
+                        <SelectItem value="Pagado desde CV">Pagado desde CV</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -408,24 +433,15 @@ export function EditLoanDialog({
                     </div>
                 )}
             </div>
-            {!isPaid && (
-                <DialogFooter className="pt-4">
-                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                        Cancelar
-                    </Button>
-                    <Button type="submit" disabled={isSubmitting || isDeleting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Guardar Cambios
-                    </Button>
-                </DialogFooter>
-            )}
-            {isPaid && (
-                 <DialogFooter className="pt-4">
-                    <Button type="button" variant="outline" onClick={() => onOpenChange(false)} className="w-full">
-                        Cerrar Gestión
-                    </Button>
-                </DialogFooter>
-            )}
+            <DialogFooter className="pt-4">
+                <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                    Cancelar
+                </Button>
+                <Button type="submit" disabled={isSubmitting || isDeleting}>
+                    {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Guardar Cambios
+                </Button>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>
