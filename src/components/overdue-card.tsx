@@ -76,7 +76,7 @@ export function OverdueCard({
     const [adjustData, setAdjustData] = useState<{ weekNumber: number, amount: number } | null>(null);
 
     const { appUser } = useAuth();
-    const isCristobal = useMemo(() => appUser?.username.toUpperCase() === 'CRISTOBAL', [appUser]);
+    const isCristobal = useMemo(() => appUser?.username?.toUpperCase() === 'CRISTOBAL', [appUser]);
 
     useEffect(() => {
         if (detailModalOpen || historyDialogOpen) {

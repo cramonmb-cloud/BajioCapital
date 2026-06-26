@@ -326,7 +326,7 @@ export function PersonalClientPage() {
         const cleanSearch = search.toLowerCase().trim();
         if (!cleanSearch) return list;
         return list.filter(p => {
-            const fullName = `${p.nombre} ${p.apellidoPaterno} ${p.apellidoMaterno}`.toLowerCase();
+            const fullName = `${p.nombre || ''} ${p.apellidoPaterno || ''} ${p.apellidoMaterno || ''}`.toLowerCase();
             return (
                 fullName.includes(cleanSearch) ||
                 (p.curp || '').toLowerCase().includes(cleanSearch) ||

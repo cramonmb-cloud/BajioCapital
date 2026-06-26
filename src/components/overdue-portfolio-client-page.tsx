@@ -148,9 +148,9 @@ export function OverduePortfolioClientPage({
         if (!promotoraSearchTerm.trim()) return [];
         const query = promotoraSearchTerm.toLowerCase();
         return allPromotorasWithDetails.filter(p => 
-            p.name.toLowerCase().includes(query) ||
-            p.localidadName.toLowerCase().includes(query) ||
-            p.plazaName.toLowerCase().includes(query)
+            (p.name || '').toLowerCase().includes(query) ||
+            (p.localidadName || '').toLowerCase().includes(query) ||
+            (p.plazaName || '').toLowerCase().includes(query)
         ).slice(0, 8);
     }, [promotoraSearchTerm, allPromotorasWithDetails]);
 
@@ -158,12 +158,12 @@ export function OverduePortfolioClientPage({
         return initialOverdueLoans.filter(details => {
             const term = searchTerm.toLowerCase();
             const matchesSearch = searchTerm === '' || 
-                details.client.name.toLowerCase().includes(term) ||
-                details.client.street.toLowerCase().includes(term) ||
-                details.client.phone.includes(term) || 
-                details.hierarchy.plazaName.toLowerCase().includes(term) ||
-                details.hierarchy.localidadName.toLowerCase().includes(term) ||
-                details.hierarchy.promotoraName.toLowerCase().includes(term);
+                (details.client.name || '').toLowerCase().includes(term) ||
+                (details.client.street || '').toLowerCase().includes(term) ||
+                (details.client.phone || '').includes(term) || 
+                (details.hierarchy.plazaName || '').toLowerCase().includes(term) ||
+                (details.hierarchy.localidadName || '').toLowerCase().includes(term) ||
+                (details.hierarchy.promotoraName || '').toLowerCase().includes(term);
 
             const matchesPlaza = selectedPlaza === 'all' || details.hierarchy.plazaId === selectedPlaza;
             const matchesLocalidad = selectedLocalidad === 'all' || details.hierarchy.localidadId === selectedLocalidad;

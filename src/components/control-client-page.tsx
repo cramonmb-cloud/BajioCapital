@@ -441,7 +441,7 @@ export function ControlClientPage({ initialClients, initialLoanPlans, initialPla
                                     key={stat.plazaName} 
                                     className="relative overflow-hidden rounded-xl md:rounded-3xl border-2 hover:shadow-xl hover:shadow-zinc-200/50 dark:hover:shadow-none transition-all duration-300 hover:-translate-y-1 flex flex-col justify-between"
                                     style={{ borderColor: `${stat.color}30` }}
-                                    id={`plaza-card-${stat.plazaName.toLowerCase().replace(/\s+/g, '-')}`}
+                                    id={`plaza-card-${(stat.plazaName || '').toLowerCase().replace(/\s+/g, '-')}`}
                                 >
                                     <div className="absolute top-0 right-0 p-4 opacity-5">
                                         <Building2 className="h-16 w-16 md:h-24 md:w-24" style={{ color: stat.color }} />

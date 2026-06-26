@@ -186,9 +186,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
     if (!searchTerm.trim()) return [];
     const query = searchTerm.toLowerCase();
     return allPromotorasWithDetails.filter(p => 
-      p.name.toLowerCase().includes(query) ||
-      p.localidadName.toLowerCase().includes(query) ||
-      p.plazaName.toLowerCase().includes(query)
+      (p.name || '').toLowerCase().includes(query) ||
+      (p.localidadName || '').toLowerCase().includes(query) ||
+      (p.plazaName || '').toLowerCase().includes(query)
     ).slice(0, 8);
   }, [searchTerm, allPromotorasWithDetails]);
   

@@ -44,8 +44,8 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   const [filterWeek, setFilterWeek] = useState('all');
 
   const { appUser } = useAuth();
-  const isAdmin = appUser?.role === 'admin' || appUser?.username.toUpperCase() === 'CRISTOBAL';
-  const isCristobal = appUser?.username.toUpperCase() === 'CRISTOBAL';
+  const isAdmin = appUser?.role === 'admin' || appUser?.username?.toUpperCase() === 'CRISTOBAL';
+  const isCristobal = appUser?.username?.toUpperCase() === 'CRISTOBAL';
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' }).format(amount);
 
@@ -146,7 +146,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     // Apply Search
     if (searchTerm) {
         result = result.filter(item => 
-            item.client!.name.toLowerCase().includes(searchTerm.toLowerCase())
+            (item.client!.name || '').toLowerCase().includes(searchTerm.toLowerCase())
         );
     }
 

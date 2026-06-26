@@ -463,10 +463,10 @@ export function AvalesClientPage({
     return endorsers.filter(e => {
       // Search term
       const matchesSearch = 
-        e.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.phone.includes(searchTerm) ||
-        `${e.street} ${e.neighborhood} ${e.city}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        e.guarantees.toLowerCase().includes(searchTerm.toLowerCase());
+        (e.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (e.phone || '').includes(searchTerm) ||
+        `${e.street || ''} ${e.neighborhood || ''} ${e.city || ''}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (e.guarantees || '').toLowerCase().includes(searchTerm.toLowerCase());
 
       if (!matchesSearch) return false;
 

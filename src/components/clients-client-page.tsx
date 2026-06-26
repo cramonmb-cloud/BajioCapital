@@ -41,9 +41,9 @@ export function ClientsClientPage({ initialClients, initialLoans }: ClientsClien
             return initialClients;
         }
         return initialClients.filter(client => 
-            client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            client.street.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            client.neighborhood.toLowerCase().includes(searchTerm.toLowerCase())
+            (client.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (client.street || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (client.neighborhood || '').toLowerCase().includes(searchTerm.toLowerCase())
         );
     }, [searchTerm, initialClients]);
 

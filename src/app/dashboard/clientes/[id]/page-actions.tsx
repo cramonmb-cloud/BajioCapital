@@ -30,7 +30,7 @@ export function ClientPageActions({ clientId }: ClientPageActionsProps) {
     const router = useRouter();
     const [isDeleting, setIsDeleting] = useState(false);
     
-    const isCristobal = useMemo(() => appUser?.username.toUpperCase() === 'CRISTOBAL', [appUser]);
+    const isCristobal = useMemo(() => appUser?.username?.toUpperCase() === 'CRISTOBAL', [appUser]);
     const canEdit = appUser?.role === 'admin' || (appUser?.permissions && appUser.permissions.editClients);
 
     if (!appUser) return null;

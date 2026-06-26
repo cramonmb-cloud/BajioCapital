@@ -193,7 +193,7 @@ export function UserManagement({ users }: UserManagementProps) {
   const plazas = useMemo(() => systemData?.plazas || [], [systemData]);
   const localidades = useMemo(() => systemData?.localidades || [], [systemData]);
 
-  const isCristobal = appUser?.username.toUpperCase() === 'CRISTOBAL';
+  const isCristobal = appUser?.username?.toUpperCase() === 'CRISTOBAL';
 
   const addUserForm = useForm<AddUserFormValues>({
     resolver: zodResolver(addUserFormSchema),

@@ -59,7 +59,7 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
   const [isAdjustDialogOpen, setIsAdjustDialogOpen] = useState(false);
   const [adjustData, setAdjustData] = useState<{ weekNumber: number, amount: number } | null>(null);
 
-  const isCristobal = useMemo(() => appUser?.username.toUpperCase() === 'CRISTOBAL', [appUser]);
+  const isCristobal = useMemo(() => appUser?.username?.toUpperCase() === 'CRISTOBAL', [appUser]);
   const canEdit = useMemo(() => isCristobal, [isCristobal]);
   
   // Sort loans: Active/Overdue first, then by startDate descending

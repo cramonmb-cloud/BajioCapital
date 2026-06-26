@@ -123,7 +123,7 @@ export function MonitoreoManagement({ users }: MonitoreoManagementProps) {
       });
       toast({
         title: 'Señal de cierre enviada',
-        description: `Se cerrará la sesión de ${logoutUser.username.toUpperCase()} en su próximo movimiento.`,
+        description: `Se cerrará la sesión de ${(logoutUser.username || '').toUpperCase()} en su próximo movimiento.`,
       });
       setConfirmDialogOpen(false);
       setLogoutUser(null);
@@ -197,10 +197,10 @@ export function MonitoreoManagement({ users }: MonitoreoManagementProps) {
     const term = searchTerm.toLowerCase();
     return mappedUsers.filter(
       (u) =>
-        u.username.toLowerCase().includes(term) ||
-        u.role.toLowerCase().includes(term) ||
-        u.statusLabel.toLowerCase().includes(term) ||
-        getFriendlySection(u.currentSection).toLowerCase().includes(term)
+        (u.username || '').toLowerCase().includes(term) ||
+        (u.role || '').toLowerCase().includes(term) ||
+        (u.statusLabel || '').toLowerCase().includes(term) ||
+        (getFriendlySection(u.currentSection) || '').toLowerCase().includes(term)
     );
   }, [mappedUsers, searchTerm]);
 
