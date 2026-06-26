@@ -182,6 +182,8 @@ export function AvalesClientPage({
     plazas: initialPlazas,
     localidades: initialLocalidades,
     promotoras: initialPromotoras
+  }, {
+    enabledCollections: ['clients', 'loans', 'loanPlans', 'plazas', 'localidades', 'promotoras']
   });
   
   const { clients, loans, loanPlans: plans, plazas, localidades, promotoras } = realtimeData;
@@ -917,7 +919,7 @@ export function AvalesClientPage({
                                         <div className="flex flex-col gap-1 items-end">
                                           {client.allLoans && client.allLoans.length > 0 ? (
                                             [...client.allLoans]
-                                              .sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+                                              .sort((a, b) => new Date(a.startDate || 0).getTime() - new Date(b.startDate || 0).getTime())
                                               .map(loan => {
                                                 const plan = plans.find(p => p.id === loan.loanPlanId);
                                                 const termInWeeks = plan?.termInWeeks || 16;

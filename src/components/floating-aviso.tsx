@@ -46,7 +46,7 @@ export function FloatingAviso() {
       );
 
       // Sort by date (newest first)
-      filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      filtered.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
 
       setPendingAvisos(filtered);
     }, (error) => {

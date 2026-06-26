@@ -26,7 +26,9 @@ interface PlanManagementProps {
 }
 
 export function PlanManagement({ initialLoanPlans }: PlanManagementProps) {
-    const { data, loading } = useRealtimeData();
+    const { data, loading } = useRealtimeData(undefined, {
+        enabledCollections: ['loanPlans']
+    });
     const [selectedPlan, setSelectedPlan] = useState<LoanPlan | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
 

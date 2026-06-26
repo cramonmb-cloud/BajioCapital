@@ -121,7 +121,9 @@ export function PersonalClientPage() {
     const { toast } = useToast();
     const router = useRouter();
     const { appUser } = useAuth();
-    const { data: systemData } = useRealtimeData();
+    const { data: systemData } = useRealtimeData(undefined, {
+        enabledCollections: ['config']
+    });
 
     // Fetch custom staffTypes from config, fallback to default ones
     const staffTypes = useMemo(() => {
@@ -169,7 +171,7 @@ export function PersonalClientPage() {
                 ...doc.data()
             })) as Personal[];
             // Sort by creation or name
-            list.sort((a, b) => `${a.nombre} ${a.apellidoPaterno}`.localeCompare(`${b.nombre} ${b.apellidoPaterno}`));
+            list.sort((a, b) => `${a.nombre || ''} ${a.apellidoPaterno || ''}`.localeCompare(`${b.nombre || ''} ${b.apellidoPaterno || ''}`));
             setPersonalList(list);
             setLoading(false);
         }, (err) => {

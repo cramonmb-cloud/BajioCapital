@@ -62,7 +62,7 @@ export function AvisosClientPage({ imgbbApiKey }: AvisosClientPageProps) {
       }) as Aviso);
       
       // Sort by creation date desc
-      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       
       setAvisos(list);
       setLoading(false);

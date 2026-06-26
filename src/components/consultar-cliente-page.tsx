@@ -99,11 +99,11 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
   }, [allClients, loans, isAdmin]);
 
   // Opciones de filtros
-  const plazaOptions = useMemo(() => allowedPlazas.sort((a,b) => a.name.localeCompare(b.name)), [allowedPlazas]);
+  const plazaOptions = useMemo(() => [...allowedPlazas].sort((a,b) => (a?.name || '').localeCompare(b?.name || '')), [allowedPlazas]);
   const localidadOptions = useMemo(() => {
       let result = allowedLocalidades;
       if (filterPlaza !== 'all') result = result.filter(l => l.plazaId === filterPlaza);
-      return result.sort((a,b) => a.name.localeCompare(b.name));
+      return [...result].sort((a,b) => (a?.name || '').localeCompare(b?.name || ''));
   }, [allowedLocalidades, filterPlaza]);
   
   const promotoraOptions = useMemo(() => {
@@ -118,7 +118,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
           const allowedLocIds = allowedLocalidades.map(l => l.id);
           result = result.filter(p => allowedLocIds.includes(p.localidadId));
       }
-      return result.sort((a,b) => a.name.localeCompare(b.name));
+      return [...result].sort((a,b) => (a?.name || '').localeCompare(b?.name || ''));
   }, [allPromotoras, allLocalidades, filterLocalidad, filterPlaza, allowedLocalidades, isAdmin]);
 
   const weekOptions = useMemo(() => {

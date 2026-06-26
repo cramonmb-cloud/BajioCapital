@@ -75,7 +75,9 @@ export function PlazaManagement({ initialPlazas, initialLocalidades, initialProm
   const [editingLocalidadId, setEditingLocalidadId] = useState<string | null>(null);
   const [editingPromotoraId, setEditingPromotoraId] = useState<string | null>(null);
 
-  const { data, loading } = useRealtimeData();
+  const { data, loading } = useRealtimeData(undefined, {
+      enabledCollections: ['plazas', 'localidades', 'promotoras']
+  });
   const { toast } = useToast();
 
   const plazas = data?.plazas ?? initialPlazas;

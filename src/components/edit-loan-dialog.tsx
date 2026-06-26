@@ -127,23 +127,23 @@ export function EditLoanDialog({
     }
   }, [loan, isOpen, form, promotoras, localidades, plazas]);
 
-  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
+  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [plazas]);
   
   const filteredLocalidades = useMemo(() => {
     if (!selectedPlaza) return [];
     return localidades
       .filter(l => l.plazaId === selectedPlaza)
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
   }, [selectedPlaza, localidades]);
 
   const filteredPromotoras = useMemo(() => {
     if (!selectedLocalidad) return [];
     return promotoras
       .filter(p => p.localidadId === selectedLocalidad)
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
   }, [selectedLocalidad, promotoras]);
 
-  const sortedLoanPlans = useMemo(() => [...loanPlans].sort((a, b) => a.name.localeCompare(b.name)), [loanPlans]);
+  const sortedLoanPlans = useMemo(() => [...loanPlans].sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [loanPlans]);
 
   useEffect(() => {
     if (filteredLocalidades.length > 0 && !filteredLocalidades.find(l => l.id === selectedLocalidad)) {

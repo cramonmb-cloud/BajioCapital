@@ -151,8 +151,10 @@ export function UserManagement({ users }: UserManagementProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
-  const { signUp, appUser } = useAuth();
-  const { data: systemData } = useRealtimeData();
+  const { appUser, signUp } = useAuth();
+  const { data: systemData } = useRealtimeData(undefined, {
+      enabledCollections: ['users', 'plazas', 'localidades']
+  });
 
   const [personalList, setPersonalList] = useState<Personal[]>([]);
   const [isFromPersonal, setIsFromPersonal] = useState(false);

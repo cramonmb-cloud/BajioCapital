@@ -78,6 +78,8 @@ import { useToast } from '@/hooks/use-toast';
 import { accumulateAssumedPaymentsAction, changeLoansDateAction, payOffLoanAction, revertPaymentsForWeekAction } from '@/app/dashboard/actions';
 import { format as formatDateFns } from 'date-fns';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
+import { query, where, collection } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import Loading from '../app/dashboard/loading';
 import { Checkbox } from './ui/checkbox';
 import { Input } from './ui/input';
@@ -107,12 +109,22 @@ interface LoansClientPageProps {
 }
 
 export function LoansClientPage({ initialClients, initialLoanPlans, initialPlazas, initialLocalidades, initialPromotoras }: LoansClientPageProps) {
+  const activeLoansQuery = useMemo(() => query(
+    collection(db, 'loans'),
+    where('status', 'in', ['Active', 'Overdue'])
+  ), []);
+
   const { data, loading: dataLoading } = useRealtimeData({
     clients: initialClients,
     loanPlans: initialLoanPlans,
     plazas: initialPlazas,
     localidades: initialLocalidades,
     promotoras: initialPromotoras
+  }, {
+    enabledCollections: ['loans', 'clients', 'loanPlans', 'plazas', 'localidades', 'promotoras'],
+    queries: {
+      loans: activeLoansQuery
+    }
   });
   const { loans, clients, loanPlans, plazas, localidades, promotoras } = data || { 
       loans: [], 
@@ -152,9 +164,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
   } | null>(null);
   const router = useRouter();
 
-  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
-  const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => a.name.localeCompare(b.name, 'es', { sensitivity: 'base' })), [localidades, selectedPlaza]);
-  const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => a.name.localeCompare(b.name)), [promotoras, selectedLocalidad]);
+  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [plazas]);
+  const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => (a?.name || '').localeCompare(b?.name || '', 'es', { sensitivity: 'base' })), [localidades, selectedPlaza]);
+  const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [promotoras, selectedLocalidad]);
 
   // Memoize all promotoras with their plaza/localidad details for the search box
   const allPromotorasWithDetails = useMemo(() => {
@@ -167,7 +179,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         plazaName: plaza?.name || 'N/A',
         plazaId: loc?.plazaId || '',
       };
-    }).sort((a, b) => a.name.localeCompare(b.name));
+    }).sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
   }, [promotoras, localidades, plazas]);
 
   const searchedPromotoras = useMemo(() => {

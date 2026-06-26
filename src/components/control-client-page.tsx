@@ -20,6 +20,8 @@ import type { DateRange } from 'react-day-picker';
 import { ReportsSection } from './reports-section';
 import { Separator } from './ui/separator';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
+import { query, where, collection } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import Loading from '@/app/dashboard/loading';
 import { generateColorPalette } from '@/lib/utils';
 import { cn } from '@/lib/utils';
@@ -63,12 +65,22 @@ const checkPenalty = (loan: Loan, loanPlan: LoanPlan) => {
 export function ControlClientPage({ initialClients, initialLoanPlans, initialPlazas, initialLocalidades, initialPromotoras }: ControlClientPageProps) {
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [activeTab, setActiveTab] = useState<'resumen' | 'plazas' | 'informes'>('resumen');
+    const activeLoansQuery = useMemo(() => query(
+        collection(db, 'loans'),
+        where('status', 'in', ['Active', 'Overdue'])
+    ), []);
+
     const { data, loading: dataLoading } = useRealtimeData({
         clients: initialClients,
         loanPlans: initialLoanPlans,
         plazas: initialPlazas,
         localidades: initialLocalidades,
         promotoras: initialPromotoras,
+    }, {
+        enabledCollections: ['loans', 'clients', 'loanPlans', 'plazas', 'localidades', 'promotoras'],
+        queries: {
+            loans: activeLoansQuery
+        }
     });
 
     const { loans, clients, loanPlans, plazas, localidades, promotoras } = data || {

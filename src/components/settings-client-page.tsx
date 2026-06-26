@@ -115,7 +115,9 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
     const { toast } = useToast();
     const router = useRouter();
     const { appUser } = useAuth();
-    const { data: systemData } = useRealtimeData();
+    const { data: systemData } = useRealtimeData(undefined, {
+        enabledCollections: ['loans', 'clients', 'loanPlans', 'plazas', 'localidades', 'promotoras', 'promotoraSettlements', 'users', 'config']
+    });
 
     const appNameForm = useForm<AppNameFormValues>({
         resolver: zodResolver(appNameSchema),

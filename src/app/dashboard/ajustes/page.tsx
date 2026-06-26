@@ -16,7 +16,9 @@ import { useMemo, Fragment } from "react";
 import { cn } from "@/lib/utils";
 
 export default function SettingsPage() {
-    const { data, loading } = useRealtimeData();
+    const { data, loading } = useRealtimeData(undefined, {
+        enabledCollections: ['plazas', 'localidades', 'promotoras', 'users', 'config', 'loanPlans']
+    });
     const { appUser } = useAuth();
 
     const permissions = useMemo(() => {

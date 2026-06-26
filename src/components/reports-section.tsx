@@ -52,12 +52,12 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
   const { toast } = useToast();
 
   // Alphabetical sorting
-  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
-  const sortedPlans = useMemo(() => [...loanPlans].sort((a, b) => a.name.localeCompare(b.name)), [loanPlans]);
+  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [plazas]);
+  const sortedPlans = useMemo(() => [...loanPlans].sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [loanPlans]);
 
   const filteredLocalidades = useMemo(() => {
     let result = selectedPlaza === 'all' ? localidades : localidades.filter(l => l.plazaId === selectedPlaza);
-    return [...result].sort((a, b) => a.name.localeCompare(b.name));
+    return [...result].sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
   }, [selectedPlaza, localidades]);
 
   const filteredPromotoras = useMemo(() => {
@@ -72,7 +72,7 @@ export function ReportsSection({ loans, clients, loanPlans, plazas, localidades,
     } else {
       result = promotoras.filter(p => p.localidadId === selectedLocalidad);
     }
-    return [...result].sort((a, b) => a.name.localeCompare(b.name));
+    return [...result].sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
   }, [selectedLocalidad, selectedPlaza, promotoras, localidades]);
 
   // Main selector and calculator for dynamic report data

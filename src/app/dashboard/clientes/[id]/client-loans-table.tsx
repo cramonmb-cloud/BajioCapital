@@ -71,14 +71,14 @@ export function ClientLoansTable({ clientLoans, loanPlans, allLoans, users, plaz
       if (isAActive && !isBActive) return -1;
       if (!isAActive && isBActive) return 1;
       
-      return new Date(b.startDate).getTime() - new Date(a.startDate).getTime();
+      return new Date(b.startDate || 0).getTime() - new Date(a.startDate || 0).getTime();
     });
   }, [clientLoans]);
 
   const allLoanWeeks = useMemo(() => 
     Array.from(
-      new Set(allLoans.map(loan => getSaturdayOfWeek(new Date(loan.startDate)).toISOString()))
-    ).sort((a, b) => new Date(b).getTime() - new Date(a).getTime())
+      new Set(allLoans.map(loan => getSaturdayOfWeek(new Date(loan.startDate || 0)).toISOString()))
+    ).sort((a, b) => new Date(b || 0).getTime() - new Date(a || 0).getTime())
   , [allLoans]);
 
   const getPlanName = (planId: string) => {

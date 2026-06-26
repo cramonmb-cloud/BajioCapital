@@ -159,7 +159,9 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
   const { toast } = useToast();
   const router = useRouter();
   const { appUser } = useAuth();
-  const { data: realtimeData } = useRealtimeData();
+  const { data: realtimeData } = useRealtimeData(undefined, {
+    enabledCollections: ['config']
+  });
   const maxGuarantorClients = realtimeData?.config?.maxGuarantorClients || 0;
 
   const [showGuarantorLimitAlert, setShowGuarantorLimitAlert] = useState(false);
@@ -193,10 +195,10 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     },
   });
 
-  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
-  const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => a.name.localeCompare(b.name)), [localidades, selectedPlaza]);
-  const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => a.name.localeCompare(b.name)), [promotoras, selectedLocalidad]);
-  const sortedLoanPlans = useMemo(() => [...loanPlans].sort((a, b) => a.name.localeCompare(b.name)), [loanPlans]);
+  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [plazas]);
+  const filteredLocalidades = useMemo(() => localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [localidades, selectedPlaza]);
+  const filteredPromotoras = useMemo(() => promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [promotoras, selectedLocalidad]);
+  const sortedLoanPlans = useMemo(() => [...loanPlans].sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [loanPlans]);
 
   const watchLoanPlanId = form.watch('loanPlanId');
   const watchAmount = form.watch('amount');

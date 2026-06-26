@@ -41,7 +41,9 @@ interface MigrationManagementProps {
 }
 
 export function MigrationManagement({ initialPlazas, initialLocalidades, initialPromotoras }: MigrationManagementProps) {
-    const { data } = useRealtimeData();
+    const { data } = useRealtimeData(undefined, {
+        enabledCollections: ['plazas', 'localidades', 'promotoras']
+    });
     const { toast } = useToast();
     const [isMigrating, setIsMigrating] = useState(false);
     const [selectedLocalidadId, setSelectedLocalidadId] = useState<string>('');
@@ -112,7 +114,7 @@ export function MigrationManagement({ initialPlazas, initialLocalidades, initial
                                     <SelectValue placeholder="Selecciona Localidad..." />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {[...localidades].sort((a,b) => a.name.localeCompare(b.name)).map(l => (
+                                    {[...localidades].sort((a,b) => (a?.name || '').localeCompare(b?.name || '')).map(l => (
                                         <SelectItem key={l.id} value={l.id}>
                                             {l.name} ({plazas.find(p => p.id === l.plazaId)?.name})
                                         </SelectItem>
@@ -152,7 +154,7 @@ export function MigrationManagement({ initialPlazas, initialLocalidades, initial
                                 <SelectContent>
                                     {[...plazas]
                                         .filter(p => p.id !== selectedLocalidad?.plazaId)
-                                        .sort((a,b) => a.name.localeCompare(b.name))
+                                        .sort((a,b) => (a?.name || '').localeCompare(b?.name || ''))
                                         .map(p => (
                                             <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                                         ))

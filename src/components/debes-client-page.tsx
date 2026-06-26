@@ -58,6 +58,8 @@ export function DebesClientPage({
     plazas: initialPlazas,
     localidades: initialLocalidades,
     promotoras: initialPromotoras
+  }, {
+    enabledCollections: ['loans', 'loanPlans', 'plazas', 'localidades', 'promotoras', 'promotoraSettlements']
   });
   const { appUser } = useAuth();
   const isCristobal = appUser?.username?.toLowerCase() === 'cristobal';
@@ -98,13 +100,13 @@ export function DebesClientPage({
   const savedSettlements = useMemo(() => realtime?.promotoraSettlements || [], [realtime?.promotoraSettlements]);
 
   // Derived filter chains
-  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => a.name.localeCompare(b.name)), [plazas]);
+  const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [plazas]);
   const filteredLocalidades = useMemo(() => 
-    localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => a.name.localeCompare(b.name)), 
+    localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), 
     [localidades, selectedPlaza]
   );
   const filteredPromotoras = useMemo(() => 
-    promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => a.name.localeCompare(b.name)), 
+    promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), 
     [promotoras, selectedLocalidad]
   );
 
@@ -119,7 +121,7 @@ export function DebesClientPage({
         plazaName: plaza?.name || 'N/A',
         plazaId: loc?.plazaId || '',
       };
-    }).sort((a, b) => a.name.localeCompare(b.name));
+    }).sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
   }, [promotoras, localidades, plazas]);
 
   const searchedPromotoras = useMemo(() => {

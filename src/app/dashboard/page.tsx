@@ -24,7 +24,9 @@ import Loading from './loading';
 import { getSaturdayOfWeek, getMexicoNow } from '@/lib/utils';
 
 export default function DashboardPage() {
-    const { data, loading: dataLoading } = useRealtimeData();
+    const { data, loading: dataLoading } = useRealtimeData(undefined, {
+        enabledCollections: ['clients', 'loans']
+    });
     const { appUser, loading: authLoading } = useAuth();
     const [config, setConfig] = useState<{logoUrl?: string, logoFormat?: 'square' | 'horizontal', logoHeightDashboard?: number, logoWidthDashboard?: number} | null>(null);
     const [selectedWeekValue, setSelectedWeekValue] = useState<string>('');

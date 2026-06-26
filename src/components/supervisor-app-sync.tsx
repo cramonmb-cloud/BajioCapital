@@ -99,11 +99,11 @@ export function SupervisorAppSync({ plazas, localidades, promotoras, loanPlans }
     const selectedLocalidadId = form.watch('localidadId');
 
     const filteredLocalidades = useMemo(() => 
-        localidades.filter(l => l.plazaId === selectedPlazaId).sort((a,b) => a.name.localeCompare(b.name)),
+        localidades.filter(l => l.plazaId === selectedPlazaId).sort((a,b) => (a?.name || '').localeCompare(b?.name || '')),
     [localidades, selectedPlazaId]);
 
     const filteredPromotoras = useMemo(() => 
-        promotoras.filter(p => p.localidadId === selectedLocalidadId).sort((a,b) => a.name.localeCompare(b.name)),
+        promotoras.filter(p => p.localidadId === selectedLocalidadId).sort((a,b) => (a?.name || '').localeCompare(b?.name || '')),
     [promotoras, selectedLocalidadId]);
 
     const onSyncSubmit = async (values: SyncFormValues) => {

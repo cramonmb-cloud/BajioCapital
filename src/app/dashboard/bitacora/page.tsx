@@ -1,6 +1,8 @@
 import { getClients, getWallet, getWalletTransactions, getUsers, getLoans, getLoanPlans } from "@/lib/firestore-data";
 import { BitacoraClientPage } from "@/components/bitacora-client-page";
 
+export const dynamic = 'force-dynamic';
+
 export default async function WalletPage() {
     const [loans, plans, wallet, clients, users] = await Promise.all([
         getLoans(),

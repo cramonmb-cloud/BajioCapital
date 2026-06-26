@@ -8,15 +8,16 @@ import { ClientPageActions } from './page-actions';
 import { ClientLoansTable } from './client-loans-table';
 
 
-export default async function ClientDetailPage({ params }: { params: { id: string } }) {
-  const client = await getClient(params.id);
+export default async function ClientDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const client = await getClient(id);
   
   if (!client) {
     notFound();
   }
 
   const [clientLoans, loanPlans, allLoans, users, plazas, localidades, promotoras] = await Promise.all([
-      getLoans(params.id),
+      getLoans(id),
       getLoanPlans(),
       getLoans(),
       getUsers(),

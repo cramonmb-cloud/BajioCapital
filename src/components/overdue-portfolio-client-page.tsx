@@ -47,7 +47,9 @@ export function OverduePortfolioClientPage({
     promotoras,
     title
 }: OverduePortfolioClientPageProps) {
-    const { data } = useRealtimeData();
+    const { data } = useRealtimeData(undefined, {
+        enabledCollections: ['config']
+    });
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedPlaza, setSelectedPlaza] = useState('all');
     const [selectedLocalidad, setSelectedLocalidad] = useState('all');
@@ -80,7 +82,7 @@ export function OverduePortfolioClientPage({
     const appConfig = data?.config;
 
     const plazaColors = useMemo(() => {
-        const sortedPlazas = [...plazas].sort((a, b) => a.name.localeCompare(b.name));
+        const sortedPlazas = [...plazas].sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
         const colors = generateColorPalette(sortedPlazas.length);
         const map: Record<string, string> = {};
         sortedPlazas.forEach((p, i) => {
@@ -111,7 +113,7 @@ export function OverduePortfolioClientPage({
         let result = selectedPlaza === 'all' 
             ? localidades 
             : localidades.filter(l => l.plazaId === selectedPlaza);
-        return [...result].sort((a, b) => a.name.localeCompare(b.name));
+        return [...result].sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
     }, [selectedPlaza, localidades]);
 
     const filteredPromotorasOptions = useMemo(() => {
@@ -126,7 +128,7 @@ export function OverduePortfolioClientPage({
         } else {
             result = promotoras.filter(p => p.localidadId === selectedLocalidad);
         }
-        return [...result].sort((a, b) => a.name.localeCompare(b.name));
+        return [...result].sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
     }, [selectedLocalidad, selectedPlaza, promotoras, localidades]);
 
     const allPromotorasWithDetails = useMemo(() => {
@@ -139,7 +141,7 @@ export function OverduePortfolioClientPage({
                 plazaName: plaza?.name || 'N/A',
                 plazaId: loc?.plazaId || '',
             };
-        }).sort((a, b) => a.name.localeCompare(b.name));
+        }).sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
     }, [promotoras, localidades, plazas]);
 
     const searchedPromotoras = useMemo(() => {
@@ -412,7 +414,7 @@ export function OverduePortfolioClientPage({
                                     <SelectTrigger className="h-10 text-xs uppercase font-bold rounded-xl border-slate-200"><SelectValue placeholder="Todas" /></SelectTrigger>
                                     <SelectContent>
                                         <SelectItem value="all">Todas</SelectItem>
-                                        {[...plazas].sort((a,b) => a.name.localeCompare(b.name)).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                                        {[...plazas].sort((a,b) => (a?.name || '').localeCompare(b?.name || '')).map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>

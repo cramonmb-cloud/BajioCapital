@@ -15,7 +15,9 @@ import Link from 'next/link';
 import Loading from '../loading';
 
 export default function LoanPlansPage() {
-  const { data, loading } = useRealtimeData();
+  const { data, loading } = useRealtimeData(undefined, {
+    enabledCollections: ['loanPlans']
+  });
   const { loanPlans = [] } = data || {};
 
   const formatCurrency = (amount: number) => {
