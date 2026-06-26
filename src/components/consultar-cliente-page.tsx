@@ -132,40 +132,51 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     return activeWeeks;
   }, [loans]);
 
+  // Pre-mapear préstamos con sus clientes y jerarquías correspondientes en un bucle simple
+  const mappedLoans = useMemo(() => {
+    const clientMap = new Map(clients.map(c => [c.id, c]));
+    const promotorasMap = new Map(allPromotoras.map(p => [p.id, p]));
+    const localidadesMap = new Map(allLocalidades.map(l => [l.id, l]));
+
+    return loans.map(loan => {
+      const client = clientMap.get(loan.clientId);
+      const promotora = loan.promotoraId ? promotorasMap.get(loan.promotoraId) : undefined;
+      const localidad = promotora?.localidadId ? localidadesMap.get(promotora.localidadId) : undefined;
+      return {
+        loan,
+        client,
+        promotoraId: loan.promotoraId,
+        localidadId: promotora?.localidadId,
+        plazaId: localidad?.plazaId,
+      };
+    }).filter((item): item is { loan: Loan; client: Client; promotoraId: string | undefined; localidadId: string | undefined; plazaId: string | undefined } => item.client !== undefined);
+  }, [loans, clients, allPromotoras, allLocalidades]);
+
   // Listado filtrado
   const canShowList = searchTerm.trim().length > 0 || (filterPlaza !== 'all' && filterLocalidad !== 'all');
 
   const filteredList = useMemo(() => {
     if (!canShowList) return [];
 
-    let result = loans.map(loan => {
-        const client = clients.find(c => c.id === loan.clientId);
-        return { loan, client };
-    }).filter(item => item.client !== undefined);
+    let result = mappedLoans;
 
     // Apply Search
     if (searchTerm) {
+        const searchLower = searchTerm.toLowerCase();
         result = result.filter(item => 
-            (item.client!.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+            (item.client.name || '').toLowerCase().includes(searchLower)
         );
     }
 
     // Apply Filters
     if (filterPlaza !== 'all') {
-        result = result.filter(item => {
-            const p = allPromotoras.find(prom => prom.id === item.loan.promotoraId);
-            const l = allLocalidades.find(loc => loc.id === p?.localidadId);
-            return l?.plazaId === filterPlaza;
-        });
+        result = result.filter(item => item.plazaId === filterPlaza);
     }
     if (filterLocalidad !== 'all') {
-        result = result.filter(item => {
-            const p = allPromotoras.find(prom => prom.id === item.loan.promotoraId);
-            return p?.localidadId === filterLocalidad;
-        });
+        result = result.filter(item => item.localidadId === filterLocalidad);
     }
     if (filterPromotora !== 'all') {
-        result = result.filter(item => item.loan.promotoraId === filterPromotora);
+        result = result.filter(item => item.promotoraId === filterPromotora);
     }
     if (filterWeek !== 'all') {
         result = result.filter(item => {
@@ -175,7 +186,7 @@ export function ConsultarClientePage({ clients: allClients, loans: allLoans, loa
     }
 
     return result;
-  }, [loans, clients, searchTerm, filterPlaza, filterLocalidad, filterPromotora, filterWeek, allLocalidades, allPromotoras, canShowList]);
+  }, [mappedLoans, searchTerm, filterPlaza, filterLocalidad, filterPromotora, filterWeek, canShowList]);
 
   const activeLoanDetails = useMemo(() => {
     if (!selectedClient) return null;

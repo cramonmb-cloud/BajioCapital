@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, getDoc, addDoc, updateDoc, writeBatch, query, where, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, addDoc, updateDoc, writeBatch, query, where, Timestamp, orderBy, limit } from 'firebase/firestore';
 import { db } from './firebase';
 import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora, Wallet, WalletTransaction, AppUser, AppConfig } from './types';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -83,6 +83,62 @@ export async function getLoans(clientId?: string): Promise<Loan[]> {
             } as Loan;
         });
         return loanList;
+    } catch (err) {
+        return handleFirestoreError(err, loansCol.path, 'list');
+    }
+}
+
+// Fetch only active/overdue loans
+export async function getActiveLoans(clientId?: string): Promise<Loan[]> {
+    const loansCol = collection(db, 'loans');
+    const q = clientId 
+        ? query(loansCol, where("clientId", "==", clientId), where("status", "in", ["Active", "Overdue"])) 
+        : query(loansCol, where("status", "in", ["Active", "Overdue"]));
+    try {
+        const loanSnapshot = await getDocs(q);
+        const loanList = loanSnapshot.docs.map(doc => {
+            const data = doc.data();
+            const startDate = data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate;
+            const payments = (data.payments || []).map((p: any) => ({
+                ...p,
+                date: p.date instanceof Timestamp ? p.date.toDate().toISOString() : p.date,
+            }));
+
+            return {
+                id: doc.id,
+                ...data,
+                startDate,
+                payments,
+            } as Loan;
+        });
+        return loanList;
+    } catch (err) {
+        return handleFirestoreError(err, loansCol.path, 'list');
+    }
+}
+
+// Fetch only the oldest loan in the system (limit 1)
+export async function getOldestLoan(): Promise<Loan | null> {
+    const loansCol = collection(db, 'loans');
+    const q = query(loansCol, orderBy('startDate', 'asc'), limit(1));
+    try {
+        const snapshot = await getDocs(q);
+        if (!snapshot.empty) {
+            const doc = snapshot.docs[0];
+            const data = doc.data();
+            const startDate = data.startDate instanceof Timestamp ? data.startDate.toDate().toISOString() : data.startDate;
+            const payments = (data.payments || []).map((p: any) => ({
+                ...p,
+                date: p.date instanceof Timestamp ? p.date.toDate().toISOString() : p.date,
+            }));
+            return {
+                id: doc.id,
+                ...data,
+                startDate,
+                payments,
+            } as Loan;
+        }
+        return null;
     } catch (err) {
         return handleFirestoreError(err, loansCol.path, 'list');
     }

@@ -239,9 +239,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
       return isCorrectWeek && isCorrectPromotora && isLoanActive(loan);
     });
 
+    const clientMap = new Map(clients.map(c => [c.id, c.name]));
+
     return filtered.sort((a, b) => {
-      const nameA = (clients.find(c => c.id === a.clientId)?.name || '').toLowerCase();
-      const nameB = (clients.find(c => c.id === b.clientId)?.name || '').toLowerCase();
+      const nameA = (clientMap.get(a.clientId) || '').toLowerCase();
+      const nameB = (clientMap.get(b.clientId) || '').toLowerCase();
       return nameA.localeCompare(nameB);
     });
   }, [loans, selectedWeek, selectedPromotora, loanPlans, clients]);

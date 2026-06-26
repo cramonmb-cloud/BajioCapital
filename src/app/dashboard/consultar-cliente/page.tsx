@@ -1,10 +1,10 @@
-import { getClients, getLoans, getLoanPlans, getPlazas, getLocalidades, getPromotoras } from '@/lib/firestore-data';
+import { getClients, getActiveLoans, getLoanPlans, getPlazas, getLocalidades, getPromotoras } from '@/lib/firestore-data';
 import { ConsultarClientePage } from '@/components/consultar-cliente-page';
 
 export default async function ConsultarClienteContainer() {
   const [clients, loans, loanPlans, plazas, localidades, promotoras] = await Promise.all([
     getClients(),
-    getLoans(),
+    getActiveLoans(),
     getLoanPlans(),
     getPlazas(),
     getLocalidades(),

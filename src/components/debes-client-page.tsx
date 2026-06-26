@@ -8,6 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useToast } from '@/hooks/use-toast';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
+import { collection, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { cn, getSaturdayOfWeek, getMexicoNow } from '@/lib/utils';
 import type { Client, LoanPlan, Loan, Plaza, Localidad, Promotora, PromotoraSettlement } from '@/lib/types';
 import { saveSettlementAction } from '@/app/dashboard/debes/actions';
@@ -52,15 +54,6 @@ export function DebesClientPage({
   initialPromotoras,
 }: DebesClientPageProps) {
   const { toast } = useToast();
-  const { data: realtime } = useRealtimeData({
-    clients: initialClients,
-    loanPlans: initialLoanPlans,
-    plazas: initialPlazas,
-    localidades: initialLocalidades,
-    promotoras: initialPromotoras
-  }, {
-    enabledCollections: ['loans', 'loanPlans', 'plazas', 'localidades', 'promotoras', 'promotoraSettlements']
-  });
   const { appUser } = useAuth();
   const isCristobal = appUser?.username?.toLowerCase() === 'cristobal';
 
@@ -68,6 +61,46 @@ export function DebesClientPage({
   const [selectedPlaza, setSelectedPlaza] = useState<string>('');
   const [selectedLocalidad, setSelectedLocalidad] = useState<string>('');
   const [selectedPromotora, setSelectedPromotora] = useState<string>('');
+
+  const plazaPromotoraIds = useMemo(() => {
+    if (!selectedPlaza) return [];
+    const locs = initialLocalidades.filter(l => l.plazaId === selectedPlaza);
+    const locIds = locs.map(l => l.id);
+    const proms = initialPromotoras.filter(p => locIds.includes(p.localidadId));
+    return proms.map(p => p.id);
+  }, [selectedPlaza, initialLocalidades, initialPromotoras]);
+
+  const dynamicLoansQuery = useMemo(() => {
+    const loansCol = collection(db, 'loans');
+    if (plazaPromotoraIds.length === 0) {
+      return query(loansCol, where('status', '==', 'NONE'));
+    }
+    const slicedIds = plazaPromotoraIds.slice(0, 30);
+    return query(loansCol, where('promotoraId', 'in', slicedIds));
+  }, [plazaPromotoraIds]);
+
+  const dynamicSettlementsQuery = useMemo(() => {
+    const settlementsCol = collection(db, 'promotoraSettlements');
+    if (plazaPromotoraIds.length === 0) {
+      return query(settlementsCol, where('promotoraId', '==', 'NONE'));
+    }
+    const slicedIds = plazaPromotoraIds.slice(0, 30);
+    return query(settlementsCol, where('promotoraId', 'in', slicedIds));
+  }, [plazaPromotoraIds]);
+
+  const { data: realtime } = useRealtimeData({
+    clients: initialClients,
+    loanPlans: initialLoanPlans,
+    plazas: initialPlazas,
+    localidades: initialLocalidades,
+    promotoras: initialPromotoras
+  }, {
+    enabledCollections: ['loans', 'loanPlans', 'plazas', 'localidades', 'promotoras', 'promotoraSettlements'],
+    queries: {
+      loans: dynamicLoansQuery,
+      promotoraSettlements: dynamicSettlementsQuery
+    }
+  });
 
   // Local overrides for unsaved edits: weekDateString -> overrides
   const [overrides, setOverrides] = useState<Record<string, Partial<PromotoraSettlement>>>({});

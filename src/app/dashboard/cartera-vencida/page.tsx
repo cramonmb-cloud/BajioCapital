@@ -1,4 +1,4 @@
-import { getClients, getLoanPlans, getLoans, getPlazas, getLocalidades, getPromotoras, getAppConfig } from '@/lib/firestore-data';
+import { getClients, getLoanPlans, getActiveLoans, getPlazas, getLocalidades, getPromotoras, getAppConfig } from '@/lib/firestore-data';
 import type { Client, Loan, LoanPlan, Plaza, Localidad, Promotora } from '@/lib/types';
 import { OverduePortfolioClientPage } from '@/components/overdue-portfolio-client-page';
 
@@ -23,7 +23,7 @@ export type OverdueLoanDetails = {
 
 export default async function CarteraVencidaPage() {
     const [loans, clients, loanPlans, plazas, localidades, promotoras, config] = await Promise.all([
-        getLoans(),
+        getActiveLoans(),
         getClients(),
         getLoanPlans(),
         getPlazas(),
