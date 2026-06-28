@@ -23,13 +23,21 @@ function processSnapshot<T>(snapshot: QuerySnapshot<DocumentData, DocumentData>)
     return snapshot.docs.map(doc => {
         const data = doc.data();
         for (const key in data) {
-            if (data[key] instanceof Timestamp) {
-                data[key] = (data[key] as Timestamp).toDate().toISOString();
+            if (data[key] && typeof data[key] === 'object') {
+                if (typeof data[key].toDate === 'function') {
+                    data[key] = data[key].toDate().toISOString();
+                } else if (typeof data[key].seconds === 'number') {
+                    data[key] = new Date(data[key].seconds * 1000).toISOString();
+                }
             }
             if (key === 'payments' && Array.isArray(data[key])) {
                 data[key] = data[key].map((p: any) => {
-                    if (p.date instanceof Timestamp) {
-                        return { ...p, date: p.date.toDate().toISOString() };
+                    if (p.date && typeof p.date === 'object') {
+                        if (typeof p.date.toDate === 'function') {
+                            return { ...p, date: p.date.toDate().toISOString() };
+                        } else if (typeof p.date.seconds === 'number') {
+                            return { ...p, date: new Date(p.date.seconds * 1000).toISOString() };
+                        }
                     }
                     return p;
                 });
