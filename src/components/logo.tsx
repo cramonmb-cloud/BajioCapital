@@ -10,6 +10,7 @@ interface LogoProps {
   logoFormat?: 'square' | 'horizontal';
   customHeight?: number;
   customWidth?: number;
+  showText?: boolean;
 }
 
 export function Logo({ 
@@ -19,7 +20,8 @@ export function Logo({
   size = 'md',
   logoFormat = 'square',
   customHeight,
-  customWidth
+  customWidth,
+  showText = true
 }: LogoProps) {
   const dimensions = {
     square: {
@@ -91,7 +93,7 @@ export function Logo({
         )}
       </div>
       
-      {formatKey !== 'horizontal' && (
+      {formatKey !== 'horizontal' && showText && (
         <span className={cn(
           "bg-clip-text text-transparent bg-gradient-to-br from-foreground to-foreground/70",
           (size === 'sm' || size === 'md' || size === 'lg') ? "hidden lg:inline-block text-sm" : "inline-block text-2xl"

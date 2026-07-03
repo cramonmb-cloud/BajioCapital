@@ -202,6 +202,7 @@ export default function DashboardPage() {
                             size="xl" 
                             customHeight={config.logoHeightDashboard}
                             customWidth={config.logoWidthDashboard}
+                            showText={false}
                         />
                     </div>
                 </div>
