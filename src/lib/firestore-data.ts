@@ -19,6 +19,7 @@ const handleFirestoreError = async (err: any, path: string, operation: SecurityR
 
 // Fetch all clients
 export async function getClients(): Promise<Client[]> {
+  if (!db) return [];
   const clientsCol = collection(db, 'clients');
   try {
     const clientSnapshot = await getDocs(clientsCol);
@@ -30,6 +31,7 @@ export async function getClients(): Promise<Client[]> {
 
 // Fetch a single client by ID
 export async function getClient(id: string): Promise<Client | null> {
+  if (!db) return null;
   const clientRef = doc(db, 'clients', id);
   try {
     const clientSnap = await getDoc(clientRef);
@@ -45,6 +47,7 @@ export async function getClient(id: string): Promise<Client | null> {
 
 // Fetch a single loan by ID
 export async function getLoan(id: string): Promise<Loan | null> {
+  if (!db) return null;
   const loanRef = doc(db, 'loans', id);
   try {
     const loanSnap = await getDoc(loanRef);
@@ -63,6 +66,7 @@ export async function getLoan(id: string): Promise<Loan | null> {
 
 // Fetch all loans or loans for a specific client
 export async function getLoans(clientId?: string): Promise<Loan[]> {
+    if (!db) return [];
     const loansCol = collection(db, 'loans');
     const q = clientId ? query(loansCol, where("clientId", "==", clientId)) : query(loansCol);
     try {
@@ -90,6 +94,7 @@ export async function getLoans(clientId?: string): Promise<Loan[]> {
 
 // Fetch only active/overdue loans
 export async function getActiveLoans(clientId?: string): Promise<Loan[]> {
+    if (!db) return [];
     const loansCol = collection(db, 'loans');
     const q = clientId 
         ? query(loansCol, where("clientId", "==", clientId), where("status", "in", ["Active", "Overdue"])) 
@@ -119,6 +124,7 @@ export async function getActiveLoans(clientId?: string): Promise<Loan[]> {
 
 // Fetch only the oldest loan in the system (limit 1)
 export async function getOldestLoan(): Promise<Loan | null> {
+    if (!db) return null;
     const loansCol = collection(db, 'loans');
     const q = query(loansCol, orderBy('startDate', 'asc'), limit(1));
     try {
@@ -146,6 +152,7 @@ export async function getOldestLoan(): Promise<Loan | null> {
 
 // Fetch all loan plans
 export async function getLoanPlans(): Promise<LoanPlan[]> {
+  if (!db) return [];
   const plansCol = collection(db, 'loanPlans');
   try {
     const planSnapshot = await getDocs(plansCol);
@@ -157,6 +164,7 @@ export async function getLoanPlans(): Promise<LoanPlan[]> {
 
 // Fetch a single loan plan by ID
 export async function getLoanPlan(id: string): Promise<LoanPlan | null> {
+  if (!db) return null;
   const planRef = doc(db, 'loanPlans', id);
   try {
     const planSnap = await getDoc(planRef);
@@ -172,6 +180,7 @@ export async function getLoanPlan(id: string): Promise<LoanPlan | null> {
 
 // Fetch wallet
 export async function getWallet(): Promise<Wallet> {
+    if (!db) return { id: 'main', balance: 0 };
     const walletRef = doc(db, 'wallet', 'main');
     try {
         const walletSnap = await getDoc(walletRef);
@@ -187,6 +196,7 @@ export async function getWallet(): Promise<Wallet> {
 
 // Fetch all wallet transactions
 export async function getWalletTransactions(cutoffDate?: Date): Promise<WalletTransaction[]> {
+    if (!db) return [];
     const transactionsCol = collection(db, 'walletTransactions');
     let q = query(transactionsCol, orderBy('date', 'desc'));
     if (cutoffDate) {
@@ -206,6 +216,7 @@ export async function getWalletTransactions(cutoffDate?: Date): Promise<WalletTr
 
 // Fetch all plazas
 export async function getPlazas(): Promise<Plaza[]> {
+  if (!db) return [];
   const col = collection(db, 'plazas');
   try {
     const snapshot = await getDocs(col);
@@ -217,6 +228,7 @@ export async function getPlazas(): Promise<Plaza[]> {
 
 // Fetch all localidades
 export async function getLocalidades(): Promise<Localidad[]> {
+  if (!db) return [];
   const col = collection(db, 'localidades');
   try {
     const snapshot = await getDocs(col);
@@ -228,6 +240,7 @@ export async function getLocalidades(): Promise<Localidad[]> {
 
 // Fetch all promotoras
 export async function getPromotoras(): Promise<Promotora[]> {
+  if (!db) return [];
   const col = collection(db, 'promotoras');
   try {
     const snapshot = await getDocs(col);
@@ -239,17 +252,20 @@ export async function getPromotoras(): Promise<Promotora[]> {
 
 // Fetch all users
 export async function getUsers(): Promise<AppUser[]> {
+    if (!db) return [];
     const usersCol = collection(db, 'users');
     try {
         const userSnapshot = await getDocs(usersCol);
         return userSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AppUser));
-    } catch (err) {
-        return handleFirestoreError(err, usersCol.path, 'list');
+    } catch (err: any) {
+        console.warn("Warning fetching users (returning empty list):", err?.message || String(err));
+        return [];
     }
 }
 
 // Fetch app configuration
 export async function getAppConfig(): Promise<AppConfig | null> {
+    if (!db) return null;
     const configRef = doc(db, 'config', 'main');
     try {
         const configSnap = await getDoc(configRef);
@@ -257,7 +273,8 @@ export async function getAppConfig(): Promise<AppConfig | null> {
             return configSnap.data() as AppConfig;
         }
         return null;
-    } catch (err) {
-        return handleFirestoreError(err, configRef.path, 'get');
+    } catch (err: any) {
+        console.warn("Warning fetching app config (returning null):", err?.message || String(err));
+        return null;
     }
 }

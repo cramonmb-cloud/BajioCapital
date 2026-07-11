@@ -41,6 +41,8 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+import { FirebaseConfigChecker } from '@/components/FirebaseConfigChecker';
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -55,6 +57,7 @@ export default function RootLayout({
         <meta name="theme-color" content="#ffffff" />
       </head>
       <body className="font-body antialiased">
+        <FirebaseConfigChecker />
         <AuthProvider>
             {children}
         </AuthProvider>

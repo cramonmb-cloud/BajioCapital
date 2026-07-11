@@ -1,10 +1,12 @@
-import { getAppConfig } from '@/lib/firestore-data';
+import { getAppConfig, getUsers } from '@/lib/firestore-data';
 import { Logo } from '@/components/logo';
 import { LoginForm } from './login-form';
 import { FloatingDollars } from './floating-dollars';
 
 export default async function LoginPage() {
   const config = await getAppConfig();
+  const users = await getUsers();
+  const hasNoUsers = users.length === 0;
   const logoUrl = config?.logoUrl;
   const appName = config?.appName || 'CrediControl';
   const coverImageUrl = config?.loginCoverUrl;
@@ -101,7 +103,7 @@ export default async function LoginPage() {
 
           {/* Formulario */}
           <div className="bg-white dark:bg-slate-900 border border-slate-200/60 dark:border-slate-800/40 rounded-3xl p-6 md:p-8 shadow-[0_20px_50px_rgba(15,23,42,0.04)]">
-            <LoginForm />
+            <LoginForm hasNoUsers={hasNoUsers} />
           </div>
         </div>
 

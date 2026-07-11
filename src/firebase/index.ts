@@ -7,6 +7,14 @@ import { getFirestore } from 'firebase/firestore'
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
+  if (!firebaseConfig || !firebaseConfig.apiKey) {
+    return {
+      firebaseApp: null as any,
+      auth: null as any,
+      firestore: null as any
+    };
+  }
+
   if (!getApps().length) {
     // Important! initializeApp() is called without any arguments because Firebase App Hosting
     // integrates with the initializeApp() function to provide the environment variables needed to

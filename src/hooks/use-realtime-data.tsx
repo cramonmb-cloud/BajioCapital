@@ -80,6 +80,10 @@ export function useRealtimeData(
   const queryKeysSerialized = options?.queries ? Object.keys(options.queries).join(',') : '';
 
   useEffect(() => {
+    if (!db) {
+      setLoading(false);
+      return;
+    }
     const baseCollections = {
         loans: collection(db, 'loans'),
         clients: collection(db, 'clients'),
