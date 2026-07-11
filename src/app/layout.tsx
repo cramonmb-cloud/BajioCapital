@@ -15,6 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const config = await getAppConfig();
   const appName = config?.appName || 'CrediControl';
   const logoUrl = config?.logoUrl || '';
+  const faviconUrl = config?.pwaLogoUrl || logoUrl || '/favicon.ico';
   const description = `Gestión de préstamos personales para ${appName}`;
 
   return {
@@ -22,8 +23,8 @@ export async function generateMetadata(): Promise<Metadata> {
     description: description,
     manifest: '/manifest.ts',
     icons: {
-      icon: logoUrl || '/favicon.ico',
-      apple: logoUrl || '/favicon.ico',
+      icon: faviconUrl,
+      apple: faviconUrl,
     },
     openGraph: {
       title: appName,
