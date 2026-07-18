@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,7 +14,7 @@ import { cn, getSaturdayOfWeek, getMexicoNow } from '@/lib/utils';
 import type { Client, LoanPlan, Loan, Plaza, Localidad, Promotora, PromotoraSettlement } from '@/lib/types';
 import { saveSettlementAction } from '@/app/dashboard/debes/actions';
 import { useAuth } from '@/hooks/use-auth';
-import { Coins, Download, Save, Loader2, Building, MapPin, User, Calendar, PlusCircle, AlertCircle, FileSpreadsheet, Search, Lock, Unlock, FileText, X } from 'lucide-react';
+import { Coins, Download, Save, Loader2, Building, MapPin, Calendar, Check, Lock, Unlock } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import type { UserOptions } from 'jspdf-autotable';
@@ -60,7 +60,26 @@ export function DebesClientPage({
   // Selected filters
   const [selectedPlaza, setSelectedPlaza] = useState<string>('');
   const [selectedLocalidad, setSelectedLocalidad] = useState<string>('');
-  const [selectedPromotora, setSelectedPromotora] = useState<string>('');
+  const [selectedWeek, setSelectedWeek] = useState<string>('');
+
+  // Local overrides for unsaved edits: promotoraId -> overrides
+  const [overrides, setOverrides] = useState<Record<string, Partial<PromotoraSettlement>>>({});
+  const [savingRowId, setSavingRowId] = useState<string | null>(null);
+
+  // Track rows manually unlocked for editing (only editable by Cristobal)
+  const [unlockedRows, setUnlockedRows] = useState<Record<string, boolean>>({});
+
+  const isRowDisabled = (row: any) => {
+    if (!row.isSavedInDb) return false;
+    return !unlockedRows[row.promotoraId];
+  };
+
+  const toggleUnlockRow = (promotoraId: string) => {
+    setUnlockedRows(prev => ({
+      ...prev,
+      [promotoraId]: !prev[promotoraId]
+    }));
+  };
 
   const plazaPromotoraIds = useMemo(() => {
     if (!selectedPlaza) return [];
@@ -71,22 +90,12 @@ export function DebesClientPage({
   }, [selectedPlaza, initialLocalidades, initialPromotoras]);
 
   const dynamicLoansQuery = useMemo(() => {
-    const loansCol = collection(db, 'loans');
-    if (plazaPromotoraIds.length === 0) {
-      return query(loansCol, where('status', '==', 'NONE'));
-    }
-    const slicedIds = plazaPromotoraIds.slice(0, 30);
-    return query(loansCol, where('promotoraId', 'in', slicedIds));
-  }, [plazaPromotoraIds]);
+    return query(collection(db, 'loans'));
+  }, []);
 
   const dynamicSettlementsQuery = useMemo(() => {
-    const settlementsCol = collection(db, 'promotoraSettlements');
-    if (plazaPromotoraIds.length === 0) {
-      return query(settlementsCol, where('promotoraId', '==', 'NONE'));
-    }
-    const slicedIds = plazaPromotoraIds.slice(0, 30);
-    return query(settlementsCol, where('promotoraId', 'in', slicedIds));
-  }, [plazaPromotoraIds]);
+    return query(collection(db, 'promotoraSettlements'));
+  }, []);
 
   const { data: realtime } = useRealtimeData({
     clients: initialClients,
@@ -102,29 +111,6 @@ export function DebesClientPage({
     }
   });
 
-  // Local overrides for unsaved edits: weekDateString -> overrides
-  const [overrides, setOverrides] = useState<Record<string, Partial<PromotoraSettlement>>>({});
-  const [savingRowId, setSavingRowId] = useState<string | null>(null);
-
-  // Search state for fast direct promoter search
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-
-  // Track rows manually unlocked for editing (only editable by Cristobal)
-  const [unlockedRows, setUnlockedRows] = useState<Record<string, boolean>>({});
-
-  // Batch PDF states
-  const [isBatchModalOpen, setIsBatchModalOpen] = useState(false);
-  const [batchSelectedWeek, setBatchSelectedWeek] = useState<string>('');
-  const [batchSearchTerm, setBatchSearchTerm] = useState('');
-  const [batchSelectedPromotoras, setBatchSelectedPromotoras] = useState<Record<string, boolean>>({});
-
-  const isRowDisabled = (row: any) => {
-    if (!row.isSavedInDb) return false;
-    return !unlockedRows[row.id];
-  };
-
-  // Fallbacks to initial data if realtime data is not yet loaded
   const plazas = useMemo(() => realtime?.plazas || initialPlazas, [realtime?.plazas, initialPlazas]);
   const localidades = useMemo(() => realtime?.localidades || initialLocalidades, [realtime?.localidades, initialLocalidades]);
   const promotoras = useMemo(() => realtime?.promotoras || initialPromotoras, [realtime?.promotoras, initialPromotoras]);
@@ -132,344 +118,39 @@ export function DebesClientPage({
   const loanPlans = useMemo(() => realtime?.loanPlans || initialLoanPlans, [realtime?.loanPlans, initialLoanPlans]);
   const savedSettlements = useMemo(() => realtime?.promotoraSettlements || [], [realtime?.promotoraSettlements]);
 
-  // Derived filter chains
   const sortedPlazas = useMemo(() => [...plazas].sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), [plazas]);
   const filteredLocalidades = useMemo(() => 
     localidades.filter(l => l.plazaId === selectedPlaza).sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), 
     [localidades, selectedPlaza]
   );
-  const filteredPromotoras = useMemo(() => 
-    promotoras.filter(p => p.localidadId === selectedLocalidad).sort((a, b) => (a?.name || '').localeCompare(b?.name || '')), 
-    [promotoras, selectedLocalidad]
-  );
-
-  // Memoize all promotoras with their plaza/localidad details for the search box
-  const allPromotorasWithDetails = useMemo(() => {
-    return promotoras.map(p => {
-      const loc = localidades.find(l => l.id === p.localidadId);
-      const plaza = loc ? plazas.find(pl => pl.id === loc.plazaId) : null;
-      return {
-        ...p,
-        localidadName: loc?.name || 'N/A',
-        plazaName: plaza?.name || 'N/A',
-        plazaId: loc?.plazaId || '',
-      };
-    }).sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
-  }, [promotoras, localidades, plazas]);
-
-  const searchedPromotoras = useMemo(() => {
-    if (!searchTerm.trim()) return [];
-    const query = searchTerm.toLowerCase();
-    return allPromotorasWithDetails.filter(p => 
-      (p.name || '').toLowerCase().includes(query) ||
-      (p.localidadName || '').toLowerCase().includes(query) ||
-      (p.plazaName || '').toLowerCase().includes(query)
-    ).slice(0, 8);
-  }, [searchTerm, allPromotorasWithDetails]);
-
-  const activeLoansForPromotora = useMemo(() => {
-    if (!selectedPromotora) return [];
-    return loans.filter(l => l.promotoraId === selectedPromotora);
-  }, [loans, selectedPromotora]);
-
-  // Get Saturdays list where there was activity, sorted descending (newest first)
-  const settlementWeeks = useMemo(() => {
-    if (!selectedPromotora) return [];
-
-    const saturdays: Date[] = [];
-    const today = getMexicoNow();
-    const currentSaturday = getSaturdayOfWeek(today);
-
-    // Limit starting date to Saturday, 2026-05-23
-    const startLimitDate = new Date('2026-05-23T00:00:00');
-    let startSaturday = getSaturdayOfWeek(startLimitDate);
-
-    // Find oldest loan of this promoter
-    if (activeLoansForPromotora.length > 0) {
-      const oldestStartDateStr = activeLoansForPromotora.reduce((oldest, l) => {
-        return parseLocalDate(l.startDate) < parseLocalDate(oldest) ? l.startDate : oldest;
-      }, activeLoansForPromotora[0].startDate);
-
-      const oldestSaturday = getSaturdayOfWeek(parseLocalDate(oldestStartDateStr));
-      
-      // Enforce that we do not start before May 30th, 2026
-      if (oldestSaturday.getTime() > startSaturday.getTime()) {
-        startSaturday = oldestSaturday;
-      }
-    }
-
-    // Generate Saturdays from startSaturday to currentSaturday
-    const maxDate = new Date(currentSaturday);
-    const currentTemp = new Date(startSaturday);
-
-    while (currentTemp <= maxDate) {
-      saturdays.push(new Date(currentTemp));
-      currentTemp.setDate(currentTemp.getDate() + 7);
-    }
-
-    // Filter out any dates that are strictly greater than currentSaturday (safety guard)
-    const filteredSaturdays = saturdays.filter(d => d.getTime() <= currentSaturday.getTime());
-
-    // Sort descending (newest weeks at the top)
-    return filteredSaturdays.sort((a, b) => b.getTime() - a.getTime());
-  }, [activeLoansForPromotora, selectedPromotora]);
-
-  const getVentaForWeek = (weekDate: Date) => {
-    const targetTime = weekDate.getTime();
-    return activeLoansForPromotora
-      .filter(l => getSaturdayOfWeek(parseLocalDate(l.startDate)).getTime() === targetTime)
-      .reduce((sum, l) => sum + l.amount, 0);
-  };
-
-  const getNewAbonoSemanalForWeek = (weekDate: Date) => {
-    const targetTime = weekDate.getTime();
-    return activeLoansForPromotora
-      .filter(l => getSaturdayOfWeek(parseLocalDate(l.startDate)).getTime() === targetTime)
-      .reduce((sum, l) => {
-        const plan = loanPlans.find(p => p.id === l.loanPlanId);
-        if (!plan) return sum;
-        return sum + (l.amount / 1000) * plan.weeklyPaymentRate;
-      }, 0);
-  };
-
-  // Compile final rows with chronological propagation and real-time db calculations
-  const rows = useMemo(() => {
-    if (!selectedPromotora) return [];
-
-    const chronoWeeks = [...settlementWeeks].reverse();
-    const computedChronoRows: any[] = [];
-
-    chronoWeeks.forEach((week, index) => {
-      const weekStr = week.toISOString().split('T')[0];
-      const id = `${selectedPromotora}_${weekStr}`;
-      const saved = savedSettlements.find(s => s.id === id);
-      const local = overrides[weekStr] || {};
-
-      const weekTime = week.getTime();
-
-      // 1. Calculate database-driven defaults for this week
-      let realDebeEntregar = 0;
-      let realFalla = 0;
-      let realEfectivo = 0;
-      let realRecuperado = 0;
-
-      activeLoansForPromotora.forEach(loan => {
-        const plan = loanPlans.find(lp => lp.id === loan.loanPlanId);
-        if (!plan) return;
-
-        const loanSaturday = getSaturdayOfWeek(parseLocalDate(loan.startDate));
-        const loanSaturdayTime = loanSaturday.getTime();
-
-        // First payment is due 1 week (7 days) after the start Saturday
-        const firstPaymentTime = loanSaturdayTime + (7 * 24 * 3600 * 1000);
-
-        let isActive = true;
-        if (weekTime < firstPaymentTime) {
-          isActive = false;
-        }
-
-        // Check if it was paid off before this target week
-        if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') {
-          const lastPayment = loan.payments.length > 0
-            ? loan.payments.reduce((latest, p) => parseLocalDate(p.date) > parseLocalDate(latest.date) ? p : latest)
-            : null;
-          if (lastPayment) {
-            const payoffSaturday = getSaturdayOfWeek(parseLocalDate(lastPayment.date));
-            if (payoffSaturday.getTime() < weekTime) {
-              isActive = false;
-            }
-          }
-        }
-
-        const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
-        const expectedForLoan = isActive ? weeklyPayment : 0;
-        realDebeEntregar += expectedForLoan;
-
-        // Sum actual payments made to this loan in this week
-        const paymentsInWeek = (loan.payments || []).filter(p => {
-          const paymentDate = parseLocalDate(p.date);
-          const paymentSaturday = getSaturdayOfWeek(paymentDate);
-          return paymentSaturday.getTime() === weekTime;
-        });
-        const actualPaidInWeek = paymentsInWeek.reduce((sum, p) => sum + p.amount, 0);
-
-        // Calculate failure, efectivo, recuperado for this loan
-        const loanFalla = Math.max(0, expectedForLoan - actualPaidInWeek);
-        const loanEfectivo = Math.min(actualPaidInWeek, expectedForLoan);
-        const loanRecuperado = Math.max(0, actualPaidInWeek - expectedForLoan);
-
-        realFalla += loanFalla;
-        realEfectivo += loanEfectivo;
-        realRecuperado += loanRecuperado;
-      });
-
-      const ventaVal = getVentaForWeek(week);
-      const abonoSemanalVal = getNewAbonoSemanalForWeek(week);
-
-      // 2. Propagate/calculate debeEntregar
-      let debeEntregar = 0;
-      if (index === 0) {
-        if (local.debeEntregar !== undefined) {
-          debeEntregar = local.debeEntregar;
-        } else if (saved?.debeEntregar !== undefined) {
-          debeEntregar = saved.debeEntregar;
-        } else {
-          debeEntregar = realDebeEntregar;
-        }
-      } else {
-        const prevRow = computedChronoRows[index - 1];
-        debeEntregar = prevRow.total - prevRow.comicion + prevRow.abonoSemanal + prevRow.adelEnt - prevRow.adelSal;
-      }
-
-      // 3. Combine defaults, saved from DB, and local overrides
-      const savedComicionPercent = saved?.comicionPercent !== undefined ? saved.comicionPercent : 8;
-      const comicionPercent = local.comicionPercent !== undefined ? local.comicionPercent : savedComicionPercent;
-
-      const defaultFalla = realFalla;
-      const defaultRecuperado = realRecuperado;
-
-      // Falla, Recuperado, Deuda, AdelEnt, AdelSal can be overridden
-      const falla = local.falla !== undefined ? local.falla : (saved?.falla !== undefined ? saved.falla : defaultFalla);
-      const recuperado = local.recuperado !== undefined ? local.recuperado : (saved?.recuperado !== undefined ? saved.recuperado : defaultRecuperado);
-      const adelEnt = local.adelEnt !== undefined ? local.adelEnt : (saved?.adelEnt !== undefined ? saved.adelEnt : 0);
-      const adelSal = local.adelSal !== undefined ? local.adelSal : (saved?.adelSal !== undefined ? saved.adelSal : 0);
-
-      // Calculate efectivo (linked directly to falla unless explicitly set otherwise)
-      let efectivo = debeEntregar - falla;
-      if (local.efectivo !== undefined) {
-        efectivo = local.efectivo;
-      } else if (saved?.efectivo !== undefined) {
-        efectivo = saved.efectivo;
-      } else {
-        efectivo = Math.max(0, debeEntregar - falla);
-      }
-
-      // Calculate derived fields
-      const total = efectivo + recuperado;
-      const diferencia = efectivo - debeEntregar;
-      const defaultDeudaCalc = Math.max(0, debeEntregar - efectivo);
-      const deuda = local.deuda !== undefined ? local.deuda : (saved?.deuda !== undefined ? saved.deuda : defaultDeudaCalc);
-
-      const defaultComicion = ventaVal * (comicionPercent / 100);
-      const comicion = local.comicion !== undefined ? local.comicion : (saved?.comicion !== undefined ? saved.comicion : defaultComicion);
-
-      computedChronoRows.push({
-        id,
-        promotoraId: selectedPromotora,
-        weekDate: weekStr,
-        debeEntregar,
-        falla,
-        efectivo,
-        recuperado,
-        total,
-        diferencia,
-        deuda,
-        venta: ventaVal,
-        comicion,
-        comicionPercent,
-        abonoSemanal: abonoSemanalVal,
-        adelEnt,
-        adelSal,
-        isDirty: Object.keys(local).length > 0,
-        isSavedInDb: !!saved,
-      });
-    });
-
-    // Return reversed (newest first)
-    return [...computedChronoRows].reverse();
-  }, [settlementWeeks, selectedPromotora, savedSettlements, overrides, activeLoansForPromotora, loanPlans]);
-
-  // Handle cell edit
-  const handleCellChange = (weekStr: string, field: keyof PromotoraSettlement, value: number, debeEntregar: number) => {
-    setOverrides(prev => {
-      const currentWeekOverrides = prev[weekStr] || {};
-      const updatedOverrides: Partial<PromotoraSettlement> = {
-        ...currentWeekOverrides,
-        [field]: value,
-      };
-
-      // Auto link Falla and Efectivo
-      if (field === 'falla') {
-        updatedOverrides.efectivo = Math.max(0, debeEntregar - value);
-      } else if (field === 'efectivo') {
-        updatedOverrides.falla = Math.max(0, debeEntregar - value);
-      } else if (field === 'debeEntregar') {
-        const currentFalla = updatedOverrides.falla !== undefined ? updatedOverrides.falla : (rows.find(r => r.weekDate === weekStr)?.falla || 0);
-        updatedOverrides.efectivo = Math.max(0, value - currentFalla);
-      }
-
-      // Percentage and Commission amount automatic cross-calculation
-      if (field === 'comicionPercent') {
-        const rowData = rows.find(r => r.weekDate === weekStr);
-        const venta = rowData ? rowData.venta : 0;
-        updatedOverrides.comicion = Math.round(venta * (value / 100));
-      }
-      
-      if (field === 'comicion') {
-        const rowData = rows.find(r => r.weekDate === weekStr);
-        const venta = rowData ? rowData.venta : 0;
-        if (venta > 0) {
-          updatedOverrides.comicionPercent = Number(((value / venta) * 100).toFixed(1));
-        }
-      }
-
-      return {
-        ...prev,
-        [weekStr]: updatedOverrides,
-      };
-    });
-  };
-
-  // Save row to Firestore
-  const handleSaveRow = async (row: any) => {
-    setSavingRowId(row.id);
-    try {
-      const settlementData: PromotoraSettlement = {
-        id: row.id,
-        promotoraId: row.promotoraId,
-        weekDate: row.weekDate,
-        debeEntregar: row.debeEntregar,
-        falla: row.falla,
-        efectivo: row.efectivo,
-        recuperado: row.recuperado,
-        total: row.total,
-        diferencia: row.diferencia,
-        deuda: row.deuda,
-        venta: row.venta,
-        comicion: row.comicion,
-        comicionPercent: row.comicionPercent,
-        abonoSemanal: row.abonoSemanal,
-        adelEnt: row.adelEnt,
-        adelSal: row.adelSal,
-      };
-
-      const result = await saveSettlementAction(settlementData);
-      if (result.success) {
-        toast({ title: 'Liquidación Guardada', description: `Semana ${formatDateStr(row.weekDate)} guardada.` });
-        
-        // Remove from local dirty overrides since database is now synced
-        setOverrides(prev => {
-          const next = { ...prev };
-          delete next[row.weekDate];
-          return next;
-        });
-      } else {
-        throw new Error(result.message);
-      }
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Error al guardar', description: error.message });
-    } finally {
-      setSavingRowId(null);
-    }
-  };
+  
+  const localidadPromotoras = useMemo(() => {
+    if (!selectedLocalidad) return [];
+    return promotoras.filter(p => p.localidadId === selectedLocalidad)
+      .sort((a, b) => (a?.name || '').localeCompare(b?.name || ''));
+  }, [promotoras, selectedLocalidad]);
 
   const allAvailableWeeks = useMemo(() => {
     const saturdays: Date[] = [];
     const today = getMexicoNow();
     const currentSaturday = getSaturdayOfWeek(today);
-    const startLimitDate = new Date('2026-05-23T00:00:00');
-    const startSaturday = getSaturdayOfWeek(startLimitDate);
 
+    // Dynamic start date based on the oldest loan, defaulting to '2026-07-11'
+    let startLimitDate = new Date('2026-07-11T00:00:00');
+    if (loans.length > 0) {
+      const oldestStartDateStr = loans.reduce((oldest, l) => {
+        if (!l.startDate) return oldest;
+        const d = parseLocalDate(l.startDate);
+        const o = parseLocalDate(oldest);
+        return d < o ? l.startDate : oldest;
+      }, loans[0].startDate);
+
+      if (oldestStartDateStr) {
+        startLimitDate = parseLocalDate(oldestStartDateStr);
+      }
+    }
+
+    const startSaturday = getSaturdayOfWeek(startLimitDate);
     const maxDate = new Date(currentSaturday);
     const currentTemp = new Date(startSaturday);
 
@@ -478,36 +159,27 @@ export function DebesClientPage({
       currentTemp.setDate(currentTemp.getDate() + 7);
     }
     return saturdays.sort((a, b) => b.getTime() - a.getTime());
-  }, []);
+  }, [loans]);
 
-  const latestWeekStr = useMemo(() => {
-    if (allAvailableWeeks.length > 0) {
-      return allAvailableWeeks[0].toISOString().split('T')[0];
+  useEffect(() => {
+    if (allAvailableWeeks.length > 0 && !selectedWeek) {
+      setSelectedWeek(allAvailableWeeks[0].toISOString().split('T')[0]);
     }
-    return '';
-  }, [allAvailableWeeks]);
+  }, [allAvailableWeeks, selectedWeek]);
 
-  const handleOpenBatchModal = () => {
-    if (latestWeekStr && !batchSelectedWeek) {
-      setBatchSelectedWeek(latestWeekStr);
-    }
-    setIsBatchModalOpen(true);
+  const getWeeklyPaymentAmount = (loan: Loan) => {
+    const plan = loanPlans.find(p => p.id === loan.loanPlanId);
+    if (!plan) return 0;
+    return (loan.amount / 1000) * plan.weeklyPaymentRate;
   };
 
-  const filteredBatchPromotoras = useMemo(() => {
-    const query = batchSearchTerm.toLowerCase().trim();
-    if (!query) return allPromotorasWithDetails;
-    return allPromotorasWithDetails.filter(p =>
-      (p.name || '').toLowerCase().includes(query) ||
-      (p.localidadName || '').toLowerCase().includes(query) ||
-      (p.plazaName || '').toLowerCase().includes(query)
-    );
-  }, [batchSearchTerm, allPromotorasWithDetails]);
-
   const getSettlementRowForPromotora = (pId: string, targetWeekStr: string) => {
-    const pLoans = loans.filter(l => l.promotoraId === pId);
+    const promotora = promotoras.find(p => p.id === pId);
+    const pName = promotora?.name || '';
+    const pLoans = loans.filter(l => l.promotoraId === pId || (pName && l.promotoraId?.toUpperCase() === pName.toUpperCase()));
     if (pLoans.length === 0) {
-      return {
+      const local = overrides[pId] || {};
+      const baseRow = {
         id: `${pId}_${targetWeekStr}`,
         promotoraId: pId,
         weekDate: targetWeekStr,
@@ -525,6 +197,11 @@ export function DebesClientPage({
         adelEnt: 0,
         adelSal: 0,
       };
+      const merged = { ...baseRow, ...local };
+      merged.total = merged.efectivo + merged.recuperado;
+      merged.diferencia = merged.efectivo - merged.debeEntregar;
+      merged.deuda = Math.max(0, merged.debeEntregar - merged.efectivo);
+      return merged;
     }
 
     const startLimitDate = new Date('2026-05-23T00:00:00');
@@ -544,7 +221,8 @@ export function DebesClientPage({
     
     const targetWeekDate = new Date(targetWeekStr + 'T00:00:00');
     if (targetWeekDate.getTime() < startSaturday.getTime()) {
-      return {
+      const local = overrides[pId] || {};
+      const baseRow = {
         id: `${pId}_${targetWeekStr}`,
         promotoraId: pId,
         weekDate: targetWeekStr,
@@ -562,6 +240,11 @@ export function DebesClientPage({
         adelEnt: 0,
         adelSal: 0,
       };
+      const merged = { ...baseRow, ...local };
+      merged.total = merged.efectivo + merged.recuperado;
+      merged.diferencia = merged.efectivo - merged.debeEntregar;
+      merged.deuda = Math.max(0, merged.debeEntregar - merged.efectivo);
+      return merged;
     }
 
     const saturdays: Date[] = [];
@@ -598,7 +281,11 @@ export function DebesClientPage({
         const firstPaymentTime = loanSaturdayTime + (7 * 24 * 3600 * 1000);
 
         let isActive = true;
-        if (weekTime < firstPaymentTime) {
+        if (weekTime < loanSaturdayTime) {
+          isActive = false;
+        }
+
+        if (loan.status === 'Overdue') {
           isActive = false;
         }
 
@@ -640,18 +327,8 @@ export function DebesClientPage({
           .reduce((sum, l) => sum + l.amount, 0);
       };
 
-      const getNewAbono = (weekDate: Date) => {
-        return pLoans
-          .filter(l => getSaturdayOfWeek(parseLocalDate(l.startDate)).getTime() === weekDate.getTime())
-          .reduce((sum, l) => {
-            const plan = loanPlans.find(p => p.id === l.loanPlanId);
-            if (!plan) return sum;
-            return sum + (l.amount / 1000) * plan.weeklyPaymentRate;
-          }, 0);
-      };
-
       const ventaVal = getVenta(week);
-      const abonoSemanalVal = getNewAbono(week);
+      const abonoSemanalVal = realDebeEntregar;
 
       let debeEntregar = 0;
       if (index === 0) {
@@ -662,7 +339,7 @@ export function DebesClientPage({
         }
       } else {
         const prevRow = computedChronoRows[index - 1];
-        debeEntregar = prevRow.total - prevRow.comicion + prevRow.abonoSemanal + prevRow.adelEnt - prevRow.adelSal;
+        debeEntregar = prevRow.deuda + abonoSemanalVal + prevRow.adelEnt - prevRow.adelSal;
       }
 
       const savedComicionPercent = saved?.comicionPercent !== undefined ? saved.comicionPercent : 8;
@@ -675,7 +352,8 @@ export function DebesClientPage({
       const adelSal = saved?.adelSal !== undefined ? saved.adelSal : 0;
 
       let efectivo = debeEntregar - falla;
-      if (saved?.efectivo !== undefined) {
+      const isEfectivoManual = saved && saved.efectivo !== undefined && saved.efectivo !== (saved.debeEntregar - saved.falla);
+      if (isEfectivoManual) {
         efectivo = saved.efectivo;
       } else {
         efectivo = Math.max(0, debeEntregar - falla);
@@ -683,8 +361,7 @@ export function DebesClientPage({
 
       const total = efectivo + recuperado;
       const diferencia = efectivo - debeEntregar;
-      const defaultDeudaCalc = Math.max(0, debeEntregar - efectivo);
-      const deuda = saved?.deuda !== undefined ? saved.deuda : defaultDeudaCalc;
+      const deuda = Math.max(0, debeEntregar - efectivo);
 
       const defaultComicion = ventaVal * (savedComicionPercent / 100);
       const comicion = saved?.comicion !== undefined ? saved.comicion : defaultComicion;
@@ -711,11 +388,27 @@ export function DebesClientPage({
       computedChronoRows.push(rowObj);
 
       if (weekStr === targetWeekStr) {
-        return rowObj;
+        const local = overrides[pId] || {};
+        const mergedRow = {
+          ...rowObj,
+          debeEntregar: local.debeEntregar !== undefined ? local.debeEntregar : rowObj.debeEntregar,
+          falla: local.falla !== undefined ? local.falla : rowObj.falla,
+          efectivo: local.efectivo !== undefined ? local.efectivo : rowObj.efectivo,
+          recuperado: local.recuperado !== undefined ? local.recuperado : rowObj.recuperado,
+          comicionPercent: local.comicionPercent !== undefined ? local.comicionPercent : rowObj.comicionPercent,
+          comicion: local.comicion !== undefined ? local.comicion : rowObj.comicion,
+          adelEnt: local.adelEnt !== undefined ? local.adelEnt : rowObj.adelEnt,
+          adelSal: local.adelSal !== undefined ? local.adelSal : rowObj.adelSal,
+        };
+        mergedRow.total = mergedRow.efectivo + mergedRow.recuperado;
+        mergedRow.diferencia = mergedRow.efectivo - mergedRow.debeEntregar;
+        mergedRow.deuda = Math.max(0, mergedRow.debeEntregar - mergedRow.efectivo);
+        return mergedRow;
       }
     }
 
-    return computedChronoRows.find(r => r.weekDate === targetWeekStr) || {
+    const local = overrides[pId] || {};
+    const finalRow = computedChronoRows.find(r => r.weekDate === targetWeekStr) || {
       id: `${pId}_${targetWeekStr}`,
       promotoraId: pId,
       weekDate: targetWeekStr,
@@ -733,200 +426,200 @@ export function DebesClientPage({
       adelEnt: 0,
       adelSal: 0,
     };
+    const merged = { ...finalRow, ...local };
+    merged.total = merged.efectivo + merged.recuperado;
+    merged.diferencia = merged.efectivo - merged.debeEntregar;
+    merged.deuda = Math.max(0, merged.debeEntregar - merged.efectivo);
+    return merged;
   };
 
-  const handleExportBatchPDF = () => {
-    const selectedIds = Object.keys(batchSelectedPromotoras).filter(id => batchSelectedPromotoras[id]);
-    if (selectedIds.length === 0) {
-      toast({
-        variant: 'destructive',
-        title: 'Error de exportación',
-        description: 'Debes seleccionar al menos una promotora para el reporte.',
-      });
-      return;
-    }
+  const getSemanaExtraCountForPromotora = (pId: string, weekStr: string) => {
+    const promotora = promotoras.find(p => p.id === pId);
+    const pName = promotora?.name || '';
+    const pLoans = loans.filter(l => l.promotoraId === pId || (pName && l.promotoraId?.toUpperCase() === pName.toUpperCase()));
+    if (!weekStr) return 0;
+    const weekTime = new Date(weekStr + 'T00:00:00').getTime();
+    let count = 0;
+    pLoans.forEach(loan => {
+      const plan = loanPlans.find(lp => lp.id === loan.loanPlanId);
+      if (!plan) return;
 
-    if (!batchSelectedWeek) {
-      toast({
-        variant: 'destructive',
-        title: 'Error de exportación',
-        description: 'Debes seleccionar una semana.',
-      });
-      return;
-    }
+      const loanSaturday = getSaturdayOfWeek(parseLocalDate(loan.startDate));
+      const loanSaturdayTime = loanSaturday.getTime();
+      const firstPaymentTime = loanSaturdayTime + (7 * 24 * 3600 * 1000);
 
-    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const margin = 30;
-    const topMargin = 50;
-
-    // Title & Header Design
-    doc.setFillColor(30, 41, 59); // Slate header
-    doc.rect(0, 0, pageWidth, 40, 'F');
-
-    doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text('CONTROL DE PROMOTORAS - REPORTE CONSOLIDADO DE DEBES', margin, 25);
-
-    // Metadata Block
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('SEMANA SELECCIONADA:', margin, topMargin + 10);
-    doc.text('CANTIDAD PROMOTORAS:', margin, topMargin + 25);
-
-    doc.setFont('helvetica', 'normal');
-    const formattedWeekDateStr = formatDateStr(batchSelectedWeek);
-    doc.text(formattedWeekDateStr, margin + 140, topMargin + 10);
-    doc.text(`${selectedIds.length}`, margin + 140, topMargin + 25);
-
-    const rightColX = pageWidth - margin - 185;
-    doc.setFont('helvetica', 'bold');
-    doc.text('FECHA GENERACIÓN:', rightColX, topMargin + 10);
-    doc.text('TIPO DE REPORTE:', rightColX, topMargin + 25);
-
-    doc.setFont('helvetica', 'normal');
-    doc.text(new Date().toLocaleDateString('es-MX'), rightColX + 130, topMargin + 10);
-    doc.text('CONSOLIDADO GRUPAL', rightColX + 130, topMargin + 25);
-
-    // Columns matching user requirement
-    const tableHeaders = [[
-      'PROMOTORA',
-      'DEBE ENTREGAR',
-      'FALLA',
-      'EFECTIVO',
-      'RECUPERADO',
-      'TOTAL',
-      'DIFERENCIA',
-      'DEUDA',
-      'VENTA',
-      'COMISION',
-      'ABONO SEM.',
-      'ADEL. ENT',
-      'ADEL. SAL'
-    ]];
-
-    // Gather rows data for each selected promotora
-    const pdfDataRows: any[] = [];
-    let grandDebeEntregar = 0;
-    let grandFalla = 0;
-    let grandEfectivo = 0;
-    let grandRecuperado = 0;
-    let grandTotal = 0;
-    let grandDiferencia = 0;
-    let grandDeuda = 0;
-    let grandVenta = 0;
-    let grandComicion = 0;
-    let grandAbonoSemanal = 0;
-    let grandAdelEnt = 0;
-    let grandAdelSal = 0;
-
-    selectedIds.forEach(pId => {
-      const pDetail = allPromotorasWithDetails.find(p => p.id === pId);
-      const row = getSettlementRowForPromotora(pId, batchSelectedWeek);
-      
-      const promotoraLabel = pDetail 
-        ? `${pDetail.name.toUpperCase()}\n(${pDetail.localidadName.toUpperCase()} - ${pDetail.plazaName.toUpperCase()})`
-        : 'N/A';
-
-      if (row) {
-        pdfDataRows.push([
-          promotoraLabel,
-          formatCurrency(row.debeEntregar),
-          formatCurrency(row.falla),
-          formatCurrency(row.efectivo),
-          formatCurrency(row.recuperado),
-          formatCurrency(row.total),
-          formatCurrency(row.diferencia),
-          formatCurrency(row.deuda),
-          formatCurrency(row.venta),
-          formatCurrency(row.comicion),
-          formatCurrency(row.abonoSemanal),
-          formatCurrency(row.adelEnt),
-          formatCurrency(row.adelSal)
-        ]);
-
-        grandDebeEntregar += row.debeEntregar;
-        grandFalla += row.falla;
-        grandEfectivo += row.efectivo;
-        grandRecuperado += row.recuperado;
-        grandTotal += row.total;
-        grandDiferencia += row.diferencia;
-        grandDeuda += row.deuda;
-        grandVenta += row.venta;
-        grandComicion += row.comicion;
-        grandAbonoSemanal += row.abonoSemanal;
-        grandAdelEnt += row.adelEnt;
-        grandAdelSal += row.adelSal;
+      let isActive = true;
+      if (weekTime < firstPaymentTime) {
+        isActive = false;
       }
-    });
-
-    // Add consolidated totals row
-    pdfDataRows.push([
-      'TOTAL CONSOLIDADO',
-      formatCurrency(grandDebeEntregar),
-      formatCurrency(grandFalla),
-      formatCurrency(grandEfectivo),
-      formatCurrency(grandRecuperado),
-      formatCurrency(grandTotal),
-      formatCurrency(grandDiferencia),
-      formatCurrency(grandDeuda),
-      formatCurrency(grandVenta),
-      formatCurrency(grandComicion),
-      formatCurrency(grandAbonoSemanal),
-      formatCurrency(grandAdelEnt),
-      formatCurrency(grandAdelSal)
-    ]);
-
-    doc.autoTable({
-      startY: topMargin + 45,
-      head: tableHeaders,
-      body: pdfDataRows,
-      theme: 'grid',
-      styles: {
-        fontSize: 7,
-        cellPadding: 4,
-        halign: 'center',
-        valign: 'middle',
-      },
-      headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: 255,
-        fontStyle: 'bold',
-      },
-      columnStyles: {
-        0: { fontStyle: 'bold', halign: 'left', minCellWidth: 100 },
-      },
-      didParseCell: (data) => {
-        if (data.row.index === pdfDataRows.length - 1) {
-          data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fillColor = [241, 245, 249];
+      if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') {
+        const lastPayment = loan.payments.length > 0
+          ? loan.payments.reduce((latest, p) => parseLocalDate(p.date) > parseLocalDate(latest.date) ? p : latest)
+          : null;
+        if (lastPayment) {
+          const payoffSaturday = getSaturdayOfWeek(parseLocalDate(lastPayment.date));
+          if (payoffSaturday.getTime() < weekTime) {
+            isActive = false;
+          }
         }
       }
-    });
 
-    const dateFormatted = formattedWeekDateStr.replace(/\//g, '-');
-    const fileName = `consolidado_debes_${dateFormatted}.pdf`;
+      if (!isActive) return;
 
-    doc.save(fileName);
-    toast({
-      title: 'Reporte Consolidado Exportado',
-      description: `El archivo ${fileName} ha sido generado exitosamente.`,
+      const targetWeekNumber = Math.floor((weekTime - loanSaturdayTime) / (7 * 24 * 3600 * 1000));
+      let missedCount = 0;
+      const wp = (loan.amount / 1000) * plan.weeklyPaymentRate;
+      for (let w = 1; w < targetWeekNumber; w++) {
+        const p = loan.payments.find(pay => pay.weekNumber === w);
+        if (!p || p.amount < wp) {
+          missedCount++;
+        }
+      }
+
+      if (missedCount >= 2) {
+        count++;
+      }
     });
-    setIsBatchModalOpen(false);
+    return count;
   };
 
-  // Helper strings
-  const getHierarchyNames = () => {
-    const p = promotoras.find(p => p.id === selectedPromotora);
-    const l = localidades.find(l => l.id === p?.localidadId);
-    const pl = plazas.find(plaza => plaza.id === l?.plazaId);
+  const rows = useMemo(() => {
+    if (!selectedLocalidad || !selectedWeek) return [];
+
+    return localidadPromotoras.map(promotora => {
+      const settlement = getSettlementRowForPromotora(promotora.id, selectedWeek);
+      const semExt = getSemanaExtraCountForPromotora(promotora.id, selectedWeek);
+      const fallaPercent = settlement.debeEntregar > 0 ? (settlement.falla / settlement.debeEntregar) * 100 : 0;
+      
+      const saved = savedSettlements.find(s => s.id === `${promotora.id}_${selectedWeek}`);
+      
+      return {
+        ...settlement,
+        promotoraName: promotora.name,
+        semExt,
+        fallaPercent,
+        isDirty: Object.keys(overrides[promotora.id] || {}).length > 0,
+        isSavedInDb: !!saved,
+      };
+    });
+  }, [localidadPromotoras, selectedWeek, loans, loanPlans, savedSettlements, overrides]);
+
+  const totals = useMemo(() => {
+    let debeEntregar = 0;
+    let falla = 0;
+    let efectivo = 0;
+    let recuperado = 0;
+    let total = 0;
+    let diferencia = 0;
+    let venta = 0;
+    let comicion = 0;
+    let semExt = 0;
+
+    rows.forEach(r => {
+      debeEntregar += r.debeEntregar;
+      falla += r.falla;
+      efectivo += r.efectivo;
+      recuperado += r.recuperado;
+      total += r.total;
+      diferencia += r.diferencia;
+      venta += r.venta;
+      comicion += r.comicion;
+      semExt += r.semExt;
+    });
+
+    const fallaPercent = debeEntregar > 0 ? (falla / debeEntregar) * 100 : 0;
+
     return {
-      promotoraName: p?.name || 'N/A',
-      localidadName: l?.name || 'N/A',
-      plazaName: pl?.name || 'N/A',
+      debeEntregar,
+      falla,
+      efectivo,
+      recuperado,
+      total,
+      diferencia,
+      fallaPercent,
+      venta,
+      comicion,
+      semExt
     };
+  }, [rows]);
+
+  const handleCellChange = (promotoraId: string, field: keyof PromotoraSettlement, value: number, debeEntregar: number) => {
+    setOverrides(prev => {
+      const currentOverrides = prev[promotoraId] || {};
+      const updatedOverrides: Partial<PromotoraSettlement> = {
+        ...currentOverrides,
+        [field]: value,
+      };
+
+      if (field === 'falla') {
+        updatedOverrides.efectivo = Math.max(0, debeEntregar - value);
+      } else if (field === 'efectivo') {
+        updatedOverrides.falla = Math.max(0, debeEntregar - value);
+      } else if (field === 'debeEntregar') {
+        const currentFalla = updatedOverrides.falla !== undefined ? updatedOverrides.falla : (rows.find(r => r.promotoraId === promotoraId)?.falla || 0);
+        updatedOverrides.efectivo = Math.max(0, value - currentFalla);
+      }
+
+      if (field === 'comicionPercent') {
+        const rowData = rows.find(r => r.promotoraId === promotoraId);
+        const venta = rowData ? rowData.venta : 0;
+        updatedOverrides.comicion = Math.round(venta * (value / 100));
+      }
+      
+      if (field === 'comicion') {
+        const rowData = rows.find(r => r.promotoraId === promotoraId);
+        const venta = rowData ? rowData.venta : 0;
+        if (venta > 0) {
+          updatedOverrides.comicionPercent = Number(((value / venta) * 100).toFixed(1));
+        }
+      }
+
+      return {
+        ...prev,
+        [promotoraId]: updatedOverrides,
+      };
+    });
+  };
+
+  const handleSaveRow = async (row: any) => {
+    setSavingRowId(row.promotoraId);
+    try {
+      const settlementData: PromotoraSettlement = {
+        id: row.id,
+        promotoraId: row.promotoraId,
+        weekDate: row.weekDate,
+        debeEntregar: row.debeEntregar,
+        falla: row.falla,
+        efectivo: row.efectivo,
+        recuperado: row.recuperado,
+        total: row.total,
+        diferencia: row.diferencia,
+        deuda: row.deuda,
+        venta: row.venta,
+        comicion: row.comicion,
+        comicionPercent: row.comicionPercent,
+        abonoSemanal: row.abonoSemanal,
+        adelEnt: row.adelEnt,
+        adelSal: row.adelSal,
+      };
+
+      const result = await saveSettlementAction(settlementData);
+      if (result.success) {
+        toast({ title: 'Liquidación Guardada', description: `Grupo ${row.promotoraName} guardado.` });
+        
+        setOverrides(prev => {
+          const next = { ...prev };
+          delete next[row.promotoraId];
+          return next;
+        });
+      } else {
+        throw new Error(result.message);
+      }
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Error al guardar', description: error.message });
+    } finally {
+      setSavingRowId(null);
+    }
   };
 
   const formatDateStr = (dateString: string) => {
@@ -943,203 +636,271 @@ export function DebesClientPage({
     }).format(amount);
   };
 
-  // PDF Generation function
-  const handleExportPDF = (selectedRow: any) => {
-    if (rows.length === 0 || !selectedRow) return;
+  const handleExportConsolidatedPDF = () => {
+    if (rows.length === 0) return;
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
+    const topMargin = 60;
     const margin = 30;
-    const topMargin = 50;
 
-    const { promotoraName, localidadName, plazaName } = getHierarchyNames();
+    const currentPlazaName = plazas.find(p => p.id === selectedPlaza)?.name || '';
+    const currentLocName = localidades.find(l => l.id === selectedLocalidad)?.name || '';
 
-    // Title & Header Design
-    doc.setFillColor(30, 41, 59); // Sleek dark slate color
-    doc.rect(0, 0, pageWidth, 40, 'F');
-
-    doc.setFontSize(14);
+    // Paint Title Block
+    doc.setFillColor(30, 41, 59);
+    doc.rect(0, 0, pageWidth, 50, 'F');
+    doc.setFontSize(13);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(255, 255, 255);
-    doc.text('CONTROL DE PROMOTORAS - LIQUIDACIONES ("DEBES")', margin, 25);
+    doc.text('CONTROL DE PROMOTORAS - REPORTE CONSOLIDADO DE DEBES', margin, 30);
 
-    // Metadata Block
+    doc.setFontSize(8.5);
     doc.setTextColor(30, 41, 59);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text('PROMOTORA:', margin, topMargin + 10);
+    doc.text('PLAZA:', margin, topMargin + 10);
     doc.text('LOCALIDAD:', margin, topMargin + 25);
-    doc.text('PLAZA:', margin, topMargin + 40);
+    doc.text('SEMANA:', margin, topMargin + 40);
 
     doc.setFont('helvetica', 'normal');
-    doc.text(promotoraName.toUpperCase(), margin + 90, topMargin + 10);
-    doc.text(localidadName.toUpperCase(), margin + 90, topMargin + 25);
-    doc.text(plazaName.toUpperCase(), margin + 90, topMargin + 40);
+    doc.text(currentPlazaName.toUpperCase(), margin + 90, topMargin + 10);
+    doc.text(currentLocName.toUpperCase(), margin + 90, topMargin + 25);
+    doc.text(formatDateStr(selectedWeek), margin + 90, topMargin + 40);
 
-    const rightColX = pageWidth - margin - 185;
+    const rightColX = pageWidth - margin - 220;
     doc.setFont('helvetica', 'bold');
     doc.text('FECHA IMPRESIÓN:', rightColX, topMargin + 10);
-    doc.text('SEMANA SELECCIONADA:', rightColX, topMargin + 25);
+    doc.text('GRUPOS MOSTRADOS:', rightColX, topMargin + 25);
 
     doc.setFont('helvetica', 'normal');
     doc.text(new Date().toLocaleDateString('es-MX'), rightColX + 130, topMargin + 10);
-    doc.text(formatDateStr(selectedRow.weekDate), rightColX + 130, topMargin + 25);
+    doc.text(`${rows.length}`, rightColX + 130, topMargin + 25);
 
-    // Columns matching user photo
     const tableHeaders = [[
-      'FECHA',
-      'DEBE ENTREGAR',
-      'FALLA',
-      'EFECTIVO',
-      'RECUPERADO',
-      'TOTAL',
-      'DIFERENCIA',
-      'DEUDA',
-      'VENTA',
-      'COMISION',
-      'ABONO SEMANAL',
-      'ADEL. ENT',
-      'ADEL. SAL'
+      'GRUPO', 'DEBE ENTREGAR', 'FALLA', 'EFECTIVO', 'RECUPERADO', 'TOTAL', 'DIFERENCIA', '% FALLA', 'VENTA', 'COMISION', 'SEM EXT.'
     ]];
 
-    // Find index of selected row
-    const selectedIndex = rows.findIndex(r => r.id === selectedRow.id);
-
-    // Only put the selected week and the following week (if it exists)
-    const pdfRows = [selectedRow];
-    if (selectedIndex > 0) {
-      pdfRows.push(rows[selectedIndex - 1]);
-    }
-
-    const tableData = pdfRows.map(r => [
-      formatDateStr(r.weekDate),
+    const tableData = rows.map(r => [
+      r.promotoraName.toUpperCase(),
       formatCurrency(r.debeEntregar),
       formatCurrency(r.falla),
       formatCurrency(r.efectivo),
       formatCurrency(r.recuperado),
       formatCurrency(r.total),
       formatCurrency(r.diferencia),
-      formatCurrency(r.deuda),
+      `${r.fallaPercent.toFixed(1)}%`,
       formatCurrency(r.venta),
       formatCurrency(r.comicion),
-      formatCurrency(r.abonoSemanal),
-      formatCurrency(r.adelEnt),
-      formatCurrency(r.adelSal)
+      r.semExt.toString()
     ]);
 
+    const footerRow = [
+      'TOTAL GENERAL',
+      formatCurrency(totals.debeEntregar),
+      formatCurrency(totals.falla),
+      formatCurrency(totals.efectivo),
+      formatCurrency(totals.recuperado),
+      formatCurrency(totals.total),
+      formatCurrency(totals.diferencia),
+      `${totals.fallaPercent.toFixed(1)}%`,
+      formatCurrency(totals.venta),
+      formatCurrency(totals.comicion),
+      totals.semExt.toString()
+    ];
+
     doc.autoTable({
-      startY: topMargin + 60,
+      startY: topMargin + 55,
       head: tableHeaders,
       body: tableData,
+      foot: [footerRow],
       theme: 'grid',
+      margin: { left: margin, right: margin },
       styles: {
-        fontSize: 7,
-        cellPadding: 4,
-        halign: 'center',
+        lineWidth: 0.5,
+        lineColor: [100, 116, 139],
+        fontSize: 7.5,
+        cellPadding: { top: 6, right: 4, bottom: 6, left: 4 },
         valign: 'middle',
       },
       headStyles: {
         fillColor: [30, 41, 59],
         textColor: 255,
         fontStyle: 'bold',
+        halign: 'center',
+      },
+      footStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [30, 41, 59],
+        fontStyle: 'bold',
+        halign: 'center',
       },
       columnStyles: {
-        0: { fontStyle: 'bold', minCellWidth: 40 }, // Fecha
+        0: { fontStyle: 'bold', halign: 'left', cellWidth: 100 },
+        1: { halign: 'right' },
+        2: { halign: 'right' },
+        3: { halign: 'right' },
+        4: { halign: 'right' },
+        5: { halign: 'right', fontStyle: 'bold' },
+        6: { halign: 'right' },
+        7: { halign: 'center' },
+        8: { halign: 'right' },
+        9: { halign: 'right' },
+        10: { halign: 'center' }
       }
     });
 
-    const weekFormatted = formatDateStr(selectedRow.weekDate).replace(/\//g, '-');
-    const fileName = `debe_${promotoraName.toLowerCase().replace(/\s+/g, '_')}_${weekFormatted}.pdf`;
+    const formattedLoc = currentLocName.toUpperCase().replace(/\s+/g, '_');
+    const formattedWeek = formatDateStr(selectedWeek).replace(/\//g, '-');
+    doc.save(`DETERMINACION_${formattedLoc}_${formattedWeek}.pdf`);
+  };
 
-    doc.save(fileName);
-    toast({ title: 'PDF Exportado', description: `El archivo ${fileName} ha sido generado.` });
+  const handleExportDraftPDF = () => {
+    if (rows.length === 0) return;
+
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const topMargin = 60;
+    const margin = 30;
+
+    const currentPlazaName = plazas.find(p => p.id === selectedPlaza)?.name || '';
+    const currentLocName = localidades.find(l => l.id === selectedLocalidad)?.name || '';
+
+    // Paint Title Block
+    doc.setFillColor(30, 41, 59);
+    doc.rect(0, 0, pageWidth, 50, 'F');
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('CONTROL DE PROMOTORAS - DETERMINACIONES', margin, 30);
+
+    doc.setFontSize(8.5);
+    doc.setTextColor(30, 41, 59);
+    doc.text('PLAZA:', margin, topMargin + 10);
+    doc.text('LOCALIDAD:', margin, topMargin + 25);
+    doc.text('SEMANA:', margin, topMargin + 40);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(currentPlazaName.toUpperCase(), margin + 90, topMargin + 10);
+    doc.text(currentLocName.toUpperCase(), margin + 90, topMargin + 25);
+    doc.text(formatDateStr(selectedWeek), margin + 90, topMargin + 40);
+
+    const rightColX = pageWidth - margin - 220;
+    doc.setFont('helvetica', 'bold');
+    doc.text('GRUPOS MOSTRADOS:', rightColX, topMargin + 10);
+
+    doc.setFont('helvetica', 'normal');
+    doc.text(`${rows.length}`, rightColX + 130, topMargin + 10);
+
+    const tableHeaders = [[
+      'GRUPO', 'DEBE ENTREGAR', 'FALLA', 'EFECTIVO', 'RECUPERADO', 'TOTAL', 'DIFERENCIA', '% FALLA', 'VENTA', 'COMISION', 'SEM EXT.'
+    ]];
+
+    const tableData = rows.map(r => [
+      r.promotoraName.toUpperCase(),
+      formatCurrency(r.debeEntregar),
+      '', // FALLA
+      '', // EFECTIVO
+      '', // RECUPERADO
+      '', // TOTAL
+      '', // DIFERENCIA
+      '', // % FALLA
+      '', // VENTA
+      '', // COMISION
+      ''  // SEM EXT.
+    ]);
+
+    const footerRow = [
+      'TOTAL GENERAL',
+      formatCurrency(totals.debeEntregar),
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      ''
+    ];
+
+    doc.autoTable({
+      startY: topMargin + 55,
+      head: tableHeaders,
+      body: tableData,
+      foot: [footerRow],
+      theme: 'grid',
+      margin: { left: margin, right: margin },
+      styles: {
+        lineWidth: 0.5,
+        lineColor: [100, 116, 139],
+        fontSize: 7.5,
+        cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
+        valign: 'middle',
+      },
+      headStyles: {
+        fillColor: [30, 41, 59],
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      footStyles: {
+        fillColor: [241, 245, 249],
+        textColor: [30, 41, 59],
+        fontStyle: 'bold',
+        halign: 'center',
+      },
+      columnStyles: {
+        0: { fontStyle: 'bold', halign: 'left' },
+        1: { halign: 'right', fontStyle: 'bold', fontSize: 9.5 },
+        2: { halign: 'right' },
+        3: { halign: 'right' },
+        4: { halign: 'right' },
+        5: { halign: 'right', fontStyle: 'bold' },
+        6: { halign: 'right' },
+        7: { halign: 'center' },
+        8: { halign: 'right' },
+        9: { halign: 'right' },
+        10: { halign: 'center' }
+      }
+    });
+
+    const formattedLoc = currentLocName.toUpperCase().replace(/\s+/g, '_');
+    const formattedWeek = formatDateStr(selectedWeek).replace(/\//g, '-');
+    doc.save(`DETERMINACION_${formattedLoc}_${formattedWeek}.pdf`);
   };
 
   return (
     <div className="space-y-6">
       {/* Search and hierarchy selectors */}
       <Card className="shadow-lg border-primary/10 overflow-visible bg-background">
-        <CardHeader className="bg-primary/5 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <CardHeader className="bg-primary/5 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-4">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-primary rounded-xl text-primary-foreground shadow-sm">
               <Coins className="h-6 w-6" />
             </div>
             <div>
-              <CardTitle className="text-2xl font-black text-slate-800">DEBES DE PROMOTORAS</CardTitle>
+              <CardTitle className="text-xl font-black text-slate-800 uppercase tracking-tight">DEBES</CardTitle>
+              <CardDescription className="text-xs">Consulta y administra la liquidación semanal consolidada de promotoras.</CardDescription>
             </div>
           </div>
-          <Button
-            type="button"
-            onClick={handleOpenBatchModal}
-            className="rounded-xl h-9 px-4 text-xs font-bold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-2 transition-all shadow-sm w-full sm:w-auto"
-          >
-            <FileSpreadsheet className="h-4 w-4" />
-            Reporte Avanzado
-          </Button>
+          {rows.length > 0 && (
+            <Button
+              type="button"
+              onClick={handleExportConsolidatedPDF}
+              className="rounded-xl h-9 px-4 text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-2 transition-all shadow-sm w-full sm:w-auto uppercase tracking-wider"
+            >
+              <Download className="h-4 w-4" />
+              Exportar PDF
+            </Button>
+          )}
         </CardHeader>
-        <CardContent className="py-3 px-5">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-            {/* Búsqueda Rápida de Promotoras */}
-            <div className="space-y-1 relative w-full">
-              <label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                <Search className="h-3 w-3 text-primary" /> Búsqueda Rápida
-              </label>
-              <div className="relative">
-                <Input
-                  type="text"
-                  placeholder="Buscar promotora..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onFocus={() => setIsSearchFocused(true)}
-                  onBlur={() => setTimeout(() => setIsSearchFocused(false), 200)}
-                  className="rounded-xl border-2 h-9 pl-8 pr-3 bg-muted/20 focus-visible:ring-primary font-medium text-xs w-full"
-                />
-                <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              </div>
-
-              {/* Dropdown Results Overlay */}
-              {isSearchFocused && searchTerm.trim() && (
-                <div className="absolute z-50 w-full md:w-[140%] min-w-[280px] mt-1.5 bg-background border-2 border-slate-100 rounded-xl shadow-2xl overflow-hidden max-h-[300px] overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-200">
-                  {searchedPromotoras.length > 0 ? (
-                    <div className="p-1.5 divide-y divide-slate-50">
-                      {searchedPromotoras.map((p) => (
-                        <button
-                          key={p.id}
-                          onClick={() => {
-                            setSelectedPlaza(p.plazaId);
-                            setSelectedLocalidad(p.localidadId);
-                            setSelectedPromotora(p.id);
-                            setSearchTerm('');
-                          }}
-                          className="w-full flex items-center justify-between px-3 py-2 hover:bg-primary/5 active:bg-primary/10 rounded-lg text-left transition-colors"
-                        >
-                          <div>
-                            <span className="font-bold text-slate-800 uppercase text-xs">{p.name}</span>
-                            <div className="text-[9px] uppercase font-semibold text-muted-foreground mt-0.5">
-                              {p.localidadName} ({p.plazaName})
-                            </div>
-                          </div>
-                          <span className="text-[9px] font-black uppercase px-2 py-0.5 bg-primary/10 text-primary rounded-full">
-                            Elegir
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="p-4 text-center text-xs text-muted-foreground font-bold">
-                      No hay coincidencias
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
+        <CardContent className="py-4 px-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
             {/* Plaza */}
-            <div className="space-y-1 w-full">
-              <label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                <Building className="h-3 w-3" /> Plaza de Operación
+            <div className="space-y-1.5 w-full">
+              <label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1.5 tracking-wider">
+                <Building className="h-3.5 w-3.5 text-primary" /> Plaza de Operación
               </label>
-              <Select value={selectedPlaza} onValueChange={(val) => { setSelectedPlaza(val); setSelectedLocalidad(''); setSelectedPromotora(''); }}>
+              <Select value={selectedPlaza} onValueChange={(val) => { setSelectedPlaza(val); setSelectedLocalidad(''); }}>
                 <SelectTrigger className="rounded-xl border-2 h-9 bg-muted/20 hover:bg-muted/30 transition-colors focus:ring-primary text-xs">
                   <SelectValue placeholder="Seleccionar Plaza" />
                 </SelectTrigger>
@@ -1152,11 +913,11 @@ export function DebesClientPage({
             </div>
 
             {/* Localidad */}
-            <div className="space-y-1 w-full">
-              <label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                <MapPin className="h-3 w-3" /> Localidad / Sector
+            <div className="space-y-1.5 w-full">
+              <label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1.5 tracking-wider">
+                <MapPin className="h-3.5 w-3.5 text-primary" /> Localidad / Sector
               </label>
-              <Select value={selectedLocalidad} onValueChange={(val) => { setSelectedLocalidad(val); setSelectedPromotora(''); }} disabled={!selectedPlaza}>
+              <Select value={selectedLocalidad} onValueChange={setSelectedLocalidad} disabled={!selectedPlaza}>
                 <SelectTrigger className="rounded-xl border-2 h-9 bg-muted/20 hover:bg-muted/30 transition-colors disabled:opacity-50 text-xs">
                   <SelectValue placeholder={selectedPlaza ? "Seleccionar Localidad" : "Plaza primero"} />
                 </SelectTrigger>
@@ -1168,19 +929,24 @@ export function DebesClientPage({
               </Select>
             </div>
 
-            {/* Promotora */}
-            <div className="space-y-1 w-full">
-              <label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1.5">
-                <User className="h-3 w-3" /> Promotora Responsable
+            {/* Semana */}
+            <div className="space-y-1.5 w-full">
+              <label className="text-[10px] font-black uppercase text-muted-foreground flex items-center gap-1.5 tracking-wider">
+                <Calendar className="h-3.5 w-3.5 text-primary" /> Semana de Consulta
               </label>
-              <Select value={selectedPromotora} onValueChange={setSelectedPromotora} disabled={!selectedLocalidad}>
-                <SelectTrigger className="rounded-xl border-2 h-9 bg-muted/20 hover:bg-muted/30 transition-colors disabled:opacity-50 text-xs">
-                  <SelectValue placeholder={selectedLocalidad ? "Seleccionar Promotora" : "Localidad primero"} />
+              <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+                <SelectTrigger className="rounded-xl border-2 h-9 bg-muted/20 hover:bg-muted/30 transition-colors focus:ring-primary text-xs text-left">
+                  <SelectValue placeholder="Seleccionar Semana" />
                 </SelectTrigger>
                 <SelectContent className="rounded-xl">
-                  {filteredPromotoras.map((p) => (
-                    <SelectItem key={p.id} value={p.id} className="uppercase font-semibold text-xs">{p.name}</SelectItem>
-                  ))}
+                  {allAvailableWeeks.map((week) => {
+                    const weekStr = week.toISOString().split('T')[0];
+                    return (
+                      <SelectItem key={weekStr} value={weekStr} className="font-semibold text-xs">
+                        Semana del {formatDateStr(weekStr)}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -1189,67 +955,69 @@ export function DebesClientPage({
       </Card>
 
       {/* Main calculation sheet table */}
-      {selectedPromotora ? (
+      {selectedLocalidad && selectedWeek ? (
         <Card className="shadow-2xl border-slate-200 overflow-hidden bg-background">
-          <CardHeader className="bg-slate-50 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-6">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-primary" />
-                <CardTitle className="text-xl font-bold uppercase text-slate-800">
-                  Bitácora de {getHierarchyNames().promotoraName}
-                </CardTitle>
-              </div>
-              <CardDescription className="text-xs uppercase font-semibold text-muted-foreground">
-                Zona: {getHierarchyNames().localidadName} ({getHierarchyNames().plazaName})
+          <CardHeader className="bg-slate-50/50 border-b flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 py-4 px-6">
+            <div className="space-y-0.5">
+              <CardTitle className="text-base font-bold uppercase text-slate-800">
+                DETERMINACION - DEBES
+              </CardTitle>
+              <CardDescription className="text-[10px] uppercase font-semibold text-muted-foreground">
+                Localidad: {localidades.find(l => l.id === selectedLocalidad)?.name} | Semana: del {formatDateStr(selectedWeek)}
               </CardDescription>
             </div>
+            {rows.length > 0 && (
+              <Button
+                type="button"
+                onClick={handleExportDraftPDF}
+                className="rounded-xl h-8 px-3 text-[10px] font-extrabold bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-1.5 transition-all shadow-sm uppercase tracking-wider"
+              >
+                <Download className="h-3.5 w-3.5" />
+                Borrador Debe
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             {rows.length > 0 ? (
               <Table>
-                <TableHeader className="bg-slate-100">
+                <TableHeader className="bg-slate-100/80">
                   <TableRow className="border-b">
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[65px]">Fecha</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[85px]">Debe Entregar</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[75px]">Falla</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[85px]">Efectivo</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[75px]">Recuperado</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[75px]">Total</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[75px]">Diferencia</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[75px]">Deuda</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[75px]">Venta</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[120px]">Comisión</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[85px]">Abono Semanal</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[75px]">Adel. Ent</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[75px]">Adel. Sal</TableHead>
-                    <TableHead className="font-black text-center text-[9px] md:text-[10px] uppercase text-slate-700 py-2 px-1 h-9 min-w-[75px]">Acciones</TableHead>
+                    <TableHead className="font-extrabold text-left text-[9px] uppercase text-slate-700 py-2 px-3 h-10 min-w-[120px]">Grupo</TableHead>
+                    <TableHead className="font-extrabold text-center text-[9px] uppercase text-slate-700 py-2 px-1 h-10 min-w-[95px]">Debe Entregar</TableHead>
+                    <TableHead className="font-extrabold text-center text-[9px] uppercase text-slate-700 py-2 px-1 h-10 min-w-[85px]">Falla</TableHead>
+                    <TableHead className="font-extrabold text-center text-[9px] uppercase text-slate-700 py-2 px-1 h-10 min-w-[95px]">Efectivo</TableHead>
+                    <TableHead className="font-extrabold text-center text-[9px] uppercase text-slate-700 py-2 px-1 h-10 min-w-[85px]">Recuperado</TableHead>
+                    <TableHead className="font-extrabold text-center text-[9px] uppercase text-slate-700 py-2 px-1 h-10 min-w-[90px]">Total</TableHead>
+                    <TableHead className="font-extrabold text-center text-[9px] uppercase text-slate-700 py-2 px-1 h-10 min-w-[85px]">Diferencia</TableHead>
+                    <TableHead className="font-extrabold text-center text-[9px] uppercase text-slate-700 py-2 px-1 h-10 min-w-[70px]">% Falla</TableHead>
+                    <TableHead className="font-extrabold text-center text-[9px] uppercase text-slate-700 py-2 px-1 h-10 min-w-[85px]">Venta</TableHead>
+                    <TableHead className="font-extrabold text-center text-[9px] uppercase text-slate-700 py-2 px-1 h-10 min-w-[110px]">Comisión</TableHead>
+                    <TableHead className="font-extrabold text-center text-[9px] uppercase text-slate-700 py-2 px-1 h-10 min-w-[70px]">Sem Ext.</TableHead>
+                    <TableHead className="font-extrabold text-center text-[9px] uppercase text-slate-700 py-2 px-1 h-10 min-w-[80px]">Acciones</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {rows.map((row, rowIndex) => {
-                    const isFirstChronoWeek = rowIndex === rows.length - 1;
-                    const currentSaturday = getSaturdayOfWeek(getMexicoNow());
-                    const prevSaturday = new Date(currentSaturday);
-                    prevSaturday.setDate(prevSaturday.getDate() - 7);
-                    const prevSaturdayStr = prevSaturday.toISOString().split('T')[0];
-                    const isPrevWeek = row.weekDate === prevSaturdayStr;
+                  {rows.map((row) => {
+                    const disabled = isRowDisabled(row);
+                    const isUnlocked = unlockedRows[row.promotoraId];
+
                     return (
-                      <TableRow key={row.id} className={cn("hover:bg-muted/10 transition-colors border-b", isPrevWeek && "bg-blue-200/50 hover:bg-blue-200/70 dark:bg-blue-900/40 dark:hover:bg-blue-900/50 border-l-4 border-l-blue-600 shadow-sm")}>
-                        {/* Date */}
-                        <TableCell className="font-bold text-center text-[11px] py-2 px-1">
-                          {formatDateStr(row.weekDate)}
+                      <TableRow key={row.promotoraId} className={cn("hover:bg-muted/10 transition-colors border-b", row.isDirty && "bg-amber-50/40 hover:bg-amber-50/60 border-l-4 border-l-amber-500")}>
+                        {/* Grupo */}
+                        <TableCell className="font-extrabold text-left text-[11px] py-3 px-3 text-slate-800 uppercase">
+                          {row.promotoraName}
                         </TableCell>
 
                         {/* Debe Entregar */}
-                        <TableCell className={cn("font-extrabold text-center text-[11px] text-slate-600 py-2 px-1", isPrevWeek ? "bg-blue-200/60 dark:bg-blue-900/30" : "bg-slate-50/50")}>
-                          {isFirstChronoWeek && isCristobal ? (
+                        <TableCell className="font-extrabold text-center text-[11px] text-slate-600 py-2 px-1 bg-slate-50/50">
+                          {isCristobal ? (
                             <Input
                               type="number"
                               value={row.debeEntregar === 0 ? '' : row.debeEntregar}
-                              onChange={(e) => handleCellChange(row.weekDate, 'debeEntregar', Number(e.target.value), row.debeEntregar)}
+                              onChange={(e) => handleCellChange(row.promotoraId, 'debeEntregar', Number(e.target.value), row.debeEntregar)}
                               placeholder="0"
-                              disabled={isRowDisabled(row)}
-                              className="h-7 w-[75px] px-0.5 text-xs text-center mx-auto rounded-lg font-semibold tracking-tighter border focus-visible:ring-primary disabled:opacity-85"
+                              disabled={disabled}
+                              className="h-7 w-[80px] px-0.5 text-xs text-center mx-auto rounded-lg font-semibold tracking-tighter border focus-visible:ring-primary disabled:opacity-85"
                             />
                           ) : (
                             formatCurrency(row.debeEntregar)
@@ -1261,10 +1029,10 @@ export function DebesClientPage({
                           <Input
                             type="number"
                             value={row.falla === 0 ? '' : row.falla}
-                            onChange={(e) => handleCellChange(row.weekDate, 'falla', Number(e.target.value), row.debeEntregar)}
+                            onChange={(e) => handleCellChange(row.promotoraId, 'falla', Number(e.target.value), row.debeEntregar)}
                             placeholder="0"
-                            disabled={isRowDisabled(row)}
-                            className="h-7 w-[65px] px-0.5 text-xs text-center mx-auto rounded-lg font-semibold tracking-tighter border focus-visible:ring-red-500 disabled:opacity-85"
+                            disabled={disabled}
+                            className="h-7 w-[75px] px-0.5 text-xs text-center mx-auto rounded-lg font-semibold tracking-tighter border focus-visible:ring-red-500 disabled:opacity-85"
                           />
                         </TableCell>
 
@@ -1273,10 +1041,10 @@ export function DebesClientPage({
                           <Input
                             type="number"
                             value={row.efectivo === 0 ? '' : row.efectivo}
-                            onChange={(e) => handleCellChange(row.weekDate, 'efectivo', Number(e.target.value), row.debeEntregar)}
+                            onChange={(e) => handleCellChange(row.promotoraId, 'efectivo', Number(e.target.value), row.debeEntregar)}
                             placeholder="0"
-                            disabled={isRowDisabled(row)}
-                            className="h-7 w-[75px] px-0.5 text-xs text-center mx-auto rounded-lg font-semibold tracking-tighter border focus-visible:ring-emerald-500 disabled:opacity-85"
+                            disabled={disabled}
+                            className="h-7 w-[80px] px-0.5 text-xs text-center mx-auto rounded-lg font-semibold tracking-tighter border focus-visible:ring-emerald-500 disabled:opacity-85"
                           />
                         </TableCell>
 
@@ -1285,41 +1053,34 @@ export function DebesClientPage({
                           <Input
                             type="number"
                             value={row.recuperado === 0 ? '' : row.recuperado}
-                            onChange={(e) => handleCellChange(row.weekDate, 'recuperado', Number(e.target.value), row.debeEntregar)}
+                            onChange={(e) => handleCellChange(row.promotoraId, 'recuperado', Number(e.target.value), row.debeEntregar)}
                             placeholder="0"
-                            disabled={isRowDisabled(row)}
-                            className="h-7 w-[65px] px-0.5 text-xs text-center mx-auto rounded-lg font-semibold tracking-tighter border focus-visible:ring-blue-500 disabled:opacity-85"
+                            disabled={disabled}
+                            className="h-7 w-[75px] px-0.5 text-xs text-center mx-auto rounded-lg font-semibold tracking-tighter border focus-visible:ring-blue-500 disabled:opacity-85"
                           />
                         </TableCell>
 
                         {/* Total */}
-                        <TableCell className={cn("font-extrabold text-center text-[11px] py-2 px-1", isPrevWeek ? "bg-blue-200/60 dark:bg-blue-900/30" : "bg-slate-50/50")}>
+                        <TableCell className="font-extrabold text-center text-[11px] py-2 px-1 bg-slate-50/50">
                           {formatCurrency(row.total)}
                         </TableCell>
 
                         {/* Diferencia */}
                         <TableCell className="text-center py-2 px-1">
-                          <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+                          <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
                             row.diferencia < 0 ? 'bg-red-100 text-red-700' : row.diferencia > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
                           }`}>
                             {row.diferencia === 0 ? 'Ø' : formatCurrency(row.diferencia)}
                           </span>
                         </TableCell>
 
-                        {/* Deuda */}
-                        <TableCell className="text-center py-2 px-1">
-                          <Input
-                            type="number"
-                            value={row.deuda === 0 ? '' : row.deuda}
-                            onChange={(e) => handleCellChange(row.weekDate, 'deuda', Number(e.target.value), row.debeEntregar)}
-                            placeholder="0"
-                            disabled={isRowDisabled(row)}
-                            className="h-7 w-[65px] px-0.5 text-xs text-center mx-auto rounded-lg font-semibold tracking-tighter border focus-visible:ring-orange-500 disabled:opacity-85"
-                          />
+                        {/* % Falla */}
+                        <TableCell className="font-extrabold text-center text-[10px] py-2 px-1 text-slate-500">
+                          {row.fallaPercent.toFixed(1)}%
                         </TableCell>
 
                         {/* Venta */}
-                        <TableCell className={cn("font-bold text-center text-[11px] text-blue-700 py-2 px-1", isPrevWeek ? "bg-blue-200/40 dark:bg-blue-900/20" : "bg-blue-50/10")}>
+                        <TableCell className="font-bold text-center text-[11px] text-blue-700 py-2 px-1 bg-blue-50/10">
                           {row.venta === 0 ? 'Ø' : formatCurrency(row.venta)}
                         </TableCell>
 
@@ -1329,17 +1090,17 @@ export function DebesClientPage({
                             <Input
                               type="number"
                               value={row.comicion === 0 ? '' : row.comicion}
-                              onChange={(e) => handleCellChange(row.weekDate, 'comicion', Number(e.target.value), row.debeEntregar)}
+                              onChange={(e) => handleCellChange(row.promotoraId, 'comicion', Number(e.target.value), row.debeEntregar)}
                               placeholder="0"
-                              disabled={isRowDisabled(row)}
-                              className="h-7 w-[60px] px-0.5 text-xs text-center rounded-lg font-semibold tracking-tighter border disabled:opacity-85"
+                              disabled={disabled}
+                              className="h-7 w-[65px] px-0.5 text-xs text-center rounded-lg font-semibold tracking-tighter border disabled:opacity-85"
                             />
                             <div className="flex items-center gap-0.5 bg-slate-50 border rounded-lg px-0.5 h-7">
                               <Input
                                 type="number"
                                 value={row.comicionPercent === undefined ? 8 : row.comicionPercent}
-                                onChange={(e) => handleCellChange(row.weekDate, 'comicionPercent', Number(e.target.value), row.debeEntregar)}
-                                disabled={isRowDisabled(row)}
+                                onChange={(e) => handleCellChange(row.promotoraId, 'comicionPercent', Number(e.target.value), row.debeEntregar)}
+                                disabled={disabled}
                                 className="h-5 w-9 text-center p-0 font-semibold tracking-tighter border-0 bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 text-xs disabled:opacity-85"
                                 placeholder="8"
                               />
@@ -1348,267 +1109,116 @@ export function DebesClientPage({
                           </div>
                         </TableCell>
 
-                        {/* Abono Semanal */}
-                        <TableCell className={cn("font-semibold text-center text-[11px] text-slate-500 py-2 px-1", isPrevWeek ? "bg-blue-200/40 dark:bg-blue-900/20" : "bg-slate-50/30")}>
-                          {row.abonoSemanal === 0 ? 'Ø' : formatCurrency(row.abonoSemanal)}
+                        {/* Sem Ext. */}
+                        <TableCell className="font-extrabold text-center text-[11px] text-orange-600 py-2 px-1 bg-amber-50/10">
+                          {row.semExt}
                         </TableCell>
 
-                        {/* Adelanto Ent */}
-                        <TableCell className="text-center py-2 px-1">
-                          <Input
-                            type="number"
-                            value={row.adelEnt === 0 ? '' : row.adelEnt}
-                            onChange={(e) => handleCellChange(row.weekDate, 'adelEnt', Number(e.target.value), row.debeEntregar)}
-                            placeholder="0"
-                            disabled={isRowDisabled(row)}
-                            className="h-7 w-[65px] px-0.5 text-xs text-center mx-auto rounded-lg font-semibold tracking-tighter border disabled:opacity-85"
-                          />
-                        </TableCell>
-
-                        {/* Adelanto Sal */}
-                        <TableCell className="text-center py-2 px-1">
-                          <Input
-                            type="number"
-                            value={row.adelSal === 0 ? '' : row.adelSal}
-                            onChange={(e) => handleCellChange(row.weekDate, 'adelSal', Number(e.target.value), row.debeEntregar)}
-                            placeholder="0"
-                            disabled={isRowDisabled(row)}
-                            className="h-7 w-[65px] px-0.5 text-xs text-center mx-auto rounded-lg font-semibold tracking-tighter border disabled:opacity-85"
-                          />
-                        </TableCell>
-
-                        {/* Action */}
-                        <TableCell className="text-center px-1">
-                          <div className="flex items-center justify-center gap-1">
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => handleExportPDF(row)}
-                              className="h-7 px-1.5 rounded-lg hover:bg-red-50 text-red-600 border border-red-200 hover:border-red-300 font-extrabold text-[9px] flex items-center gap-1 transition-colors"
-                              title="Exportar esta semana y la siguiente a PDF"
-                            >
-                              <FileText className="h-3 w-3" />
-                              PDF
-                            </Button>
-                            {row.isSavedInDb && (
-                              isCristobal ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() => setUnlockedRows(prev => ({ ...prev, [row.id]: !prev[row.id] }))}
-                                  className="h-7 w-7 p-0 rounded-full hover:bg-slate-200 transition-colors"
-                                  title={unlockedRows[row.id] ? "Bloquear Edición" : "Habilitar Edición (Cristobal)"}
-                                >
-                                  {unlockedRows[row.id] ? (
-                                    <Unlock className="h-3.5 w-3.5 text-emerald-600" />
-                                  ) : (
-                                    <Lock className="h-3.5 w-3.5 text-slate-400" />
-                                  )}
-                                </Button>
-                              ) : (
-                                <div className="inline-flex items-center justify-center h-7 w-7 text-slate-400" title="Registro Guardado (Bloqueado)">
-                                  <Lock className="h-3.5 w-3.5" />
-                                </div>
-                              )
+                        {/* Acciones */}
+                        <TableCell className="text-center py-2 px-2">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {row.isSavedInDb && isCristobal && (
+                              <Button
+                                size="icon"
+                                variant="outline"
+                                onClick={() => toggleUnlockRow(row.promotoraId)}
+                                className={cn("h-7 w-7 rounded-lg border", isUnlocked ? "bg-red-50 hover:bg-red-100 text-red-600 border-red-200" : "bg-slate-50 hover:bg-slate-100 text-slate-500")}
+                                title={isUnlocked ? "Bloquear Fila" : "Desbloquear Fila"}
+                              >
+                                {isUnlocked ? <Unlock className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                              </Button>
                             )}
-                            <Button
-                              size="sm"
-                              disabled={!row.isDirty || savingRowId === row.id || isRowDisabled(row)}
-                              onClick={() => handleSaveRow(row)}
-                              className={`rounded-full h-7 px-2.5 text-[10px] font-bold transition-all shadow-sm ${
-                                row.isDirty && !isRowDisabled(row)
-                                  ? 'bg-primary hover:bg-primary/90 hover:scale-105 active:scale-95 shadow-[0_0_10px_rgba(59,130,246,0.3)]'
-                                  : 'bg-muted text-muted-foreground hover:bg-muted cursor-not-allowed'
-                              }`}
-                            >
-                              {savingRowId === row.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <Save className="h-3 w-3 mr-1" />
-                              )}
-                              Guardar
-                            </Button>
+
+                            {(!row.isSavedInDb || isUnlocked || row.isDirty) && (
+                              <Button
+                                size="icon"
+                                onClick={() => handleSaveRow(row)}
+                                disabled={savingRowId === row.promotoraId}
+                                className={cn(
+                                  "h-7 w-7 rounded-lg text-white transition-all shadow-sm",
+                                  row.isDirty 
+                                    ? "bg-amber-500 hover:bg-amber-600" 
+                                    : "bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-600/60"
+                                )}
+                                title="Guardar Fila"
+                              >
+                                {savingRowId === row.promotoraId ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Save className="h-3.5 w-3.5" />
+                                )}
+                              </Button>
+                            )}
+
+                            {row.isSavedInDb && !row.isDirty && !isUnlocked && (
+                              <div className="h-7 w-7 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-700" title="Guardado">
+                                <Check className="h-4 w-4" />
+                              </div>
+                            )}
                           </div>
                         </TableCell>
-                    </TableRow>
-                  ); })}
+                      </TableRow>
+                    );
+                  })}
+
+                  {/* TOTAL GENERAL ROW */}
+                  <TableRow className="bg-slate-200 hover:bg-slate-250 border-t-2 border-slate-300 font-extrabold">
+                    <TableCell className="font-black text-left text-[11px] py-3 px-3 text-slate-800 uppercase">
+                      Total General
+                    </TableCell>
+                    <TableCell className="text-center py-3 text-[11px] text-slate-800">
+                      {formatCurrency(totals.debeEntregar)}
+                    </TableCell>
+                    <TableCell className="text-center py-3 text-[11px] text-slate-800">
+                      {formatCurrency(totals.falla)}
+                    </TableCell>
+                    <TableCell className="text-center py-3 text-[11px] text-slate-800">
+                      {formatCurrency(totals.efectivo)}
+                    </TableCell>
+                    <TableCell className="text-center py-3 text-[11px] text-slate-800">
+                      {formatCurrency(totals.recuperado)}
+                    </TableCell>
+                    <TableCell className="text-center py-3 text-[11px] text-slate-800">
+                      {formatCurrency(totals.total)}
+                    </TableCell>
+                    <TableCell className="text-center py-3 text-[11px]">
+                      <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                        totals.diferencia < 0 ? 'bg-red-100 text-red-700' : totals.diferencia > 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {totals.diferencia === 0 ? 'Ø' : formatCurrency(totals.diferencia)}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-center py-3 text-[10px] text-slate-700">
+                      {totals.fallaPercent.toFixed(1)}%
+                    </TableCell>
+                    <TableCell className="text-center py-3 text-[11px] text-blue-800">
+                      {formatCurrency(totals.venta)}
+                    </TableCell>
+                    <TableCell className="text-center py-3 text-[11px] text-slate-800">
+                      {formatCurrency(totals.comicion)}
+                    </TableCell>
+                    <TableCell className="text-center py-3 text-[11px] text-orange-600">
+                      {totals.semExt}
+                    </TableCell>
+                    <TableCell className="py-3 px-2"></TableCell>
+                  </TableRow>
                 </TableBody>
               </Table>
             ) : (
-              <div className="flex flex-col items-center justify-center p-12 text-center text-muted-foreground">
-                <AlertCircle className="h-12 w-12 text-slate-300 mb-3" />
-                <p className="font-bold text-sm">No se encontraron semanas de actividad para esta promotora.</p>
-                <p className="text-xs">Los registros de liquidación aparecerán una vez que haya préstamos asignados.</p>
+              <div className="py-12 text-center text-xs text-muted-foreground font-bold uppercase tracking-wider">
+                No hay promotoras configuradas en esta localidad.
               </div>
             )}
           </CardContent>
         </Card>
       ) : (
-        <Card className="shadow-lg border-dashed border-slate-300 bg-muted/10">
+        <Card className="shadow-lg border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-20 text-center text-muted-foreground">
             <Coins className="h-16 w-16 text-slate-300 mb-4 animate-pulse" />
-            <h3 className="font-black text-slate-700 text-lg uppercase tracking-wide">Consulta de Promotoras</h3>
-            <p className="text-xs max-w-sm mt-1">Selecciona una Plaza, Localidad y Promotora en los campos superiores para desplegar y liquidar sus cuentas semanales.</p>
+            <h3 className="font-black text-slate-700 text-lg uppercase tracking-wide">Consulta de Debes</h3>
+            <p className="text-xs max-w-sm mt-1">Selecciona una Plaza, Localidad y Semana de Consulta en los campos superiores para desplegar y administrar las liquidaciones consolidada.</p>
           </CardContent>
         </Card>
-      )}
-
-      {/* Modal Reporte Avanzado */}
-      {isBatchModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 text-slate-800">
-          <div className="bg-background border-2 border-slate-100 rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            {/* Header */}
-            <div className="bg-slate-800 text-white px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FileSpreadsheet className="h-5 w-5 text-primary" />
-                <span className="font-extrabold text-base uppercase tracking-wide">Reporte Avanzado de Debes</span>
-              </div>
-              <button 
-                type="button" 
-                onClick={() => setIsBatchModalOpen(false)}
-                className="text-white/80 hover:text-white hover:bg-white/10 p-1.5 rounded-full transition-colors"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className="p-6 flex-1 overflow-y-auto space-y-6">
-              {/* Step 1: Semana */}
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-                  <Calendar className="h-3.5 w-3.5 text-primary" /> 1. Selecciona la Semana de Reporte
-                </label>
-                <Select value={batchSelectedWeek} onValueChange={setBatchSelectedWeek}>
-                  <SelectTrigger className="rounded-xl border-2 h-10 bg-muted/20 hover:bg-muted/30 transition-colors focus:ring-primary text-xs text-left">
-                    <SelectValue placeholder="Seleccionar Semana" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {allAvailableWeeks.map((week) => {
-                      const weekStr = week.toISOString().split('T')[0];
-                      return (
-                        <SelectItem key={weekStr} value={weekStr} className="font-semibold text-xs">
-                          Semana del {formatDateStr(weekStr)}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Step 2: Promotoras */}
-              <div className="space-y-3 flex-1 flex flex-col">
-                <div className="flex items-center justify-between gap-4">
-                  <label className="text-[10px] font-black uppercase text-slate-500 tracking-wider flex items-center gap-1.5">
-                    <User className="h-3.5 w-3.5 text-primary" /> 2. Selecciona las Promotoras
-                  </label>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const newSelection: Record<string, boolean> = {};
-                        allPromotorasWithDetails.forEach(p => {
-                          newSelection[p.id] = true;
-                        });
-                        setBatchSelectedPromotoras(newSelection);
-                      }}
-                      className="text-[9px] font-black uppercase bg-primary/10 text-primary hover:bg-primary/20 px-2.5 py-1 rounded transition-colors font-bold"
-                    >
-                      Seleccionar Todas
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setBatchSelectedPromotoras({})}
-                      className="text-[9px] font-black uppercase bg-slate-100 text-slate-500 hover:bg-slate-200 px-2.5 py-1 rounded transition-colors font-bold"
-                    >
-                      Limpiar
-                    </button>
-                  </div>
-                </div>
-
-                {/* Search */}
-                <div className="relative">
-                  <Input
-                    type="text"
-                    placeholder="Buscar promotora por nombre, localidad o plaza..."
-                    value={batchSearchTerm}
-                    onChange={(e) => setBatchSearchTerm(e.target.value)}
-                    className="rounded-xl border-2 h-9 pl-8 pr-3 bg-muted/10 focus-visible:ring-primary font-medium text-xs w-full"
-                  />
-                  <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                </div>
-
-                {/* Checklist grid */}
-                <div className="border border-slate-100 rounded-xl overflow-hidden max-h-[280px] overflow-y-auto bg-muted/5 p-2">
-                  {filteredBatchPromotoras.length > 0 ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {filteredBatchPromotoras.map((p) => {
-                        const isChecked = !!batchSelectedPromotoras[p.id];
-                        return (
-                          <label
-                            key={p.id}
-                            className={cn(
-                              "flex items-center gap-3 p-2.5 rounded-lg border-2 cursor-pointer transition-all hover:bg-background",
-                              isChecked 
-                                ? "bg-primary/5 border-primary/20 hover:border-primary/30" 
-                                : "border-slate-100 bg-background hover:border-slate-200"
-                            )}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={(e) => {
-                                setBatchSelectedPromotoras(prev => ({
-                                  ...prev,
-                                  [p.id]: e.target.checked
-                                }));
-                              }}
-                              className="rounded border-slate-300 text-primary focus:ring-primary h-4 w-4"
-                            />
-                            <div className="min-w-0">
-                              <p className="font-bold text-slate-800 uppercase text-[11px] truncate leading-none">
-                                {p.name}
-                              </p>
-                              <span className="text-[9px] uppercase font-semibold text-muted-foreground block mt-0.5 truncate">
-                                {p.localidadName} ({p.plazaName})
-                              </span>
-                            </div>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="p-8 text-center text-xs text-muted-foreground font-bold">
-                      No se encontraron promotoras
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="bg-slate-50 border-t px-6 py-4 flex items-center justify-end gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setIsBatchModalOpen(false)}
-                className="rounded-xl h-9 text-xs font-bold hover:bg-slate-150 transition-colors"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="button"
-                onClick={handleExportBatchPDF}
-                className="rounded-xl h-9 px-5 text-xs font-bold bg-primary hover:bg-primary/95 text-white flex items-center gap-2 transition-all shadow-[0_0_10px_rgba(59,130,246,0.2)] hover:scale-[1.02] active:scale-[0.98]"
-              >
-                <Download className="h-4 w-4" />
-                Exportar PDF Consolidado
-              </Button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

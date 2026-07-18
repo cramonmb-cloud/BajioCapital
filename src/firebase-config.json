@@ -1,9 +1,9 @@
 {
-  "apiKey": "",
-  "authDomain": "",
-  "projectId": "",
-  "storageBucket": "",
-  "messagingSenderId": "",
-  "appId": "",
-  "measurementId": ""
+  "apiKey": "AIzaSyCX62rFekAUs1Nu83wfVXREb8LUmJTnwgY",
+  "authDomain": "bajio-capital.firebaseapp.com",
+  "projectId": "bajio-capital",
+  "storageBucket": "bajio-capital.firebasestorage.app",
+  "messagingSenderId": "20759063888",
+  "appId": "1:20759063888:web:e23d6eb55568b815095055",
+  "measurementId": "G-TF4K6M7KLB"
 }

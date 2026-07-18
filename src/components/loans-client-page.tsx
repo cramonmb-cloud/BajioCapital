@@ -376,7 +376,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
           const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
           if (paymentForWeek && paymentForWeek.isReverted) {
-              return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false, isRecovered: false };
+              if (weekNumber < currentLoanWeek) {
+                  return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true, isRecovered: false };
+              } else {
+                  return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false, isRecovered: false };
+              }
           }
           
           const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
@@ -408,7 +412,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             let missedWeeksCount = 0;
             for (let i = 1; i < currentLoanWeek - 1; i++) {
                 const paymentForWeek = loan.payments.find(p => p.weekNumber === i);
-                if (!paymentForWeek) continue;
+                if (!paymentForWeek || paymentForWeek.isReverted) continue;
 
                 const weeklyPayment = getWeeklyPaymentAmount(loan);
                 if (paymentForWeek.amount < weeklyPayment) {
@@ -439,7 +443,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
                     if (type === 'failures') {
                         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
-                        if (paymentForWeek && paymentForWeek.amount < weeklyPayment) {
+                        if (paymentForWeek && !paymentForWeek.isReverted && paymentForWeek.amount < weeklyPayment) {
                             return total + (weeklyPayment - paymentForWeek.amount);
                         }
                     } else { // collected
@@ -468,13 +472,13 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             const wp = getWeeklyPaymentAmount(loan);
             for (let i = 1; i < rawCurrentLoanWeek - 1; i++) {
                 const p = loan.payments.find(pay => pay.weekNumber === i);
-                if (p && p.amount < wp) missedCount++;
+                if (p && !p.isReverted && p.amount < wp) missedCount++;
             }
             const term = loanPlan.termInWeeks + (missedCount >= 2 ? 1 : 0);
             const currentWeek = Math.min(rawCurrentLoanWeek - 1, term);
 
             for (let w = 1; w <= currentWeek; w++) {
-                const exists = (loan.payments || []).some(p => p.weekNumber === w);
+                const exists = (loan.payments || []).some(p => p.weekNumber === w && !p.isReverted);
                 if (!exists) return true;
             }
             return false;
@@ -482,7 +486,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
 
         // Detect if any loan in this sheet has a payment record for the currentGroupWeek
         const hasRevertible = filteredLoans.some(loan => 
-            (loan.payments || []).some(p => p.weekNumber === currentGroupWeek)
+            (loan.payments || []).some(p => p.weekNumber === currentGroupWeek && !p.isReverted)
         );
 
         return { currentGroupWeek, weeklyFailures: failures, weeklyCollected: collected, hasAssumedPayments: hasAssumed, hasPaymentsToRevert: hasRevertible, loansWithPenalty: newLoansWithPenalty };
@@ -505,7 +509,11 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
         
         if (paymentForWeek && paymentForWeek.isReverted) {
-            return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false, isRecovered: false };
+            if (weekNumber < currentLoanWeek) {
+                return { status: 'paid' as const, date: weekDate, amountPaid: 0, isAssumedPaid: true, isRecovered: false };
+            } else {
+                return { status: 'pending' as const, date: weekDate, amountPaid: 0, isAssumedPaid: false, isRecovered: false };
+            }
         }
         
         if (paymentForWeek) {
@@ -688,7 +696,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         const topMargin = 60;
         const margin = 30;
 
-        const maxWeeksToShow = 16;
+        const maxWeeksToShow = 15;
 
         const { promotoraName, localidadName, plazaName } = getHierarchy(selectedPromotora);
         
@@ -762,8 +770,8 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             ],
             [
                 { content: 'CLIENTE', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
-                { content: 'PRESTAMO', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
-                { content: 'A\nB\nO\nN\nA', styles: { valign: 'middle', halign: 'center', fontSize: 7, fontStyle: 'bold' } }, 
+                { content: 'P\nM\nO', styles: { valign: 'middle', halign: 'center', fontSize: 8 } },
+                { content: 'A\nB\nN', styles: { valign: 'middle', halign: 'center', fontSize: 7, fontStyle: 'bold' } }, 
                 ...weekDatesHeader.map(dateStr => ({ 
                     content: dateStr, 
                     styles: { minCellHeight: 50, halign: 'center', valign: 'middle', fontSize: 7, textColor: [0, 0, 0] } 
@@ -777,6 +785,9 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             let clientText = '';
             if (client) {
                 clientText = `${client.name.toUpperCase()}\n${client.street || ''}, ${client.neighborhood || ''}\n${client.phone || ''}`;
+                if (client.guarantee) {
+                    clientText += `\nGARANTÍA: ${client.guarantee.toUpperCase()}`;
+                }
             }
 
             let avalText = '';
@@ -803,7 +814,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             return filteredLoans.reduce((total, loan) => {
                 const weeklyPayment = getWeeklyPaymentAmount(loan);
                 const paymentForWeek = loan.payments.find(p => p.weekNumber === weekNumber);
-                if (paymentForWeek && paymentForWeek.amount < weeklyPayment) {
+                if (paymentForWeek && !paymentForWeek.isReverted && paymentForWeek.amount < weeklyPayment) {
                     return total + (weeklyPayment - paymentForWeek.amount);
                 }
                 return total;
@@ -850,9 +861,34 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
                 }
                 return total;
             }, 0);
-            footerRow1.push({ content: weeklyTotal > 0 ? formatCurrencySimple(weeklyTotal) : '', styles: { fontStyle: 'bold' as const, halign: 'right' } });
-            footerRow2.push({ content: weeklyFailuresPDF[i] > 0 ? formatCurrencySimplePDF(weeklyFailuresPDF[i]) : '', styles: { fontStyle: 'bold' as const, halign: 'right', fillColor: '#e0e0e0' } });
-            footerRow3.push({ content: weeklyCollectedPDF[i] > 0 ? formatCurrencySimplePDF(weeklyCollectedPDF[i]) : '', styles: { fontStyle: 'bold' as const, halign: 'right' } });
+            footerRow1.push({ 
+                content: weeklyTotal > 0 ? formatCurrencySimple(weeklyTotal) : '', 
+                styles: { 
+                    fontStyle: 'bold' as const, 
+                    halign: 'right',
+                    fontSize: 5.8,
+                    cellPadding: { top: 4, right: 1, bottom: 4, left: 1 }
+                } 
+            });
+            footerRow2.push({ 
+                content: weeklyFailuresPDF[i] > 0 ? formatCurrencySimplePDF(weeklyFailuresPDF[i]) : '', 
+                styles: { 
+                    fontStyle: 'bold' as const, 
+                    halign: 'right', 
+                    fillColor: '#e0e0e0',
+                    fontSize: 5.8,
+                    cellPadding: { top: 4, right: 1, bottom: 4, left: 1 }
+                } 
+            });
+            footerRow3.push({ 
+                content: weeklyCollectedPDF[i] > 0 ? formatCurrencySimplePDF(weeklyCollectedPDF[i]) : '', 
+                styles: { 
+                    fontStyle: 'bold' as const, 
+                    halign: 'right',
+                    fontSize: 5.8,
+                    cellPadding: { top: 4, right: 1, bottom: 4, left: 1 }
+                } 
+            });
         });
         footerRow1.push({ content: '', styles: { fontStyle: 'bold' as const, halign: 'right' } });
         footerRow2.push({ content: '', colSpan: 1 });
@@ -860,10 +896,10 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
         
         const footerRows = [footerRow1, footerRow2, footerRow3];
         
-        const clientColWidth = 100;
-        const prestamoColWidth = 40;
-        const abonaColWidth = 35;
-        const avalColWidth = 100;
+        const clientColWidth = 142;
+        const prestamoColWidth = 32;
+        const abonaColWidth = 28;
+        const avalColWidth = 143;
         const availableWidth = pageWidth - margin * 2 - clientColWidth - prestamoColWidth - abonaColWidth - avalColWidth;
         const weekColumnWidth = availableWidth / maxWeeksToShow;
 
@@ -874,6 +910,7 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
             body: tableData,
             foot: footerRows,
             theme: 'grid',
+            rowPageBreak: 'avoid',
             margin: { left: margin, right: margin },
             styles: {
                 lineWidth: 0.5,
@@ -1500,17 +1537,17 @@ export function LoansClientPage({ initialClients, initialLoanPlans, initialPlaza
           </CardContent>
            {filteredLoans.length > 0 && (
                 <CardFooter className="justify-end p-2 border-t gap-2">
-                    {appUser?.username === 'Cristobal' && hasPaymentsToRevert && (
+                    {appUser?.username?.toLowerCase() === 'cristobal' && (
                          <Button 
                             variant="outline"
                             onClick={() => setRevertDialogOpen(true)} 
                             disabled={isReverting}
-                            className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                            className="text-orange-600 border-orange-200 hover:bg-orange-50 font-black uppercase text-xs"
                         >
                             {isReverting ? (
                                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                             ) : <RotateCcw className="mr-2 h-4 w-4" />}
-                            Pasar a Pendiente
+                            Revertir Pagos
                         </Button>
                     )}
                     <Button 

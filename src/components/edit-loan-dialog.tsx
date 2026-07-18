@@ -372,7 +372,7 @@ export function EditLoanDialog({
                         />
                 </div>
 
-                {appUser?.username === 'Cristobal' && (
+                {appUser?.username?.toLowerCase() === 'cristobal' && (
                     <div className={cn(
                         "mt-6 rounded-lg border p-4 shadow-sm",
                         isPaid ? "bg-orange-50 border-orange-200" : "bg-destructive/5 border-destructive/20"
