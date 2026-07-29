@@ -4,6 +4,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc, increment, Timestamp, updateDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import type { Plaza, Localidad, Promotora, AppUser, AppConfig, Loan, LoanPlan, Client, WalletTransaction, WhatsAppTemplates } from '@/lib/types';
+import { getSaturdayOfWeek } from '@/lib/utils';
 
 // Helper to handle Firestore dates consistently in server actions
 const parseFirestoreDate = (date: any): Date => {
@@ -75,13 +76,6 @@ export async function accumulateAllSystemPaymentsAction(userId?: string, onlyPri
         const clients = clientsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Client));
         const loans = loansSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
 
-        // Note: Filter correctly including those that should be closed
-        const activeLoans = loans.filter(l => l.status !== 'Paid Off' && l.status !== 'Pagado desde CV');
-        
-        if (activeLoans.length === 0) {
-            return { success: true, message: 'No hay préstamos activos para procesar.' };
-        }
-
         const today = new Date();
         let totalAccumulatedAmount = 0;
         let paymentsAccumulatedCount = 0;
@@ -89,7 +83,7 @@ export async function accumulateAllSystemPaymentsAction(userId?: string, onlyPri
         let batch = writeBatch(db);
         let batchCount = 0;
 
-        for (const loan of activeLoans) {
+        for (const loan of loans) {
             const loanPlan = loanPlans.find(p => p.id === loan.loanPlanId);
             if (!loanPlan) continue;
 
@@ -99,11 +93,13 @@ export async function accumulateAllSystemPaymentsAction(userId?: string, onlyPri
             
             const weeklyPaymentAmount = (loan.amount / 1000) * loanPlan.weeklyPaymentRate;
             const client = clients.find(c => c.id === loan.clientId);
+
+            const isLoanActive = loan.status !== 'Paid Off' && loan.status !== 'Pagado desde CV';
             
             // REGLA DE SEGURIDAD: Solo procesar hasta el plazo base (loanPlan.termInWeeks)
             // No autocompletar la semana extra en sincronización masiva.
             const rawLimit = onlyPriorWeek ? rawCurrentLoanWeek - 1 : rawCurrentLoanWeek;
-            const currentWeekToFill = Math.min(rawLimit, loanPlan.termInWeeks);
+            const currentWeekToFill = isLoanActive ? Math.min(rawLimit, loanPlan.termInWeeks) : 0;
 
             const currentPayments = (loan.payments || []).map((p: any) => ({
                 ...p,
@@ -113,14 +109,39 @@ export async function accumulateAllSystemPaymentsAction(userId?: string, onlyPri
             let updatedPayments = [...currentPayments];
             let loanChanged = false;
 
+            const loanSat = getSaturdayOfWeek(loanStartDate);
+
+            // Reparar fechas de pagos existentes que tengan weekNumber asignado pero fecha incorrecta
+            for (let i = 0; i < updatedPayments.length; i++) {
+                const p = updatedPayments[i];
+                if (p.weekNumber && p.weekNumber > 0) {
+                    const expectedSat = new Date(loanSat);
+                    expectedSat.setDate(expectedSat.getDate() + (p.weekNumber - 1) * 7);
+                    expectedSat.setHours(12, 0, 0, 0);
+
+                    const currentSat = getSaturdayOfWeek(parseFirestoreDate(p.date));
+                    if (currentSat.getTime() !== expectedSat.getTime()) {
+                        updatedPayments[i] = {
+                            ...p,
+                            date: expectedSat.toISOString()
+                        };
+                        loanChanged = true;
+                    }
+                }
+            }
+
             for (let weekNumber = 1; weekNumber <= currentWeekToFill; weekNumber++) {
                 if (weekNumber <= 0) continue;
 
                 const paymentExists = updatedPayments.some((p: any) => p.weekNumber === weekNumber);
 
                 if (!paymentExists) {
+                    const targetSaturday = new Date(loanSat);
+                    targetSaturday.setDate(targetSaturday.getDate() + (weekNumber - 1) * 7);
+                    targetSaturday.setHours(12, 0, 0, 0);
+
                     updatedPayments.push({
-                        date: new Date().toISOString(),
+                        date: targetSaturday.toISOString(),
                         amount: weeklyPaymentAmount,
                         weekNumber: weekNumber,
                     });
@@ -129,7 +150,7 @@ export async function accumulateAllSystemPaymentsAction(userId?: string, onlyPri
                     batch.set(walletTransactionRef, {
                         type: 'credit',
                         amount: weeklyPaymentAmount,
-                        date: new Date(),
+                        date: targetSaturday,
                         description: `Abono (sincronización masiva) de ${client?.name || 'N/A'} - Semana ${weekNumber}.`,
                         loanId: loan.id,
                         clientId: loan.clientId,
