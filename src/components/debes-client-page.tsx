@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 import { collection, query, where } from 'firebase/firestore';
@@ -305,16 +307,44 @@ export function DebesClientPage({
         const expectedForLoan = isActive ? weeklyPayment : 0;
         realDebeEntregar += expectedForLoan;
 
-        const paymentsInWeek = (loan.payments || []).filter(p => {
-          const paymentDate = parseLocalDate(p.date);
-          const paymentSaturday = getSaturdayOfWeek(paymentDate);
-          return paymentSaturday.getTime() === weekTime;
-        });
-        const actualPaidInWeek = paymentsInWeek.reduce((sum, p) => sum + p.amount, 0);
+        // Determinar qué semana del préstamo (semana 1, 2, 3...) corresponde a esta fecha cronológica
+        const weeksDiff = Math.round((weekTime - loanSaturdayTime) / (7 * 24 * 3600 * 1000));
+        const weekNumber = weeksDiff;
 
-        const loanFalla = Math.max(0, expectedForLoan - actualPaidInWeek);
-        const loanEfectivo = Math.min(actualPaidInWeek, expectedForLoan);
-        const loanRecuperado = Math.max(0, actualPaidInWeek - expectedForLoan);
+        // Buscar si existe un registro de pago específico para este préstamo en esta semana de cuota
+        const paymentForWeek = (loan.payments || []).find(p => {
+          if (!p.isReverted && (p.weekNumber === weekNumber || p.weekNumber === weekNumber + 1)) return true;
+          const paymentSaturday = getSaturdayOfWeek(parseLocalDate(p.date));
+          return paymentSaturday.getTime() === weekTime && !p.isReverted;
+        });
+
+        let loanFalla = 0;
+        let loanEfectivo = 0;
+        let loanRecuperado = 0;
+
+        if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') {
+          loanFalla = 0;
+          loanEfectivo = paymentForWeek ? paymentForWeek.amount : expectedForLoan;
+        } else if (!isActive) {
+          loanFalla = 0;
+          loanEfectivo = paymentForWeek ? paymentForWeek.amount : 0;
+        } else {
+          if (paymentForWeek) {
+            const amountPaid = paymentForWeek.amount;
+            if (amountPaid >= expectedForLoan) {
+              loanFalla = 0;
+              loanEfectivo = expectedForLoan;
+              loanRecuperado = amountPaid - expectedForLoan;
+            } else {
+              // Falla parcial o total registrada
+              loanFalla = Math.max(0, expectedForLoan - amountPaid);
+              loanEfectivo = amountPaid;
+            }
+          } else {
+            loanFalla = 0;
+            loanEfectivo = expectedForLoan;
+          }
+        }
 
         realFalla += loanFalla;
         realEfectivo += loanEfectivo;
@@ -753,8 +783,27 @@ export function DebesClientPage({
     doc.save(`DETERMINACION_${formattedLoc}_${formattedWeek}.pdf`);
   };
 
-  const handleExportDraftPDF = () => {
-    if (rows.length === 0) return;
+  // State for Draft PDF Export Modal
+  const [isDraftModalOpen, setIsDraftModalOpen] = useState(false);
+  const [draftExportScope, setDraftExportScope] = useState<'plaza' | 'localidades'>('plaza');
+  const [draftLayoutMode, setDraftLayoutMode] = useState<'separate' | 'combined'>('separate');
+  const [selectedDraftLocIds, setSelectedDraftLocIds] = useState<string[]>([]);
+
+  const handleOpenDraftModal = () => {
+    if (!selectedPlaza || !selectedWeek) return;
+    const locsInPlaza = localidades.filter(l => l.plazaId === selectedPlaza);
+    if (selectedLocalidad) {
+      setSelectedDraftLocIds([selectedLocalidad]);
+    } else {
+      setSelectedDraftLocIds(locsInPlaza.map(l => l.id));
+    }
+    setDraftExportScope('plaza');
+    setDraftLayoutMode('separate');
+    setIsDraftModalOpen(true);
+  };
+
+  const generateDraftPDFForLocs = (targetLocs: Localidad[], layoutMode: 'separate' | 'combined' = 'separate') => {
+    if (targetLocs.length === 0 || !selectedWeek || !selectedPlaza) return;
 
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'letter' }) as jsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -762,110 +811,287 @@ export function DebesClientPage({
     const margin = 30;
 
     const currentPlazaName = plazas.find(p => p.id === selectedPlaza)?.name || '';
-    const currentLocName = localidades.find(l => l.id === selectedLocalidad)?.name || '';
 
-    // Paint Title Block
-    doc.setFillColor(30, 41, 59);
-    doc.rect(0, 0, pageWidth, 50, 'F');
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(255, 255, 255);
-    doc.text('CONTROL DE PROMOTORAS - DETERMINACIONES', margin, 30);
+    if (layoutMode === 'combined') {
+      // TODAS LAS LOCALIDADES JUNTAS EN UNA SOLA TABLA / DOCUMENTO CONTINUO
+      doc.setFillColor(30, 41, 59);
+      doc.rect(0, 0, pageWidth, 50, 'F');
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(255, 255, 255);
+      doc.text('CONTROL DE PROMOTORAS - BORRADOR CONSOLIDADO PLAZA', margin, 30);
 
-    doc.setFontSize(8.5);
-    doc.setTextColor(30, 41, 59);
-    doc.text('PLAZA:', margin, topMargin + 10);
-    doc.text('LOCALIDAD:', margin, topMargin + 25);
-    doc.text('SEMANA:', margin, topMargin + 40);
+      doc.setFontSize(8.5);
+      doc.setTextColor(30, 41, 59);
+      doc.text('PLAZA:', margin, topMargin + 10);
+      doc.text('LOCALIDADES:', margin, topMargin + 25);
+      doc.text('SEMANA:', margin, topMargin + 40);
 
-    doc.setFont('helvetica', 'normal');
-    doc.text(currentPlazaName.toUpperCase(), margin + 90, topMargin + 10);
-    doc.text(currentLocName.toUpperCase(), margin + 90, topMargin + 25);
-    doc.text(formatDateStr(selectedWeek), margin + 90, topMargin + 40);
+      doc.setFont('helvetica', 'normal');
+      doc.text(currentPlazaName.toUpperCase(), margin + 90, topMargin + 10);
+      doc.text(`${targetLocs.length} LOCALIDADES (CONSOLIDADO)`, margin + 90, topMargin + 25);
+      doc.text(formatDateStr(selectedWeek), margin + 90, topMargin + 40);
 
-    const rightColX = pageWidth - margin - 220;
-    doc.setFont('helvetica', 'bold');
-    doc.text('GRUPOS MOSTRADOS:', rightColX, topMargin + 10);
+      const rightColX = pageWidth - margin - 220;
+      doc.setFont('helvetica', 'bold');
+      doc.text('FECHA IMPRESIÓN:', rightColX, topMargin + 10);
 
-    doc.setFont('helvetica', 'normal');
-    doc.text(`${rows.length}`, rightColX + 130, topMargin + 10);
+      doc.setFont('helvetica', 'normal');
+      doc.text(new Date().toLocaleDateString('es-MX'), rightColX + 130, topMargin + 10);
 
-    const tableHeaders = [[
-      'GRUPO', 'DEBE ENTREGAR', 'FALLA', 'EFECTIVO', 'RECUPERADO', 'TOTAL', 'DIFERENCIA', '% FALLA', 'VENTA', 'COMISION', 'SEM EXT.'
-    ]];
+      const tableHeaders = [[
+        'LOCALIDAD / GRUPO', 'DEBE ENTREGAR', 'FALLA', 'EFECTIVO', 'RECUPERADO', 'TOTAL', 'DIFERENCIA', '% FALLA', 'VENTA', 'COMISION', 'SEM EXT.'
+      ]];
 
-    const tableData = rows.map(r => [
-      r.promotoraName.toUpperCase(),
-      formatCurrency(r.debeEntregar),
-      '', // FALLA
-      '', // EFECTIVO
-      '', // RECUPERADO
-      '', // TOTAL
-      '', // DIFERENCIA
-      '', // % FALLA
-      '', // VENTA
-      '', // COMISION
-      ''  // SEM EXT.
-    ]);
+      const combinedBodyRows: any[] = [];
+      let grandTotalDebe = 0;
 
-    const footerRow = [
-      'TOTAL GENERAL',
-      formatCurrency(totals.debeEntregar),
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      '',
-      ''
-    ];
+      targetLocs.forEach(loc => {
+        const locPromotoras = promotoras.filter(p => p.localidadId === loc.id);
+        const weekTime = new Date(selectedWeek + 'T00:00:00').getTime();
 
-    doc.autoTable({
-      startY: topMargin + 55,
-      head: tableHeaders,
-      body: tableData,
-      foot: [footerRow],
-      theme: 'grid',
-      margin: { left: margin, right: margin },
-      styles: {
-        lineWidth: 0.5,
-        lineColor: [100, 116, 139],
-        fontSize: 7.5,
-        cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
-        valign: 'middle',
-      },
-      headStyles: {
-        fillColor: [30, 41, 59],
-        textColor: 255,
-        fontStyle: 'bold',
-        halign: 'center',
-      },
-      footStyles: {
-        fillColor: [241, 245, 249],
-        textColor: [30, 41, 59],
-        fontStyle: 'bold',
-        halign: 'center',
-      },
-      columnStyles: {
-        0: { fontStyle: 'bold', halign: 'left' },
-        1: { halign: 'right', fontStyle: 'bold', fontSize: 9.5 },
-        2: { halign: 'right' },
-        3: { halign: 'right' },
-        4: { halign: 'right' },
-        5: { halign: 'right', fontStyle: 'bold' },
-        6: { halign: 'right' },
-        7: { halign: 'center' },
-        8: { halign: 'right' },
-        9: { halign: 'right' },
-        10: { halign: 'center' }
-      }
-    });
+        locPromotoras.forEach(prom => {
+          const pLoans = loans.filter(l => l.promotoraId === prom.id);
+          if (pLoans.length === 0) return;
 
-    const formattedLoc = currentLocName.toUpperCase().replace(/\s+/g, '_');
+          let realDebeEntregar = 0;
+          pLoans.forEach(loan => {
+            const plan = loanPlans.find(lp => lp.id === loan.loanPlanId);
+            if (!plan) return;
+
+            const loanSaturday = getSaturdayOfWeek(parseLocalDate(loan.startDate));
+            const loanSaturdayTime = loanSaturday.getTime();
+
+            let isActive = true;
+            if (weekTime < loanSaturdayTime) isActive = false;
+            if (loan.status === 'Overdue') isActive = false;
+            if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') {
+              const lastPayment = loan.payments.length > 0
+                ? loan.payments.reduce((latest, p) => parseLocalDate(p.date) > parseLocalDate(latest.date) ? p : latest)
+                : null;
+              if (lastPayment) {
+                const payoffSaturday = getSaturdayOfWeek(parseLocalDate(lastPayment.date));
+                if (payoffSaturday.getTime() < weekTime) isActive = false;
+              }
+            }
+
+            const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
+            if (isActive) realDebeEntregar += weeklyPayment;
+          });
+
+          if (realDebeEntregar > 0) {
+            grandTotalDebe += realDebeEntregar;
+            combinedBodyRows.push([
+              `${loc.name.toUpperCase()} - ${prom.name.toUpperCase()}`,
+              formatCurrency(realDebeEntregar),
+              '', '', '', '', '', '', '', '', ''
+            ]);
+          }
+        });
+      });
+
+      const footerRow = [
+        'TOTAL GENERAL PLAZA',
+        formatCurrency(grandTotalDebe),
+        '', '', '', '', '', '', '', '', ''
+      ];
+
+      doc.autoTable({
+        startY: topMargin + 55,
+        head: tableHeaders,
+        body: combinedBodyRows,
+        foot: [footerRow],
+        theme: 'grid',
+        margin: { left: margin, right: margin },
+        styles: {
+          lineWidth: 0.5,
+          lineColor: [100, 116, 139],
+          fontSize: 7.5,
+          cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
+          valign: 'middle',
+        },
+        headStyles: {
+          fillColor: [30, 41, 59],
+          textColor: 255,
+          fontStyle: 'bold',
+          halign: 'center',
+        },
+        footStyles: {
+          fillColor: [241, 245, 249],
+          textColor: [30, 41, 59],
+          fontStyle: 'bold',
+          halign: 'center',
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', halign: 'left' },
+          1: { halign: 'right', fontStyle: 'bold', fontSize: 9.5 },
+          2: { halign: 'right' },
+          3: { halign: 'right' },
+          4: { halign: 'right' },
+          5: { halign: 'right', fontStyle: 'bold' },
+          6: { halign: 'right' },
+          7: { halign: 'center' },
+          8: { halign: 'right' },
+          9: { halign: 'right' },
+          10: { halign: 'center' }
+        }
+      });
+    } else {
+      // HOJAS SEPARADAS POR LOCALIDAD
+      targetLocs.forEach((loc, pageIndex) => {
+        if (pageIndex > 0) {
+          doc.addPage();
+        }
+
+        const locPromotoras = promotoras.filter(p => p.localidadId === loc.id);
+        const locRows: any[] = [];
+
+        locPromotoras.forEach(prom => {
+          const pLoans = loans.filter(l => l.promotoraId === prom.id);
+          if (pLoans.length === 0) return;
+
+          const weekTime = new Date(selectedWeek + 'T00:00:00').getTime();
+          let realDebeEntregar = 0;
+
+          pLoans.forEach(loan => {
+            const plan = loanPlans.find(lp => lp.id === loan.loanPlanId);
+            if (!plan) return;
+
+            const loanSaturday = getSaturdayOfWeek(parseLocalDate(loan.startDate));
+            const loanSaturdayTime = loanSaturday.getTime();
+
+            let isActive = true;
+            if (weekTime < loanSaturdayTime) isActive = false;
+            if (loan.status === 'Overdue') isActive = false;
+            if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') {
+              const lastPayment = loan.payments.length > 0
+                ? loan.payments.reduce((latest, p) => parseLocalDate(p.date) > parseLocalDate(latest.date) ? p : latest)
+                : null;
+              if (lastPayment) {
+                const payoffSaturday = getSaturdayOfWeek(parseLocalDate(lastPayment.date));
+                if (payoffSaturday.getTime() < weekTime) isActive = false;
+              }
+            }
+
+            const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
+            if (isActive) realDebeEntregar += weeklyPayment;
+          });
+
+          if (realDebeEntregar > 0) {
+            locRows.push({
+              promotoraName: prom.name,
+              debeEntregar: realDebeEntregar
+            });
+          }
+        });
+
+        // Paint Header Title
+        doc.setFillColor(30, 41, 59);
+        doc.rect(0, 0, pageWidth, 50, 'F');
+        doc.setFontSize(13);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(255, 255, 255);
+        doc.text('CONTROL DE PROMOTORAS - BORRADOR DE DEBES', margin, 30);
+
+        doc.setFontSize(8.5);
+        doc.setTextColor(30, 41, 59);
+        doc.text('PLAZA:', margin, topMargin + 10);
+        doc.text('LOCALIDAD:', margin, topMargin + 25);
+        doc.text('SEMANA:', margin, topMargin + 40);
+
+        doc.setFont('helvetica', 'normal');
+        doc.text(currentPlazaName.toUpperCase(), margin + 90, topMargin + 10);
+        doc.text(loc.name.toUpperCase(), margin + 90, topMargin + 25);
+        doc.text(formatDateStr(selectedWeek), margin + 90, topMargin + 40);
+
+        const rightColX = pageWidth - margin - 220;
+        doc.setFont('helvetica', 'bold');
+        doc.text('FECHA IMPRESIÓN:', rightColX, topMargin + 10);
+        doc.text('GRUPOS MOSTRADOS:', rightColX, topMargin + 25);
+
+        doc.setFont('helvetica', 'normal');
+        doc.text(new Date().toLocaleDateString('es-MX'), rightColX + 130, topMargin + 10);
+        doc.text(`${locRows.length}`, rightColX + 130, topMargin + 25);
+
+        const tableHeaders = [[
+          'GRUPO', 'DEBE ENTREGAR', 'FALLA', 'EFECTIVO', 'RECUPERADO', 'TOTAL', 'DIFERENCIA', '% FALLA', 'VENTA', 'COMISION', 'SEM EXT.'
+        ]];
+
+        const locDebeTotal = locRows.reduce((sum, r) => sum + r.debeEntregar, 0);
+
+        const tableData = locRows.map(r => [
+          r.promotoraName.toUpperCase(),
+          formatCurrency(r.debeEntregar),
+          '', '', '', '', '', '', '', '', ''
+        ]);
+
+        const footerRow = [
+          'TOTAL LOCALIDAD',
+          formatCurrency(locDebeTotal),
+          '', '', '', '', '', '', '', '', ''
+        ];
+
+        doc.autoTable({
+          startY: topMargin + 55,
+          head: tableHeaders,
+          body: tableData,
+          foot: [footerRow],
+          theme: 'grid',
+          margin: { left: margin, right: margin },
+          styles: {
+            lineWidth: 0.5,
+            lineColor: [100, 116, 139],
+            fontSize: 7.5,
+            cellPadding: { top: 4, right: 4, bottom: 4, left: 4 },
+            valign: 'middle',
+          },
+          headStyles: {
+            fillColor: [30, 41, 59],
+            textColor: 255,
+            fontStyle: 'bold',
+            halign: 'center',
+          },
+          footStyles: {
+            fillColor: [241, 245, 249],
+            textColor: [30, 41, 59],
+            fontStyle: 'bold',
+            halign: 'center',
+          },
+          columnStyles: {
+            0: { fontStyle: 'bold', halign: 'left' },
+            1: { halign: 'right', fontStyle: 'bold', fontSize: 9.5 },
+            2: { halign: 'right' },
+            3: { halign: 'right' },
+            4: { halign: 'right' },
+            5: { halign: 'right', fontStyle: 'bold' },
+            6: { halign: 'right' },
+            7: { halign: 'center' },
+            8: { halign: 'right' },
+            9: { halign: 'right' },
+            10: { halign: 'center' }
+          }
+        });
+      });
+    }
+
+    const formattedPlaza = currentPlazaName.toUpperCase().replace(/\s+/g, '_');
     const formattedWeek = formatDateStr(selectedWeek).replace(/\//g, '-');
-    doc.save(`DETERMINACION_${formattedLoc}_${formattedWeek}.pdf`);
+    doc.save(`BORRADOR_DEBES_${formattedPlaza}_${formattedWeek}.pdf`);
+    setIsDraftModalOpen(false);
+  };
+
+  const handleConfirmDraftExport = () => {
+    const plazaLocs = localidades.filter(l => l.plazaId === selectedPlaza);
+    if (draftExportScope === 'plaza') {
+      generateDraftPDFForLocs(plazaLocs, draftLayoutMode);
+    } else {
+      const selectedLocs = plazaLocs.filter(l => selectedDraftLocIds.includes(l.id));
+      if (selectedLocs.length === 0) {
+        toast({ title: 'Atención', description: 'Por favor selecciona al menos una localidad para exportar.', variant: 'destructive' });
+        return;
+      }
+      generateDraftPDFForLocs(selectedLocs, draftLayoutMode);
+    }
   };
 
   return (
@@ -882,15 +1108,27 @@ export function DebesClientPage({
               <CardDescription className="text-xs">Consulta y administra la liquidación semanal consolidada de promotoras.</CardDescription>
             </div>
           </div>
-          {rows.length > 0 && (
-            <Button
-              type="button"
-              onClick={handleExportConsolidatedPDF}
-              className="rounded-xl h-9 px-4 text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-2 transition-all shadow-sm w-full sm:w-auto uppercase tracking-wider"
-            >
-              <Download className="h-4 w-4" />
-              Exportar PDF
-            </Button>
+          {selectedPlaza && selectedWeek && (
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+              {rows.length > 0 && (
+                <Button
+                  type="button"
+                  onClick={handleExportConsolidatedPDF}
+                  className="rounded-xl h-9 px-4 text-xs font-extrabold bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-2 transition-all shadow-sm uppercase tracking-wider"
+                >
+                  <Download className="h-4 w-4" />
+                  Exportar PDF
+                </Button>
+              )}
+              <Button
+                type="button"
+                onClick={handleOpenDraftModal}
+                className="rounded-xl h-9 px-4 text-xs font-extrabold bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-2 transition-all shadow-sm uppercase tracking-wider"
+              >
+                <Download className="h-4 w-4" />
+                Borrador Debe
+              </Button>
+            </div>
           )}
         </CardHeader>
         <CardContent className="py-4 px-5">
@@ -969,7 +1207,12 @@ export function DebesClientPage({
             {rows.length > 0 && (
               <Button
                 type="button"
-                onClick={handleExportDraftPDF}
+                onClick={() => {
+                  const currentLoc = localidades.find(l => l.id === selectedLocalidad);
+                  if (currentLoc) {
+                    generateDraftPDFForLocs([currentLoc], 'separate');
+                  }
+                }}
                 className="rounded-xl h-8 px-3 text-[10px] font-extrabold bg-amber-600 hover:bg-amber-500 text-white flex items-center gap-1.5 transition-all shadow-sm uppercase tracking-wider"
               >
                 <Download className="h-3.5 w-3.5" />
@@ -1220,6 +1463,141 @@ export function DebesClientPage({
           </CardContent>
         </Card>
       )}
+
+      {/* Export Draft PDF Scope Selection Dialog */}
+      <Dialog open={isDraftModalOpen} onOpenChange={setIsDraftModalOpen}>
+        <DialogContent className="sm:max-w-[480px] rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black uppercase text-slate-800 flex items-center gap-2">
+              <Download className="h-5 w-5 text-amber-600" /> Exportar Borrador de Debe
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Configura el alcance y formato de presentación para la exportación en PDF.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Scope */}
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-slate-700 uppercase">1. Alcance de Exportación:</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDraftExportScope('plaza')}
+                  className={cn(
+                    "p-3 rounded-xl border-2 text-left font-bold text-xs flex flex-col gap-1 transition-all",
+                    draftExportScope === 'plaza'
+                      ? "border-amber-600 bg-amber-50 text-amber-900"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
+                  )}
+                >
+                  <span className="uppercase font-black text-amber-700">Plaza Completa</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">Todas las localidades</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDraftExportScope('localidades')}
+                  className={cn(
+                    "p-3 rounded-xl border-2 text-left font-bold text-xs flex flex-col gap-1 transition-all",
+                    draftExportScope === 'localidades'
+                      ? "border-amber-600 bg-amber-50 text-amber-900"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
+                  )}
+                >
+                  <span className="uppercase font-black text-amber-700">Por Localidad</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">Seleccionar específicas</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Layout Mode Selection */}
+            <div className="space-y-2 pt-2 border-t">
+              <label className="text-xs font-bold text-slate-700 uppercase">2. Formato de Presentación:</label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDraftLayoutMode('combined')}
+                  className={cn(
+                    "p-3 rounded-xl border-2 text-left font-bold text-xs flex flex-col gap-1 transition-all",
+                    draftLayoutMode === 'combined'
+                      ? "border-amber-600 bg-amber-50 text-amber-900"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
+                  )}
+                >
+                  <span className="uppercase font-black text-amber-700">Todas Juntas</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">En una sola tabla continua</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDraftLayoutMode('separate')}
+                  className={cn(
+                    "p-3 rounded-xl border-2 text-left font-bold text-xs flex flex-col gap-1 transition-all",
+                    draftLayoutMode === 'separate'
+                      ? "border-amber-600 bg-amber-50 text-amber-900"
+                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
+                  )}
+                >
+                  <span className="uppercase font-black text-amber-700">Hojas Separadas</span>
+                  <span className="text-[10px] font-normal text-muted-foreground">1 hoja por localidad</span>
+                </button>
+              </div>
+            </div>
+
+            {draftExportScope === 'localidades' && (
+              <div className="space-y-2 pt-2 border-t">
+                <label className="text-xs font-bold text-slate-700 uppercase flex items-center justify-between">
+                  <span>Seleccionar Localidades:</span>
+                  <span className="text-[10px] text-muted-foreground font-normal">
+                    ({selectedDraftLocIds.length} seleccionadas)
+                  </span>
+                </label>
+
+                <div className="max-h-36 overflow-y-auto space-y-1.5 p-2 bg-slate-50 rounded-xl border">
+                  {filteredLocalidades.map((loc) => {
+                    const isChecked = selectedDraftLocIds.includes(loc.id);
+                    return (
+                      <div
+                        key={loc.id}
+                        onClick={() => {
+                          if (isChecked) {
+                            setSelectedDraftLocIds(selectedDraftLocIds.filter(id => id !== loc.id));
+                          } else {
+                            setSelectedDraftLocIds([...selectedDraftLocIds, loc.id]);
+                          }
+                        }}
+                        className="flex items-center space-x-2 p-2 rounded-lg hover:bg-white cursor-pointer transition-colors"
+                      >
+                        <Checkbox checked={isChecked} onCheckedChange={() => {}} />
+                        <span className="text-xs font-bold uppercase text-slate-700">{loc.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsDraftModalOpen(false)}
+              className="rounded-xl h-9 text-xs font-bold uppercase"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmDraftExport}
+              className="rounded-xl h-9 text-xs font-extrabold bg-amber-600 hover:bg-amber-500 text-white uppercase"
+            >
+              Descargar PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
