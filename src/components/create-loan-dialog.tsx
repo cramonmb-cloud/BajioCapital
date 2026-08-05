@@ -295,32 +295,47 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
   };
 
   useEffect(() => {
-    if (initialSelection) {
-      setSelectedPlaza(initialSelection.plazaId);
-      setSelectedLocalidad(initialSelection.localidadId);
-      form.setValue('promotoraId', initialSelection.promotoraId);
-    }
-     if (open) {
-      if(initialSelection) {
+    const defaultValues: LoanFormValues = {
+      promotoraId: initialSelection?.promotoraId || '',
+      loanPlanId: '',
+      amount: 0,
+      clientName: '',
+      phone: '',
+      street: '',
+      neighborhood: '',
+      postalCode: '',
+      city: '',
+      guarantee: '1.- \n2.- \n3.- \n4.- ',
+      endorsement: '',
+      endorsementStreet: '',
+      endorsementNeighborhood: '',
+      endorsementPostalCode: '',
+      endorsementCity: '',
+      endorsementPhone: '',
+      endorsementGuarantee: '1.- \n2.- \n3.- \n4.- ',
+    };
+
+    form.reset(defaultValues);
+    setStep(1);
+    setSelectedClient(null);
+    setActiveLoanDetails(null);
+    setMatchingClients([]);
+    setMatchingGuarantors([]);
+    setShowAuthCodeModal(false);
+    setAuthCodeInput('');
+    setAuthCodeError(false);
+
+    if (open) {
+      if (initialSelection) {
         setSelectedPlaza(initialSelection.plazaId);
         setSelectedLocalidad(initialSelection.localidadId);
-        form.reset({
-          ...form.getValues(),
-          promotoraId: initialSelection.promotoraId,
-        });
-      }
-    } else {
-        form.reset();
-        setStep(1);
-        setMatchingClients([]);
-        setMatchingGuarantors([]);
-        setShowAuthCodeModal(false);
-        setAuthCodeInput('');
-        setAuthCodeError(false);
-        setSelectedClient(null);
-        setActiveLoanDetails(null);
+      } else {
         setSelectedPlaza('');
         setSelectedLocalidad('');
+      }
+    } else {
+      setSelectedPlaza('');
+      setSelectedLocalidad('');
     }
   }, [initialSelection, open, form]);
 
