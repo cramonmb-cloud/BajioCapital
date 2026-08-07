@@ -324,6 +324,10 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     setShowAuthCodeModal(false);
     setAuthCodeInput('');
     setAuthCodeError(false);
+    setShowConfirmation(false);
+    setFormValues(null);
+    setShowGuarantorLimitAlert(false);
+    setBlockedGuarantorDetails([]);
 
     if (open) {
       if (initialSelection) {
@@ -766,10 +770,13 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                 clientData.id = selectedClient.id;
             }
 
+            const startDateIso = new Date().toISOString();
+
             const result = await createLoanAction({
                 promotoraId: values.promotoraId,
                 loanPlanId: values.loanPlanId,
-                amount: values.amount,
+                amount: Number(values.amount),
+                startDate: startDateIso,
                 client: clientData,
             });
 
@@ -908,7 +915,11 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
           Crear Préstamo
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[850px] max-h-[95vh] overflow-y-auto p-5">
+      <DialogContent 
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+        className="sm:max-w-[850px] max-h-[95vh] overflow-y-auto p-5"
+      >
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
             <DialogHeader className="space-y-0.5 pb-2 border-b">

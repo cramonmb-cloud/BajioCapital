@@ -20,13 +20,14 @@ export type CreateLoanInput = {
     promotoraId: string;
     loanPlanId: string;
     amount: number;
+    startDate?: string;
     client: Omit<Client, 'id' | 'avatarUrl'> & { id?: string };
 };
 
 export async function createLoanAction(input: CreateLoanInput) {
     try {
         const mexicoNow = getMexicoNow();
-        const saturday = getSaturdayOfWeek(mexicoNow);
+        const saturday = input.startDate ? new Date(input.startDate) : getSaturdayOfWeek(mexicoNow);
 
         let clientId = input.client.id;
 
