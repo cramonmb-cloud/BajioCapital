@@ -805,6 +805,11 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
 
 
   const onSubmit = async (values: LoanFormValues) => {
+    if (step === 1) {
+      await handleNextStep();
+      return;
+    }
+
     // Check guarantor client limit if configured
     if (maxGuarantorClients > 0 && values.endorsement) {
       const activeBackings = getGuarantorActiveBacking(values.endorsement);
@@ -921,7 +926,18 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         className="sm:max-w-[850px] max-h-[95vh] overflow-y-auto p-5"
       >
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-3">
+          <form 
+            onSubmit={form.handleSubmit(onSubmit)} 
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.target instanceof HTMLInputElement) {
+                e.preventDefault();
+                if (step === 1) {
+                  handleNextStep();
+                }
+              }
+            }}
+            className="space-y-3"
+          >
             <DialogHeader className="space-y-0.5 pb-2 border-b">
               <DialogTitle className="uppercase font-black tracking-tight text-lg">Crear Nuevo Préstamo - Paso {step} de 2</DialogTitle>
             </DialogHeader>
