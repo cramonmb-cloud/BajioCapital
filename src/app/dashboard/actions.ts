@@ -27,7 +27,9 @@ export type CreateLoanInput = {
 export async function createLoanAction(input: CreateLoanInput) {
     try {
         const mexicoNow = getMexicoNow();
-        const saturday = input.startDate ? new Date(input.startDate) : getSaturdayOfWeek(mexicoNow);
+        const saturday = input.startDate 
+            ? getSaturdayOfWeek(parseFirestoreDate(input.startDate))
+            : getSaturdayOfWeek(mexicoNow);
 
         let clientId = input.client.id;
 

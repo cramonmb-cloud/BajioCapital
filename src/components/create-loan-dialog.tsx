@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -294,42 +294,44 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
     }
   };
 
+  const prevOpenRef = useRef(false);
+
   useEffect(() => {
-    const defaultValues: LoanFormValues = {
-      promotoraId: initialSelection?.promotoraId || '',
-      loanPlanId: '',
-      amount: 0,
-      clientName: '',
-      phone: '',
-      street: '',
-      neighborhood: '',
-      postalCode: '',
-      city: '',
-      guarantee: '1.- \n2.- \n3.- \n4.- ',
-      endorsement: '',
-      endorsementStreet: '',
-      endorsementNeighborhood: '',
-      endorsementPostalCode: '',
-      endorsementCity: '',
-      endorsementPhone: '',
-      endorsementGuarantee: '1.- \n2.- \n3.- \n4.- ',
-    };
+    if (open && !prevOpenRef.current) {
+      const defaultValues: LoanFormValues = {
+        promotoraId: initialSelection?.promotoraId || '',
+        loanPlanId: '',
+        amount: 0,
+        clientName: '',
+        phone: '',
+        street: '',
+        neighborhood: '',
+        postalCode: '',
+        city: '',
+        guarantee: '1.- \n2.- \n3.- \n4.- ',
+        endorsement: '',
+        endorsementStreet: '',
+        endorsementNeighborhood: '',
+        endorsementPostalCode: '',
+        endorsementCity: '',
+        endorsementPhone: '',
+        endorsementGuarantee: '1.- \n2.- \n3.- \n4.- ',
+      };
 
-    form.reset(defaultValues);
-    setStep(1);
-    setSelectedClient(null);
-    setActiveLoanDetails(null);
-    setMatchingClients([]);
-    setMatchingGuarantors([]);
-    setShowAuthCodeModal(false);
-    setAuthCodeInput('');
-    setAuthCodeError(false);
-    setShowConfirmation(false);
-    setFormValues(null);
-    setShowGuarantorLimitAlert(false);
-    setBlockedGuarantorDetails([]);
+      form.reset(defaultValues);
+      setStep(1);
+      setSelectedClient(null);
+      setActiveLoanDetails(null);
+      setMatchingClients([]);
+      setMatchingGuarantors([]);
+      setShowAuthCodeModal(false);
+      setAuthCodeInput('');
+      setAuthCodeError(false);
+      setShowConfirmation(false);
+      setFormValues(null);
+      setShowGuarantorLimitAlert(false);
+      setBlockedGuarantorDetails([]);
 
-    if (open) {
       if (initialSelection) {
         setSelectedPlaza(initialSelection.plazaId);
         setSelectedLocalidad(initialSelection.localidadId);
@@ -337,11 +339,12 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         setSelectedPlaza('');
         setSelectedLocalidad('');
       }
-    } else {
+    } else if (!open && prevOpenRef.current) {
       setSelectedPlaza('');
       setSelectedLocalidad('');
     }
-  }, [initialSelection, open, form]);
+    prevOpenRef.current = open;
+  }, [open, initialSelection, form]);
 
 
   const getHierarchy = (promotoraId?: string) => {
@@ -770,13 +773,10 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
                 clientData.id = selectedClient.id;
             }
 
-            const startDateIso = new Date().toISOString();
-
             const result = await createLoanAction({
                 promotoraId: values.promotoraId,
                 loanPlanId: values.loanPlanId,
                 amount: Number(values.amount),
-                startDate: startDateIso,
                 client: clientData,
             });
 
