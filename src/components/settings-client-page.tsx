@@ -45,7 +45,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Trash2, Loader2, Image as ImageIcon, Pencil, History, ShieldAlert, Building2, MessageSquare, Sparkles, RefreshCcw, AlertTriangle, Download, Upload, FileJson, User, UserCheck, MapPin, Route, Building, ChevronUp, ChevronDown, Key, Printer, Users } from "lucide-react";
 import { ImageUploadButton } from "./image-upload-button";
 import { useToast } from "@/hooks/use-toast";
-import { deleteAllDataAction, saveLogoAction, saveAppNameAction, saveGuarantorLimitAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction, saveMenuConfigAction, saveMenuColorsAction, saveStaffTypesAction, saveImprentaUrlAction, mergeDuplicateClientsAction } from "@/app/dashboard/ajustes/actions";
+import { deleteAllDataAction, saveLogoAction, saveAppNameAction, saveGuarantorLimitAction, accumulateAllSystemPaymentsAction, saveWhatsAppTemplateAction, revertExtraWeekPaymentsAction, importBackupAction, savePlazaWhatsAppTemplatesAction, saveMenuConfigAction, saveMenuColorsAction, saveStaffTypesAction, saveImprentaUrlAction, mergeDuplicateClientsAction, saveGeminiApiKeyAction } from "@/app/dashboard/ajustes/actions";
 import { useRouter } from "next/navigation";
 import type { AppConfig, WhatsAppTemplates } from "@/lib/types";
 import { Separator } from "./ui/separator";
@@ -268,12 +268,29 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
     const [imprentaUrlState, setImprentaUrlState] = useState<string>('');
     const [maxGuarantorClientsState, setMaxGuarantorClientsState] = useState<number | string>('');
     const [guarantorAuthCodeState, setGuarantorAuthCodeState] = useState<string>('');
+    const [geminiApiKeyState, setGeminiApiKeyState] = useState<string>('');
 
     useEffect(() => {
         setImprentaUrlState(initialConfig?.imprentaIframeUrl || 'https://ais-dev-gigbsa3huhlib2awffzpiu-361305856613.us-west2.run.app/?portal=token-xivg8-5268');
         setMaxGuarantorClientsState(initialConfig?.maxGuarantorClients !== undefined ? initialConfig.maxGuarantorClients : '');
         setGuarantorAuthCodeState(initialConfig?.guarantorAuthCode || '');
+        setGeminiApiKeyState(initialConfig?.geminiApiKey || '');
     }, [initialConfig]);
+
+    const onSaveGeminiApiKey = async () => {
+        setIsSaving(true);
+        try {
+            const result = await saveGeminiApiKeyAction(geminiApiKeyState);
+            if (result.success) {
+                toast({ title: 'Configuración Guardada', description: result.message });
+                router.refresh();
+            } else throw new Error(result.message);
+        } catch (error: any) {
+            toast({ variant: 'destructive', title: 'Error', description: error.message });
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     const onSaveImprentaUrl = async () => {
         setIsSaving(true);
@@ -648,6 +665,14 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                             >
                                 <UserCheck className="h-4 w-4" />
                                 <span>Puestos de Personal</span>
+                            </TabsTrigger>
+                            <span className="h-4 w-[1px] bg-slate-300/80 dark:bg-slate-700/80 shrink-0" />
+                            <TabsTrigger
+                                value="ia"
+                                className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-200 active:scale-95 border border-transparent data-[state=active]:bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm data-[state=active]:font-black data-[state=active]:shadow-primary/25 text-muted-foreground hover:text-foreground hover:bg-background/50 shrink-0"
+                            >
+                                <Sparkles className="h-4 w-4" />
+                                <span>Inteligencia Artificial</span>
                             </TabsTrigger>
                         </TabsList>
                     </div>
@@ -1345,6 +1370,58 @@ export function SettingsClientPage({ initialConfig, mode = 'system' }: SettingsC
                                             {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserCheck className="mr-2 h-4 w-4" />}
                                             Guardar Puestos
                                         </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="ia" className="focus-visible:outline-none animate-in fade-in-50 duration-300">
+                        <Card className="shadow-lg border-primary/10">
+                            <CardHeader className="bg-primary/5 border-b mb-6">
+                                <CardTitle className="flex items-center gap-2 text-xl">
+                                    <Sparkles className="h-5 w-5 text-primary" /> Configuración de Inteligencia Artificial (Google Gemini)
+                                </CardTitle>
+                                <CardDescription>
+                                    Configura tu clave de API de Google Gemini para habilitar el autollenado inteligente de préstamos a partir de fotos de expedientes, credenciales INE y recibos.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-2">
+                                        <label className="text-sm font-bold block">Google Gemini API Key</label>
+                                        <div className="flex gap-2">
+                                            <div className="relative flex-grow">
+                                                <Key className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                                <Input 
+                                                    type="password" 
+                                                    value={geminiApiKeyState} 
+                                                    onChange={(e) => setGeminiApiKeyState(e.target.value)}
+                                                    placeholder="Ingresa tu API Key de Gemini (AIzaSy...)" 
+                                                    className="pl-10 font-mono text-sm"
+                                                />
+                                            </div>
+                                            <Button onClick={onSaveGeminiApiKey} disabled={isSaving} className="bg-primary hover:bg-primary/95 font-bold h-10 px-6 rounded-lg">
+                                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pencil className="mr-2 h-4 w-4" />}
+                                                Guardar
+                                            </Button>
+                                        </div>
+                                        <div className="p-4 bg-muted/40 rounded-xl border border-border/50 text-xs space-y-2">
+                                            <p className="text-muted-foreground leading-relaxed">
+                                                El sistema utiliza el modelo oficial multimodal de alta velocidad <strong>Google Gemini 2.0 Flash</strong> (<code className="bg-muted px-1.5 py-0.5 rounded text-[11px] font-mono font-bold">gemini-2.0-flash</code>) con soporte y redundancia en modelos Flash, optimizado para bajo consumo de tokens y máxima precisión OCR en texto manuscrito de pagarés y garantías.
+                                            </p>
+                                            <p className="text-muted-foreground">
+                                                ¿No tienes una clave o necesitas una nueva? Obtén tu clave gratuita en{' '}
+                                                <a 
+                                                    href="https://aistudio.google.com/app/apikey" 
+                                                    target="_blank" 
+                                                    rel="noreferrer" 
+                                                    className="underline text-primary hover:text-primary/85 font-black inline-flex items-center gap-1"
+                                                >
+                                                    Google AI Studio (https://aistudio.google.com/app/apikey)
+                                                </a>
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </CardContent>

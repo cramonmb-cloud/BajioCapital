@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/firebase';
-import { collection, getDocs, writeBatch, doc, addDoc, deleteDoc, setDoc, increment, Timestamp, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, getDoc, writeBatch, doc, addDoc, deleteDoc, setDoc, increment, Timestamp, updateDoc } from 'firebase/firestore';
 import { revalidatePath } from 'next/cache';
 import type { Plaza, Localidad, Promotora, AppUser, AppConfig, Loan, LoanPlan, Client, WalletTransaction, WhatsAppTemplates } from '@/lib/types';
 import { getSaturdayOfWeek } from '@/lib/utils';
@@ -868,3 +868,32 @@ export async function mergeDuplicateClientsAction() {
         return { success: false, message: `Error al unificar clientes duplicados: ${error.message}` };
     }
 }
+
+export async function saveGeminiApiKeyAction(geminiApiKey: string) {
+    try {
+        const configRef = doc(db, 'config', 'main');
+        await setDoc(configRef, { geminiApiKey: geminiApiKey.trim() }, { merge: true });
+        revalidatePath('/dashboard', 'layout');
+        revalidatePath('/dashboard/ajustes');
+        return { success: true, message: 'Google Gemini API Key guardada con éxito.' };
+    } catch (error: any) {
+        return { success: false, message: `Error al guardar la API Key de Gemini: ${error.message}` };
+    }
+}
+
+export async function getGeminiApiKey(): Promise<string | null> {
+    try {
+        const configRef = doc(db, 'config', 'main');
+        const snap = await getDoc(configRef);
+        if (snap.exists()) {
+            const data = snap.data();
+            if (data?.geminiApiKey && typeof data.geminiApiKey === 'string' && data.geminiApiKey.trim().length > 0) {
+                return data.geminiApiKey.trim();
+            }
+        }
+    } catch (error) {
+        console.error('Error reading geminiApiKey from config:', error);
+    }
+    return process.env.GEMINI_API_KEY || process.env.GOOGLE_GENAI_API_KEY || null;
+}
+

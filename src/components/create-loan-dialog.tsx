@@ -52,6 +52,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent } from '@/components/ui/card';
 import { IdScanner } from './id-scanner';
 import type { IdDataOutput } from '@/ai/flows/extract-id-data-flow';
+import { DossierScannerDialog } from './dossier-scanner-dialog';
+import type { DossierDataOutput } from '@/ai/flows/extract-dossier-flow';
 import { useAuth } from '@/hooks/use-auth';
 import { useRealtimeData } from '@/hooks/use-realtime-data';
 
@@ -170,6 +172,7 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
   const [showAuthCodeModal, setShowAuthCodeModal] = useState(false);
   const [authCodeInput, setAuthCodeInput] = useState('');
   const [authCodeError, setAuthCodeError] = useState(false);
+  const [isDossierScannerOpen, setIsDossierScannerOpen] = useState(false);
 
 
   const form = useForm<LoanFormValues>({
@@ -911,6 +914,52 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
         setActiveLoanDetails(null);
     };
 
+    const handleDossierDataExtracted = (data: DossierDataOutput) => {
+        if (data.clientName) {
+            const nameUpper = data.clientName.toUpperCase();
+            form.setValue('clientName', nameUpper);
+            
+            const trimmedName = nameUpper.trim();
+            // Check for exact match with scanned name (ignoring case, trimming whitespaces)
+            const exactMatch = clients.find(c => c.name.trim().toUpperCase() === trimmedName);
+            if (exactMatch) {
+                selectClient(exactMatch);
+            } else {
+                setSelectedClient(null);
+                setActiveLoanDetails(null);
+            }
+        }
+
+        if (data.amount && data.amount > 0) {
+            form.setValue('amount', data.amount);
+        }
+
+        if (data.phone) form.setValue('phone', data.phone);
+        if (data.street) form.setValue('street', data.street.toUpperCase());
+        if (data.neighborhood) form.setValue('neighborhood', data.neighborhood.toUpperCase());
+        if (data.postalCode) form.setValue('postalCode', data.postalCode.toUpperCase());
+        if (data.city) form.setValue('city', data.city.toUpperCase());
+
+        if (data.guarantees && data.guarantees.length > 0) {
+            const guaranteeLines = data.guarantees.map((g, idx) => `${idx + 1}.- ${g.toUpperCase()}`).join('\n');
+            form.setValue('guarantee', guaranteeLines);
+        }
+
+        if (data.endorsementName) {
+            form.setValue('endorsement', data.endorsementName.toUpperCase());
+        }
+        if (data.endorsementPhone) form.setValue('endorsementPhone', data.endorsementPhone);
+        if (data.endorsementStreet) form.setValue('endorsementStreet', data.endorsementStreet.toUpperCase());
+        if (data.endorsementNeighborhood) form.setValue('endorsementNeighborhood', data.endorsementNeighborhood.toUpperCase());
+        if (data.endorsementPostalCode) form.setValue('endorsementPostalCode', data.endorsementPostalCode.toUpperCase());
+        if (data.endorsementCity) form.setValue('endorsementCity', data.endorsementCity.toUpperCase());
+
+        if (data.endorsementGuarantees && data.endorsementGuarantees.length > 0) {
+            const endorsementGuaranteeLines = data.endorsementGuarantees.map((g, idx) => `${idx + 1}.- ${g.toUpperCase()}`).join('\n');
+            form.setValue('endorsementGuarantee', endorsementGuaranteeLines);
+        }
+    };
+
   return (
     <>
     <Dialog open={open} onOpenChange={setOpen}>
@@ -939,7 +988,18 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             className="space-y-3"
           >
             <DialogHeader className="space-y-0.5 pb-2 border-b">
-              <DialogTitle className="uppercase font-black tracking-tight text-lg">Crear Nuevo Préstamo - Paso {step} de 2</DialogTitle>
+              <div className="flex items-center justify-between">
+                <DialogTitle className="uppercase font-black tracking-tight text-lg">Crear Nuevo Préstamo - Paso {step} de 2</DialogTitle>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsDossierScannerOpen(true)}
+                  className="h-8 text-xs font-bold px-3 rounded-lg border-zinc-300 dark:border-zinc-700 hover:bg-blue-50 dark:hover:bg-blue-950 text-blue-600 dark:text-blue-400"
+                >
+                  Fotos
+                </Button>
+              </div>
             </DialogHeader>
 
             {step === 1 && (
@@ -1518,6 +1578,11 @@ export function CreateLoanDialog({ clients, loanPlans, loans, plazas, localidade
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
+    <DossierScannerDialog
+        isOpen={isDossierScannerOpen}
+        onOpenChange={setIsDossierScannerOpen}
+        onApplyData={handleDossierDataExtracted}
+    />
     </>
   );
 }

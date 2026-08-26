@@ -168,6 +168,7 @@ export type AppConfig = {
   imprentaIframeUrl?: string;
   maxGuarantorClients?: number;
   guarantorAuthCode?: string;
+  geminiApiKey?: string;
 };
 
 export type Aviso = {
