@@ -35,9 +35,14 @@ interface DebesClientPageProps {
 
 function parseLocalDate(dateInput: any): Date {
   if (!dateInput) return new Date();
-  if (dateInput instanceof Date) return dateInput;
-  if (dateInput && typeof dateInput.toDate === 'function') return dateInput.toDate();
-  if (dateInput && typeof dateInput.seconds === 'number') return new Date(dateInput.seconds * 1000);
+  if (dateInput && typeof dateInput.toDate === 'function') dateInput = dateInput.toDate();
+  if (dateInput && typeof dateInput.seconds === 'number') dateInput = new Date(dateInput.seconds * 1000);
+  if (dateInput instanceof Date) {
+    const y = dateInput.getUTCFullYear();
+    const m = dateInput.getUTCMonth();
+    const d = dateInput.getUTCDate();
+    return new Date(y, m, d);
+  }
   if (typeof dateInput === 'string') {
     const match = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (match) {
@@ -282,7 +287,6 @@ export function DebesClientPage({
 
         const loanSaturday = getSaturdayOfWeek(parseLocalDate(loan.startDate));
         const loanSaturdayTime = loanSaturday.getTime();
-        const firstPaymentTime = loanSaturdayTime + (7 * 24 * 3600 * 1000);
 
         let isActive = true;
         // Solo préstamos que se encuentren actualmente con estatus activo
@@ -290,8 +294,7 @@ export function DebesClientPage({
           isActive = false;
         }
 
-        // El primer abono es exigible 1 semana después de la entrega
-        if (weekTime < firstPaymentTime) {
+        if (weekTime < loanSaturdayTime) {
           isActive = false;
         }
 
@@ -362,14 +365,7 @@ export function DebesClientPage({
 
       const ventaVal = getVenta(week);
       const abonoSemanalVal = realDebeEntregar;
-
-      let debeEntregar = 0;
-      if (index === 0) {
-        debeEntregar = realDebeEntregar;
-      } else {
-        const prevRow = computedChronoRows[index - 1];
-        debeEntregar = prevRow.deuda + abonoSemanalVal + prevRow.adelEnt - prevRow.adelSal;
-      }
+      const debeEntregar = realDebeEntregar;
 
       const savedComicionPercent = saved?.comicionPercent !== undefined ? saved.comicionPercent : 8;
       const defaultFalla = realFalla;
@@ -475,13 +471,12 @@ export function DebesClientPage({
 
       const loanSaturday = getSaturdayOfWeek(parseLocalDate(loan.startDate));
       const loanSaturdayTime = loanSaturday.getTime();
-      const firstPaymentTime = loanSaturdayTime + (7 * 24 * 3600 * 1000);
 
       let isActive = true;
       if (loan.status !== 'Active') {
         isActive = false;
       }
-      if (weekTime < firstPaymentTime) {
+      if (weekTime < loanSaturdayTime) {
         isActive = false;
       }
 
@@ -864,11 +859,9 @@ export function DebesClientPage({
             const loanSaturday = getSaturdayOfWeek(parseLocalDate(loan.startDate));
             const loanSaturdayTime = loanSaturday.getTime();
 
-            const firstPaymentTime = loanSaturdayTime + (7 * 24 * 3600 * 1000);
-
             let isActive = true;
             if (loan.status !== 'Active') isActive = false;
-            if (weekTime < firstPaymentTime) isActive = false;
+            if (weekTime < loanSaturdayTime) isActive = false;
 
             const termDurationMs = (plan.termInWeeks || 14) * 7 * 24 * 3600 * 1000;
             if (weekTime > loanSaturdayTime + termDurationMs) isActive = false;
@@ -962,11 +955,9 @@ export function DebesClientPage({
             const loanSaturday = getSaturdayOfWeek(parseLocalDate(loan.startDate));
             const loanSaturdayTime = loanSaturday.getTime();
 
-            const firstPaymentTime = loanSaturdayTime + (7 * 24 * 3600 * 1000);
-
             let isActive = true;
             if (loan.status !== 'Active') isActive = false;
-            if (weekTime < firstPaymentTime) isActive = false;
+            if (weekTime < loanSaturdayTime) isActive = false;
 
             const termDurationMs = (plan.termInWeeks || 14) * 7 * 24 * 3600 * 1000;
             if (weekTime > loanSaturdayTime + termDurationMs) isActive = false;
