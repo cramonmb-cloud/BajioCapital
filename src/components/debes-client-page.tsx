@@ -36,6 +36,8 @@ interface DebesClientPageProps {
 function parseLocalDate(dateInput: any): Date {
   if (!dateInput) return new Date();
   if (dateInput instanceof Date) return dateInput;
+  if (dateInput && typeof dateInput.toDate === 'function') return dateInput.toDate();
+  if (dateInput && typeof dateInput.seconds === 'number') return new Date(dateInput.seconds * 1000);
   if (typeof dateInput === 'string') {
     const match = dateInput.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (match) {
@@ -283,27 +285,30 @@ export function DebesClientPage({
         const firstPaymentTime = loanSaturdayTime + (7 * 24 * 3600 * 1000);
 
         let isActive = true;
-        if (weekTime < loanSaturdayTime) {
+        // Solo préstamos que se encuentren actualmente con estatus activo
+        if (loan.status !== 'Active') {
           isActive = false;
         }
 
-        if (loan.status === 'Overdue') {
+        // El primer abono es exigible 1 semana después de la entrega
+        if (weekTime < firstPaymentTime) {
           isActive = false;
         }
 
-        if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') {
-          const lastPayment = loan.payments.length > 0
-            ? loan.payments.reduce((latest, p) => parseLocalDate(p.date) > parseLocalDate(latest.date) ? p : latest)
-            : null;
-          if (lastPayment) {
-            const payoffSaturday = getSaturdayOfWeek(parseLocalDate(lastPayment.date));
-            if (payoffSaturday.getTime() < weekTime) {
-              isActive = false;
-            }
-          }
+        // Si ya superó el plazo en semanas del préstamo, ya no genera abono semanal activo
+        const termDurationMs = (plan.termInWeeks || 14) * 7 * 24 * 3600 * 1000;
+        if (weekTime > loanSaturdayTime + termDurationMs) {
+          isActive = false;
         }
 
+        // Si el préstamo ya está completamente liquidado o pagado en su totalidad por abonos acumulados (adelantados)
         const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
+        const totalExpected = (plan.termInWeeks || 14) * weeklyPayment;
+        const totalPaid = (loan.payments || []).filter(p => !p.isReverted).reduce((sum, p) => sum + p.amount, 0);
+        if (totalPaid >= totalExpected) {
+          isActive = false;
+        }
+
         const expectedForLoan = isActive ? weeklyPayment : 0;
         realDebeEntregar += expectedForLoan;
 
@@ -322,12 +327,10 @@ export function DebesClientPage({
         let loanEfectivo = 0;
         let loanRecuperado = 0;
 
-        if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') {
+        if (!isActive || loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') {
           loanFalla = 0;
-          loanEfectivo = paymentForWeek ? paymentForWeek.amount : expectedForLoan;
-        } else if (!isActive) {
-          loanFalla = 0;
-          loanEfectivo = paymentForWeek ? paymentForWeek.amount : 0;
+          loanEfectivo = 0;
+          loanRecuperado = 0;
         } else {
           if (paymentForWeek) {
             const amountPaid = paymentForWeek.amount;
@@ -362,11 +365,7 @@ export function DebesClientPage({
 
       let debeEntregar = 0;
       if (index === 0) {
-        if (saved?.debeEntregar !== undefined) {
-          debeEntregar = saved.debeEntregar;
-        } else {
-          debeEntregar = realDebeEntregar;
-        }
+        debeEntregar = realDebeEntregar;
       } else {
         const prevRow = computedChronoRows[index - 1];
         debeEntregar = prevRow.deuda + abonoSemanalVal + prevRow.adelEnt - prevRow.adelSal;
@@ -479,26 +478,29 @@ export function DebesClientPage({
       const firstPaymentTime = loanSaturdayTime + (7 * 24 * 3600 * 1000);
 
       let isActive = true;
+      if (loan.status !== 'Active') {
+        isActive = false;
+      }
       if (weekTime < firstPaymentTime) {
         isActive = false;
       }
-      if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') {
-        const lastPayment = loan.payments.length > 0
-          ? loan.payments.reduce((latest, p) => parseLocalDate(p.date) > parseLocalDate(latest.date) ? p : latest)
-          : null;
-        if (lastPayment) {
-          const payoffSaturday = getSaturdayOfWeek(parseLocalDate(lastPayment.date));
-          if (payoffSaturday.getTime() < weekTime) {
-            isActive = false;
-          }
-        }
+
+      const termDurationMs = (plan.termInWeeks || 14) * 7 * 24 * 3600 * 1000;
+      if (weekTime > loanSaturdayTime + termDurationMs) {
+        isActive = false;
+      }
+
+      const wp = (loan.amount / 1000) * plan.weeklyPaymentRate;
+      const totalExpected = (plan.termInWeeks || 14) * wp;
+      const totalPaid = (loan.payments || []).filter(p => !p.isReverted).reduce((sum, p) => sum + p.amount, 0);
+      if (totalPaid >= totalExpected) {
+        isActive = false;
       }
 
       if (!isActive) return;
 
       const targetWeekNumber = Math.floor((weekTime - loanSaturdayTime) / (7 * 24 * 3600 * 1000));
       let missedCount = 0;
-      const wp = (loan.amount / 1000) * plan.weeklyPaymentRate;
       for (let w = 1; w < targetWeekNumber; w++) {
         const p = loan.payments.find(pay => pay.weekNumber === w);
         if (!p || p.amount < wp) {
@@ -851,7 +853,7 @@ export function DebesClientPage({
         const weekTime = new Date(selectedWeek + 'T00:00:00').getTime();
 
         locPromotoras.forEach(prom => {
-          const pLoans = loans.filter(l => l.promotoraId === prom.id);
+          const pLoans = loans.filter(l => l.promotoraId === prom.id || (prom.name && l.promotoraId?.toUpperCase() === prom.name.toUpperCase()));
           if (pLoans.length === 0) return;
 
           let realDebeEntregar = 0;
@@ -862,20 +864,20 @@ export function DebesClientPage({
             const loanSaturday = getSaturdayOfWeek(parseLocalDate(loan.startDate));
             const loanSaturdayTime = loanSaturday.getTime();
 
+            const firstPaymentTime = loanSaturdayTime + (7 * 24 * 3600 * 1000);
+
             let isActive = true;
-            if (weekTime < loanSaturdayTime) isActive = false;
-            if (loan.status === 'Overdue') isActive = false;
-            if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') {
-              const lastPayment = loan.payments.length > 0
-                ? loan.payments.reduce((latest, p) => parseLocalDate(p.date) > parseLocalDate(latest.date) ? p : latest)
-                : null;
-              if (lastPayment) {
-                const payoffSaturday = getSaturdayOfWeek(parseLocalDate(lastPayment.date));
-                if (payoffSaturday.getTime() < weekTime) isActive = false;
-              }
-            }
+            if (loan.status !== 'Active') isActive = false;
+            if (weekTime < firstPaymentTime) isActive = false;
+
+            const termDurationMs = (plan.termInWeeks || 14) * 7 * 24 * 3600 * 1000;
+            if (weekTime > loanSaturdayTime + termDurationMs) isActive = false;
 
             const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
+            const totalExpected = (plan.termInWeeks || 14) * weeklyPayment;
+            const totalPaid = (loan.payments || []).filter(p => !p.isReverted).reduce((sum, p) => sum + p.amount, 0);
+            if (totalPaid >= totalExpected) isActive = false;
+
             if (isActive) realDebeEntregar += weeklyPayment;
           });
 
@@ -947,7 +949,7 @@ export function DebesClientPage({
         const locRows: any[] = [];
 
         locPromotoras.forEach(prom => {
-          const pLoans = loans.filter(l => l.promotoraId === prom.id);
+          const pLoans = loans.filter(l => l.promotoraId === prom.id || (prom.name && l.promotoraId?.toUpperCase() === prom.name.toUpperCase()));
           if (pLoans.length === 0) return;
 
           const weekTime = new Date(selectedWeek + 'T00:00:00').getTime();
@@ -960,20 +962,20 @@ export function DebesClientPage({
             const loanSaturday = getSaturdayOfWeek(parseLocalDate(loan.startDate));
             const loanSaturdayTime = loanSaturday.getTime();
 
+            const firstPaymentTime = loanSaturdayTime + (7 * 24 * 3600 * 1000);
+
             let isActive = true;
-            if (weekTime < loanSaturdayTime) isActive = false;
-            if (loan.status === 'Overdue') isActive = false;
-            if (loan.status === 'Paid Off' || loan.status === 'Pagado desde CV') {
-              const lastPayment = loan.payments.length > 0
-                ? loan.payments.reduce((latest, p) => parseLocalDate(p.date) > parseLocalDate(latest.date) ? p : latest)
-                : null;
-              if (lastPayment) {
-                const payoffSaturday = getSaturdayOfWeek(parseLocalDate(lastPayment.date));
-                if (payoffSaturday.getTime() < weekTime) isActive = false;
-              }
-            }
+            if (loan.status !== 'Active') isActive = false;
+            if (weekTime < firstPaymentTime) isActive = false;
+
+            const termDurationMs = (plan.termInWeeks || 14) * 7 * 24 * 3600 * 1000;
+            if (weekTime > loanSaturdayTime + termDurationMs) isActive = false;
 
             const weeklyPayment = (loan.amount / 1000) * plan.weeklyPaymentRate;
+            const totalExpected = (plan.termInWeeks || 14) * weeklyPayment;
+            const totalPaid = (loan.payments || []).filter(p => !p.isReverted).reduce((sum, p) => sum + p.amount, 0);
+            if (totalPaid >= totalExpected) isActive = false;
+
             if (isActive) realDebeEntregar += weeklyPayment;
           });
 
